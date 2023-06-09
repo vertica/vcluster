@@ -1,0 +1,140 @@
+/*
+ (c) Copyright [2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+package vclusterops
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"golang.org/x/exp/maps"
+	"vertica.com/vcluster/vclusterops/vlog"
+)
+
+type NMAPrepareDirectoriesOp struct {
+	OpBase
+	hostRequestBodyMap map[string]string
+}
+
+type prepareDirectoriesRequestData struct {
+	CatalogPath      string   `json:"catalog_path"`
+	DepotPath        string   `json:"depot_path,omitempty"`
+	StorageLocations []string `json:"storage_locations"`
+	ForceCleanup     bool     `json:"force_cleanup"`
+	ForRevive        bool     `json:"for_revive"`
+	IgnoreParent     bool     `json:"ignore_parent"`
+}
+
+func MakeNMAPrepareDirectoriesOp(
+	name string,
+	hostNodeMap map[string]VCoordinationNode,
+) (NMAPrepareDirectoriesOp, error) {
+	nmaPrepareDirectoriesOp := NMAPrepareDirectoriesOp{}
+	nmaPrepareDirectoriesOp.name = name
+
+	err := nmaPrepareDirectoriesOp.setupRequestBody(hostNodeMap)
+	if err != nil {
+		return nmaPrepareDirectoriesOp, err
+	}
+
+	nmaPrepareDirectoriesOp.hosts = maps.Keys(hostNodeMap)
+
+	return nmaPrepareDirectoriesOp, nil
+}
+
+func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap map[string]VCoordinationNode) error {
+	op.hostRequestBodyMap = make(map[string]string)
+
+	for host, vNode := range hostNodeMap {
+		prepareDirData := prepareDirectoriesRequestData{}
+		prepareDirData.CatalogPath = vNode.CatalogPath
+		prepareDirData.DepotPath = vNode.DepotPath
+		prepareDirData.StorageLocations = vNode.StorageLocations
+		prepareDirData.ForceCleanup = false
+		prepareDirData.ForRevive = false
+		prepareDirData.IgnoreParent = false
+
+		dataBytes, err := json.Marshal(prepareDirData)
+		if err != nil {
+			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %s", op.name, err)
+		}
+
+		op.hostRequestBodyMap[host] = string(dataBytes)
+	}
+	vlog.LogInfo("[%s] request data: %+v", op.name, op.hostRequestBodyMap)
+
+	return nil
+}
+
+func (op *NMAPrepareDirectoriesOp) setupClusterHTTPRequest(hosts []string) {
+	op.clusterHTTPRequest = ClusterHTTPRequest{}
+	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
+	op.setVersionToSemVar()
+
+	for _, host := range hosts {
+		httpRequest := HostHTTPRequest{}
+		httpRequest.Method = PostMethod
+		httpRequest.BuildNMAEndpoint("directories/prepare")
+		httpRequest.RequestData = op.hostRequestBodyMap[host]
+		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
+	}
+}
+
+func (op *NMAPrepareDirectoriesOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+	execContext.dispatcher.Setup(op.hosts)
+	op.setupClusterHTTPRequest(op.hosts)
+
+	return MakeClusterOpResultPass()
+}
+
+func (op *NMAPrepareDirectoriesOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+	if err := op.execute(execContext); err != nil {
+		return MakeClusterOpResultException()
+	}
+
+	return op.processResult(execContext)
+}
+
+func (op *NMAPrepareDirectoriesOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
+	return MakeClusterOpResultPass()
+}
+
+func (op *NMAPrepareDirectoriesOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
+	success := true
+
+	for host, result := range op.clusterHTTPRequest.ResultCollection {
+		op.logResponse(host, result)
+
+		if result.isPassing() {
+			// the response_obj will be a dictionary like the following:
+			// {'/data/good/procedures': 'created',
+			//  '/data/good/v_good_node0002_catalog': 'created',
+			//  '/data/good/v_good_node0003_data': 'created',
+			//  '/data/good/v_good_node0003_depot': 'created',
+			//  '/opt/vertica/config/logrotate': 'created'}
+			_, err := op.parseAndCheckMapResponse(host, result.content)
+			if err != nil {
+				success = false
+			}
+		} else {
+			success = false
+		}
+	}
+
+	if success {
+		return MakeClusterOpResultPass()
+	}
+	return MakeClusterOpResultFail()
+}

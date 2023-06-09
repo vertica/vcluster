@@ -1,0 +1,13 @@
+db_name: practice_db
+hosts:
+    - ip_1
+    - ip_2
+    - ip_3
+nodes:
+    - name: node_name_1
+      address: ip_1
+    - name: node_name_2
+      address: ip_2
+    - name: node_name_3
+      address: ip_3
+eon_mode: false
