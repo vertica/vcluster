@@ -1,8 +1,17 @@
 # Introduction
 
-This repository contains the Go library and CLI to administer a vertica cluster using various HTTP RESTful interfaces. These interfaces are exposed in two services: node managemend agent and the embedded https service that runs in the vertica server. This will stitch together the REST calls to provide a coherent Go interface to do admin level operations such as: creating a database, scaling up/down, and restarting ad stoping the cluster.
+This repository contains the Go library and CLI to administer a vertica cluster
+using various HTTP RESTful interfaces. These interfaces are exposed in two
+services: node management agent and the embedded https service that runs in the
+vertica server. This will stitch together the REST calls to provide a coherent
+Go interface to do admin level operations such as: creating a database, scaling
+up/down, and restarting ad stoping the cluster.
 
-Tradionally, the kind of commands have been available through admintools. However, the architecture of this application is not suitable for running a containerized environment. The chief complaint is the requirement on using SSH for communication and a state file (admintools.conf) that must be preserved and kept in-sync at each vertica host.
+Traditionally, the kind of commands have been available through admintools.
+However, the architecture of this application is not suitable for running a
+containerized environment. The chief complaint is the requirement on using SSH
+for communication and a state file (admintools.conf) that must be preserved and
+kept in-sync at each vertica host.
 
 The first consumer of this library is the [vertica operator](https://github.com/vertica/vertica-kubernetes).
 
