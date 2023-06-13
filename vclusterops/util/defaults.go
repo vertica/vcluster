@@ -33,6 +33,9 @@ const (
 	MaxLargeCluster             = 120
 	MinDepotSize                = 0
 	MaxDepotSize                = 100
+	DefaultDrainSeconds         = 60
+	NodeUpState                 = "UP"
+	SuppressHelp                = "SUPPRESS_HELP"
 )
 
 var RestartPolicyList = []string{"never", DefaultRestartPolicy, "always"}

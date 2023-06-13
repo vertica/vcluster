@@ -33,20 +33,14 @@ const ksafeValue = 1
 // Normal strings are easier and safer to use in Go.
 type VCreateDatabaseOptions struct {
 	// part 1: basic db info
-	Name              *string
-	Password          *string
-	RawHosts          []string // expected to be IP addresses or hostnames
-	Hosts             []string // expected to be IP addresses resolved from RawHosts
-	LicensePathOnNode *string  // required to be a fully qualified path
-	CatalogPrefix     *string
-	DataPrefix        *string
+	VClusterDatabaseOptions
 	Policy            *string
 	SQLFile           *string
+	LicensePathOnNode *string // required to be a fully qualified path
 	// part 2: eon db info
 	ShardCount                *int
 	CommunalStorageLocation   *string
 	CommunalStorageParamsPath *string
-	DepotPrefix               *string
 	DepotSize                 *string // like 10G
 	GetAwsCredentialsFromEnv  *bool
 	// part 3: optional info
@@ -56,7 +50,6 @@ type VCreateDatabaseOptions struct {
 	SkipPackageInstall        *bool
 	TimeoutNodeStartupSeconds *int
 	// part 4: new params originally in installer generated admintools.conf, now in create db op
-	Ipv6               *bool
 	Broadcast          *bool
 	P2p                *bool
 	LargeCluster       *int
@@ -80,8 +73,9 @@ func (options *VCreateDatabaseOptions) ValidateRequiredOptions() error {
 	if *options.Name == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	if err := validateDBName(*options.Name); err != nil {
-		return nil
+	err := util.ValidateDBName(*options.Name)
+	if err != nil {
+		return err
 	}
 	if len(options.RawHosts) == 0 {
 		return fmt.Errorf("must specify a host or host list")
@@ -96,7 +90,9 @@ func (options *VCreateDatabaseOptions) ValidateRequiredOptions() error {
 	}
 
 	// batch 2: validate required parameters with default values
-	if *options.Password == "" {
+	if options.Password == nil {
+		options.Password = new(string)
+		*options.Password = ""
 		vlog.LogPrintInfoln("no password specified, using none")
 	}
 
@@ -116,9 +112,11 @@ func (options *VCreateDatabaseOptions) ValidateRequiredOptions() error {
 	}
 
 	// batch 3: validate other parameters
-	err := util.AbsPathCheck(*options.ConfigDirectory)
-	if err != nil {
-		return fmt.Errorf("must specify an absolute path for the config directory")
+	if options.ConfigDirectory != nil {
+		err := util.AbsPathCheck(*options.ConfigDirectory)
+		if err != nil {
+			return fmt.Errorf("must specify an absolute path for the config directory")
+		}
 	}
 
 	return nil
@@ -287,16 +285,6 @@ func (options *VCreateDatabaseOptions) ValidateAnalyzeOptions() error {
 	return nil
 }
 
-func validateDBName(dbName string) error {
-	escapeChars := `=<>'^\".@*?#&/-:;{}()[] \~!%+|,` + "`$"
-	for _, c := range dbName {
-		if strings.Contains(escapeChars, string(c)) {
-			return fmt.Errorf("invalid character in database name: %c", c)
-		}
-	}
-	return nil
-}
-
 func VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error) {
 	/*
 	 *   - Produce Instructions
@@ -310,7 +298,7 @@ func VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, er
 		return vdb, err
 	}
 	// produce instructions
-	instructions, err := produceInstructions(&vdb, options)
+	instructions, err := produceCreateDBInstructions(&vdb, options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %w", err)
 		return vdb, err
@@ -357,7 +345,7 @@ We expect that we will ultimately produce the following instructions:
 */
 
 //nolint:funlen // TODO this should be split into produceMandatoryInstructions and produceOptionalInstructions
-func produceInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	hosts := vdb.HostList
@@ -471,7 +459,7 @@ func getInitiator(hosts []string) (string, error) {
 	for _, host := range hosts {
 		isLocalHost, err := util.IsLocalHost(host)
 		if err != nil {
-			return "", fmt.Errorf("%s, %s", errMsg, err)
+			return "", fmt.Errorf("%s, %w", errMsg, err)
 		}
 
 		if isLocalHost {

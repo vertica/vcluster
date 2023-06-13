@@ -56,7 +56,7 @@ func TestConfigCmd(t *testing.T) {
 	log.SetOutput(&logStr)
 
 	// create a stub YAML file
-	const yamlPath = "vertica_cluster.yaml"
+	const yamlPath = vclusterops.ConfigFileName
 	const yamlStr = "hosts\n  - vnode1\n  - vnode2\n  - vnode3"
 	_ = os.WriteFile(yamlPath, []byte(yamlStr), vclusterops.ConfigFilePerm)
 	defer os.Remove(yamlPath)
@@ -86,5 +86,5 @@ func TestConfigCmd(t *testing.T) {
 	assert.Nil(t, err)
 
 	err = cmdInit.Run()
-	assert.ErrorContains(t, err, "vertica_cluster.yaml already exists")
+	assert.ErrorContains(t, err, vclusterops.ConfigFileName+" already exists")
 }

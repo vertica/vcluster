@@ -22,27 +22,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"vertica.com/vcluster/vclusterops/util"
 )
-
-func TestDBName(t *testing.T) {
-	// positive cases
-	err := validateDBName("test_db")
-	assert.Nil(t, err)
-
-	err = validateDBName("db1")
-	assert.Nil(t, err)
-
-	// negative cases
-	err = validateDBName("test$db")
-	assert.ErrorContains(t, err, "invalid character in database name: $")
-
-	err = validateDBName("[db1]")
-	assert.ErrorContains(t, err, "invalid character in database name: [")
-
-	err = validateDBName("!!??!!db1")
-	assert.ErrorContains(t, err, "invalid character in database name: !")
-}
 
 func TestValidateDepotSize(t *testing.T) {
 	res, err := validateDepotSize("-19%")

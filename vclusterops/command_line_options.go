@@ -15,16 +15,25 @@
 
 package vclusterops
 
-type OpEngineExecContext struct {
-	dispatcher      HTTPRequestDispatcher
-	networkProfiles map[string]NetworkProfile
-	nmaVDatabase    NmaVDatabase
-	upHosts         []string
+type VClusterDatabaseOptions struct {
+	// part 1: basic db info
+	Name            *string
+	RawHosts        []string // expected to be IP addresses or hostnames
+	Hosts           []string // expected to be IP addresses resolved from RawHosts
+	Ipv6            *bool
+	CatalogPrefix   *string
+	DataPrefix      *string
+	ConfigDirectory *string
+
+	// part 2: eon db info
+	DepotPrefix *string
+	IsEon       *bool
+
+	// part 3: auth info
+	Password *string
+
+	// part 4: other info
+	HonorUserInput *bool
 }
 
-func MakeOpEngineExecContext() OpEngineExecContext {
-	newOpEngineExecContext := OpEngineExecContext{}
-	newOpEngineExecContext.dispatcher = MakeHTTPRequestDispatcher()
-
-	return newOpEngineExecContext
-}
+// TODO validate basic options

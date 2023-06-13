@@ -47,7 +47,7 @@ func (op *NMAStartNodeOp) updateRequestBody(execContext *OpEngineExecContext) er
 
 		marshaledCommand, err := json.Marshal(node.StartCommand)
 		if err != nil {
-			return fmt.Errorf("[%s] fail to marshal start command, %v", op.name, err)
+			return fmt.Errorf("[%s] fail to marshal start command, %w", op.name, err)
 		}
 		op.hostRequestBodyMap[host] = fmt.Sprintf(`{"start_command": %s}`, string(marshaledCommand))
 	}

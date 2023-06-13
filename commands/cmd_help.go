@@ -80,8 +80,7 @@ func (c *CmdHelp) Run() error {
 
 func (c *CmdHelp) PrintUsage() {
 	fmt.Fprintf(os.Stderr,
-		"vcluster %s\nExample: vcluster %s --topic create_db\n",
+		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
 		c.CommandType(),
 		c.CommandType())
-	c.parser.PrintDefaults()
 }

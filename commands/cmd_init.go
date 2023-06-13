@@ -128,8 +128,7 @@ func (c *CmdInit) Run() error {
 func (c *CmdInit) PrintUsage() {
 	thisCommand := c.CommandType()
 	fmt.Fprintf(os.Stderr,
-		"vcluster %s --directory <absolute_directory_path>\nExample: vcluster %s --directory /opt/vertica/config\n",
+		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
 		thisCommand,
 		thisCommand)
-	c.parser.PrintDefaults()
 }

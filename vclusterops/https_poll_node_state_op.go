@@ -159,7 +159,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 
 			// check whether all nodes are up
 			for _, n := range nodesInfo.NodeList {
-				if n.State == "UP" {
+				if n.State == util.NodeUpState {
 					op.upHosts[n.Address] = struct{}{}
 				}
 			}

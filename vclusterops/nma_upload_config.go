@@ -73,7 +73,7 @@ func (op *NMAUploadConfigOp) setupRequestBody(hosts []string) error {
 
 		dataBytes, err := json.Marshal(uploadConfigData)
 		if err != nil {
-			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %s", op.name, err)
+			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
 		}
 
 		op.hostRequestBodyMap[host] = string(dataBytes)

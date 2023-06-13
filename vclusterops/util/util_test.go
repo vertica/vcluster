@@ -17,6 +17,8 @@ package util
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -206,4 +208,53 @@ func TestValidateUsernamePassword(t *testing.T) {
 		ValidateUsernameAndPassword(true, "dkr_dbadmin")
 	}
 	require.NotPanics(t, checkFunc)
+}
+
+func TestNewErrorFormatVerb(t *testing.T) {
+	err := errors.New("test error")
+	// replace %s with %w case 1
+	oldErr1 := fmt.Errorf("fail to read config file, details: %s", err)
+	newErr1 := fmt.Errorf("fail to read config file, details: %w", err)
+	assert.EqualError(t, oldErr1, newErr1.Error())
+
+	// replace %s with %w case 2
+	oldErr2 := fmt.Errorf("fail to marshal config data, details: %s", err.Error())
+	newErr2 := fmt.Errorf("fail to marshal config data, details: %w", err)
+	assert.EqualError(t, oldErr2, newErr2.Error())
+
+	// replace %v with %w
+	oldErr3 := fmt.Errorf("fail to marshal start command, %v", err)
+	newErr3 := fmt.Errorf("fail to marshal start command, %w", err)
+	assert.EqualError(t, oldErr3, newErr3.Error())
+}
+
+func TestValidateDBName(t *testing.T) {
+	// positive cases
+	err := ValidateDBName("test_db")
+	assert.Nil(t, err)
+
+	err = ValidateDBName("db1")
+	assert.Nil(t, err)
+
+	// negative cases
+	err = ValidateDBName("test$db")
+	assert.ErrorContains(t, err, "invalid character in database name: $")
+
+	err = ValidateDBName("[db1]")
+	assert.ErrorContains(t, err, "invalid character in database name: [")
+
+	err = ValidateDBName("!!??!!db1")
+	assert.ErrorContains(t, err, "invalid character in database name: !")
+}
+
+func TestSetOptFlagHelpMsg(t *testing.T) {
+	msg := "The name of the database to be created"
+	finalMsg := "The name of the database to be created [Optional]"
+	assert.Equal(t, GetOptionalFlagMsg(msg), finalMsg)
+}
+
+func TestSetEonFlagHelpMsg(t *testing.T) {
+	msg := "Path to depot directory"
+	finalMsg := "[Eon only] Path to depot directory"
+	assert.Equal(t, GetEonFlagMsg(msg), finalMsg)
 }

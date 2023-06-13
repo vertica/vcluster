@@ -54,7 +54,7 @@ type certificatePaths struct {
 
 func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel chan<- HostHTTPResult) {
 	// build query params
-	queryParams := buildQueryParamString(request.QueryParams, request.IsNMACommand)
+	queryParams := buildQueryParamString(request.QueryParams)
 
 	// set up the request URL
 	var port int
@@ -202,17 +202,17 @@ func whetherUsePassword(request *HostHTTPRequest) (bool, error) {
 func (adapter *HTTPAdapter) buildCerts(resultChannel chan<- HostHTTPResult) (tls.Certificate, *x509.CertPool, error) {
 	certPaths, err := getCertFilePaths()
 	if err != nil {
-		return tls.Certificate{}, nil, fmt.Errorf("fail to get username for certificates, details %s", err.Error())
+		return tls.Certificate{}, nil, fmt.Errorf("fail to get username for certificates, details %w", err)
 	}
 
 	cert, err := tls.LoadX509KeyPair(certPaths.certFile, certPaths.keyFile)
 	if err != nil {
-		return cert, nil, fmt.Errorf("fail to load HTTPS certificates, details %s", err.Error())
+		return cert, nil, fmt.Errorf("fail to load HTTPS certificates, details %w", err)
 	}
 
 	caCert, err := os.ReadFile(certPaths.caFile)
 	if err != nil {
-		return cert, nil, fmt.Errorf("fail to load CA cert, details %s", err.Error())
+		return cert, nil, fmt.Errorf("fail to load CA cert, details %w", err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -270,32 +270,17 @@ func (adapter *HTTPAdapter) setupHTTPClient(
 	return client, nil
 }
 
-func buildQueryParamString(queryParams map[string]string, isNMACommand bool) string {
+func buildQueryParamString(queryParams map[string]string) string {
 	var queryParamString string
 	if len(queryParams) == 0 {
 		return queryParamString
 	}
 
-	// HTTPS service doesn't recognize encoded url with special characters, like ',', '%'
-	// do not encode for HTTPS service urls
-	if isNMACommand {
-		v := url.Values{}
-		for key, value := range queryParams {
-			v.Set(key, value)
-		}
-		queryParamString = "?" + v.Encode()
-	} else {
-		queryParamString = ""
-		for key, value := range queryParams {
-			keyValueStr := key + "=" + value
-			if queryParamString == "" {
-				queryParamString = keyValueStr
-			} else {
-				queryParamString += ("&" + keyValueStr)
-			}
-		}
-		queryParamString = "?" + queryParamString
+	v := url.Values{}
+	for key, value := range queryParams {
+		v.Set(key, value)
 	}
+	queryParamString = "?" + v.Encode()
 	return queryParamString
 }
 

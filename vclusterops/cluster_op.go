@@ -54,6 +54,13 @@ const (
 	ExceptionResult = "FAILURE"
 )
 
+const (
+	SuccessCode        = 200
+	MultipleChoiceCode = 300
+	UnauthorizedCode   = 401
+	InternalErrorCode  = 500
+)
+
 // ClusterOpResult is used to hold the ClusterOp's result
 // at the steps of prepare, execute, and finalize
 type ClusterOpResult struct {
@@ -68,6 +75,21 @@ type HostHTTPResult struct {
 	host       string
 	content    string
 	errMsg     string
+}
+
+func (hostResult *HostHTTPResult) IsUnauthorizedRequest() bool {
+	return hostResult.statusCode == UnauthorizedCode
+}
+
+func (hostResult *HostHTTPResult) IsInternalError() bool {
+	return hostResult.statusCode == InternalErrorCode
+}
+
+func (hostResult *HostHTTPResult) IsHTTPRunning() bool {
+	if hostResult.isPassing() || hostResult.IsUnauthorizedRequest() || hostResult.IsInternalError() {
+		return true
+	}
+	return false
 }
 
 func MakeClusterOpResultPass() ClusterOpResult {

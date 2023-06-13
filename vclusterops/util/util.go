@@ -345,3 +345,33 @@ func IsOptionSet(parser *flag.FlagSet, optionName string) bool {
 	})
 	return flagVisitMap[optionName]
 }
+
+// when db name is provided, make sure no special chars are in it
+func ValidateDBName(dbName string) error {
+	escapeChars := `=<>'^\".@*?#&/-:;{}()[] \~!%+|,` + "`$"
+	for _, c := range dbName {
+		if strings.Contains(escapeChars, string(c)) {
+			return fmt.Errorf("invalid character in database name: %c", c)
+		}
+	}
+	return nil
+}
+
+// suppress help message for hidden options
+func SetParserUsage(parser *flag.FlagSet, op string) {
+	fmt.Printf("Usage of %s:\n", op)
+	fmt.Println("Options:")
+	parser.VisitAll(func(f *flag.Flag) {
+		if f.Usage != SuppressHelp {
+			fmt.Printf("  -%s\n\t%s\n", f.Name, f.Usage)
+		}
+	})
+}
+
+func GetOptionalFlagMsg(message string) string {
+	return message + " [Optional]"
+}
+
+func GetEonFlagMsg(message string) string {
+	return "[Eon only] " + message
+}

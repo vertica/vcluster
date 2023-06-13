@@ -77,7 +77,7 @@ func (opVersion *VclusterOpVersion) convertVclusterVersionToJSON() (string, erro
 	}
 	jsonFile, err := json.Marshal(vclusterVersionData)
 	if err != nil {
-		return "", fmt.Errorf("could not marshal json: %s", err)
+		return "", fmt.Errorf("could not marshal json: %w", err)
 	}
 	return string(jsonFile), nil
 }

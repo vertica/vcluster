@@ -88,7 +88,7 @@ func (c *CmdConfig) Run() error {
 		configFilePath := filepath.Join(*c.directory, vclusterops.ConfigFileName)
 		fileBytes, err := os.ReadFile(configFilePath)
 		if err != nil {
-			return fmt.Errorf("fail to read config file, details: %s", err.Error())
+			return fmt.Errorf("fail to read config file, details: %w", err)
 		}
 		vlog.LogPrintInfo("Content of the config file:\n%s", string(fileBytes))
 	}
@@ -99,8 +99,7 @@ func (c *CmdConfig) Run() error {
 func (c *CmdConfig) PrintUsage() {
 	thisCommand := c.CommandType()
 	fmt.Fprintf(os.Stderr,
-		"vcluster %s --show\nExample: vcluster %s --show\n",
+		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
 		thisCommand,
 		thisCommand)
-	c.parser.PrintDefaults()
 }

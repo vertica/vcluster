@@ -13,6 +13,7 @@
  limitations under the License.
 */
 
+// TODO move this file to commands package
 package vclusterops
 
 import (
@@ -34,10 +35,10 @@ const ConfigFileName = "vertica_cluster.yaml"
 const ConfigBackupName = "vertica_cluster.yaml.backup"
 
 type ClusterConfig struct {
-	DBName string `yaml:"db_name"`
-	Hosts  []string
-	Nodes  []NodeConfig
-	IsEon  bool `yaml:"eon_mode"`
+	DBName string       `yaml:"db_name"`
+	Hosts  []string     `yaml:"hosts"`
+	Nodes  []NodeConfig `yaml:"nodes"`
+	IsEon  bool         `yaml:"eon_mode"`
 }
 
 type NodeConfig struct {
@@ -49,15 +50,33 @@ func MakeClusterConfig() ClusterConfig {
 	return ClusterConfig{}
 }
 
+// read config information from the YAML file
+func ReadConfig(configDirectory string) (ClusterConfig, error) {
+	clusterConfig := ClusterConfig{}
+
+	configFilePath := filepath.Join(configDirectory, ConfigFileName)
+	configBytes, err := os.ReadFile(configFilePath)
+	if err != nil {
+		return clusterConfig, fmt.Errorf("fail to read config file, details: %w", err)
+	}
+
+	err = yaml.Unmarshal(configBytes, &clusterConfig)
+	if err != nil {
+		return clusterConfig, fmt.Errorf("fail to unmarshal config file, details: %w", err)
+	}
+
+	return clusterConfig, nil
+}
+
 // write config information to the YAML file
 func (clusterConfig *ClusterConfig) WriteConfig(configFilePath string) error {
 	configBytes, err := yaml.Marshal(&clusterConfig)
 	if err != nil {
-		return fmt.Errorf("fail to marshal config data, details: %s", err.Error())
+		return fmt.Errorf("fail to marshal config data, details: %w", err)
 	}
 	err = os.WriteFile(configFilePath, configBytes, ConfigFilePerm)
 	if err != nil {
-		return fmt.Errorf("fail to write config file, details: %s", err.Error())
+		return fmt.Errorf("fail to write config file, details: %w", err)
 	}
 
 	return nil
@@ -76,8 +95,8 @@ func GetConfigFilePath(dbName string, inputConfigDir *string) (string, error) {
 		return filepath.Join(*inputConfigDir, ConfigFileName), nil
 	}
 
-	// otherwise write it under the user home directory
-	// as <current_dir or home_dir>/<db_name>/vertica_cluster.yaml
+	// otherwise write it under the current directory
+	// as <current_dir>/vertica_cluster.yaml
 	currentDir, err := os.Getwd()
 	if err != nil {
 		vlog.LogWarning("Fail to get current directory\n")

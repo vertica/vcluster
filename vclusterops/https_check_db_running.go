@@ -100,23 +100,24 @@ func (op *HTTPCheckRunningDBOp) Prepare(execContext *OpEngineExecContext) Cluste
 
 /* HTTPNodeStateResponse example:
    {'details':[]
-	'node_list':[{ 'name': 'v_test_db_running_node0001',
-	               'node_id':'45035996273704982',
-		           'address': '192.168.1.101',
-		           'state' : 'UP'
-		           'database' : 'test_db',
-		           'is_primary' : true,
-		           'is_readonly' : false,
-		           'catalog_path' : "\/data\/test_db\/v_test_db_node0001_catalog\/Catalog"
-		           'subcluster_name' : ''
-		           'last_msg_from_node_at':'2023-01-23T15:18:18.44866"
-		           'down_since' : null
-		           'build_info' : "v12.0.4-7142c8b01f373cc1aa60b1a8feff6c40bfb7afe8"
-	}]}
+    'node_list':[{'name': 'v_test_db_running_node0001',
+	          'node_id':'45035996273704982',
+		  'address': '192.168.1.101',
+		  'state' : 'UP'
+		  'database' : 'test_db',
+		  'is_primary' : true,
+		  'is_readonly' : false,
+		  'catalog_path' : "\/data\/test_db\/v_test_db_node0001_catalog\/Catalog"
+		  'subcluster_name' : ''
+		  'last_msg_from_node_at':'2023-01-23T15:18:18.44866"
+		  'down_since' : null
+		  'build_info' : "v12.0.4-7142c8b01f373cc1aa60b1a8feff6c40bfb7afe8"
+    }]}
 */
 //
-// or a message if the endpoint doesn't return a well-structured JSON, an example:
+// or a message if the endpoint doesn't return a well-structured JSON, examples:
 // {'message': 'Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n'}
+// {"message": "Wrong password\n"}
 type HTTPNodeStateResponse map[string][]map[string]string
 
 func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
@@ -164,12 +165,14 @@ func (op *HTTPCheckRunningDBOp) processResult(execContext *OpEngineExecContext) 
 	msg := ""
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		resSummaryStr := SuccessResult
-		if !result.isPassing() {
+		// VER-87303: it's possible that there's a DB running with a different password
+		if !result.IsHTTPRunning() {
 			resSummaryStr = FailureResult
 		}
 		vlog.LogPrintInfo("[%s] result from host %s summary %s, details %+v.\n",
 			op.name, host, resSummaryStr, result)
-		if result.isFailing() {
+
+		if result.isFailing() && !result.IsHTTPRunning() {
 			downHosts[host] = true
 			continue
 		} else if result.isException() {

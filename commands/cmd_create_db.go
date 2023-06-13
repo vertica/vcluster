@@ -57,58 +57,65 @@ func MakeCmdCreateDB() CmdCreateDB {
 
 	// required flags
 	createDBOptions.Name = newCmd.parser.String("name", "", "The name of the database to be created")
-	createDBOptions.Password = newCmd.parser.String("password", "", "Database password in single quotes [Optional]")
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
-	createDBOptions.LicensePathOnNode = newCmd.parser.String("license", "", "Database license [Optional]")
 	createDBOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", "Path of catalog directory")
 	createDBOptions.DataPrefix = newCmd.parser.String("data-path", "", "Path of data directory")
 
 	// optional
-	createDBOptions.Policy = newCmd.parser.String("policy", util.DefaultRestartPolicy, "Restart policy of the database")
-	createDBOptions.SQLFile = newCmd.parser.String("sql", "", "SQL file to run (as dbadmin) immediately on database creation")
-	createDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "", "Directory where the config file will be generated")
+	createDBOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	createDBOptions.LicensePathOnNode = newCmd.parser.String("license", "", util.GetOptionalFlagMsg("Database license"))
+	createDBOptions.Policy = newCmd.parser.String("policy", util.DefaultRestartPolicy,
+		util.GetOptionalFlagMsg("Restart policy of the database"))
+	createDBOptions.SQLFile = newCmd.parser.String("sql", "",
+		util.GetOptionalFlagMsg("SQL file to run (as dbadmin) immediately on database creation"))
+	createDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
+		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
 
 	// Eon flags
 	createDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
-		EonOnlyOption+"Location of communal storage")
-	createDBOptions.ShardCount = newCmd.parser.Int("shard-count", 0, EonOnlyOption+"Number of shards in the database")
+		util.GetEonFlagMsg("Location of communal storage"))
+	createDBOptions.ShardCount = newCmd.parser.Int("shard-count", 0, util.GetEonFlagMsg("Number of shards in the database"))
 	createDBOptions.CommunalStorageParamsPath = newCmd.parser.String("communal_storage-params", "",
-		EonOnlyOption+"Location of communal storage parameter file")
-	createDBOptions.DepotPrefix = newCmd.parser.String("depot-path", "", EonOnlyOption+"Path to depot directory")
-	createDBOptions.DepotSize = newCmd.parser.String("depot-size", "", EonOnlyOption+"Size of depot")
+		util.GetEonFlagMsg("Location of communal storage parameter file"))
+	createDBOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
+	createDBOptions.DepotSize = newCmd.parser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
 	createDBOptions.GetAwsCredentialsFromEnv = newCmd.parser.Bool("get-aws-credentials-from-env-vars", false,
-		EonOnlyOption+"Read AWS credentials from environment variables")
+		util.GetEonFlagMsg("Read AWS credentials from environment variables"))
 
-	newCmd.configParamListStr = newCmd.parser.String("config-param", "",
-		"Comma-separated list of NAME=VALUE pairs for setting database configuration parametesr immediately on database creation")
+	newCmd.configParamListStr = newCmd.parser.String("config-param", "", util.GetOptionalFlagMsg(
+		"Comma-separated list of NAME=VALUE pairs for setting database configuration parametesr immediately on database creation"))
 
 	// new flags comparing to adminTools create_db
-	createDBOptions.Ipv6 = newCmd.parser.Bool("ipv6", false, "Create database with IPv6 hosts")
+	createDBOptions.Ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Create database with IPv6 hosts"))
 	// by default use pt2pt mode
 	createDBOptions.P2p = newCmd.parser.Bool("point-to-point", true,
-		"Configure Spread to use point-to-point communication between all Vertica nodes")
+		util.GetOptionalFlagMsg("Configure Spread to use point-to-point communication between all Vertica nodes"))
 	createDBOptions.Broadcast = newCmd.parser.Bool("broadcast", false,
-		"Configure Spread to use UDP broadcast traffic between nodes on the same subnet")
-	createDBOptions.LargeCluster = newCmd.parser.Int("large-cluster", -1, "Enables a large cluster layout")
-	createDBOptions.SpreadLogging = newCmd.parser.Bool("spread-logging", false, "Whether enable spread logging")
-	createDBOptions.SpreadLoggingLevel = newCmd.parser.Int("spread-logging-level", -1, "Spread logging level")
+		util.GetOptionalFlagMsg("Configure Spread to use UDP broadcast traffic between nodes on the same subnet"))
+	createDBOptions.LargeCluster = newCmd.parser.Int("large-cluster", -1, util.GetOptionalFlagMsg("Enables a large cluster layout"))
+	createDBOptions.SpreadLogging = newCmd.parser.Bool("spread-logging", false, util.GetOptionalFlagMsg("Whether enable spread logging"))
+	createDBOptions.SpreadLoggingLevel = newCmd.parser.Int("spread-logging-level", -1, util.GetOptionalFlagMsg("Spread logging level"))
 
 	createDBOptions.ForceCleanupOnFailure = newCmd.parser.Bool("force-cleanup-on-failure", false,
-		"Force removal of existing directories on failure of command")
+		util.GetOptionalFlagMsg("Force removal of existing directories on failure of command"))
 	createDBOptions.ForceRemovalAtCreation = newCmd.parser.Bool("force-removal-at-creation", false,
-		"Force removal of existing directories before creating the database")
+		util.GetOptionalFlagMsg("Force removal of existing directories before creating the database"))
 
 	createDBOptions.SkipPackageInstall = newCmd.parser.Bool("skip-package-install", false,
-		"Skip the installation of packages from /opt/vertica/packages.")
+		util.GetOptionalFlagMsg("Skip the installation of packages from /opt/vertica/packages."))
 
 	createDBOptions.TimeoutNodeStartupSeconds = newCmd.parser.Int("startup-timeout", util.DefaultTimeoutSeconds,
-		"Timeout for polling node start up state")
+		util.GetOptionalFlagMsg("Timeout for polling node start up state"))
 
 	// hidden options
-	createDBOptions.ClientPort = newCmd.parser.Int("client-port", util.DefaultClientPort, "Create database with specified client port")
-	createDBOptions.SkipStartupPolling = newCmd.parser.Bool("skip-startup-polling", false, "Skip polling node startup state")
+	createDBOptions.ClientPort = newCmd.parser.Int("client-port", util.DefaultClientPort, util.SuppressHelp)
+	createDBOptions.SkipStartupPolling = newCmd.parser.Bool("skip-startup-polling", false, util.SuppressHelp)
 
 	newCmd.createDBOptions = &createDBOptions
+
+	newCmd.parser.Usage = func() {
+		util.SetParserUsage(newCmd.parser, "create_db")
+	}
 
 	return newCmd
 }
@@ -139,6 +146,9 @@ func (c *CmdCreateDB) Parse(inputArgv []string) error {
 	if !util.IsOptionSet(c.parser, "config-directory") {
 		c.createDBOptions.ConfigDirectory = nil
 	}
+	if !util.IsOptionSet(c.parser, "password") {
+		c.createDBOptions.Password = nil
+	}
 
 	return c.validateParse()
 }
@@ -158,7 +168,7 @@ func (c *CmdCreateDB) validateParse() error {
 	if err != nil {
 		return err
 	}
-	return c.createDBOptions.ValidateParseOptions()
+	return nil
 }
 
 // the hosts should be separated by comma, and will be converted to lower case
@@ -215,8 +225,7 @@ func (c *CmdCreateDB) Run() error {
 func (c *CmdCreateDB) PrintUsage() {
 	thisCommand := c.CommandType()
 	fmt.Fprintf(os.Stderr,
-		"vcluster %s --name <db_name>\nExample: vcluster %s --name db1\n",
+		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
 		thisCommand,
 		thisCommand)
-	c.parser.PrintDefaults()
 }

@@ -15,10 +15,6 @@
 
 package commands
 
-const (
-	EonOnlyOption = "[Eon only] "
-)
-
 type ClusterCommand interface {
 	CommandType() string
 	Parse(argv []string) error
