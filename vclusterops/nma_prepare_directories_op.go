@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"golang.org/x/exp/maps"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"golang.org/x/exp/maps"
 )
 
 type NMAPrepareDirectoriesOp struct {
