@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"vertica.com/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type ConfigHandler struct {

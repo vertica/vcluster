@@ -100,7 +100,6 @@ fi
 
 logAndRunCommand "rsync $DRY_RUN_OPT --archive \
                                      --verbose \
-                                     --update \
                                      --delete \
                                      --exclude .git \
                                      --exclude vendor \

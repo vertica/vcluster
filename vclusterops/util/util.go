@@ -31,7 +31,7 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/sys/unix"
 
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 func GetJSONLogErrors(responseContent string, responseObj any, opName string) error {

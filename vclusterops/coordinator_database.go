@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"vertica.com/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 /* VCoordinationDatabase contains a copy of some of the CAT::Database

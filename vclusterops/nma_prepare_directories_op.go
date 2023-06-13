@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"golang.org/x/exp/maps"
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NMAPrepareDirectoriesOp struct {

@@ -22,9 +22,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"vertica.com/vcluster/vclusterops"
-	"vertica.com/vcluster/vclusterops/util"
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 /* CmdInit

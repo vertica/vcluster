@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NMABootstrapCatalogOp struct {

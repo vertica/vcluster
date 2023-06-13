@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sync"
 
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type AdapterPool struct {

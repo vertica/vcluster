@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"vertica.com/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 func TestValidateDepotSize(t *testing.T) {

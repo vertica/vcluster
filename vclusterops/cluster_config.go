@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
-	"vertica.com/vcluster/vclusterops/util"
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const (

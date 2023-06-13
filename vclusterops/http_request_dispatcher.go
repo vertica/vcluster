@@ -16,7 +16,7 @@
 package vclusterops
 
 import (
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPRequestDispatcher struct {

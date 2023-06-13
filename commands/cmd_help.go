@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 /* CmdHelp

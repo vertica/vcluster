@@ -16,8 +16,8 @@
 package vclusterops
 
 import (
-	"vertica.com/vcluster/vclusterops/util"
-	"vertica.com/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 /* Op and host http result status

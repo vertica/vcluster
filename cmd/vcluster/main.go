@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"vertica.com/vcluster/commands"
+	"github.com/vertica/vcluster/commands"
 )
 
 func main() {

@@ -21,7 +21,7 @@ import (
 	"os"
 	"testing"
 
-	"vertica.com/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops"
 
 	"github.com/stretchr/testify/assert"
 )
