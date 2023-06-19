@@ -58,6 +58,7 @@ type VCreateDatabaseOptions struct {
 	SpreadLoggingLevel *int
 	// part 5: other params
 	SkipStartupPolling *bool
+	LogPath            *string
 	ConfigDirectory    *string
 }
 
@@ -112,11 +113,13 @@ func (options *VCreateDatabaseOptions) ValidateRequiredOptions() error {
 	}
 
 	// batch 3: validate other parameters
-	if options.ConfigDirectory != nil {
-		err := util.AbsPathCheck(*options.ConfigDirectory)
-		if err != nil {
-			return fmt.Errorf("must specify an absolute path for the config directory")
-		}
+	err = util.ValidateAbsPath(options.LogPath, "must specify an absolute path for the log directory")
+	if err != nil {
+		return err
+	}
+	err = util.ValidateAbsPath(options.ConfigDirectory, "must specify an absolute path for the config directory")
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -251,17 +254,12 @@ func (options *VCreateDatabaseOptions) ValidateParseOptions() error {
 // Do advanced analysis on the options inputs, like resolve hostnames to be IPs
 func (options *VCreateDatabaseOptions) AnalyzeOptions() error {
 	// resolve RawHosts to be IP addresses
-	for _, host := range options.RawHosts {
-		if host == "" {
-			return fmt.Errorf("invalid empty host found in the provided host list")
-		}
-		addr, err := util.ResolveToOneIP(host, *options.Ipv6)
-		if err != nil {
-			return err
-		}
-		// use a list to respect user input order
-		options.Hosts = append(options.Hosts, addr)
+	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, *options.Ipv6)
+	if err != nil {
+		return err
 	}
+	options.Hosts = hostAddresses
+
 	// process correct catalog path, data path and depot path prefixes
 	*options.CatalogPrefix = util.GetCleanPath(*options.CatalogPrefix)
 	*options.DataPrefix = util.GetCleanPath(*options.DataPrefix)
@@ -291,7 +289,7 @@ func VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, er
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
-	// Analyze to produce a vdb info, for later create db use and for cache db info
+	// Analyze to produce vdb info, for later create db use and for cache db info
 	vdb := MakeVCoordinationDatabase()
 	err := vdb.SetFromCreateDBOptions(options)
 	if err != nil {
@@ -325,23 +323,23 @@ func VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, er
 
 /*
 We expect that we will ultimately produce the following instructions:
-        1. Check NMA connectivity
-        2. Check to see if any dbs running
-        3. Check NMA versions
-        4. Prepare directories
-        5. Get network profiles
-        6. Bootstrap the database
-        7. Run the catalog editor
-        8. Start node
-        9. Create node
-        10. Reload spread
-        11. Transfer config files
-        12. Start all nodes of the database
-        13. Poll node startup
-        14. Create depot
-        15. Mark design ksafe
-        16. Install packages
-        17. sync catalog
+    1. Check NMA connectivity
+	2. Check to see if any dbs running
+	3. Check Vertica versions
+	4. Prepare directories
+	5. Get network profiles
+	6. Bootstrap the database
+	7. Run the catalog editor
+	8. Start node
+	9. Create node
+	10. Reload spread
+	11. Transfer config files
+	12. Start all nodes of the database
+	13. Poll node startup
+	14. Create depot
+	15. Mark design ksafe
+	16. Install packages
+	17. sync catalog
 */
 
 //nolint:funlen // TODO this should be split into produceMandatoryInstructions and produceOptionalInstructions
@@ -502,6 +500,9 @@ func writeClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
 	clusterConfig := MakeClusterConfig()
 	clusterConfig.DBName = vdb.Name
 	clusterConfig.Hosts = vdb.HostList
+	clusterConfig.CatalogPath = vdb.CatalogPrefix
+	clusterConfig.DataPath = vdb.DataPrefix
+	clusterConfig.DepotPath = vdb.DepotPrefix
 	for _, host := range vdb.HostList {
 		nodeConfig := NodeConfig{}
 		node, ok := vdb.HostNodeMap[host]
@@ -514,6 +515,7 @@ func writeClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
 		clusterConfig.Nodes = append(clusterConfig.Nodes, nodeConfig)
 	}
 	clusterConfig.IsEon = vdb.IsEon
+	clusterConfig.Ipv6 = vdb.Ipv6
 
 	/* write config to a YAML file
 	 */

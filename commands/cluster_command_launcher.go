@@ -59,7 +59,8 @@ const helpString = "help"
  */
 func MakeClusterCommandLauncher() ClusterCommandLauncher {
 	// setup logs for command launcher initialization
-	vlog.SetupOrDie(vlog.LogFile)
+	logPath := vlog.ParseLogPathArg(os.Args, vlog.DefaultLogPath)
+	vlog.SetupOrDie(logPath)
 	vlog.LogInfoln("New vcluster command initialization")
 	newLauncher := ClusterCommandLauncher{}
 
@@ -69,6 +70,7 @@ func MakeClusterCommandLauncher() ClusterCommandLauncher {
 	 */
 	createDB := MakeCmdCreateDB()
 	stopDB := MakeCmdStopDB()
+	dropDB := MakeCmdDropDB()
 	help := MakeCmdHelp()
 	init := MakeCmdInit()
 	config := MakeCmdConfig()
@@ -80,6 +82,7 @@ func MakeClusterCommandLauncher() ClusterCommandLauncher {
 		&help,
 		&init,
 		&config,
+		&dropDB,
 	)
 
 	newLauncher.commands = map[string]ClusterCommand{}
@@ -148,7 +151,6 @@ func (c ClusterCommandLauncher) Run(inputArgv []string) error {
 
 func identifySubcommand(inputArgv []string, commands map[string]ClusterCommand) (ClusterCommand, error) {
 	userCommandString := os.Args[1]
-
 	command, ok := commands[userCommandString]
 
 	if !ok {

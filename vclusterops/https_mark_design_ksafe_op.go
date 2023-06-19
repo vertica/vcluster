@@ -52,13 +52,13 @@ func MakeHTTPSMarkDesignKSafeOp(name string,
 	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
 	httpsMarkDesignKSafeOp.userName = userName
 	httpsMarkDesignKSafeOp.httpsPassword = httpsPassword
-
 	return httpsMarkDesignKSafeOp
 }
 
 func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
+	op.setVersionToSemVar()
 
 	// in practice, initiator only
 	for _, host := range hosts {
@@ -125,7 +125,8 @@ func (op *HTTPSMarkDesignKSafeOp) processResult(execContext *OpEngineExecContext
 		} else if markDesignKSafeRsp.Detail == oneSafeRspStr {
 			ksafeValue = 1
 		} else {
-			vlog.LogPrintError(`[%s] fail to parse the ksafety value information, detail: %s`, op.name, markDesignKSafeRsp.Detail)
+			vlog.LogPrintError(`[%s] fail to parse the ksafety value information, detail: %s`,
+				op.name, markDesignKSafeRsp.Detail)
 			success = false
 			continue
 		}

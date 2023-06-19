@@ -57,10 +57,14 @@ func TestValidateDepotSize(t *testing.T) {
 
 func TestWriteClusterConfig(t *testing.T) {
 	const dbName = "practice_db"
+	const path = "/data"
 
 	// generate a YAML file based on a stub vdb
 	vdb := VCoordinationDatabase{}
 	vdb.Name = dbName
+	vdb.CatalogPrefix = path
+	vdb.DataPrefix = path
+	vdb.DepotPrefix = path
 	vdb.HostList = []string{"ip_1", "ip_2", "ip_3"}
 	vdb.HostNodeMap = make(map[string]VCoordinationNode)
 	for i, h := range vdb.HostList {
@@ -68,6 +72,7 @@ func TestWriteClusterConfig(t *testing.T) {
 		n.Name = fmt.Sprintf("node_name_%d", i+1)
 		vdb.HostNodeMap[h] = n
 	}
+	vdb.IsEon = true
 
 	err := writeClusterConfig(&vdb, nil)
 	assert.NoError(t, err)

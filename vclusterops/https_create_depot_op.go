@@ -149,7 +149,8 @@ func (op *HTTPSCreateDepotOp) processResult(execContext *OpEngineExecContext) Cl
 		// verify if https response contains some nodes/depots not in the required ones
 		for _, nodeRsp := range createDepotClusterRsp.ClusterRsp {
 			if depotPath, ok := op.NodeDepotPaths[nodeRsp.NodeName]; !ok || depotPath != nodeRsp.DepotPath {
-				vlog.LogError(`[%s] an unwanted depot %s gets created for node %s on host %s`, op.name, nodeRsp.DepotPath, nodeRsp.NodeName, host)
+				vlog.LogError(`[%s] an unwanted depot %s gets created for node %s on host %s`,
+					op.name, nodeRsp.DepotPath, nodeRsp.NodeName, host)
 				success = false
 				// not break here because we want to log all the unwanted depots
 			}

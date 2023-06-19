@@ -187,6 +187,25 @@ func ResolveToOneIP(hostname string, ipv6 bool) (string, error) {
 	return addrs[0], nil
 }
 
+// resolve RawHosts to be IP addresses
+func ResolveRawHostsToAddresses(rawHosts []string, ipv6 bool) ([]string, error) {
+	var hostAddresses []string
+
+	for _, host := range rawHosts {
+		if host == "" {
+			return hostAddresses, fmt.Errorf("invalid empty host found in the provided host list")
+		}
+		addr, err := ResolveToOneIP(host, ipv6)
+		if err != nil {
+			return hostAddresses, err
+		}
+		// use a list to respect user input order
+		hostAddresses = append(hostAddresses, addr)
+	}
+
+	return hostAddresses, nil
+}
+
 // replace all '//' to be '/', trim the path string
 func GetCleanPath(path string) string {
 	if path == "" {
@@ -374,4 +393,14 @@ func GetOptionalFlagMsg(message string) string {
 
 func GetEonFlagMsg(message string) string {
 	return "[Eon only] " + message
+}
+
+func ValidateAbsPath(path *string, errorMsg string) error {
+	if path != nil {
+		err := AbsPathCheck(*path)
+		if err != nil {
+			return fmt.Errorf("%s", errorMsg)
+		}
+	}
+	return nil
 }

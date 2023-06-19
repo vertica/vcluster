@@ -29,7 +29,7 @@ const (
 	OneMinute             = 60 * OneSecond
 	StopDBTimeout         = 5 * OneMinute
 	StartupPollingTimeout = 5 * OneMinute
-	PollingInterval       = 5 * OneSecond
+	PollingInterval       = 3 * OneSecond
 )
 
 type OpType int
@@ -169,7 +169,7 @@ func (op *HTTPCheckRunningDBOp) processResult(execContext *OpEngineExecContext) 
 		if !result.IsHTTPRunning() {
 			resSummaryStr = FailureResult
 		}
-		vlog.LogPrintInfo("[%s] result from host %s summary %s, details %+v.\n",
+		vlog.LogPrintInfo("[%s] result from host %s summary %s, details: %+v.",
 			op.name, host, resSummaryStr, result)
 
 		if result.isFailing() && !result.IsHTTPRunning() {
@@ -206,7 +206,7 @@ func (op *HTTPCheckRunningDBOp) processResult(execContext *OpEngineExecContext) 
 	// log info
 	vlog.LogInfo("[%s] check db running results: up hosts %v; down hosts %v; hosts with status unknown %v",
 		op.name, upHosts, downHosts, exceptionHosts)
-	// DB is running
+	// no DB is running on hosts, return a passed result
 	if len(upHosts) == 0 {
 		return MakeClusterOpResultPass()
 	}

@@ -35,10 +35,14 @@ const ConfigFileName = "vertica_cluster.yaml"
 const ConfigBackupName = "vertica_cluster.yaml.backup"
 
 type ClusterConfig struct {
-	DBName string       `yaml:"db_name"`
-	Hosts  []string     `yaml:"hosts"`
-	Nodes  []NodeConfig `yaml:"nodes"`
-	IsEon  bool         `yaml:"eon_mode"`
+	DBName      string       `yaml:"db_name"`
+	Hosts       []string     `yaml:"hosts"`
+	Nodes       []NodeConfig `yaml:"nodes"`
+	CatalogPath string       `yaml:"catalog_path"`
+	DataPath    string       `yaml:"data_path"`
+	DepotPath   string       `yaml:"depot_path"`
+	IsEon       bool         `yaml:"eon_mode"`
+	Ipv6        bool         `yaml:"ipv6"`
 }
 
 type NodeConfig struct {
@@ -65,6 +69,7 @@ func ReadConfig(configDirectory string) (ClusterConfig, error) {
 		return clusterConfig, fmt.Errorf("fail to unmarshal config file, details: %w", err)
 	}
 
+	vlog.LogPrintInfo("The content of cluster config: %+v\n", clusterConfig)
 	return clusterConfig, nil
 }
 
@@ -125,6 +130,25 @@ func BackupConfigFile(configFilePath string) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func RemoveConfigFile(configDirectory string) error {
+	configFilePath := filepath.Join(configDirectory, ConfigFileName)
+	configBackupPath := filepath.Join(configDirectory, ConfigBackupName)
+
+	err := os.RemoveAll(configFilePath)
+	if err != nil {
+		vlog.LogPrintError("Fail to remove the config file %s, detail: %w", configFilePath, err)
+		return err
+	}
+
+	err = os.RemoveAll(configBackupPath)
+	if err != nil {
+		vlog.LogPrintError("Fail to remove the backup config file %s, detail: %w", configBackupPath, err)
+		return err
 	}
 
 	return nil

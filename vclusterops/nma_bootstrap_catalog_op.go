@@ -54,8 +54,7 @@ func MakeNMABootstrapCatalogOp(
 	name string,
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions,
-	bootstrapHosts []string,
-) (NMABootstrapCatalogOp, error) {
+	bootstrapHosts []string) (NMABootstrapCatalogOp, error) {
 	nmaBootstrapCatalogOp := NMABootstrapCatalogOp{}
 	nmaBootstrapCatalogOp.name = name
 	// usually, only one node need bootstrap catalog

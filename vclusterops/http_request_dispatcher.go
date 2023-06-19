@@ -15,9 +15,7 @@
 
 package vclusterops
 
-import (
-	"github.com/vertica/vcluster/vclusterops/vlog"
-)
+import "github.com/vertica/vcluster/vclusterops/vlog"
 
 type HTTPRequestDispatcher struct {
 	pool AdapterPool

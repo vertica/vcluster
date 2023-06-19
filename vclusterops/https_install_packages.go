@@ -117,6 +117,7 @@ func (op *HTTPSInstallPackagesOp) processResult(execContext *OpEngineExecContext
 			vlog.LogError(`[%s] response does not contain field "packages"`, op.name)
 			success = false
 		}
+
 		vlog.LogPrintInfo("[%s] installed packages: %v", op.name, installedPackages)
 	}
 	if success {

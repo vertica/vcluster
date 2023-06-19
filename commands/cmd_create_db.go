@@ -70,6 +70,7 @@ func MakeCmdCreateDB() CmdCreateDB {
 		util.GetOptionalFlagMsg("SQL file to run (as dbadmin) immediately on database creation"))
 	createDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
+	createDBOptions.LogPath = newCmd.parser.String("log-path", "", "Directory where the log file will be generated")
 
 	// Eon flags
 	createDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
@@ -126,7 +127,6 @@ func (c *CmdCreateDB) CommandType() string {
 
 func (c *CmdCreateDB) Parse(inputArgv []string) error {
 	vlog.LogArgParse(&inputArgv)
-
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
@@ -143,6 +143,9 @@ func (c *CmdCreateDB) Parse(inputArgv []string) error {
 	}
 
 	// handle options that are not passed in
+	if !util.IsOptionSet(c.parser, "log-path") {
+		c.createDBOptions.LogPath = nil
+	}
 	if !util.IsOptionSet(c.parser, "config-directory") {
 		c.createDBOptions.ConfigDirectory = nil
 	}

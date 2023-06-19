@@ -39,8 +39,7 @@ type prepareDirectoriesRequestData struct {
 
 func MakeNMAPrepareDirectoriesOp(
 	name string,
-	hostNodeMap map[string]VCoordinationNode,
-) (NMAPrepareDirectoriesOp, error) {
+	hostNodeMap map[string]VCoordinationNode) (NMAPrepareDirectoriesOp, error) {
 	nmaPrepareDirectoriesOp := NMAPrepareDirectoriesOp{}
 	nmaPrepareDirectoriesOp.name = name
 

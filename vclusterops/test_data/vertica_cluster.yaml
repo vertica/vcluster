@@ -10,4 +10,8 @@ nodes:
       address: ip_2
     - name: node_name_3
       address: ip_3
-eon_mode: false
+catalog_path: /data
+data_path: /data
+depot_path: /data
+eon_mode: true
+ipv6: false

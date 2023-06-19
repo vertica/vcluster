@@ -30,8 +30,7 @@ type NMAFetchVdbFromCatalogEditorOp struct {
 func MakeNMAFetchVdbFromCatalogEditorOp(
 	name string,
 	hostNodeMap map[string]VCoordinationNode,
-	bootstrapHosts []string,
-) (NMAFetchVdbFromCatalogEditorOp, error) {
+	bootstrapHosts []string) (NMAFetchVdbFromCatalogEditorOp, error) {
 	nmaFetchVdbFromCatalogEditorOp := NMAFetchVdbFromCatalogEditorOp{}
 	nmaFetchVdbFromCatalogEditorOp.name = name
 	nmaFetchVdbFromCatalogEditorOp.hosts = bootstrapHosts
