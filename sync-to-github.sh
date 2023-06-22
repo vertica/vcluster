@@ -105,6 +105,7 @@ logAndRunCommand "rsync $DRY_RUN_OPT --archive \
                                      --exclude vendor \
                                      --exclude bin \
                                      --exclude coverage.out \
+                                     --exclude README.third-party.md \
                                      $SOURCE_DIR/ $DEST_DIR"
 
 if [[ -n "$SKIP_COMMIT" ]]
