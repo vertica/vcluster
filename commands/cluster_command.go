@@ -26,5 +26,5 @@ type ClusterCommand interface {
 	 */
 	Analyze() error
 	Run() error
-	PrintUsage()
+	PrintUsage(string)
 }

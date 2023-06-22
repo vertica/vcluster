@@ -16,7 +16,6 @@
 package commands
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
@@ -24,9 +23,9 @@ import (
 )
 
 type ConfigHandler struct {
-	argv      []string
-	parser    *flag.FlagSet
 	directory *string
+
+	CmdBase
 }
 
 func (c *ConfigHandler) validateDirectory() error {

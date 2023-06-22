@@ -18,7 +18,6 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops"
@@ -35,11 +34,9 @@ import (
  */
 
 type CmdStopDB struct {
-	argv          []string
-	parser        *flag.FlagSet
 	stopDBOptions *vclusterops.VStopDatabaseOptions
 
-	hostListStr *string // raw string from user input, need further processing
+	CmdBase
 }
 
 func MakeCmdStopDB() CmdStopDB {
@@ -97,17 +94,13 @@ func (c *CmdStopDB) Parse(inputArgv []string) error {
 	}
 
 	c.argv = inputArgv
-
-	if len(c.argv) == 0 {
-		c.PrintUsage()
-		return fmt.Errorf("zero args found, at least one argument expected")
-	}
-	parserError := c.parser.Parse(c.argv)
-	if parserError != nil {
-		return parserError
+	err := c.ValidateParseArgv(c.CommandType())
+	if err != nil {
+		return err
 	}
 
-	// for some options, we do not want to use their default values if they are not provided in cli,
+	// for some options, we do not want to use their default values,
+	// if they are not provided in cli,
 	// reset the value of those options to nil
 	if !util.IsOptionSet(c.parser, "password") {
 		c.stopDBOptions.Password = nil
@@ -130,21 +123,13 @@ func (c *CmdStopDB) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
 	// parse raw host str input into a []string of stopDBOptions
-	err := c.parseHostList()
-	if err != nil {
-		return err
+	if *c.stopDBOptions.HonorUserInput {
+		err := c.ParseHostList(&c.stopDBOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	return nil
-}
-
-// the hosts should be separated by comma, and will be converted to lower case
-func (c *CmdStopDB) parseHostList() error {
-	inputHostList, err := util.SplitHosts(*c.hostListStr)
-	if err != nil && *c.stopDBOptions.HonorUserInput {
-		return err
-	}
-	c.stopDBOptions.RawHosts = inputHostList
 	return nil
 }
 
@@ -161,13 +146,4 @@ func (c *CmdStopDB) Run() error {
 	}
 	vlog.LogPrintInfo("Stopped a database with name [%s]", dbName)
 	return nil
-}
-
-// TODO make this function to a shared one for all commands
-func (c *CmdStopDB) PrintUsage() {
-	thisCommand := c.CommandType()
-	fmt.Fprintf(os.Stderr,
-		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
-		thisCommand,
-		thisCommand)
 }

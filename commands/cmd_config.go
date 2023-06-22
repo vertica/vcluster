@@ -63,10 +63,9 @@ func (c *CmdConfig) Parse(inputArgv []string) error {
 	}
 
 	c.argv = inputArgv
-
-	parserError := c.parser.Parse(c.argv)
-	if parserError != nil {
-		return parserError
+	err := c.ParseArgv()
+	if err != nil {
+		return err
 	}
 
 	return c.validateParse()
@@ -94,12 +93,4 @@ func (c *CmdConfig) Run() error {
 	}
 
 	return nil
-}
-
-func (c *CmdConfig) PrintUsage() {
-	thisCommand := c.CommandType()
-	fmt.Fprintf(os.Stderr,
-		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
-		thisCommand,
-		thisCommand)
 }

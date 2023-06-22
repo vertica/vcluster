@@ -26,14 +26,16 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-const ksafetyThreshold = 3
-const ksafeValue = 1
+const (
+	ksafetyThreshold = 3
+	ksafeValue       = 1
+)
 
 // A good rule of thumb is to use normal strings unless you need nil.
 // Normal strings are easier and safer to use in Go.
 type VCreateDatabaseOptions struct {
 	// part 1: basic db info
-	VClusterDatabaseOptions
+	DatabaseOptions
 	Policy            *string
 	SQLFile           *string
 	LicensePathOnNode *string // required to be a fully qualified path
@@ -58,46 +60,153 @@ type VCreateDatabaseOptions struct {
 	SpreadLoggingLevel *int
 	// part 5: other params
 	SkipStartupPolling *bool
-	LogPath            *string
 	ConfigDirectory    *string
+
+	// hidden options (which cache information only)
+	username      string
+	bootstrapHost []string
 }
 
 func VCreateDatabaseOptionsFactory() VCreateDatabaseOptions {
-	newOptions := VCreateDatabaseOptions{}
+	opt := VCreateDatabaseOptions{}
 	// without initialization it will panic
-	newOptions.ConfigurationParameters = make(map[string]string)
-	return newOptions
+	opt.ConfigurationParameters = make(map[string]string)
+	// set default values to the params
+	opt.SetDefaultValues()
+
+	return opt
 }
 
-func (options *VCreateDatabaseOptions) ValidateRequiredOptions() error {
-	// batch 1: validate required parameters that need user input
-	if *options.Name == "" {
-		return fmt.Errorf("must specify a database name")
-	}
-	err := util.ValidateDBName(*options.Name)
-	if err != nil {
+func (opt *VCreateDatabaseOptions) SetDefaultValues() {
+	opt.DatabaseOptions.SetDefaultValues()
+
+	// basic db info
+	defaultPolicy := util.DefaultRestartPolicy
+	opt.Policy = &defaultPolicy
+	opt.SQLFile = new(string)
+	opt.LicensePathOnNode = new(string)
+
+	// eon db Info
+	opt.ShardCount = new(int)
+	opt.CommunalStorageLocation = new(string)
+	opt.CommunalStorageParamsPath = new(string)
+	opt.DepotSize = new(string)
+	opt.GetAwsCredentialsFromEnv = new(bool)
+
+	// optional info
+	opt.ForceCleanupOnFailure = new(bool)
+	opt.ForceRemovalAtCreation = new(bool)
+	opt.SkipPackageInstall = new(bool)
+
+	defaultTimeoutNodeStartupSeconds := util.DefaultTimeoutSeconds
+	opt.TimeoutNodeStartupSeconds = &defaultTimeoutNodeStartupSeconds
+
+	// new params originally in installer generated admintools.conf, now in create db op
+	opt.Broadcast = new(bool)
+
+	defaultP2p := true
+	opt.P2p = &defaultP2p
+
+	defaultLargeCluster := -1
+	opt.LargeCluster = &defaultLargeCluster
+
+	defaultClientPort := util.DefaultClientPort
+	opt.ClientPort = &defaultClientPort
+	opt.SpreadLogging = new(bool)
+
+	defaultSpreadLoggingLevel := -1
+	opt.SpreadLoggingLevel = &defaultSpreadLoggingLevel
+
+	// other params
+	opt.SkipStartupPolling = new(bool)
+}
+
+func (opt *VCreateDatabaseOptions) CheckNilPointerParams() error {
+	if err := opt.DatabaseOptions.CheckNilPointerParams(); err != nil {
 		return err
 	}
-	if len(options.RawHosts) == 0 {
-		return fmt.Errorf("must specify a host or host list")
+
+	// basic params
+	if opt.Policy == nil {
+		return util.ParamNotSetErrorMsg("policy")
+	}
+	if opt.SQLFile == nil {
+		return util.ParamNotSetErrorMsg("sql")
+	}
+	if opt.LicensePathOnNode == nil {
+		return util.ParamNotSetErrorMsg("license")
 	}
 
-	if *options.CatalogPrefix == "" || !util.IsAbsPath(*options.CatalogPrefix) {
-		return fmt.Errorf("must specify an absolute catalog path")
+	// eon params
+	if opt.ShardCount == nil {
+		return util.ParamNotSetErrorMsg("shard-count")
+	}
+	if opt.CommunalStorageLocation == nil {
+		return util.ParamNotSetErrorMsg("communal-storage-location")
+	}
+	if opt.CommunalStorageParamsPath == nil {
+		return util.ParamNotSetErrorMsg("communal_storage-params")
+	}
+	if opt.DepotSize == nil {
+		return util.ParamNotSetErrorMsg("depot-size")
+	}
+	if opt.GetAwsCredentialsFromEnv == nil {
+		return util.ParamNotSetErrorMsg("get-aws-credentials-from-env-vars")
 	}
 
-	if *options.DataPrefix == "" || !util.IsAbsPath(*options.DataPrefix) {
-		return fmt.Errorf("must specify an absolute data path")
+	return opt.CheckExtraNilPointerParams()
+}
+
+func (opt *VCreateDatabaseOptions) CheckExtraNilPointerParams() error {
+	// optional params
+	if opt.ForceCleanupOnFailure == nil {
+		return util.ParamNotSetErrorMsg("force-cleanup-on-failure")
+	}
+	if opt.ForceRemovalAtCreation == nil {
+		return util.ParamNotSetErrorMsg("force-removal-at-creation")
+	}
+	if opt.SkipPackageInstall == nil {
+		return util.ParamNotSetErrorMsg("skip-package-install")
+	}
+	if opt.TimeoutNodeStartupSeconds == nil {
+		return util.ParamNotSetErrorMsg("startup-timeout")
 	}
 
-	// batch 2: validate required parameters with default values
-	if options.Password == nil {
-		options.Password = new(string)
-		*options.Password = ""
+	// other params
+	if opt.Broadcast == nil {
+		return util.ParamNotSetErrorMsg("broadcast")
+	}
+	if opt.P2p == nil {
+		return util.ParamNotSetErrorMsg("point-to-point")
+	}
+	if opt.LargeCluster == nil {
+		return util.ParamNotSetErrorMsg("large-cluster")
+	}
+	if opt.ClientPort == nil {
+		return util.ParamNotSetErrorMsg("client-port")
+	}
+	if opt.SpreadLogging == nil {
+		return util.ParamNotSetErrorMsg("spread-logging")
+	}
+	if opt.SpreadLoggingLevel == nil {
+		return util.ParamNotSetErrorMsg("spread-logging-level")
+	}
+	if opt.SkipStartupPolling == nil {
+		return util.ParamNotSetErrorMsg("skip-startup-polling")
+	}
+
+	return nil
+}
+
+func (opt *VCreateDatabaseOptions) ValidateRequiredOptions() error {
+	// validate required parameters with default values
+	if opt.Password == nil {
+		opt.Password = new(string)
+		*opt.Password = ""
 		vlog.LogPrintInfoln("no password specified, using none")
 	}
 
-	if !util.StringInArray(*options.Policy, util.RestartPolicyList) {
+	if !util.StringInArray(*opt.Policy, util.RestartPolicyList) {
 		return fmt.Errorf("policy must be one of %v", util.RestartPolicyList)
 	}
 
@@ -108,18 +217,8 @@ func (options *VCreateDatabaseOptions) ValidateRequiredOptions() error {
 	//
 	// empty string ("") will be converted to the default license path (/opt/vertica/share/license.key)
 	// in the /bootstrap-catalog endpoint
-	if *options.LicensePathOnNode != "" && !util.IsAbsPath(*options.LicensePathOnNode) {
+	if *opt.LicensePathOnNode != "" && !util.IsAbsPath(*opt.LicensePathOnNode) {
 		return fmt.Errorf("must provide a fully qualified path for license file")
-	}
-
-	// batch 3: validate other parameters
-	err = util.ValidateAbsPath(options.LogPath, "must specify an absolute path for the log directory")
-	if err != nil {
-		return err
-	}
-	err = util.ValidateAbsPath(options.ConfigDirectory, "must specify an absolute path for the config directory")
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -194,26 +293,26 @@ func validateDepotSize(size string) (bool, error) {
 	return true, nil
 }
 
-func (options *VCreateDatabaseOptions) ValidateEonOptions() error {
-	if *options.CommunalStorageLocation != "" {
-		if *options.DepotPrefix == "" {
+func (opt *VCreateDatabaseOptions) ValidateEonOptions() error {
+	if *opt.CommunalStorageLocation != "" {
+		if *opt.DepotPrefix == "" {
 			return fmt.Errorf("must specify a depot path with commual storage location")
 		}
-		if *options.ShardCount == 0 {
+		if *opt.ShardCount == 0 {
 			return fmt.Errorf("must specify a shard count greater than 0 with communal storage location")
 		}
 	}
-	if *options.DepotPrefix != "" && *options.CommunalStorageLocation == "" {
+	if *opt.DepotPrefix != "" && *opt.CommunalStorageLocation == "" {
 		return fmt.Errorf("when depot path is given, communal storage location cannot be empty")
 	}
-	if *options.GetAwsCredentialsFromEnv && *options.CommunalStorageLocation == "" {
+	if *opt.GetAwsCredentialsFromEnv && *opt.CommunalStorageLocation == "" {
 		return fmt.Errorf("AWS credentials are only used in Eon mode")
 	}
-	if *options.DepotSize != "" {
-		if *options.DepotPrefix == "" {
+	if *opt.DepotSize != "" {
+		if *opt.DepotPrefix == "" {
 			return fmt.Errorf("when depot size is given, depot path cannot be empty")
 		}
-		validDepotSize, err := validateDepotSize(*options.DepotSize)
+		validDepotSize, err := validateDepotSize(*opt.DepotSize)
 		if !validDepotSize {
 			return err
 		}
@@ -221,30 +320,42 @@ func (options *VCreateDatabaseOptions) ValidateEonOptions() error {
 	return nil
 }
 
-func (options *VCreateDatabaseOptions) ValidateExtraOptions() error {
-	if *options.Broadcast && *options.P2p {
+func (opt *VCreateDatabaseOptions) ValidateExtraOptions() error {
+	if *opt.Broadcast && *opt.P2p {
 		return fmt.Errorf("cannot use both Broadcast and Point-to-point networking mode")
 	}
 	// -1 is the default large cluster value, meaning 120 control nodes
-	if *options.LargeCluster != util.DefaultLargeCluster && (*options.LargeCluster < 1 || *options.LargeCluster > util.MaxLargeCluster) {
+	if *opt.LargeCluster != util.DefaultLargeCluster && (*opt.LargeCluster < 1 || *opt.LargeCluster > util.MaxLargeCluster) {
 		return fmt.Errorf("must specify a valid large cluster value in range [1, 120]")
 	}
 	return nil
 }
 
-func (options *VCreateDatabaseOptions) ValidateParseOptions() error {
+func (opt *VCreateDatabaseOptions) ValidateParseOptions() error {
+	// check nil pointers in the required options
+	err := opt.CheckNilPointerParams()
+	if err != nil {
+		return err
+	}
+
+	// validate base options
+	err = opt.ValidateBaseOptions("create_db")
+	if err != nil {
+		return err
+	}
+
 	// batch 1: validate required parameters without default values
-	err := options.ValidateRequiredOptions()
+	err = opt.ValidateRequiredOptions()
 	if err != nil {
 		return err
 	}
 	// batch 2: validate eon params
-	err = options.ValidateEonOptions()
+	err = opt.ValidateEonOptions()
 	if err != nil {
 		return err
 	}
 	// batch 3: validate all other params
-	err = options.ValidateExtraOptions()
+	err = opt.ValidateExtraOptions()
 	if err != nil {
 		return err
 	}
@@ -252,32 +363,32 @@ func (options *VCreateDatabaseOptions) ValidateParseOptions() error {
 }
 
 // Do advanced analysis on the options inputs, like resolve hostnames to be IPs
-func (options *VCreateDatabaseOptions) AnalyzeOptions() error {
+func (opt *VCreateDatabaseOptions) AnalyzeOptions() error {
 	// resolve RawHosts to be IP addresses
-	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, *options.Ipv6)
+	hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, *opt.Ipv6)
 	if err != nil {
 		return err
 	}
-	options.Hosts = hostAddresses
+	opt.Hosts = hostAddresses
 
 	// process correct catalog path, data path and depot path prefixes
-	*options.CatalogPrefix = util.GetCleanPath(*options.CatalogPrefix)
-	*options.DataPrefix = util.GetCleanPath(*options.DataPrefix)
-	*options.DepotPrefix = util.GetCleanPath(*options.DepotPrefix)
-	if options.ClientPort == nil {
-		*options.ClientPort = util.DefaultClientPort
+	*opt.CatalogPrefix = util.GetCleanPath(*opt.CatalogPrefix)
+	*opt.DataPrefix = util.GetCleanPath(*opt.DataPrefix)
+	*opt.DepotPrefix = util.GetCleanPath(*opt.DepotPrefix)
+	if opt.ClientPort == nil {
+		*opt.ClientPort = util.DefaultClientPort
 	}
-	if options.LargeCluster == nil {
-		*options.LargeCluster = util.DefaultLargeCluster
+	if opt.LargeCluster == nil {
+		*opt.LargeCluster = util.DefaultLargeCluster
 	}
 	return nil
 }
 
-func (options *VCreateDatabaseOptions) ValidateAnalyzeOptions() error {
-	if err := options.ValidateParseOptions(); err != nil {
+func (opt *VCreateDatabaseOptions) ValidateAnalyzeOptions() error {
+	if err := opt.ValidateParseOptions(); err != nil {
 		return err
 	}
-	if err := options.AnalyzeOptions(); err != nil {
+	if err := opt.AnalyzeOptions(); err != nil {
 		return err
 	}
 	return nil
@@ -296,11 +407,18 @@ func VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, er
 		return vdb, err
 	}
 	// produce instructions
-	instructions, err := produceCreateDBInstructions(&vdb, options)
+	instructions, err := produceBasicCreateDBInstructions(&vdb, options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %w", err)
 		return vdb, err
 	}
+
+	additionalInstructions, err := produceAdditionalCreateDBInstructions(&vdb, options)
+	if err != nil {
+		vlog.LogPrintError("fail to produce instructions, %w", err)
+		return vdb, err
+	}
+	instructions = append(instructions, additionalInstructions...)
 
 	// create a VClusterOpEngine
 	clusterOpEngine := MakeClusterOpEngine(instructions)
@@ -342,13 +460,11 @@ We expect that we will ultimately produce the following instructions:
 	17. sync catalog
 */
 
-//nolint:funlen // TODO this should be split into produceMandatoryInstructions and produceOptionalInstructions
-func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	hosts := vdb.HostList
 	initiator, err := getInitiator(hosts)
-
 	if err != nil {
 		return instructions, err
 	}
@@ -363,6 +479,7 @@ func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDat
 	if errGetUser != nil {
 		return instructions, errGetUser
 	}
+	options.username = username
 	vlog.LogInfo("Current username is %s", username)
 
 	checkDBRunningOp := MakeHTTPCheckRunningDBOp("HTTPCheckDBRunningOp", hosts,
@@ -378,6 +495,7 @@ func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDat
 	// should be only one bootstrap host
 	// making it an array to follow the convention of passing a list of hosts to each operation
 	bootstrapHost := []string{initiator}
+	options.bootstrapHost = bootstrapHost
 	nmaBootstrapCatalogOp, err := MakeNMABootstrapCatalogOp("NMABootstrapCatalogOp", vdb, options, bootstrapHost)
 	if err != nil {
 		return instructions, err
@@ -422,6 +540,16 @@ func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDat
 			&nmaStartNewNodesOp,
 		)
 	}
+
+	return instructions, nil
+}
+
+func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+	var instructions []ClusterOp
+
+	hosts := vdb.HostList
+	bootstrapHost := options.bootstrapHost
+	username := options.username
 
 	if !*options.SkipStartupPolling {
 		httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp("HTTPSPollNodeStateOp", hosts, true, username, options.Password)

@@ -18,7 +18,6 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/vertica/vcluster/vclusterops"
@@ -39,12 +38,10 @@ const (
 )
 
 type CmdCreateDB struct {
-	argv            []string
-	parser          *flag.FlagSet
-	createDBOptions *vclusterops.VCreateDatabaseOptions
-
-	hostListStr        *string // raw string from user input, need further processing
+	createDBOptions    *vclusterops.VCreateDatabaseOptions
 	configParamListStr *string // raw input from user, need further processing
+
+	CmdBase
 }
 
 func MakeCmdCreateDB() CmdCreateDB {
@@ -132,14 +129,9 @@ func (c *CmdCreateDB) Parse(inputArgv []string) error {
 	}
 
 	c.argv = inputArgv
-
-	if len(c.argv) == 0 {
-		c.PrintUsage()
-		return fmt.Errorf("zero args found, at least one argument expected")
-	}
-	parserError := c.parser.Parse(c.argv)
-	if parserError != nil {
-		return parserError
+	err := c.ValidateParseArgv(c.CommandType())
+	if err != nil {
+		return err
 	}
 
 	// handle options that are not passed in
@@ -153,6 +145,13 @@ func (c *CmdCreateDB) Parse(inputArgv []string) error {
 		c.createDBOptions.Password = nil
 	}
 
+	if util.IsOptionSet(c.parser, "depot-path") {
+		c.createDBOptions.IsEon = new(bool)
+		*c.createDBOptions.IsEon = true
+	} else {
+		c.createDBOptions.IsEon = nil
+	}
+
 	return c.validateParse()
 }
 
@@ -161,7 +160,7 @@ func (c *CmdCreateDB) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
 	// parse raw host str input into a []string of createDBOptions
-	err := c.parseHostList()
+	err := c.createDBOptions.ParseHostList(*c.hostListStr)
 	if err != nil {
 		return err
 	}
@@ -171,16 +170,6 @@ func (c *CmdCreateDB) validateParse() error {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-// the hosts should be separated by comma, and will be converted to lower case
-func (c *CmdCreateDB) parseHostList() error {
-	inputHostList, err := util.SplitHosts(*c.hostListStr)
-	if err != nil {
-		return err
-	}
-	c.createDBOptions.RawHosts = inputHostList
 	return nil
 }
 
@@ -223,12 +212,4 @@ func (c *CmdCreateDB) Run() error {
 	}
 	vlog.LogPrintInfo("Created a database with name [%s]", vdb.Name)
 	return nil
-}
-
-func (c *CmdCreateDB) PrintUsage() {
-	thisCommand := c.CommandType()
-	fmt.Fprintf(os.Stderr,
-		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
-		thisCommand,
-		thisCommand)
 }

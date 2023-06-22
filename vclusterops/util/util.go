@@ -17,6 +17,7 @@ package util
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -234,17 +235,6 @@ func SplitHosts(hosts string) ([]string, error) {
 	return splitRes, nil
 }
 
-// O(1) time complexity as we have known limited number of flags
-func IsFlagPassed(name string) bool {
-	found := false
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == name {
-			found = true
-		}
-	})
-	return found
-}
-
 // get env var with a fallback value
 func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -357,12 +347,14 @@ func CopyFile(sourcePath, destinationPath string, perm fs.FileMode) error {
 }
 
 // check if an option is passed in
-func IsOptionSet(parser *flag.FlagSet, optionName string) bool {
-	flagVisitMap := make(map[string]bool)
-	parser.Visit(func(f *flag.Flag) {
-		flagVisitMap[f.Name] = true
+func IsOptionSet(f *flag.FlagSet, optionName string) bool {
+	found := false
+	f.Visit(func(f *flag.Flag) {
+		if f.Name == optionName {
+			found = true
+		}
 	})
-	return flagVisitMap[optionName]
+	return found
 }
 
 // when db name is provided, make sure no special chars are in it
@@ -395,12 +387,31 @@ func GetEonFlagMsg(message string) string {
 	return "[Eon only] " + message
 }
 
-func ValidateAbsPath(path *string, errorMsg string) error {
+func ValidateAbsPath(path *string, pathName string) error {
 	if path != nil {
 		err := AbsPathCheck(*path)
 		if err != nil {
-			return fmt.Errorf("%s", errorMsg)
+			return fmt.Errorf("must specify an absolute %s", pathName)
 		}
 	}
 	return nil
+}
+
+// ValidateRequiredAbsPath check whether a required path is set
+// then validate it
+func ValidateRequiredAbsPath(path *string, pathName string) error {
+	pathNotSpecifiedMsg := fmt.Sprintf("must specify an absolute %s", pathName)
+
+	if path != nil {
+		if *path == "" {
+			return errors.New(pathNotSpecifiedMsg)
+		}
+		return ValidateAbsPath(path, pathName)
+	}
+
+	return errors.New(pathNotSpecifiedMsg)
+}
+
+func ParamNotSetErrorMsg(param string) error {
+	return fmt.Errorf("%s is pointed to nil", param)
 }

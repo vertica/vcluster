@@ -26,7 +26,7 @@ import (
 
 type VStopDatabaseOptions struct {
 	// part 1: basic db info
-	VClusterDatabaseOptions
+	DatabaseOptions
 	// part 2: eon db info
 	DrainSeconds *int
 	// part 3: hidden info

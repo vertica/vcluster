@@ -134,7 +134,7 @@ func (c ClusterCommandLauncher) Run(inputArgv []string) error {
 	 * might fail and prevent access to help.
 	 */
 	if subCommand.CommandType() == helpString {
-		subCommand.PrintUsage()
+		subCommand.PrintUsage(subCommand.CommandType())
 		return nil
 	}
 

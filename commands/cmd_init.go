@@ -64,10 +64,9 @@ func (c *CmdInit) Parse(inputArgv []string) error {
 	}
 
 	c.argv = inputArgv
-
-	parserError := c.parser.Parse(c.argv)
-	if parserError != nil {
-		return parserError
+	err := c.ParseArgv()
+	if err != nil {
+		return err
 	}
 
 	return c.validateParse()
@@ -123,12 +122,4 @@ func (c *CmdInit) Run() error {
 	vlog.LogPrintInfo("Created config file at %s\n", configFilePath)
 
 	return nil
-}
-
-func (c *CmdInit) PrintUsage() {
-	thisCommand := c.CommandType()
-	fmt.Fprintf(os.Stderr,
-		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
-		thisCommand,
-		thisCommand)
 }

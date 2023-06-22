@@ -18,7 +18,6 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -32,9 +31,9 @@ import (
  * Implements ClusterCommand interface
  */
 type CmdHelp struct {
-	argv   []string
-	parser *flag.FlagSet
-	topic  *string
+	topic *string
+
+	CmdBase
 }
 
 func MakeCmdHelp() CmdHelp {
@@ -56,10 +55,9 @@ func (c *CmdHelp) Parse(inputArgv []string) error {
 	}
 
 	c.argv = inputArgv
-
-	parserError := c.parser.Parse(c.argv)
-	if parserError != nil {
-		return parserError
+	err := c.ParseArgv()
+	if err != nil {
+		return err
 	}
 
 	return c.validateParse()
@@ -76,11 +74,4 @@ func (c *CmdHelp) Analyze() error {
 
 func (c *CmdHelp) Run() error {
 	return nil
-}
-
-func (c *CmdHelp) PrintUsage() {
-	fmt.Fprintf(os.Stderr,
-		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
-		c.CommandType(),
-		c.CommandType())
 }

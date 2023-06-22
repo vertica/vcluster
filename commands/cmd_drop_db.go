@@ -3,7 +3,6 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -15,11 +14,9 @@ import (
  * Implements ClusterCommand interface
  */
 type CmdDropDB struct {
-	argv          []string
-	parser        *flag.FlagSet
 	dropDBOptions *vclusterops.VDropDatabaseOptions
 
-	hostListStr *string // raw string from user input, need further processing
+	CmdBase
 }
 
 func MakeCmdDropDB() CmdDropDB {
@@ -32,6 +29,9 @@ func MakeCmdDropDB() CmdDropDB {
 	dropDBOptions.Ipv6 = newCmd.parser.Bool("ipv6", false, "Drop database with IPv6 hosts")
 	dropDBOptions.ForceDelete = newCmd.parser.Bool("force-delete", false, "Whether force delete directories if they are not empty")
 	dropDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "", "Directory where "+vclusterops.ConfigFileName+" is located")
+
+	dropDBOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
 
 	// TODO: the following options will be processed later
 	dropDBOptions.Name = newCmd.parser.String("name", "", "The name of the database to be dropped")
@@ -56,21 +56,17 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 	}
 
 	c.argv = inputArgv
-
-	// TODO: if len(c.argv) == 0 { c.PrintUsage() ... }
-	// when using options and no args provided, print the usage
-
-	parserError := c.parser.Parse(c.argv)
-	if parserError != nil {
-		return parserError
+	err := c.ValidateParseArgv(c.CommandType())
+	if err != nil {
+		return err
 	}
 
-	// use password if user provides it
+	// for some options, we do not want to use their default values,
+	// if they are not provided in cli,
+	// reset the value of those options to nil
 	if util.IsOptionSet(c.parser, "password") {
 		c.dropDBOptions.UsePassword = true
 	}
-
-	// handle options that are not passed in
 	if !util.IsOptionSet(c.parser, "config-directory") {
 		c.dropDBOptions.ConfigDirectory = nil
 	}
@@ -81,7 +77,13 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 func (c *CmdDropDB) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
-	// TODO: if HonorUserInput set to be true, process options here
+	// parse raw host str input into a []string of stopDBOptions
+	if *c.dropDBOptions.HonorUserInput {
+		err := c.ParseHostList(&c.dropDBOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -100,11 +102,4 @@ func (c *CmdDropDB) Run() error {
 
 	vlog.LogPrintInfo("Successfully dropped database %s\n", *c.dropDBOptions.Name)
 	return nil
-}
-
-func (c *CmdDropDB) PrintUsage() {
-	thisCommand := c.CommandType()
-	fmt.Fprintf(os.Stderr,
-		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
-		thisCommand, thisCommand)
 }
