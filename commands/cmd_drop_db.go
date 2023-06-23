@@ -25,7 +25,7 @@ func MakeCmdDropDB() CmdDropDB {
 
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
 
-	dropDBOptions := vclusterops.VDropDatabaseOptions{}
+	dropDBOptions := vclusterops.VDropDatabaseOptionsFactory()
 	dropDBOptions.Ipv6 = newCmd.parser.Bool("ipv6", false, "Drop database with IPv6 hosts")
 	dropDBOptions.ForceDelete = newCmd.parser.Bool("force-delete", false, "Whether force delete directories if they are not empty")
 	dropDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "", "Directory where "+vclusterops.ConfigFileName+" is located")

@@ -16,6 +16,18 @@ type VDropDatabaseOptions struct {
 	UsePassword bool
 }
 
+func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
+	opt := VDropDatabaseOptions{}
+	// set default values to the params
+	opt.SetDefaultValues()
+
+	return opt
+}
+
+func (options *VDropDatabaseOptions) SetDefaultValues() {
+	options.DatabaseOptions.SetDefaultValues()
+}
+
 func (options *VDropDatabaseOptions) AnalyzeOptions() error {
 	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, *options.Ipv6)
 	if err != nil {
@@ -64,8 +76,9 @@ func VDropDatabase(options *VDropDatabaseOptions) error {
 		return err
 	}
 
-	// create a VClusterOpEngine
-	clusterOpEngine := MakeClusterOpEngine(instructions)
+	// create a VClusterOpEngine, and add certs to the engine
+	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
@@ -102,9 +115,13 @@ func produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabas
 	// require to have the same vertica version
 	nmaVerticaVersionOp := MakeNMAVerticaVersionOp("NMAVerticaVersionOp", hosts, true)
 
-	username, errGetUser := util.GetCurrentUsername()
-	if errGetUser != nil {
-		return instructions, errGetUser
+	username := *options.UserName
+	if username == "" {
+		var errGetUser error
+		username, errGetUser = util.GetCurrentUsername()
+		if errGetUser != nil {
+			return instructions, errGetUser
+		}
 	}
 	vlog.LogInfo("Current username is %s", username)
 	// when checking the running database,

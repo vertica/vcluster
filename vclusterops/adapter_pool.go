@@ -63,7 +63,8 @@ func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) err
 	// we need this step as a host may not be in the pool
 	// in that case, we should not proceed
 	var adapterToRequestCollection []adapterToRequest
-	for host, request := range clusterHTTPRequest.RequestCollection {
+	for host := range clusterHTTPRequest.RequestCollection {
+		request := clusterHTTPRequest.RequestCollection[host]
 		adapter, ok := pool.connections[host]
 		if !ok {
 			return fmt.Errorf("host %s is not found in the adapter pool", host)
@@ -77,7 +78,8 @@ func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) err
 	// result channel to collect result from each host
 	resultChannel := make(chan HostHTTPResult, hostCount)
 
-	for _, ar := range adapterToRequestCollection {
+	for i := 0; i < len(adapterToRequestCollection); i++ {
+		ar := adapterToRequestCollection[i]
 		// send request to the hosts
 		// each goroutine will handle one request for one host
 		request := ar.request

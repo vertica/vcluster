@@ -16,7 +16,6 @@
 package vclusterops
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -63,8 +62,8 @@ type VCreateDatabaseOptions struct {
 	ConfigDirectory    *string
 
 	// hidden options (which cache information only)
-	username      string
-	bootstrapHost []string
+	cachedUsername string
+	bootstrapHost  []string
 }
 
 func VCreateDatabaseOptionsFactory() VCreateDatabaseOptions {
@@ -420,8 +419,9 @@ func VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, er
 	}
 	instructions = append(instructions, additionalInstructions...)
 
-	// create a VClusterOpEngine
-	clusterOpEngine := MakeClusterOpEngine(instructions)
+	// create a VClusterOpEngine, and add certs to the engine
+	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
@@ -475,11 +475,15 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 	nmaVerticaVersionOp := MakeNMAVerticaVersionOp("NMAVerticaVersionOp", hosts, true)
 
 	// need username for https operations
-	username, errGetUser := util.GetCurrentUsername()
-	if errGetUser != nil {
-		return instructions, errGetUser
+	username := *options.UserName
+	if username == "" {
+		var errGetUser error
+		username, errGetUser = util.GetCurrentUsername()
+		if errGetUser != nil {
+			return instructions, errGetUser
+		}
 	}
-	options.username = username
+	options.cachedUsername = username
 	vlog.LogInfo("Current username is %s", username)
 
 	checkDBRunningOp := MakeHTTPCheckRunningDBOp("HTTPCheckDBRunningOp", hosts,
@@ -549,7 +553,7 @@ func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *
 
 	hosts := vdb.HostList
 	bootstrapHost := options.bootstrapHost
-	username := options.username
+	username := options.cachedUsername
 
 	if !*options.SkipStartupPolling {
 		httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp("HTTPSPollNodeStateOp", hosts, true, username, options.Password)
@@ -600,7 +604,7 @@ func getInitiator(hosts []string) (string, error) {
 	//   if localhost is a part of the --hosts;
 	// but if none of the given hosts is localhost,
 	//   we should just nominate hosts[0] as the initiator to bootstrap catalog.
-	return hosts[0], errors.New(errMsg)
+	return hosts[0], nil
 }
 
 func produceTransferConfigOps(instructions *[]ClusterOp, bootstrapHost []string, vdb *VCoordinationDatabase) {

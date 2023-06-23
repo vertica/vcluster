@@ -16,6 +16,9 @@
 package vclusterops
 
 import (
+	"os"
+	"path"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,4 +47,61 @@ func TestBuildQueryParams(t *testing.T) {
 	// `/` is escaped with `%2F`
 	// `%` is escaped with `%25`
 	assert.Equal(t, queryParamString, "?path=%2Fthe%2Fdepot%2Fpath&size=10%25")
+}
+
+func getCertFilePathsMock() (certPaths certificatePaths, err error) {
+	basePath := "test_data"
+	certPaths.certFile = path.Join(basePath, "test.pem")
+	certPaths.keyFile = path.Join(basePath, "test.key")
+	certPaths.caFile = path.Join(basePath, "rootca.pem")
+	return certPaths, nil
+}
+
+func TestBuildCertsFromMemory(t *testing.T) {
+	adapter := HTTPAdapter{}
+
+	// get cert and cacert using buildCertsFromFile()
+	originalFunc := getCertFilePaths
+	// use the mock function in buildCertsFromFile()
+	getCertFilePathsFn = getCertFilePathsMock
+	cert1, caCertPool1, err := adapter.buildCertsFromFile()
+	if err != nil {
+		t.Errorf("fail to execute buildCertsFromFile() %v", err)
+	}
+	getCertFilePathsFn = originalFunc
+
+	// get cert and cacert using buildCertsFromMemory()
+	certPaths, err := getCertFilePathsMock()
+	if err != nil {
+		t.Errorf("fail to get paths for certificates, details %v", err)
+	}
+	key, err := os.ReadFile(certPaths.keyFile)
+	if err != nil {
+		t.Errorf("fail to load HTTPS key, details %v", err)
+	}
+	cert, err := os.ReadFile(certPaths.certFile)
+	if err != nil {
+		t.Errorf("fail to load HTTPS certificate, details %v", err)
+	}
+	caCert, err := os.ReadFile(certPaths.caFile)
+	if err != nil {
+		t.Errorf("fail to load HTTPS CA certificates, details %v", err)
+	}
+	cert2, caCertPool2, err := adapter.buildCertsFromMemory(string(key), string(cert), string(caCert))
+	if err != nil {
+		t.Errorf("fail to execute buildCertsFromFile() %v", err)
+	}
+
+	// compare tls.Certificate
+	if !reflect.DeepEqual(cert1.Certificate, cert2.Certificate) {
+		t.Errorf("Certificates are not the same")
+	}
+	if !reflect.DeepEqual(cert1.PrivateKey, cert2.PrivateKey) {
+		t.Errorf("Private keys are not the same")
+	}
+
+	// Compare x509.CertPool
+	if !caCertPool1.Equal(caCertPool2) {
+		t.Errorf("Cert Pools are not the same")
+	}
 }

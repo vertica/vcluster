@@ -37,13 +37,24 @@ type VStopDatabaseOptions struct {
 type VStopDatabaseInfo struct {
 	DBName       string
 	Hosts        []string
+	UserName     string
 	Password     *string
 	DrainSeconds *int
 }
 
 func VStopDatabaseOptionsFactory() VStopDatabaseOptions {
-	newOptions := VStopDatabaseOptions{}
-	return newOptions
+	opt := VStopDatabaseOptions{}
+	// set default values to the params
+	opt.SetDefaultValues()
+
+	return opt
+}
+
+func (options *VStopDatabaseOptions) SetDefaultValues() {
+	options.DatabaseOptions.SetDefaultValues()
+
+	options.CheckUserConn = new(bool)
+	options.ForceKill = new(bool)
 }
 
 func (options *VStopDatabaseOptions) ValidateRequiredOptions() error {
@@ -224,6 +235,7 @@ func VStopDatabase(options *VStopDatabaseOptions) (string, error) {
 
 	// build stopDBInfo from config file and options
 	stopDBInfo := new(VStopDatabaseInfo)
+	stopDBInfo.UserName = *options.UserName
 	stopDBInfo.Password = options.Password
 	stopDBInfo.DrainSeconds = options.DrainSeconds
 	stopDBInfo.DBName, stopDBInfo.Hosts = GetNameAndHosts(options, config)
@@ -234,8 +246,9 @@ func VStopDatabase(options *VStopDatabaseOptions) (string, error) {
 		return "", err
 	}
 
-	// Create a VClusterOpEngine
-	clusterOpEngine := MakeClusterOpEngine(instructions)
+	// Create a VClusterOpEngine, and add certs to the engine
+	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
@@ -259,12 +272,14 @@ func produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo) ([]ClusterOp, erro
 
 	// when password is specified, we will use username/password to call https endpoints
 	useHTTPPassword := false
-	username := ""
+	username := stopDBInfo.UserName
 	if stopDBInfo.Password != nil {
 		var errGetUser error
-		username, errGetUser = util.GetCurrentUsername()
-		if errGetUser != nil {
-			return instructions, errGetUser
+		if username == "" {
+			username, errGetUser = util.GetCurrentUsername()
+			if errGetUser != nil {
+				return instructions, errGetUser
+			}
 		}
 		vlog.LogInfo("Current username is %s", username)
 		useHTTPPassword = true

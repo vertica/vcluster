@@ -97,7 +97,7 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 	req, err := http.NewRequest(request.Method, requestURL, requestBody)
 	if err != nil {
 		errMessage := fmt.Sprintf("fail to build request %v on host %s, details %s",
-			request, adapter.host, err.Error())
+			request.Endpoint, adapter.host, err.Error())
 		resultChannel <- adapter.makeExceptionResult(errMessage)
 		return
 	}
@@ -112,7 +112,7 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 	resp, err := client.Do(req)
 	if err != nil {
 		errMessage := fmt.Sprintf("fail to send request %v on host %s, details %s",
-			request, adapter.host, err.Error())
+			request.Endpoint, adapter.host, err.Error())
 		resultChannel <- adapter.makeExceptionResult(errMessage)
 		return
 	}
@@ -190,6 +190,12 @@ func whetherUsePassword(request *HostHTTPRequest) (bool, error) {
 	}
 
 	// otherwise, use certs
+	// a. use certs in options
+	if request.UseCertsInOptions {
+		return false, nil
+	}
+
+	// b. use certs in local path
 	_, err := getCertFilePaths()
 	if err != nil {
 		// in case that the cert files do not exist
@@ -199,10 +205,13 @@ func whetherUsePassword(request *HostHTTPRequest) (bool, error) {
 	return false, nil
 }
 
-func (adapter *HTTPAdapter) buildCerts(resultChannel chan<- HostHTTPResult) (tls.Certificate, *x509.CertPool, error) {
-	certPaths, err := getCertFilePaths()
+// this variable is for unit test, be careful to modify it
+var getCertFilePathsFn = getCertFilePaths
+
+func (adapter *HTTPAdapter) buildCertsFromFile() (tls.Certificate, *x509.CertPool, error) {
+	certPaths, err := getCertFilePathsFn()
 	if err != nil {
-		return tls.Certificate{}, nil, fmt.Errorf("fail to get username for certificates, details %w", err)
+		return tls.Certificate{}, nil, fmt.Errorf("fail to get paths for certificates, details %w", err)
 	}
 
 	cert, err := tls.LoadX509KeyPair(certPaths.certFile, certPaths.keyFile)
@@ -212,12 +221,27 @@ func (adapter *HTTPAdapter) buildCerts(resultChannel chan<- HostHTTPResult) (tls
 
 	caCert, err := os.ReadFile(certPaths.caFile)
 	if err != nil {
-		return cert, nil, fmt.Errorf("fail to load CA cert, details %w", err)
+		return cert, nil, fmt.Errorf("fail to load HTTPS CA certificates, details %w", err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	return cert, caCertPool, nil
+}
+
+func (adapter *HTTPAdapter) buildCertsFromMemory(key, cert, caCert string) (tls.Certificate, *x509.CertPool, error) {
+	certificate, err := tls.X509KeyPair([]byte(cert), []byte(key))
+	if err != nil {
+		return certificate, nil, fmt.Errorf("fail to load HTTPS certificates, details %w", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	ok := caCertPool.AppendCertsFromPEM([]byte(caCert))
+	if !ok {
+		return certificate, nil, fmt.Errorf("fail to load HTTPS CA certificates")
+	}
+
+	return certificate, caCertPool, nil
 }
 
 func (adapter *HTTPAdapter) setupHTTPClient(
@@ -247,7 +271,14 @@ func (adapter *HTTPAdapter) setupHTTPClient(
 			},
 		}
 	} else {
-		cert, caCertPool, err := adapter.buildCerts(resultChannel)
+		var cert tls.Certificate
+		var caCertPool *x509.CertPool
+		var err error
+		if request.UseCertsInOptions {
+			cert, caCertPool, err = adapter.buildCertsFromMemory(request.Certs.key, request.Certs.cert, request.Certs.caCert)
+		} else {
+			cert, caCertPool, err = adapter.buildCertsFromFile()
+		}
 		if err != nil {
 			return client, err
 		}

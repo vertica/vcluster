@@ -25,6 +25,16 @@ type HostHTTPRequest struct {
 	// string pointer is used here as we need to check whether the password has been set
 	Password *string // optional, for HTTPS endpoints only
 	Timeout  int     // optional, set it if an Op needs longer time to complete
+
+	// optional, for calling NMA/Vertica HTTPS endpoints. If Username/Password is set, that takes precedence over this for HTTPS calls.
+	UseCertsInOptions bool
+	Certs             HTTPSCerts
+}
+
+type HTTPSCerts struct {
+	key    string
+	cert   string
+	caCert string
 }
 
 func (req *HostHTTPRequest) BuildNMAEndpoint(url string) {
