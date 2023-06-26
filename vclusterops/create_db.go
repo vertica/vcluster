@@ -393,7 +393,7 @@ func (opt *VCreateDatabaseOptions) ValidateAnalyzeOptions() error {
 	return nil
 }
 
-func VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error) {
+func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine

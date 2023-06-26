@@ -206,7 +206,8 @@ func (c *CmdCreateDB) Analyze() error {
 
 func (c *CmdCreateDB) Run() error {
 	vlog.LogInfoln("Called method Run()")
-	vdb, createError := vclusterops.VCreateDatabase(c.createDBOptions)
+	vcc := vclusterops.VClusterCommands{}
+	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
 		return createError
 	}

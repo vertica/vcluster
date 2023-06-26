@@ -277,3 +277,8 @@ type OpHTTPBase struct {
 }
 
 // we may add some common functions for OpHTTPBase here
+
+// VClusterCommands is for vcluster-ops library user to do mocking test in their program
+// The user can mock VCreateDatabase, VStopDatabase ... in their unit tests
+type VClusterCommands struct {
+}

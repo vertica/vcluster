@@ -194,7 +194,7 @@ func (options *VStopDatabaseOptions) ValidateAnalyzeOptions(config *ClusterConfi
 	return nil
 }
 
-func VStopDatabase(options *VStopDatabaseOptions) (string, error) {
+func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) (string, error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine

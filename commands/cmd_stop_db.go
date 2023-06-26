@@ -140,7 +140,8 @@ func (c *CmdStopDB) Analyze() error {
 
 func (c *CmdStopDB) Run() error {
 	vlog.LogInfoln("Called method Run()")
-	dbName, stopError := vclusterops.VStopDatabase(c.stopDBOptions)
+	vcc := vclusterops.VClusterCommands{}
+	dbName, stopError := vcc.VStopDatabase(c.stopDBOptions)
 	if stopError != nil {
 		return stopError
 	}
