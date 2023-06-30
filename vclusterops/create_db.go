@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -364,7 +365,7 @@ func (opt *VCreateDatabaseOptions) ValidateParseOptions() error {
 // Do advanced analysis on the options inputs, like resolve hostnames to be IPs
 func (opt *VCreateDatabaseOptions) AnalyzeOptions() error {
 	// resolve RawHosts to be IP addresses
-	hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, *opt.Ipv6)
+	hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.Ipv6.ToBool())
 	if err != nil {
 		return err
 	}
@@ -464,10 +465,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 	var instructions []ClusterOp
 
 	hosts := vdb.HostList
-	initiator, err := getInitiator(hosts)
-	if err != nil {
-		return instructions, err
-	}
+	initiator := getInitiator(hosts)
 
 	nmaHealthOp := MakeNMAHealthOp("NMAHealthOp", hosts)
 
@@ -583,28 +581,11 @@ func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *
 	return instructions, nil
 }
 
-func getInitiator(hosts []string) (string, error) {
-	errMsg := "fail to find initiator node from the host list"
+func getInitiator(hosts []string) string {
+	// we sort the host IPs then assign the first IP as initiator.
+	sort.Strings(hosts)
 
-	for _, host := range hosts {
-		isLocalHost, err := util.IsLocalHost(host)
-		if err != nil {
-			return "", fmt.Errorf("%s, %w", errMsg, err)
-		}
-
-		if isLocalHost {
-			return host, nil
-		}
-	}
-
-	// If none of the hosts is localhost, we assign the first host as initiator.
-	// Our assumptions is that vcluster and vclusterops are not always running on a host,
-	// that is a part of vertica cluster.
-	// Therefore, we can of course prioritize localhost,
-	//   if localhost is a part of the --hosts;
-	// but if none of the given hosts is localhost,
-	//   we should just nominate hosts[0] as the initiator to bootstrap catalog.
-	return hosts[0], nil
+	return hosts[0]
 }
 
 func produceTransferConfigOps(instructions *[]ClusterOp, bootstrapHost []string, vdb *VCoordinationDatabase) {

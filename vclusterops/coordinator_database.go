@@ -39,7 +39,7 @@ type VCoordinationDatabase struct {
 	DataPrefix    string
 	HostNodeMap   map[string]VCoordinationNode
 	// for convenience
-	HostList []string
+	HostList []string // expected to be resolved IP addresses
 
 	// Eon params, the boolean values are for convenience
 	IsEon                   bool
@@ -78,7 +78,7 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 	vdb.HostList = options.Hosts
 	vdb.HostNodeMap = make(map[string]VCoordinationNode)
 	vdb.LicensePathOnNode = *options.LicensePathOnNode
-	vdb.Ipv6 = *options.Ipv6
+	vdb.Ipv6 = options.Ipv6.ToBool()
 
 	// section 2: eon info
 	vdb.IsEon = false
@@ -196,7 +196,7 @@ func (vnode *VCoordinationNode) SetFromCreateDBOptions(
 			depotSuffix := fmt.Sprintf("%s_depot", vnode.Name)
 			vnode.DepotPath = filepath.Join(*options.DepotPrefix, dbName, depotSuffix)
 		}
-		if *options.Ipv6 {
+		if options.Ipv6.ToBool() {
 			vnode.ControlAddressFamily = util.IPv6ControlAddressFamily
 		} else {
 			vnode.ControlAddressFamily = util.DefaultControlAddressFamily

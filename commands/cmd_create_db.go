@@ -23,6 +23,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 )
 
 /* CmdCreateDB
@@ -84,7 +85,7 @@ func MakeCmdCreateDB() CmdCreateDB {
 		"Comma-separated list of NAME=VALUE pairs for setting database configuration parametesr immediately on database creation"))
 
 	// new flags comparing to adminTools create_db
-	createDBOptions.Ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Create database with IPv6 hosts"))
+	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Create database with IPv6 hosts"))
 	// by default use pt2pt mode
 	createDBOptions.P2p = newCmd.parser.Bool("point-to-point", true,
 		util.GetOptionalFlagMsg("Configure Spread to use point-to-point communication between all Vertica nodes"))
@@ -146,10 +147,9 @@ func (c *CmdCreateDB) Parse(inputArgv []string) error {
 	}
 
 	if util.IsOptionSet(c.parser, "depot-path") {
-		c.createDBOptions.IsEon = new(bool)
-		*c.createDBOptions.IsEon = true
+		c.createDBOptions.IsEon = vstruct.True
 	} else {
-		c.createDBOptions.IsEon = nil
+		c.createDBOptions.IsEon = vstruct.False
 	}
 
 	return c.validateParse()
@@ -164,6 +164,9 @@ func (c *CmdCreateDB) validateParse() error {
 	if err != nil {
 		return err
 	}
+
+	// parse Ipv6
+	c.createDBOptions.Ipv6.FromBoolPointer(c.CmdBase.ipv6)
 
 	// check the format of config param string, and parse it into configParams
 	err = c.parseConfigParams()

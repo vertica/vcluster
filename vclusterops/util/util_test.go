@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,6 +27,14 @@ import (
 )
 
 type NMAHealthOpResponse map[string]string
+
+func redirectLog() *bytes.Buffer {
+	// redirect log to a local bytes.Buffer
+	var logBuffer bytes.Buffer
+	log.SetOutput(&logBuffer)
+
+	return &logBuffer
+}
 
 func TestGetJSONLogErrors(t *testing.T) {
 	/* positive case
@@ -44,34 +50,17 @@ func TestGetJSONLogErrors(t *testing.T) {
 
 	/* netative case
 	 */
-	// redirect log to a local bytes.Buffer
-	var logStr bytes.Buffer
-	log.SetOutput(&logStr)
+	logBuffer := redirectLog()
 
 	resultContent = `{"healthy": 123}`
 	err = GetJSONLogErrors(resultContent, &responseObj, "")
 
 	assert.NotNil(t, err)
-	assert.Contains(t, logStr.String(), "[ERROR] fail to unmarshal the response content")
+	assert.Contains(t, logBuffer.String(), "[ERROR] fail to unmarshal the response content")
 
 	err = GetJSONLogErrors(resultContent, &responseObj, "NMAHealthOp")
 	assert.NotNil(t, err)
-	assert.Contains(t, logStr.String(), "[ERROR] [NMAHealthOp] fail to unmarshal the response content")
-}
-
-func TestIsLocalHost(t *testing.T) {
-	// test providing host name
-	localHostName, _ := os.Hostname()
-	isLocalHost, err := IsLocalHost(localHostName)
-	assert.Nil(t, err)
-	assert.True(t, isLocalHost)
-
-	// test providing IP address
-	localHostAddresses, _ := net.LookupIP(localHostName)
-	localAddr := localHostAddresses[0].String()
-	isLocalHost, err = IsLocalHost(localAddr)
-	assert.Nil(t, err)
-	assert.True(t, isLocalHost)
+	assert.Contains(t, logBuffer.String(), "[ERROR] [NMAHealthOp] fail to unmarshal the response content")
 }
 
 func TestStringInArray(t *testing.T) {

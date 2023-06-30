@@ -20,6 +20,7 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"golang.org/x/exp/slices"
 )
 
@@ -28,14 +29,14 @@ type DatabaseOptions struct {
 	Name            *string
 	RawHosts        []string // expected to be IP addresses or hostnames
 	Hosts           []string // expected to be IP addresses resolved from RawHosts
-	Ipv6            *bool
+	Ipv6            vstruct.NullableBool
 	CatalogPrefix   *string
 	DataPrefix      *string
 	ConfigDirectory *string
 
 	// part 2: Eon database info
 	DepotPrefix *string
-	IsEon       *bool
+	IsEon       vstruct.NullableBool
 
 	// part 3: authentication info
 	UserName *string
@@ -51,20 +52,19 @@ type DatabaseOptions struct {
 
 func (opt *DatabaseOptions) SetDefaultValues() {
 	opt.Name = new(string)
-	opt.Ipv6 = new(bool)
 	opt.CatalogPrefix = new(string)
 	opt.DataPrefix = new(string)
 	opt.DepotPrefix = new(string)
 	opt.UserName = new(string)
+	opt.HonorUserInput = new(bool)
+	opt.Ipv6 = vstruct.NotSet
+	opt.IsEon = vstruct.NotSet
 }
 
 func (opt *DatabaseOptions) CheckNilPointerParams() error {
 	// basic params
 	if opt.Name == nil {
 		return util.ParamNotSetErrorMsg("name")
-	}
-	if opt.Ipv6 == nil {
-		return util.ParamNotSetErrorMsg("ipv6")
 	}
 	if opt.CatalogPrefix == nil {
 		return util.ParamNotSetErrorMsg("catalog-path")
@@ -144,7 +144,7 @@ func (opt *DatabaseOptions) ValidatePaths(commandName string) error {
 	}
 
 	// depot prefix
-	if opt.IsEon != nil && *opt.IsEon {
+	if opt.IsEon == vstruct.True {
 		err = util.ValidateRequiredAbsPath(opt.DepotPrefix, "depot path")
 		if err != nil {
 			return err

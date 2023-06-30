@@ -29,7 +29,7 @@ func (options *VDropDatabaseOptions) SetDefaultValues() {
 }
 
 func (options *VDropDatabaseOptions) AnalyzeOptions() error {
-	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, *options.Ipv6)
+	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
 	if err != nil {
 		return err
 	}

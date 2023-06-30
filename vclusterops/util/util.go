@@ -257,37 +257,6 @@ func CheckMissingFields(object any) error {
 	return nil
 }
 
-// IsLocalHost decides whether an address or host name is local host
-func IsLocalHost(host string) (bool, error) {
-	// get local host name
-	localHostName, err := os.Hostname()
-	if err != nil {
-		return false, err
-	}
-
-	// get local host addresses
-	localHostAddresses, err := net.LookupIP(localHostName)
-	if err != nil {
-		return false, err
-	}
-
-	// check whether the input address matches any local addresses
-	for _, localAddr := range localHostAddresses {
-		inputAddresses, err := net.LookupIP(host)
-		if err != nil {
-			return false, err
-		}
-
-		for _, inputAddr := range inputAddresses {
-			if inputAddr.Equal(localAddr) {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 // when password is given, the user name cannot be empty
 func ValidateUsernameAndPassword(useHTTPPassword bool, userName string) {
 	if useHTTPPassword && userName == "" {

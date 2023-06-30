@@ -102,7 +102,7 @@ func (op *NMABootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 		}
 		bootstrapData.SpreadLogging = *options.SpreadLogging
 		bootstrapData.SpreadLoggingLevel = *options.SpreadLoggingLevel
-		bootstrapData.Ipv6 = *options.Ipv6
+		bootstrapData.Ipv6 = options.Ipv6.ToBool()
 		bootstrapData.DBPassword = *options.Password
 
 		// Eon params

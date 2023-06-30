@@ -18,6 +18,8 @@ type CmdBase struct {
 	parser *flag.FlagSet
 
 	hostListStr *string // raw string from user input, need further processing
+	isEon       *bool   // need further processing to see if the user inputted this flag or not
+	ipv6        *bool   // need further processing to see if the user inputted this flag or not
 }
 
 // convert a host string into a list of hosts,

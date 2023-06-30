@@ -22,6 +22,7 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 )
 
 type VStopDatabaseOptions struct {
@@ -136,7 +137,7 @@ func (options *VStopDatabaseOptions) AnalyzeOptions() error {
 			if host == "" {
 				return fmt.Errorf("invalid empty host found in the provided host list")
 			}
-			addr, err := util.ResolveToOneIP(host, *options.Ipv6)
+			addr, err := util.ResolveToOneIP(host, options.Ipv6.ToBool())
 			if err != nil {
 				return err
 			}
@@ -151,16 +152,13 @@ func IsEonMode(options *VStopDatabaseOptions, config *ClusterConfig) bool {
 	// when config file is not available, we use user input
 	// at this time HonorUserInput must be true
 	if config == nil {
-		if options.IsEon == nil {
-			return false
-		}
-		return *options.IsEon
+		return options.IsEon.ToBool()
 	}
 
 	isEon := config.IsEon
 	// if HonorUserInput is set, we choose the user input
-	if options.IsEon != nil && *options.HonorUserInput {
-		isEon = *options.IsEon
+	if options.IsEon != vstruct.NotSet && *options.HonorUserInput {
+		isEon = options.IsEon.ToBool()
 	}
 	return isEon
 }

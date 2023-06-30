@@ -26,7 +26,7 @@ func MakeCmdDropDB() CmdDropDB {
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
 
 	dropDBOptions := vclusterops.VDropDatabaseOptionsFactory()
-	dropDBOptions.Ipv6 = newCmd.parser.Bool("ipv6", false, "Drop database with IPv6 hosts")
+	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, "Drop database with IPv6 hosts")
 	dropDBOptions.ForceDelete = newCmd.parser.Bool("force-delete", false, "Whether force delete directories if they are not empty")
 	dropDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "", "Directory where "+vclusterops.ConfigFileName+" is located")
 
@@ -70,6 +70,9 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 	if !util.IsOptionSet(c.parser, "config-directory") {
 		c.dropDBOptions.ConfigDirectory = nil
 	}
+	if !util.IsOptionSet(c.parser, "ipv6") {
+		c.CmdBase.ipv6 = nil
+	}
 
 	return c.validateParse()
 }
@@ -77,12 +80,14 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 func (c *CmdDropDB) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
-	// parse raw host str input into a []string of stopDBOptions
 	if *c.dropDBOptions.HonorUserInput {
+		// parse raw host str input into a []string of stopDBOptions
 		err := c.ParseHostList(&c.dropDBOptions.DatabaseOptions)
 		if err != nil {
 			return err
 		}
+		// parse Ipv6
+		c.dropDBOptions.Ipv6.FromBoolPointer(c.CmdBase.ipv6)
 	}
 
 	return nil
