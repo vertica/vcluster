@@ -24,6 +24,7 @@ import (
 type VClusterOpEngine struct {
 	instructions []ClusterOp
 	certs        *HTTPSCerts
+	execContext  *OpEngineExecContext
 }
 
 func MakeClusterOpEngine(instructions []ClusterOp, certs *HTTPSCerts) VClusterOpEngine {
@@ -41,6 +42,7 @@ func (opEngine *VClusterOpEngine) Run() error {
 	var statusCode = SUCCESS
 
 	execContext := MakeOpEngineExecContext()
+	opEngine.execContext = &execContext
 
 	findCertsInOptions := opEngine.shouldGetCertsFromOptions()
 

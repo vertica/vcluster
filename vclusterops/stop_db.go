@@ -238,7 +238,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) (strin
 	stopDBInfo.DrainSeconds = options.DrainSeconds
 	stopDBInfo.DBName, stopDBInfo.Hosts = GetNameAndHosts(options, config)
 
-	instructions, err := produceStopDBInstructions(stopDBInfo)
+	instructions, err := produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %w", err)
 		return "", err
@@ -265,31 +265,28 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) (strin
 	3. Check there is not any database running
 */
 
-func produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo) ([]ClusterOp, error) {
+func produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo,
+	options *VStopDatabaseOptions,
+) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	// when password is specified, we will use username/password to call https endpoints
-	useHTTPPassword := false
-	username := stopDBInfo.UserName
+	usePassword := false
 	if stopDBInfo.Password != nil {
-		var errGetUser error
-		if username == "" {
-			username, errGetUser = util.GetCurrentUsername()
-			if errGetUser != nil {
-				return instructions, errGetUser
-			}
+		usePassword = true
+		err := options.ValidateUserName()
+		if err != nil {
+			return instructions, err
 		}
-		vlog.LogInfo("Current username is %s", username)
-		useHTTPPassword = true
 	}
 
 	httpsGetUpNodesOp := MakeHTTPSGetUpNodesOp("HTTPSGetUpNodesOp", stopDBInfo.DBName, stopDBInfo.Hosts,
-		useHTTPPassword, username, stopDBInfo.Password)
+		usePassword, *options.UserName, stopDBInfo.Password)
 
-	httpsStopDBOp := MakeHTTPSStopDBOp("HTTPSStopDBOp", useHTTPPassword, username, stopDBInfo.Password, stopDBInfo.DrainSeconds)
+	httpsStopDBOp := MakeHTTPSStopDBOp("HTTPSStopDBOp", usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds)
 
 	httpsCheckDBRunningOp := MakeHTTPCheckRunningDBOp("HTTPSCheckDBRunningOp", stopDBInfo.Hosts,
-		useHTTPPassword, username, stopDBInfo.Password, StopDB)
+		usePassword, *options.UserName, stopDBInfo.Password, StopDB)
 
 	instructions = append(instructions,
 		&httpsGetUpNodesOp,

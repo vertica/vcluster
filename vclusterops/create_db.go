@@ -63,8 +63,7 @@ type VCreateDatabaseOptions struct {
 	ConfigDirectory    *string
 
 	// hidden options (which cache information only)
-	cachedUsername string
-	bootstrapHost  []string
+	bootstrapHost []string
 }
 
 func VCreateDatabaseOptionsFactory() VCreateDatabaseOptions {
@@ -473,19 +472,13 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 	nmaVerticaVersionOp := MakeNMAVerticaVersionOp("NMAVerticaVersionOp", hosts, true)
 
 	// need username for https operations
-	username := *options.UserName
-	if username == "" {
-		var errGetUser error
-		username, errGetUser = util.GetCurrentUsername()
-		if errGetUser != nil {
-			return instructions, errGetUser
-		}
+	err := options.ValidateUserName()
+	if err != nil {
+		return instructions, err
 	}
-	options.cachedUsername = username
-	vlog.LogInfo("Current username is %s", username)
 
 	checkDBRunningOp := MakeHTTPCheckRunningDBOp("HTTPCheckDBRunningOp", hosts,
-		true /* use password auth */, username, options.Password, CreateDB)
+		true /* use password auth */, *options.UserName, options.Password, CreateDB)
 
 	nmaPrepareDirectoriesOp, err := MakeNMAPrepareDirectoriesOp("NMAPrepareDirectoriesOp", vdb.HostNodeMap)
 	if err != nil {
@@ -510,7 +503,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 
 	nmaStartNodeOp := MakeNMAStartNodeOp("NMAStartNodeOp", bootstrapHost)
 
-	httpsPollBootstrapNodeStateOp := MakeHTTPSPollNodeStateOp("HTTPSPollNodeStateOp", bootstrapHost, true, username, options.Password)
+	httpsPollBootstrapNodeStateOp := MakeHTTPSPollNodeStateOp("HTTPSPollNodeStateOp", bootstrapHost, true, *options.UserName, options.Password)
 
 	instructions = append(instructions,
 		&nmaHealthOp,
@@ -526,11 +519,11 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 
 	if len(hosts) > 1 {
 		httpCreateNodeOp := MakeHTTPCreateNodeOp("HTTPCreateNodeOp", bootstrapHost,
-			true /* use password auth */, username, options.Password, vdb)
+			true /* use password auth */, *options.UserName, options.Password, vdb)
 		instructions = append(instructions, &httpCreateNodeOp)
 	}
 
-	httpsReloadSpreadOp := MakeHTTPSReloadSpreadOp("HTTPSReloadSpreadOp", bootstrapHost, true, username, options.Password)
+	httpsReloadSpreadOp := MakeHTTPSReloadSpreadOp("HTTPSReloadSpreadOp", bootstrapHost, true, *options.UserName, options.Password)
 	instructions = append(instructions, &httpsReloadSpreadOp)
 
 	if len(hosts) > 1 {
@@ -551,7 +544,7 @@ func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *
 
 	hosts := vdb.HostList
 	bootstrapHost := options.bootstrapHost
-	username := options.cachedUsername
+	username := *options.UserName
 
 	if !*options.SkipStartupPolling {
 		httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp("HTTPSPollNodeStateOp", hosts, true, username, options.Password)

@@ -64,8 +64,8 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if util.IsOptionSet(c.parser, "password") {
-		c.dropDBOptions.UsePassword = true
+	if !util.IsOptionSet(c.parser, "password") {
+		c.dropDBOptions.Password = nil
 	}
 	if !util.IsOptionSet(c.parser, "config-directory") {
 		c.dropDBOptions.ConfigDirectory = nil
@@ -81,7 +81,7 @@ func (c *CmdDropDB) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
 	if *c.dropDBOptions.HonorUserInput {
-		// parse raw host str input into a []string of stopDBOptions
+		// parse raw host str input into a []string
 		err := c.ParseHostList(&c.dropDBOptions.DatabaseOptions)
 		if err != nil {
 			return err

@@ -13,7 +13,6 @@ import (
 type VDropDatabaseOptions struct {
 	VCreateDatabaseOptions
 	ForceDelete *bool
-	UsePassword bool
 }
 
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
@@ -22,10 +21,6 @@ func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	opt.SetDefaultValues()
 
 	return opt
-}
-
-func (options *VDropDatabaseOptions) SetDefaultValues() {
-	options.DatabaseOptions.SetDefaultValues()
 }
 
 func (options *VDropDatabaseOptions) AnalyzeOptions() error {
@@ -109,25 +104,24 @@ func produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabas
 	var instructions []ClusterOp
 
 	hosts := vdb.HostList
+	usePassword := false
+	if options.Password != nil {
+		usePassword = true
+		err := options.ValidateUserName()
+		if err != nil {
+			return instructions, err
+		}
+	}
 
 	nmaHealthOp := MakeNMAHealthOp("NMAHealthOp", hosts)
 
 	// require to have the same vertica version
 	nmaVerticaVersionOp := MakeNMAVerticaVersionOp("NMAVerticaVersionOp", hosts, true)
 
-	username := *options.UserName
-	if username == "" {
-		var errGetUser error
-		username, errGetUser = util.GetCurrentUsername()
-		if errGetUser != nil {
-			return instructions, errGetUser
-		}
-	}
-	vlog.LogInfo("Current username is %s", username)
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
 	checkDBRunningOp := MakeHTTPCheckRunningDBOp("HTTPCheckDBRunningOp", hosts,
-		options.UsePassword, username, options.Password, CreateDB)
+		usePassword, *options.UserName, options.Password, CreateDB)
 
 	nmaDeleteDirectoriesOp, err := MakeNMADeleteDirectoriesOp("NMADeleteDirectoriesOp", vdb, *options.ForceDelete)
 	if err != nil {

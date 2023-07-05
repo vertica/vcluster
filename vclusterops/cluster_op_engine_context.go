@@ -20,6 +20,7 @@ type OpEngineExecContext struct {
 	networkProfiles map[string]NetworkProfile
 	nmaVDatabase    NmaVDatabase
 	upHosts         []string
+	nodeStates      []NodeInfo
 }
 
 func MakeOpEngineExecContext() OpEngineExecContext {

@@ -183,3 +183,16 @@ func (opt *DatabaseOptions) ParseHostList(hosts string) error {
 
 	return nil
 }
+
+func (opt *DatabaseOptions) ValidateUserName() error {
+	if *opt.UserName == "" {
+		username, err := util.GetCurrentUsername()
+		if err != nil {
+			return err
+		}
+		*opt.UserName = username
+	}
+	vlog.LogInfo("Current username is %s", *opt.UserName)
+
+	return nil
+}

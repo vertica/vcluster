@@ -121,7 +121,7 @@ func (op *NMAVerticaVersionOp) logCheckVersionMatch() ClusterOpResult {
 	for host, version := range op.HostVersionMap {
 		vlog.LogInfo("[%s] Host {%s}: version {s%}", op.name, host, version)
 		if version == "" {
-			vlog.LogError("[%s] No Version version collected for host: [%s]", op.name, host)
+			vlog.LogError("[%s] No version collected for host: [%s]", op.name, host)
 			return MakeClusterOpResultFail()
 		} else if versionStr == NoVersion {
 			// first time seeing a valid version, set it as the versionStr
@@ -133,7 +133,7 @@ func (op *NMAVerticaVersionOp) logCheckVersionMatch() ClusterOpResult {
 	}
 	// no version collected at all
 	if versionStr == NoVersion {
-		vlog.LogError("[s%] No Version version collected for all hosts", op.name)
+		vlog.LogError("[%s] No version collected for all hosts", op.name)
 		return MakeClusterOpResultFail()
 	}
 	return MakeClusterOpResultPass()
