@@ -52,7 +52,7 @@ func (options *VFetchNodeStateOptions) ValidateAnalyzeOptions() error {
 }
 
 // VFetchNodeState fetches node states (e.g., up or down) in the cluster
-func VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error) {
+func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine

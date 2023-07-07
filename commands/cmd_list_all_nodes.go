@@ -84,7 +84,8 @@ func (c *CmdListAllNodes) Analyze() error {
 func (c *CmdListAllNodes) Run() error {
 	vlog.LogInfoln("Called method Run()")
 
-	nodeStates, err := vclusterops.VFetchNodeState(c.fetchNodeStateOptions)
+	vcc := vclusterops.VClusterCommands{}
+	nodeStates, err := vcc.VFetchNodeState(c.fetchNodeStateOptions)
 	if err != nil {
 		// if all nodes are down, the nodeStates list is not empty
 		// for this case, we don't want to show errors but show DOWN for the nodes
