@@ -25,14 +25,14 @@ type HTTPCheckNodeStateOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPCheckNodeStateOp(name string,
+func MakeHTTPCheckNodeStateOp(opName string,
 	hosts []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,
 ) HTTPCheckNodeStateOp {
 	nodeStateChecker := HTTPCheckNodeStateOp{}
-	nodeStateChecker.name = name
+	nodeStateChecker.name = opName
 	// The hosts are the ones we are going to talk to.
 	// They can be a subset of the actual host information that we return,
 	// as if any of the hosts is responsive, spread can give us the info of all nodes

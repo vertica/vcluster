@@ -18,7 +18,6 @@ package vclusterops
 import (
 	"fmt"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -197,7 +196,7 @@ func (opt *VCreateDatabaseOptions) CheckExtraNilPointerParams() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) ValidateRequiredOptions() error {
+func (opt *VCreateDatabaseOptions) validateRequiredOptions() error {
 	// validate required parameters with default values
 	if opt.Password == nil {
 		opt.Password = new(string)
@@ -292,7 +291,7 @@ func validateDepotSize(size string) (bool, error) {
 	return true, nil
 }
 
-func (opt *VCreateDatabaseOptions) ValidateEonOptions() error {
+func (opt *VCreateDatabaseOptions) validateEonOptions() error {
 	if *opt.CommunalStorageLocation != "" {
 		if *opt.DepotPrefix == "" {
 			return fmt.Errorf("must specify a depot path with commual storage location")
@@ -319,7 +318,7 @@ func (opt *VCreateDatabaseOptions) ValidateEonOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) ValidateExtraOptions() error {
+func (opt *VCreateDatabaseOptions) validateExtraOptions() error {
 	if *opt.Broadcast && *opt.P2p {
 		return fmt.Errorf("cannot use both Broadcast and Point-to-point networking mode")
 	}
@@ -330,7 +329,7 @@ func (opt *VCreateDatabaseOptions) ValidateExtraOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) ValidateParseOptions() error {
+func (opt *VCreateDatabaseOptions) validateParseOptions() error {
 	// check nil pointers in the required options
 	err := opt.CheckNilPointerParams()
 	if err != nil {
@@ -344,17 +343,17 @@ func (opt *VCreateDatabaseOptions) ValidateParseOptions() error {
 	}
 
 	// batch 1: validate required parameters without default values
-	err = opt.ValidateRequiredOptions()
+	err = opt.validateRequiredOptions()
 	if err != nil {
 		return err
 	}
 	// batch 2: validate eon params
-	err = opt.ValidateEonOptions()
+	err = opt.validateEonOptions()
 	if err != nil {
 		return err
 	}
 	// batch 3: validate all other params
-	err = opt.ValidateExtraOptions()
+	err = opt.validateExtraOptions()
 	if err != nil {
 		return err
 	}
@@ -362,7 +361,7 @@ func (opt *VCreateDatabaseOptions) ValidateParseOptions() error {
 }
 
 // Do advanced analysis on the options inputs, like resolve hostnames to be IPs
-func (opt *VCreateDatabaseOptions) AnalyzeOptions() error {
+func (opt *VCreateDatabaseOptions) analyzeOptions() error {
 	// resolve RawHosts to be IP addresses
 	hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.Ipv6.ToBool())
 	if err != nil {
@@ -384,10 +383,10 @@ func (opt *VCreateDatabaseOptions) AnalyzeOptions() error {
 }
 
 func (opt *VCreateDatabaseOptions) ValidateAnalyzeOptions() error {
-	if err := opt.ValidateParseOptions(); err != nil {
+	if err := opt.validateParseOptions(); err != nil {
 		return err
 	}
-	if err := opt.AnalyzeOptions(); err != nil {
+	if err := opt.analyzeOptions(); err != nil {
 		return err
 	}
 	return nil
@@ -575,9 +574,7 @@ func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *
 }
 
 func getInitiator(hosts []string) string {
-	// we sort the host IPs then assign the first IP as initiator.
-	sort.Strings(hosts)
-
+	// simply use the first one in user input
 	return hosts[0]
 }
 

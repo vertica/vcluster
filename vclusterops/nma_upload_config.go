@@ -37,14 +37,14 @@ type uploadConfigRequestData struct {
 }
 
 func MakeNMAUploadConfigOp(
-	name string,
+	opName string,
 	vdb *VCoordinationDatabase,
 	bootstrapHosts []string,
 	endpoint string,
 	fileContent *string,
 ) NMAUploadConfigOp {
 	nmaUploadConfigOp := NMAUploadConfigOp{}
-	nmaUploadConfigOp.name = name
+	nmaUploadConfigOp.name = opName
 	nmaUploadConfigOp.endpoint = endpoint
 	nmaUploadConfigOp.fileContent = fileContent
 	nmaUploadConfigOp.catalogPathMap = make(map[string]string)
@@ -54,7 +54,7 @@ func MakeNMAUploadConfigOp(
 	for _, host := range newNodeHosts {
 		vnode, ok := vdb.HostNodeMap[host]
 		if !ok {
-			msg := fmt.Errorf("[%s] fail to get catalog path from host %s", name, host)
+			msg := fmt.Errorf("[%s] fail to get catalog path from host %s", opName, host)
 			panic(msg)
 		}
 		nmaUploadConfigOp.catalogPathMap[host] = vnode.CatalogPath

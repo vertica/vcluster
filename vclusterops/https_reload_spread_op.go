@@ -25,10 +25,10 @@ type HTTPSReloadSpreadOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPSReloadSpreadOp(name string, hosts []string, useHTTPPassword bool,
+func MakeHTTPSReloadSpreadOp(opName string, hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string) HTTPSReloadSpreadOp {
 	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
-	httpsReloadSpreadOp.name = name
+	httpsReloadSpreadOp.name = opName
 	httpsReloadSpreadOp.hosts = hosts
 	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
 

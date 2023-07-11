@@ -24,9 +24,9 @@ type NMANetworkProfileOp struct {
 	OpBase
 }
 
-func MakeNMANetworkProfileOp(name string, hosts []string) NMANetworkProfileOp {
+func MakeNMANetworkProfileOp(opName string, hosts []string) NMANetworkProfileOp {
 	nmaNetworkProfileOp := NMANetworkProfileOp{}
-	nmaNetworkProfileOp.name = name
+	nmaNetworkProfileOp.name = opName
 	nmaNetworkProfileOp.hosts = hosts
 	return nmaNetworkProfileOp
 }

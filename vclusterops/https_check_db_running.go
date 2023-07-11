@@ -55,11 +55,11 @@ type HTTPCheckRunningDBOp struct {
 	opType OpType
 }
 
-func MakeHTTPCheckRunningDBOp(name string, hosts []string,
+func MakeHTTPCheckRunningDBOp(opName string, hosts []string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string, opType OpType) HTTPCheckRunningDBOp {
 	runningDBChecker := HTTPCheckRunningDBOp{}
-	runningDBChecker.name = name
+	runningDBChecker.name = opName
 	runningDBChecker.hosts = hosts
 	runningDBChecker.useHTTPPassword = useHTTPPassword
 

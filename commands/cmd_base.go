@@ -62,3 +62,20 @@ func (c *CmdBase) ValidateParseArgv(commandType string) error {
 
 	return c.ParseArgv()
 }
+
+// ValidateParseBaseOptions will validate and parse the required base options in each command
+func (c *CmdBase) ValidateParseBaseOptions(opt *vclusterops.DatabaseOptions) error {
+	if *opt.HonorUserInput {
+		// parse raw host str input into a []string
+		err := c.ParseHostList(opt)
+		if err != nil {
+			return err
+		}
+		// parse IsEon
+		opt.IsEon.FromBoolPointer(c.isEon)
+		// parse Ipv6
+		opt.Ipv6.FromBoolPointer(c.ipv6)
+	}
+
+	return nil
+}

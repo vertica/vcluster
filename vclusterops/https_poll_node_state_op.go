@@ -32,10 +32,10 @@ type HTTPSPollNodeStateOp struct {
 	notUpHosts []string
 }
 
-func MakeHTTPSPollNodeStateOp(name string, hosts []string,
+func MakeHTTPSPollNodeStateOp(opName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSPollNodeStateOp {
 	httpsPollNodeStateOp := HTTPSPollNodeStateOp{}
-	httpsPollNodeStateOp.name = name
+	httpsPollNodeStateOp.name = opName
 	httpsPollNodeStateOp.hosts = hosts
 	httpsPollNodeStateOp.useHTTPPassword = useHTTPPassword
 

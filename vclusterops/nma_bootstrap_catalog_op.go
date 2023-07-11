@@ -51,12 +51,12 @@ type bootstrapCatalogRequestData struct {
 }
 
 func MakeNMABootstrapCatalogOp(
-	name string,
+	opName string,
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions,
 	bootstrapHosts []string) (NMABootstrapCatalogOp, error) {
 	nmaBootstrapCatalogOp := NMABootstrapCatalogOp{}
-	nmaBootstrapCatalogOp.name = name
+	nmaBootstrapCatalogOp.name = opName
 	// usually, only one node need bootstrap catalog
 	nmaBootstrapCatalogOp.hosts = bootstrapHosts
 

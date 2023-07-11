@@ -72,6 +72,7 @@ func MakeClusterCommandLauncher() ClusterCommandLauncher {
 	stopDB := MakeCmdStopDB()
 	dropDB := MakeCmdDropDB()
 	listAllNodes := MakeListAllNodes()
+	addSubcluster := MakeCmdAddSubcluster()
 	help := MakeCmdHelp()
 	init := MakeCmdInit()
 	config := MakeCmdConfig()
@@ -85,6 +86,7 @@ func MakeClusterCommandLauncher() ClusterCommandLauncher {
 		&config,
 		&dropDB,
 		&listAllNodes,
+		&addSubcluster,
 	)
 
 	newLauncher.commands = map[string]ClusterCommand{}

@@ -34,9 +34,8 @@ import (
  */
 
 type CmdStopDB struct {
-	stopDBOptions *vclusterops.VStopDatabaseOptions
-
 	CmdBase
+	stopDBOptions *vclusterops.VStopDatabaseOptions
 }
 
 func MakeCmdStopDB() CmdStopDB {
@@ -47,11 +46,12 @@ func MakeCmdStopDB() CmdStopDB {
 	newCmd.parser = flag.NewFlagSet("stop_db", flag.ExitOnError)
 	stopDBOptions := vclusterops.VStopDatabaseOptionsFactory()
 
+	// required flags
+	stopDBOptions.Name = newCmd.parser.String("name", "", "The name of the database to be stopped")
+
 	// optional flags
-	stopDBOptions.Name = newCmd.parser.String("name", "", util.GetOptionalFlagMsg("The name of the database to be stopped."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
 	stopDBOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts to participate in database."+
+	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
 	// new flags comparing to adminTools stop_db
 	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Stop database with IPv6 hosts"))
@@ -125,16 +125,9 @@ func (c *CmdStopDB) Parse(inputArgv []string) error {
 func (c *CmdStopDB) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
-	if *c.stopDBOptions.HonorUserInput {
-		// parse raw host str input into a []string of stopDBOptions
-		err := c.ParseHostList(&c.stopDBOptions.DatabaseOptions)
-		if err != nil {
-			return err
-		}
-		// parse IsEon
-		c.stopDBOptions.DatabaseOptions.IsEon.FromBoolPointer(c.CmdBase.isEon)
-		// parse Ipv6
-		c.stopDBOptions.DatabaseOptions.Ipv6.FromBoolPointer(c.CmdBase.ipv6)
+	err := c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -148,10 +141,10 @@ func (c *CmdStopDB) Analyze() error {
 func (c *CmdStopDB) Run() error {
 	vlog.LogInfoln("Called method Run()")
 	vcc := vclusterops.VClusterCommands{}
-	dbName, stopError := vcc.VStopDatabase(c.stopDBOptions)
+	stopError := vcc.VStopDatabase(c.stopDBOptions)
 	if stopError != nil {
 		return stopError
 	}
-	vlog.LogPrintInfo("Stopped a database with name [%s]", dbName)
+	vlog.LogPrintInfo("Stopped a database with name %s", *c.stopDBOptions.Name)
 	return nil
 }

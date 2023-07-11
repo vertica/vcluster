@@ -28,11 +28,11 @@ type HTTPCreateNodeOp struct {
 	RequestParams map[string]string
 }
 
-func MakeHTTPCreateNodeOp(name string, hosts []string,
+func MakeHTTPCreateNodeOp(opName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase) HTTPCreateNodeOp {
 	createNodeOp := HTTPCreateNodeOp{}
-	createNodeOp.name = name
+	createNodeOp.name = opName
 	createNodeOp.hosts = hosts
 	createNodeOp.RequestParams = make(map[string]string)
 	// HTTPS create node endpoint requires passing everything before node name

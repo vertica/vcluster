@@ -29,10 +29,10 @@ type HTTPSCreateDepotOp struct {
 	RequestParams  map[string]string
 }
 
-func MakeHTTPSCreateDepotOp(name string, vdb *VCoordinationDatabase, hosts []string,
+func MakeHTTPSCreateDepotOp(opName string, vdb *VCoordinationDatabase, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSCreateDepotOp {
 	httpsCreateDepotOp := HTTPSCreateDepotOp{}
-	httpsCreateDepotOp.name = name
+	httpsCreateDepotOp.name = opName
 	httpsCreateDepotOp.hosts = hosts
 	httpsCreateDepotOp.useHTTPPassword = useHTTPPassword
 

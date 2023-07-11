@@ -37,3 +37,12 @@ func (e *NullableBool) FromBoolPointer(val *bool) {
 		*e = False
 	}
 }
+
+func MakeNullableBool(val bool) (e NullableBool) {
+	if val {
+		e = True
+	} else {
+		e = False
+	}
+	return e
+}

@@ -17,6 +17,8 @@ package vclusterops
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -84,21 +86,15 @@ func (opt *DatabaseOptions) ValidateBaseOptions(commandName string) error {
 	if *opt.Name == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	err := util.ValidateDBName(*opt.Name)
+	err := util.ValidateName(*opt.Name, "database")
 	if err != nil {
 		return err
 	}
 
-	// raw hosts
-	if len(opt.RawHosts) == 0 {
-		return fmt.Errorf("must specify a host or host list")
-	}
-
-	// password
-	if opt.Password == nil {
-		opt.Password = new(string)
-		*opt.Password = ""
-		vlog.LogPrintInfoln("no password specified, using none")
+	// raw hosts and password
+	err = opt.ValidateHostsAndPwd(commandName)
+	if err != nil {
+		return err
 	}
 
 	// paths
@@ -117,6 +113,36 @@ func (opt *DatabaseOptions) ValidateBaseOptions(commandName string) error {
 	err = util.ValidateAbsPath(opt.LogPath, "log directory")
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// ValidateHostsAndPwd will validate raw hosts and password
+func (opt *DatabaseOptions) ValidateHostsAndPwd(commandName string) error {
+	// when we create db, we need hosts and set password to "" if user did not provide one
+	if commandName == "create_db" {
+		// raw hosts
+		if len(opt.RawHosts) == 0 {
+			return fmt.Errorf("must specify a host or host list")
+		}
+		// password
+		if opt.Password == nil {
+			opt.Password = new(string)
+			*opt.Password = ""
+			vlog.LogPrintInfoln("no password specified, using none")
+		}
+	} else {
+		// for other commands, we validate hosts when HonorUserInput is set, otherwise we use hosts in config file
+		if *opt.HonorUserInput {
+			if len(opt.RawHosts) == 0 {
+				vlog.LogPrintInfo("no hosts specified, try to use the hosts in %s", ConfigFileName)
+			}
+		}
+		// for other commands, we will not use "" as password
+		if opt.Password == nil {
+			vlog.LogPrintInfoln("no password specified, using none")
+		}
 	}
 
 	return nil
@@ -158,7 +184,7 @@ func (opt *DatabaseOptions) ValidatePaths(commandName string) error {
 func (opt *DatabaseOptions) ValidateConfigDir(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
-	commands := []string{"create_db", "drop_db"}
+	commands := []string{"create_db", "drop_db", "stop_db", "db_add_subcluster"}
 	if slices.Contains(commands, commandName) {
 		return nil
 	}
@@ -195,4 +221,71 @@ func (opt *DatabaseOptions) ValidateUserName() error {
 	vlog.LogInfo("Current username is %s", *opt.UserName)
 
 	return nil
+}
+
+// IsEonMode can choose the right eon mode from user input and config file
+func (opt *DatabaseOptions) IsEonMode(config *ClusterConfig) bool {
+	// when config file is not available, we use user input
+	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
+	if config == nil {
+		return opt.IsEon.ToBool()
+	}
+
+	isEon := config.IsEon
+	// if HonorUserInput is set, we choose the user input
+	if opt.IsEon != vstruct.NotSet && *opt.HonorUserInput {
+		isEon = opt.IsEon.ToBool()
+	}
+	return isEon
+}
+
+// GetNameAndHosts can choose the right dbName and hosts from user input and config file
+func (opt *DatabaseOptions) GetNameAndHosts(config *ClusterConfig) (dbName string, hosts []string) {
+	// when config file is not available, we use user input
+	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
+	if config == nil {
+		return *opt.Name, opt.Hosts
+	}
+
+	dbName = config.DBName
+	hosts = config.Hosts
+	// if HonorUserInput is set, we choose the user input
+	if *opt.Name != "" && *opt.HonorUserInput {
+		dbName = *opt.Name
+	}
+	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
+		hosts = opt.Hosts
+	}
+	return dbName, hosts
+}
+
+// GetDBConfig can read database configurations from vertica_cluster.yaml to the struct ClusterConfig
+func (opt *DatabaseOptions) GetDBConfig() (config *ClusterConfig, e error) {
+	var configDir string
+	if opt.ConfigDirectory != nil {
+		configDir = *opt.ConfigDirectory
+	} else {
+		currentDir, err := os.Getwd()
+		if err != nil && !*opt.HonorUserInput {
+			return config, fmt.Errorf("fail to get current directory, details: %w", err)
+		}
+		configDir = currentDir
+	}
+
+	if configDir != "" {
+		configContent, err := ReadConfig(configDir)
+		config = &configContent
+		if err != nil {
+			// when we cannot read config file, config points to an empty ClusterConfig with default values
+			// we want to reset config to nil so we will use user input later rather than those default values
+			config = nil
+			vlog.LogPrintWarningln("Failed to read " + filepath.Join(configDir, ConfigFileName))
+			// when the customer wants to use user input, we can ignore config file error
+			if !*opt.HonorUserInput {
+				return config, err
+			}
+		}
+	}
+
+	return config, nil
 }

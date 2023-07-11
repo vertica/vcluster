@@ -29,10 +29,10 @@ type HTTPSStopDBOp struct {
 	RequestParams map[string]string
 }
 
-func MakeHTTPSStopDBOp(name string, useHTTPPassword bool, userName string,
+func MakeHTTPSStopDBOp(opName string, useHTTPPassword bool, userName string,
 	httpsPassword *string, timeout *int) HTTPSStopDBOp {
 	httpsStopDBOp := HTTPSStopDBOp{}
-	httpsStopDBOp.name = name
+	httpsStopDBOp.name = opName
 	httpsStopDBOp.useHTTPPassword = useHTTPPassword
 
 	// set the query params, "timeout" is optional

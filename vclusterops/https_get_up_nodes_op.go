@@ -16,6 +16,8 @@
 package vclusterops
 
 import (
+	"sort"
+
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -26,10 +28,10 @@ type HTTPSGetUpNodesOp struct {
 	DBName string
 }
 
-func MakeHTTPSGetUpNodesOp(name string, dbName string, hosts []string,
+func MakeHTTPSGetUpNodesOp(opName string, dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSGetUpNodesOp {
 	httpsGetUpNodesOp := HTTPSGetUpNodesOp{}
-	httpsGetUpNodesOp.name = name
+	httpsGetUpNodesOp.name = opName
 	httpsGetUpNodesOp.hosts = hosts
 	httpsGetUpNodesOp.useHTTPPassword = useHTTPPassword
 	httpsGetUpNodesOp.DBName = dbName
@@ -153,6 +155,8 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) Clu
 		for host := range upHosts {
 			execContext.upHosts = append(execContext.upHosts, host)
 		}
+		// sorting the up hosts will be helpful for picking up the initiator in later instructions
+		sort.Strings(execContext.upHosts)
 		return MakeClusterOpResultPass()
 	}
 

@@ -25,10 +25,10 @@ type HTTPSInstallPackagesOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPSInstallPackagesOp(name string, hosts []string,
+func MakeHTTPSInstallPackagesOp(opName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSInstallPackagesOp {
 	installPackagesOp := HTTPSInstallPackagesOp{}
-	installPackagesOp.name = name
+	installPackagesOp.name = opName
 	installPackagesOp.hosts = hosts
 
 	util.ValidateUsernameAndPassword(useHTTPPassword, userName)

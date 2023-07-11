@@ -19,7 +19,7 @@ type OpEngineExecContext struct {
 	dispatcher      HTTPRequestDispatcher
 	networkProfiles map[string]NetworkProfile
 	nmaVDatabase    NmaVDatabase
-	upHosts         []string
+	upHosts         []string // a sorted host list that contains all up nodes
 	nodeStates      []NodeInfo
 }
 

@@ -20,12 +20,12 @@ type deleteDirParams struct {
 }
 
 func MakeNMADeleteDirectoriesOp(
-	name string,
+	opName string,
 	vdb *VCoordinationDatabase,
 	forceDelete bool,
 ) (NMADeleteDirectoriesOp, error) {
 	nmaDeleteDirectoriesOp := NMADeleteDirectoriesOp{}
-	nmaDeleteDirectoriesOp.name = name
+	nmaDeleteDirectoriesOp.name = opName
 	nmaDeleteDirectoriesOp.hosts = vdb.HostList
 
 	err := nmaDeleteDirectoriesOp.buildRequestBody(vdb, forceDelete)

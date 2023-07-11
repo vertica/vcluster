@@ -219,21 +219,22 @@ func TestNewErrorFormatVerb(t *testing.T) {
 
 func TestValidateDBName(t *testing.T) {
 	// positive cases
-	err := ValidateDBName("test_db")
+	obj := "database"
+	err := ValidateName("test_db", obj)
 	assert.Nil(t, err)
 
-	err = ValidateDBName("db1")
+	err = ValidateName("db1", obj)
 	assert.Nil(t, err)
 
 	// negative cases
-	err = ValidateDBName("test$db")
-	assert.ErrorContains(t, err, "invalid character in database name: $")
+	err = ValidateName("test$db", obj)
+	assert.ErrorContains(t, err, "invalid character in "+obj+" name: $")
 
-	err = ValidateDBName("[db1]")
-	assert.ErrorContains(t, err, "invalid character in database name: [")
+	err = ValidateName("[db1]", obj)
+	assert.ErrorContains(t, err, "invalid character in "+obj+" name: [")
 
-	err = ValidateDBName("!!??!!db1")
-	assert.ErrorContains(t, err, "invalid character in database name: !")
+	err = ValidateName("!!??!!db1", obj)
+	assert.ErrorContains(t, err, "invalid character in "+obj+" name: !")
 }
 
 func TestSetOptFlagHelpMsg(t *testing.T) {

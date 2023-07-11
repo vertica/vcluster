@@ -28,11 +28,11 @@ type NMAFetchVdbFromCatalogEditorOp struct {
 }
 
 func MakeNMAFetchVdbFromCatalogEditorOp(
-	name string,
+	opName string,
 	hostNodeMap map[string]VCoordinationNode,
 	bootstrapHosts []string) (NMAFetchVdbFromCatalogEditorOp, error) {
 	nmaFetchVdbFromCatalogEditorOp := NMAFetchVdbFromCatalogEditorOp{}
-	nmaFetchVdbFromCatalogEditorOp.name = name
+	nmaFetchVdbFromCatalogEditorOp.name = opName
 	nmaFetchVdbFromCatalogEditorOp.hosts = bootstrapHosts
 
 	nmaFetchVdbFromCatalogEditorOp.catalogPathMap = make(map[string]string)
@@ -40,7 +40,7 @@ func MakeNMAFetchVdbFromCatalogEditorOp(
 		vnode, ok := hostNodeMap[host]
 		if !ok {
 			return nmaFetchVdbFromCatalogEditorOp,
-				fmt.Errorf("[%s] fail to get catalog path from host %s", name, host)
+				fmt.Errorf("[%s] fail to get catalog path from host %s", opName, host)
 		}
 		nmaFetchVdbFromCatalogEditorOp.catalogPathMap[host] = vnode.CatalogPath
 	}

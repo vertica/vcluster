@@ -31,9 +31,9 @@ type NMAVerticaVersionOp struct {
 	HostVersionMap     map[string]string
 }
 
-func MakeNMAVerticaVersionOp(name string, hosts []string, sameVersion bool) NMAVerticaVersionOp {
+func MakeNMAVerticaVersionOp(opName string, hosts []string, sameVersion bool) NMAVerticaVersionOp {
 	nmaVerticaVersionOp := NMAVerticaVersionOp{}
-	nmaVerticaVersionOp.name = name
+	nmaVerticaVersionOp.name = opName
 	nmaVerticaVersionOp.hosts = hosts
 	nmaVerticaVersionOp.RequireSameVersion = sameVersion
 	nmaVerticaVersionOp.HostVersionMap = map[string]string{}

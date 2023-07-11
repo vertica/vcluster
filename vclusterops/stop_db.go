@@ -16,13 +16,8 @@
 package vclusterops
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 )
 
 type VStopDatabaseOptions struct {
@@ -58,40 +53,18 @@ func (options *VStopDatabaseOptions) SetDefaultValues() {
 	options.ForceKill = new(bool)
 }
 
-func (options *VStopDatabaseOptions) ValidateRequiredOptions() error {
-	// TODO remove below validations since they will be done in ValidateBasicOptions of command_line_options.go
-	// we validate dbName and hosts when HonorUserInput is set, otherwise we use db_name and hosts in yaml config
-	if *options.HonorUserInput {
-		if *options.Name == "" {
-			return fmt.Errorf("must specify a database name")
-		}
-		err := util.ValidateDBName(*options.Name)
-		if err != nil {
-			return err
-		}
-
-		if len(options.RawHosts) == 0 {
-			return fmt.Errorf("must specify a host or host list")
-		}
-	}
-
-	if options.Password == nil {
-		vlog.LogPrintInfoln("no password specified, using none")
-	}
-
-	if options.ConfigDirectory != nil {
-		err := util.AbsPathCheck(*options.ConfigDirectory)
-		if err != nil {
-			return fmt.Errorf("must specify an absolute path for the config directory")
-		}
+func (options *VStopDatabaseOptions) validateRequiredOptions() error {
+	err := options.ValidateBaseOptions("stop_db")
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (options *VStopDatabaseOptions) ValidateEonOptions(config *ClusterConfig) error {
+func (options *VStopDatabaseOptions) validateEonOptions(config *ClusterConfig) error {
 	// if db is enterprise db and we see --drain-seconds, we will ignore it
-	if !IsEonMode(options, config) {
+	if !options.IsEonMode(config) {
 		if options.DrainSeconds != nil {
 			vlog.LogPrintInfoln("Notice: --drain-seconds option will be ignored because database is in enterprise mode." +
 				" Connection draining is only available in eon mode.")
@@ -105,23 +78,23 @@ func (options *VStopDatabaseOptions) ValidateEonOptions(config *ClusterConfig) e
 	return nil
 }
 
-func (options *VStopDatabaseOptions) ValidateExtraOptions() error {
+func (options *VStopDatabaseOptions) validateExtraOptions() error {
 	return nil
 }
 
-func (options *VStopDatabaseOptions) ValidateParseOptions(config *ClusterConfig) error {
+func (options *VStopDatabaseOptions) validateParseOptions(config *ClusterConfig) error {
 	// batch 1: validate required parameters
-	err := options.ValidateRequiredOptions()
+	err := options.validateRequiredOptions()
 	if err != nil {
 		return err
 	}
 	// batch 2: validate eon params
-	err = options.ValidateEonOptions(config)
+	err = options.validateEonOptions(config)
 	if err != nil {
 		return err
 	}
 	// batch 3: validate all other params
-	err = options.ValidateExtraOptions()
+	err = options.validateExtraOptions()
 	if err != nil {
 		return err
 	}
@@ -129,106 +102,45 @@ func (options *VStopDatabaseOptions) ValidateParseOptions(config *ClusterConfig)
 }
 
 // resolve hostnames to be IPs
-func (options *VStopDatabaseOptions) AnalyzeOptions() error {
+func (options *VStopDatabaseOptions) analyzeOptions() (err error) {
 	// we analyze hostnames when HonorUserInput is set, otherwise we use hosts in yaml config
 	if *options.HonorUserInput {
 		// resolve RawHosts to be IP addresses
-		for _, host := range options.RawHosts {
-			if host == "" {
-				return fmt.Errorf("invalid empty host found in the provided host list")
-			}
-			addr, err := util.ResolveToOneIP(host, options.Ipv6.ToBool())
-			if err != nil {
-				return err
-			}
-			// use a list to respect user input order
-			options.Hosts = append(options.Hosts, addr)
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
+		if err != nil {
+			return err
 		}
 	}
+
 	return nil
-}
-
-func IsEonMode(options *VStopDatabaseOptions, config *ClusterConfig) bool {
-	// when config file is not available, we use user input
-	// at this time HonorUserInput must be true
-	if config == nil {
-		return options.IsEon.ToBool()
-	}
-
-	isEon := config.IsEon
-	// if HonorUserInput is set, we choose the user input
-	if options.IsEon != vstruct.NotSet && *options.HonorUserInput {
-		isEon = options.IsEon.ToBool()
-	}
-	return isEon
-}
-
-func GetNameAndHosts(options *VStopDatabaseOptions, config *ClusterConfig) (dbName string, hosts []string) {
-	// when config file is not available, we use user input
-	// at this time HonorUserInput must be true
-	if config == nil {
-		return *options.Name, options.Hosts
-	}
-
-	dbName = config.DBName
-	hosts = config.Hosts
-	// if HonorUserInput is set, we choose the user input
-	if *options.Name != "" && *options.HonorUserInput {
-		dbName = *options.Name
-	}
-	if len(options.Hosts) > 0 && *options.HonorUserInput {
-		hosts = options.Hosts
-	}
-	return dbName, hosts
 }
 
 func (options *VStopDatabaseOptions) ValidateAnalyzeOptions(config *ClusterConfig) error {
-	if err := options.ValidateParseOptions(config); err != nil {
+	if err := options.validateParseOptions(config); err != nil {
 		return err
 	}
-	if err := options.AnalyzeOptions(); err != nil {
+	if err := options.analyzeOptions(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) (string, error) {
+func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
+
 	// get config from vertica_cluster.yaml
-	var configDir string
-	if options.ConfigDirectory != nil {
-		configDir = *options.ConfigDirectory
-	} else {
-		currentDir, err := os.Getwd()
-		if err != nil && !*options.HonorUserInput {
-			return "", fmt.Errorf("fail to get current directory, details: %w", err)
-		}
-		configDir = currentDir
-	}
-
-	var config *ClusterConfig
-	if configDir != "" {
-		configContent, err := ReadConfig(configDir)
-		config = &configContent
-		if err != nil {
-			// when we cannot read config file, config points to an empty ClusterConfig with default values
-			// we want to reset config to nil so we will use user input later rather than those default values
-			config = nil
-			vlog.LogPrintInfoln("Failed to read " + filepath.Join(configDir, ConfigFileName))
-			// when the customer wants to use user input, we can ignore config file error
-			if !*options.HonorUserInput {
-				return "", err
-			}
-		}
-	}
-
-	err := options.ValidateAnalyzeOptions(config)
+	config, err := options.GetDBConfig()
 	if err != nil {
-		return "", err
+		return err
+	}
+
+	err = options.ValidateAnalyzeOptions(config)
+	if err != nil {
+		return err
 	}
 
 	// build stopDBInfo from config file and options
@@ -236,12 +148,12 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) (strin
 	stopDBInfo.UserName = *options.UserName
 	stopDBInfo.Password = options.Password
 	stopDBInfo.DrainSeconds = options.DrainSeconds
-	stopDBInfo.DBName, stopDBInfo.Hosts = GetNameAndHosts(options, config)
+	stopDBInfo.DBName, stopDBInfo.Hosts = options.GetNameAndHosts(config)
 
 	instructions, err := produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %w", err)
-		return "", err
+		return err
 	}
 
 	// Create a VClusterOpEngine, and add certs to the engine
@@ -252,10 +164,10 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) (strin
 	runError := clusterOpEngine.Run()
 	if runError != nil {
 		vlog.LogPrintError("fail to stop database, %w", runError)
-		return "", runError
+		return runError
 	}
 
-	return stopDBInfo.DBName, nil
+	return nil
 }
 
 /*

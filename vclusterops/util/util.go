@@ -326,12 +326,13 @@ func IsOptionSet(f *flag.FlagSet, optionName string) bool {
 	return found
 }
 
-// when db name is provided, make sure no special chars are in it
-func ValidateDBName(dbName string) error {
+// ValidateName will validate the name of an obj, the obj can be database, subcluster, etc.
+// when a name is provided, make sure no special chars are in it
+func ValidateName(name, obj string) error {
 	escapeChars := `=<>'^\".@*?#&/-:;{}()[] \~!%+|,` + "`$"
-	for _, c := range dbName {
+	for _, c := range name {
 		if strings.Contains(escapeChars, string(c)) {
-			return fmt.Errorf("invalid character in database name: %c", c)
+			return fmt.Errorf("invalid character in %s name: %c", obj, c)
 		}
 	}
 	return nil
