@@ -17,8 +17,6 @@ package commands
 
 import (
 	"flag"
-	"fmt"
-	"strings"
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -33,10 +31,6 @@ import (
  *
  * Implements ClusterCommand interface
  */
-
-const (
-	keyValueArrayLen = 2
-)
 
 type CmdCreateDB struct {
 	createDBOptions    *vclusterops.VCreateDatabaseOptions
@@ -124,11 +118,6 @@ func (c *CmdCreateDB) CommandType() string {
 }
 
 func (c *CmdCreateDB) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
-	if c.parser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-
 	c.argv = inputArgv
 	err := c.ValidateParseArgv(c.CommandType())
 	if err != nil {
@@ -169,35 +158,12 @@ func (c *CmdCreateDB) validateParse() error {
 	c.createDBOptions.Ipv6.FromBoolPointer(c.CmdBase.ipv6)
 
 	// check the format of config param string, and parse it into configParams
-	err = c.parseConfigParams()
+	configParams, err := util.ParseConfigParams(*c.configParamListStr)
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (c *CmdCreateDB) parseConfigParams() error {
-	if *c.configParamListStr == "" {
-		return nil
-	}
-	configParamList := strings.Split(strings.TrimSpace(*c.configParamListStr), ",")
-	// passed an empty string in --config-param
-	if len(configParamList) == 0 {
-		return nil
-	}
-
-	for _, param := range configParamList {
-		// expected to see key value pairs of the format key=value
-		keyValue := strings.Split(param, "=")
-		if len(keyValue) != keyValueArrayLen {
-			return fmt.Errorf("--config-param option must take NAME=VALUE as argument: %s is invalid", param)
-		} else if len(keyValue) > 0 && strings.TrimSpace(keyValue[0]) == "" {
-			return fmt.Errorf("--config-param option must take NAME=VALUE as argument with NAME being non-empty: %s is invalid", param)
-		}
-		key := strings.TrimSpace(keyValue[0])
-		// it's possible we need empty string value for config parameter
-		value := strings.TrimSpace(keyValue[1])
-		c.createDBOptions.ConfigurationParameters[key] = value
+	if configParams != nil {
+		c.createDBOptions.ConfigurationParameters = configParams
 	}
 	return nil
 }
@@ -213,6 +179,11 @@ func (c *CmdCreateDB) Run() error {
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
 		return createError
+	}
+	// write cluster information to the YAML config file
+	err := vclusterops.WriteClusterConfig(&vdb, c.createDBOptions.ConfigDirectory)
+	if err != nil {
+		vlog.LogPrintWarning("fail to write config file, details: %w", err)
 	}
 	vlog.LogPrintInfo("Created a database with name [%s]", vdb.Name)
 	return nil

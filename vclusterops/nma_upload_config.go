@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -38,8 +37,8 @@ type uploadConfigRequestData struct {
 
 func MakeNMAUploadConfigOp(
 	opName string,
-	vdb *VCoordinationDatabase,
-	bootstrapHosts []string,
+	nodeMap map[string]VCoordinationNode,
+	newNodeHosts []string,
 	endpoint string,
 	fileContent *string,
 ) NMAUploadConfigOp {
@@ -48,11 +47,10 @@ func MakeNMAUploadConfigOp(
 	nmaUploadConfigOp.endpoint = endpoint
 	nmaUploadConfigOp.fileContent = fileContent
 	nmaUploadConfigOp.catalogPathMap = make(map[string]string)
-	newNodeHosts := util.SliceDiff(vdb.HostList, bootstrapHosts)
 	nmaUploadConfigOp.hosts = newNodeHosts
 
 	for _, host := range newNodeHosts {
-		vnode, ok := vdb.HostNodeMap[host]
+		vnode, ok := nodeMap[host]
 		if !ok {
 			msg := fmt.Errorf("[%s] fail to get catalog path from host %s", opName, host)
 			panic(msg)

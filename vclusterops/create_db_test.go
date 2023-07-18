@@ -74,17 +74,17 @@ func TestWriteClusterConfig(t *testing.T) {
 	}
 	vdb.IsEon = true
 
-	err := writeClusterConfig(&vdb, nil)
+	err := WriteClusterConfig(&vdb, nil)
 	assert.NoError(t, err)
 
-	// comppare the generated file with expected output
+	// compare the generated file with expected output
 	actualBytes, _ := os.ReadFile(dbName + "/" + ConfigFileName)
 	expectedBytes, _ := os.ReadFile("test_data/" + ConfigFileName)
 	assert.True(t, bytes.Equal(actualBytes, expectedBytes))
 
 	// now write the config file again
 	// a backup file should be generated
-	err = writeClusterConfig(&vdb, nil)
+	err = WriteClusterConfig(&vdb, nil)
 	assert.NoError(t, err)
 	err = util.CanReadAccessDir(dbName + "/" + ConfigBackupName)
 	assert.NoError(t, err)

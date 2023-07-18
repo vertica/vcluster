@@ -2,7 +2,6 @@ package commands
 
 import (
 	"flag"
-	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -49,12 +48,6 @@ func (c *CmdDropDB) CommandType() string {
 }
 
 func (c *CmdDropDB) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
-
-	if c.parser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-
 	c.argv = inputArgv
 	err := c.ValidateParseArgv(c.CommandType())
 	if err != nil {

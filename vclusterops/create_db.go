@@ -405,18 +405,11 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 		return vdb, err
 	}
 	// produce instructions
-	instructions, err := produceBasicCreateDBInstructions(&vdb, options)
+	instructions, err := produceCreateDBInstructions(&vdb, options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %w", err)
 		return vdb, err
 	}
-
-	additionalInstructions, err := produceAdditionalCreateDBInstructions(&vdb, options)
-	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, %w", err)
-		return vdb, err
-	}
-	instructions = append(instructions, additionalInstructions...)
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
@@ -428,37 +421,46 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 		vlog.LogPrintError("fail to create database, %w", runError)
 		return vdb, runError
 	}
-
-	// write cluster information to the YAML config file
-	err = writeClusterConfig(&vdb, options.ConfigDirectory)
-	if err != nil {
-		vlog.LogPrintWarning("fail to write config file, details: %w", err)
-	}
-
 	return vdb, nil
 }
 
-/*
-We expect that we will ultimately produce the following instructions:
-    1. Check NMA connectivity
-	2. Check to see if any dbs running
-	3. Check Vertica versions
-	4. Prepare directories
-	5. Get network profiles
-	6. Bootstrap the database
-	7. Run the catalog editor
-	8. Start node
-	9. Create node
-	10. Reload spread
-	11. Transfer config files
-	12. Start all nodes of the database
-	13. Poll node startup
-	14. Create depot
-	15. Mark design ksafe
-	16. Install packages
-	17. sync catalog
-*/
+// produceCreateDBInstructions will build a list of instructions to execute for
+// the create db operation.
+//
+// The generated instructions will later perform the following operations necessary
+// for a successful create_db:
+//   - Check NMA connectivity
+//   - Check to see if any dbs running
+//   - Check NMA versions
+//   - Prepare directories
+//   - Get network profiles
+//   - Bootstrap the database
+//   - Run the catalog editor
+//   - Start bootstrap node
+//   - Wait for the bootstrapped node to be UP
+//   - Create other nodes
+//   - Reload spread
+//   - Transfer config files
+//   - Start all nodes of the database
+//   - Poll node startup
+//   - Create depot (Eon mode only)
+//   - Mark design ksafe
+//   - Install packages
+//   - Sync catalog
+func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+	instructions, err := produceBasicCreateDBInstructions(vdb, options)
+	if err != nil {
+		return instructions, err
+	}
+	additionalInstructions, err := produceAdditionalCreateDBInstructions(vdb, options)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions, additionalInstructions...)
+	return instructions, nil
+}
 
+// produceBasicCreateDBInstructions returns the first set of instructions for create_db.
 func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
@@ -516,8 +518,9 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 		&httpsPollBootstrapNodeStateOp,
 	)
 
+	newNodeHosts := util.SliceDiff(hosts, bootstrapHost)
 	if len(hosts) > 1 {
-		httpCreateNodeOp := MakeHTTPCreateNodeOp("HTTPCreateNodeOp", bootstrapHost,
+		httpCreateNodeOp := MakeHTTPCreateNodeOp("HTTPCreateNodeOp", newNodeHosts, bootstrapHost,
 			true /* use password auth */, *options.UserName, options.Password, vdb)
 		instructions = append(instructions, &httpCreateNodeOp)
 	}
@@ -526,8 +529,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 	instructions = append(instructions, &httpsReloadSpreadOp)
 
 	if len(hosts) > 1 {
-		produceTransferConfigOps(&instructions, bootstrapHost, vdb)
-		newNodeHosts := util.SliceDiff(vdb.HostList, bootstrapHost)
+		produceTransferConfigOps(&instructions, bootstrapHost, newNodeHosts, vdb.HostNodeMap)
 		nmaStartNewNodesOp := MakeNMAStartNodeOp("NMAStartNodeOp", newNodeHosts)
 		instructions = append(instructions,
 			&nmaFetchVdbFromCatEdOp,
@@ -538,6 +540,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 	return instructions, nil
 }
 
+// produceAdditionalCreateDBInstructions returns additional instruction necessary for create_db.
 func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
@@ -576,68 +579,4 @@ func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *
 func getInitiator(hosts []string) string {
 	// simply use the first one in user input
 	return hosts[0]
-}
-
-func produceTransferConfigOps(instructions *[]ClusterOp, bootstrapHost []string, vdb *VCoordinationDatabase) {
-	var verticaConfContent string
-	nmaDownloadVerticaConfigOp := MakeNMADownloadConfigOp(
-		"NMADownloadVerticaConfigOp", vdb, bootstrapHost, "config/vertica", &verticaConfContent)
-	nmaUploadVerticaConfigOp := MakeNMAUploadConfigOp(
-		"NMAUploadVerticaConfigOp", vdb, bootstrapHost, "config/vertica", &verticaConfContent)
-	var spreadConfContent string
-	nmaDownloadSpreadConfigOp := MakeNMADownloadConfigOp(
-		"NMADownloadSpreadConfigOp", vdb, bootstrapHost, "config/spread", &spreadConfContent)
-	nmaUploadSpreadConfigOp := MakeNMAUploadConfigOp(
-		"NMAUploadSpreadConfigOp", vdb, bootstrapHost, "config/spread", &spreadConfContent)
-	*instructions = append(*instructions,
-		&nmaDownloadVerticaConfigOp,
-		&nmaUploadVerticaConfigOp,
-		&nmaDownloadSpreadConfigOp,
-		&nmaUploadSpreadConfigOp,
-	)
-}
-
-func writeClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
-	/* build config information
-	 */
-	clusterConfig := MakeClusterConfig()
-	clusterConfig.DBName = vdb.Name
-	clusterConfig.Hosts = vdb.HostList
-	clusterConfig.CatalogPath = vdb.CatalogPrefix
-	clusterConfig.DataPath = vdb.DataPrefix
-	clusterConfig.DepotPath = vdb.DepotPrefix
-	for _, host := range vdb.HostList {
-		nodeConfig := NodeConfig{}
-		node, ok := vdb.HostNodeMap[host]
-		if !ok {
-			errMsg := fmt.Sprintf("cannot find node info from host %s", host)
-			panic(vlog.ErrorLog + errMsg)
-		}
-		nodeConfig.Address = host
-		nodeConfig.Name = node.Name
-		clusterConfig.Nodes = append(clusterConfig.Nodes, nodeConfig)
-	}
-	clusterConfig.IsEon = vdb.IsEon
-	clusterConfig.Ipv6 = vdb.Ipv6
-
-	/* write config to a YAML file
-	 */
-	configFilePath, err := GetConfigFilePath(vdb.Name, configDir)
-	if err != nil {
-		return err
-	}
-
-	// if the config file exists already
-	// create its backup before overwriting it
-	err = BackupConfigFile(configFilePath)
-	if err != nil {
-		return err
-	}
-
-	err = clusterConfig.WriteConfig(configFilePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

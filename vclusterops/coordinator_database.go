@@ -113,6 +113,43 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 	return nil
 }
 
+// SetVCDatabaseForAddNode set a VCoordinationDatabase from either the config file
+// or the user's input.
+func (vdb *VCoordinationDatabase) SetVCDatabaseForAddNode(
+	options *VAddNodeOptions,
+	clusterConfig *ClusterConfig,
+) error {
+	var vNodeMap map[string]string
+	if *options.HonorUserInput {
+		vdb.SetDBInfoFromAddNodeOptions(options)
+		vNodeMap = options.Nodes
+	} else {
+		vdb.SetDBInfoFromClusterConfig(clusterConfig)
+		vNodeMap = clusterConfig.genVnodeMap()
+	}
+
+	vdb.setHostNodeMap(vNodeMap)
+
+	totalHostCount := len(options.NewHosts) + len(vNodeMap)
+	for _, host := range options.NewHosts {
+		vNode := MakeVCoordinationNode()
+		name, ok := util.GenVNodeName(vNodeMap, *options.Name, totalHostCount)
+		if !ok {
+			return fmt.Errorf("could not generate a vnode name for %s", host)
+		}
+		vNodeMap[name] = host
+		nodeConfig := NodeConfig{
+			Address: host,
+			Name:    name,
+		}
+		vNode.SetFromNodeConfig(nodeConfig, vdb)
+		vdb.HostList = append(vdb.HostList, host)
+		vdb.HostNodeMap[host] = vNode
+		options.NewHostNodeMap[host] = vNode
+	}
+	return nil
+}
+
 func (vdb *VCoordinationDatabase) SetFromClusterConfig(clusterConfig *ClusterConfig) {
 	// we trust the information in the config file
 	// so we do not perform validation here
@@ -122,6 +159,7 @@ func (vdb *VCoordinationDatabase) SetFromClusterConfig(clusterConfig *ClusterCon
 	vdb.DepotPrefix = clusterConfig.DepotPath
 	vdb.HostList = clusterConfig.Hosts
 	vdb.IsEon = clusterConfig.IsEon
+	vdb.Ipv6 = clusterConfig.Ipv6
 	if vdb.DepotPrefix != "" {
 		vdb.UseDepot = true
 	}
@@ -131,6 +169,53 @@ func (vdb *VCoordinationDatabase) SetFromClusterConfig(clusterConfig *ClusterCon
 		vnode := VCoordinationNode{}
 		vnode.SetFromNodeConfig(nodeConfig, vdb)
 		vdb.HostNodeMap[vnode.Address] = vnode
+	}
+}
+
+// setHostNodeMap gets a map of nodes(set of {name - address}), builds a VCoordinationNode
+// struct, for each of them, and adds it to HostNodeMap.
+func (vdb *VCoordinationDatabase) setHostNodeMap(vnodes map[string]string) {
+	vdb.HostNodeMap = make(map[string]VCoordinationNode, len(vnodes))
+	for k, v := range vnodes {
+		vnode := VCoordinationNode{}
+		nodeConfig := NodeConfig{
+			Address: v,
+			Name:    k,
+		}
+		vnode.SetFromNodeConfig(nodeConfig, vdb)
+		vdb.HostNodeMap[vnode.Address] = vnode
+	}
+}
+
+// SetDBInfoFromClusterConfig will set various fields with values
+// from the config file
+func (vdb *VCoordinationDatabase) SetDBInfoFromClusterConfig(clusterConfig *ClusterConfig) {
+	vdb.Name = clusterConfig.DBName
+	vdb.CatalogPrefix = clusterConfig.CatalogPath
+	vdb.DataPrefix = clusterConfig.DataPath
+	vdb.DepotPrefix = clusterConfig.DepotPath
+	vdb.HostList = clusterConfig.Hosts
+	vdb.IsEon = clusterConfig.IsEon
+	vdb.Ipv6 = clusterConfig.Ipv6
+	if vdb.DepotPrefix != "" {
+		vdb.UseDepot = true
+	}
+}
+
+func (vdb *VCoordinationDatabase) SetDBInfoFromAddNodeOptions(options *VAddNodeOptions) {
+	vdb.Name = *options.Name
+	vdb.CatalogPrefix = *options.CatalogPrefix
+	vdb.DataPrefix = *options.DataPrefix
+	vdb.HostList = options.Hosts
+	vdb.Ipv6 = options.Ipv6.ToBool()
+	if options.IsEon.ToBool() {
+		vdb.IsEon = true
+		vdb.DepotPrefix = *options.DepotPrefix
+		vdb.DepotSize = *options.DepotSize
+	}
+
+	if vdb.DepotPrefix != "" {
+		vdb.UseDepot = true
 	}
 }
 
@@ -226,12 +311,4 @@ func (vnode *VCoordinationNode) SetFromNodeConfig(nodeConfig NodeConfig, vdb *VC
 	} else {
 		vnode.ControlAddressFamily = util.DefaultControlAddressFamily
 	}
-}
-
-func GetHostsFromHostNodeMap(hostNodeMap map[string]VCoordinationNode) []string {
-	hosts := []string{}
-	for h := range hostNodeMap {
-		hosts = append(hosts, h)
-	}
-	return hosts
 }

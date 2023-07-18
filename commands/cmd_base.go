@@ -7,6 +7,7 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 /* CmdBase
@@ -55,6 +56,10 @@ func (c *CmdBase) ParseArgv() error {
 
 // validate and parse argv
 func (c *CmdBase) ValidateParseArgv(commandType string) error {
+	vlog.LogArgParse(&c.argv)
+	if c.parser == nil {
+		return fmt.Errorf("unexpected nil - the parser was nil")
+	}
 	if len(c.argv) == 0 {
 		c.PrintUsage(commandType)
 		return fmt.Errorf("zero args found, at least one argument expected")

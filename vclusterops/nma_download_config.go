@@ -28,7 +28,7 @@ type NMADownloadConfigOp struct {
 
 func MakeNMADownloadConfigOp(
 	opName string,
-	vdb *VCoordinationDatabase,
+	nodeMap map[string]VCoordinationNode,
 	bootstrapHosts []string,
 	endpoint string,
 	fileContent *string,
@@ -41,7 +41,7 @@ func MakeNMADownloadConfigOp(
 
 	nmaDownloadConfigOp.catalogPathMap = make(map[string]string)
 	for _, host := range bootstrapHosts {
-		vnode, ok := vdb.HostNodeMap[host]
+		vnode, ok := nodeMap[host]
 		if !ok {
 			msg := fmt.Errorf("[%s] fail to get catalog path from host %s", opName, host)
 			panic(msg)

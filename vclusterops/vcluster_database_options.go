@@ -144,7 +144,6 @@ func (opt *DatabaseOptions) ValidateHostsAndPwd(commandName string) error {
 			vlog.LogPrintInfoln("no password specified, using none")
 		}
 	}
-
 	return nil
 }
 

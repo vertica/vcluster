@@ -248,3 +248,42 @@ func TestSetEonFlagHelpMsg(t *testing.T) {
 	finalMsg := "[Eon only] Path to depot directory"
 	assert.Equal(t, GetEonFlagMsg(msg), finalMsg)
 }
+
+func TestParseConfigParams(t *testing.T) {
+	configParamsListStr := ""
+	configParams, err := ParseConfigParams(configParamsListStr)
+	assert.Nil(t, err)
+	assert.Nil(t, configParams)
+
+	configParamsListStr = "key1=val1,key2"
+	configParams, err = ParseConfigParams(configParamsListStr)
+	assert.NotNil(t, err)
+	assert.Nil(t, configParams)
+
+	configParamsListStr = "key1=val1,=val2"
+	configParams, err = ParseConfigParams(configParamsListStr)
+	assert.NotNil(t, err)
+	assert.Nil(t, configParams)
+
+	configParamsListStr = "key1=val1,key2=val2"
+	configParams, err = ParseConfigParams(configParamsListStr)
+	assert.Nil(t, err)
+	assert.ObjectsAreEqualValues(configParams, map[string]string{"key1": "val1", "key2": "val2"})
+}
+
+func TestGenVNodeName(t *testing.T) {
+	dbName := "test_db"
+	// returns vnode
+	vnodes := make(map[string]string)
+	vnodes["v_test_db_node0002"] = "vnode1"
+	totalCount := 2
+	vnode, ok := GenVNodeName(vnodes, dbName, totalCount)
+	assert.Equal(t, true, ok)
+	assert.Equal(t, "v_test_db_node0001", vnode)
+
+	// returns empty string
+	vnodes[vnode] = "vnode2"
+	vnode, ok = GenVNodeName(vnodes, dbName, totalCount)
+	assert.Equal(t, false, ok)
+	assert.Equal(t, "", vnode)
+}

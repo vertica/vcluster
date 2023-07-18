@@ -28,21 +28,17 @@ type HTTPCreateNodeOp struct {
 	RequestParams map[string]string
 }
 
-func MakeHTTPCreateNodeOp(opName string, hosts []string,
+func MakeHTTPCreateNodeOp(opName string, hosts []string, bootstrapHost []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase) HTTPCreateNodeOp {
 	createNodeOp := HTTPCreateNodeOp{}
 	createNodeOp.name = opName
-	createNodeOp.hosts = hosts
+	createNodeOp.hosts = bootstrapHost
 	createNodeOp.RequestParams = make(map[string]string)
 	// HTTPS create node endpoint requires passing everything before node name
 	createNodeOp.RequestParams["catalog-prefix"] = vdb.CatalogPrefix + "/" + vdb.Name
 	createNodeOp.RequestParams["data-prefix"] = vdb.DataPrefix + "/" + vdb.Name
-	// need to create new nodes for every node except for the nodes
-	// that we run the https endpoint call on
-	// e.g., for create db case, newNodesHost will be [all hosts - bootstrap host]
-	newNodeHosts := util.SliceDiff(vdb.HostList, hosts)
-	createNodeOp.RequestParams["hosts"] = util.ArrayToString(newNodeHosts, ",")
+	createNodeOp.RequestParams["hosts"] = util.ArrayToString(hosts, ",")
 	createNodeOp.useHTTPPassword = useHTTPPassword
 
 	util.ValidateUsernameAndPassword(useHTTPPassword, userName)

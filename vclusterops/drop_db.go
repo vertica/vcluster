@@ -92,14 +92,15 @@ func VDropDatabase(options *VDropDatabaseOptions) error {
 	return nil
 }
 
-/*
-We expect that we will ultimately produce the following instructions:
-    1. Check NMA connectivity
-    2. Check Vertica versions
-	3. Check to see if any dbs running
-	4. Delete directories
-*/
-
+// produceDropDBInstructions will build a list of instructions to execute for
+// the drop db operation
+//
+// The generated instructions will later perform the following operations necessary
+// for a successful drop_db:
+//   - Check NMA connectivity
+//   - Check Vertica versions
+//   - Check to see if any dbs running
+//   - Delete directories
 func produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 

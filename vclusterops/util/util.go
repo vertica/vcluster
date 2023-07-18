@@ -35,6 +35,10 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+const (
+	keyValueArrayLen = 2
+)
+
 func GetJSONLogErrors(responseContent string, responseObj any, opName string) error {
 	err := json.Unmarshal([]byte(responseContent), responseObj)
 	if err != nil {
@@ -338,6 +342,10 @@ func ValidateName(name, obj string) error {
 	return nil
 }
 
+func ValidateDBName(dbName string) error {
+	return ValidateName(dbName, "database")
+}
+
 // suppress help message for hidden options
 func SetParserUsage(parser *flag.FlagSet, op string) {
 	fmt.Printf("Usage of %s:\n", op)
@@ -384,4 +392,53 @@ func ValidateRequiredAbsPath(path *string, pathName string) error {
 
 func ParamNotSetErrorMsg(param string) error {
 	return fmt.Errorf("%s is pointed to nil", param)
+}
+
+// ParseConfigParams builds and returns a map from a comma-separated list of params.
+func ParseConfigParams(configParamListStr string) (map[string]string, error) {
+	return ParseKeyValueListStr(configParamListStr, "config-param")
+}
+
+// ParseKeyValueListStr converts a comma-separated list of key-value pairs into a map.
+// Ex: key1=val1,key2=val2 ---> map[string]string{key1: val1, key2: val2}
+func ParseKeyValueListStr(listStr, opt string) (map[string]string, error) {
+	if listStr == "" {
+		return nil, nil
+	}
+	list := strings.Split(strings.TrimSpace(listStr), ",")
+	// passed an empty string to the given flag
+	if len(list) == 0 {
+		return nil, nil
+	}
+
+	listMap := make(map[string]string)
+	for _, param := range list {
+		// expected to see key value pairs of the format key=value
+		keyValue := strings.Split(param, "=")
+		if len(keyValue) != keyValueArrayLen {
+			return nil, fmt.Errorf("--%s option must take NAME=VALUE as argument: %s is invalid", opt, param)
+		} else if len(keyValue) > 0 && strings.TrimSpace(keyValue[0]) == "" {
+			return nil, fmt.Errorf("--%s option must take NAME=VALUE as argument with NAME being non-empty: %s is invalid", opt, param)
+		}
+		key := strings.TrimSpace(keyValue[0])
+		// we allow empty string value
+		value := strings.TrimSpace(keyValue[1])
+		listMap[key] = value
+	}
+	return listMap, nil
+}
+
+// GenVNodeName generates a vnode and returns it after checking it is not already
+// taken by an existing node.
+func GenVNodeName(vnodes map[string]string, dbName string, hostCount int) (string, bool) {
+	dbNameInNode := strings.ToLower(dbName)
+	for i := 0; i < hostCount; i++ {
+		nodeNameSuffix := i + 1
+		vname := fmt.Sprintf("v_%s_node%04d", dbNameInNode, nodeNameSuffix)
+		if _, ok := vnodes[vname]; !ok {
+			// we have found an available vnode name
+			return vname, true
+		}
+	}
+	return "", false
 }

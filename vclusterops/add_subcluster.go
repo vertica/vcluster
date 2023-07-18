@@ -233,16 +233,17 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 	return nil
 }
 
-/*
-	We expect that we will ultimately produce the following instructions:
-	TODO: add nma connectivity check and nma version check here
-	1. Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for adding a new subcluster
-	2. Add the subcluster catalog object through HTTPS call, and check the response to error out
-	   if the subcluster name already exists or the db is an enterprise db
-	3. Check if the new subcluster is created in database through HTTPS call
-	TODO: add new nodes to the subcluster here
-*/
-
+// produceAddSubclusterInstructions will build a list of instructions to execute for
+// the add subcluster operation.
+//
+// The generated instructions will later perform the following operations necessary
+// for a successful add_subcluster:
+//   - TODO: add nma connectivity check and nma version check
+//   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for adding a new subcluster
+//   - Add the subcluster catalog object through HTTPS call, and check the response to error out
+//     if the subcluster name already exists or the db is an enterprise db
+//   - Check if the new subcluster is created in database through HTTPS call
+//   - TODO: add new nodes to the subcluster
 func produceAddSubclusterInstructions(addSubclusterInfo *VAddSubclusterInfo, options *VAddSubclusterOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 

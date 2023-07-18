@@ -54,6 +54,14 @@ func MakeClusterConfig() ClusterConfig {
 	return ClusterConfig{}
 }
 
+func (c *ClusterConfig) genVnodeMap() map[string]string {
+	vnodes := make(map[string]string)
+	for _, node := range c.Nodes {
+		vnodes[node.Name] = node.Address
+	}
+	return vnodes
+}
+
 // read config information from the YAML file
 func ReadConfig(configDirectory string) (ClusterConfig, error) {
 	clusterConfig := ClusterConfig{}
@@ -74,8 +82,8 @@ func ReadConfig(configDirectory string) (ClusterConfig, error) {
 }
 
 // write config information to the YAML file
-func (clusterConfig *ClusterConfig) WriteConfig(configFilePath string) error {
-	configBytes, err := yaml.Marshal(&clusterConfig)
+func (c *ClusterConfig) WriteConfig(configFilePath string) error {
+	configBytes, err := yaml.Marshal(&c)
 	if err != nil {
 		return fmt.Errorf("fail to marshal config data, details: %w", err)
 	}

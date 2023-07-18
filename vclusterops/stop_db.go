@@ -170,13 +170,14 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	return nil
 }
 
-/*
-	We expect that we will ultimately produce the following instructions:
-	1. Get up nodes through https call
-	2. Stop db on the first up node
-	3. Check there is not any database running
-*/
-
+// produceStopDBInstructions will build a list of instructions to execute for
+// the stop db operation.
+//
+// The generated instructions will later perform the following operations necessary
+// for a successful stop_db:
+//   - Get up nodes through https call
+//   - Stop db on the first up node
+//   - Check there is not any database running
 func produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo,
 	options *VStopDatabaseOptions,
 ) ([]ClusterOp, error) {

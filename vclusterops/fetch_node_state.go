@@ -84,6 +84,8 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 	return nodeStates, runError
 }
 
+// produceListAllNodesInstructions will build a list of instructions to execute for
+// the fetch node state operation.
 func produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 

@@ -17,7 +17,6 @@ package commands
 
 import (
 	"flag"
-	"fmt"
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops"
@@ -87,12 +86,6 @@ func (c *CmdStopDB) CommandType() string {
 }
 
 func (c *CmdStopDB) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
-
-	if c.parser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-
 	c.argv = inputArgv
 	err := c.ValidateParseArgv(c.CommandType())
 	if err != nil {
