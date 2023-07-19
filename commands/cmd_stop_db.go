@@ -116,14 +116,8 @@ func (c *CmdStopDB) Parse(inputArgv []string) error {
 
 // all validations of the arguments should go in here
 func (c *CmdStopDB) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
-
-	err := c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
+	return c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
 }
 
 func (c *CmdStopDB) Analyze() error {
@@ -132,7 +126,7 @@ func (c *CmdStopDB) Analyze() error {
 }
 
 func (c *CmdStopDB) Run() error {
-	vlog.LogInfoln("Called method Run()")
+	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
 	vcc := vclusterops.VClusterCommands{}
 	stopError := vcc.VStopDatabase(c.stopDBOptions)
 	if stopError != nil {

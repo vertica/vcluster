@@ -299,6 +299,11 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 
 	httpsReloadSpreadOp := MakeHTTPSReloadSpreadOp("HTTPSReloadSpreadOp", initiatorHost, true, username, options.Password)
 
+	nmaFetchVdbFromCatEdOp, err := MakeNMAFetchVdbFromCatalogEditorOp(
+		"NMAFetchVdbFromCatalogEditorOp", vdb.HostNodeMap, initiatorHost)
+	if err != nil {
+		return instructions, err
+	}
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
@@ -307,18 +312,13 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 		&nmaNetworkProfileOp,
 		&httpCreateNodeOp,
 		&httpsReloadSpreadOp,
+		&nmaFetchVdbFromCatEdOp,
 	)
-	nmaFetchVdbFromCatEdOp, err := MakeNMAFetchVdbFromCatalogEditorOp(
-		"NMAFetchVdbFromCatalogEditorOp", vdb.HostNodeMap, initiatorHost)
-	if err != nil {
-		return instructions, err
-	}
 
-	produceTransferConfigOps(&instructions, initiatorHost, newNodeHosts, vdb.HostNodeMap)
+	produceTransferConfigOps(&instructions, initiatorHost, nil, newNodeHosts, make(map[string]string))
 	nmaStartNewNodesOp := MakeNMAStartNodeOp("NMAStartNodeOp", newNodeHosts)
 	httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp("HTTPSPollNodeStateOp", allHosts, true, username, options.Password)
 	instructions = append(instructions,
-		&nmaFetchVdbFromCatEdOp,
 		&nmaStartNewNodesOp,
 		&httpsPollNodeStateOp,
 	)

@@ -528,13 +528,17 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 	httpsReloadSpreadOp := MakeHTTPSReloadSpreadOp("HTTPSReloadSpreadOp", bootstrapHost, true, *options.UserName, options.Password)
 	instructions = append(instructions, &httpsReloadSpreadOp)
 
+	hostNodeMap := make(map[string]string)
+	for _, host := range hosts {
+		hostNodeMap[host] = vdb.HostNodeMap[host].CatalogPath
+	}
+
 	if len(hosts) > 1 {
-		produceTransferConfigOps(&instructions, bootstrapHost, newNodeHosts, vdb.HostNodeMap)
+		instructions = append(instructions, &nmaFetchVdbFromCatEdOp)
+		produceTransferConfigOps(&instructions, bootstrapHost, hosts, nil, hostNodeMap)
+		newNodeHosts := util.SliceDiff(vdb.HostList, bootstrapHost)
 		nmaStartNewNodesOp := MakeNMAStartNodeOp("NMAStartNodeOp", newNodeHosts)
-		instructions = append(instructions,
-			&nmaFetchVdbFromCatEdOp,
-			&nmaStartNewNodesOp,
-		)
+		instructions = append(instructions, &nmaStartNewNodesOp)
 	}
 
 	return instructions, nil

@@ -71,19 +71,8 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 }
 
 func (c *CmdDropDB) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
-
-	if *c.dropDBOptions.HonorUserInput {
-		// parse raw host str input into a []string
-		err := c.ParseHostList(&c.dropDBOptions.DatabaseOptions)
-		if err != nil {
-			return err
-		}
-		// parse Ipv6
-		c.dropDBOptions.Ipv6.FromBoolPointer(c.CmdBase.ipv6)
-	}
-
-	return nil
+	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
+	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
 }
 
 func (c *CmdDropDB) Analyze() error {
@@ -91,7 +80,7 @@ func (c *CmdDropDB) Analyze() error {
 }
 
 func (c *CmdDropDB) Run() error {
-	vlog.LogInfoln("Called method Run()")
+	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
 
 	err := vclusterops.VDropDatabase(c.dropDBOptions)
 	if err != nil {

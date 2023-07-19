@@ -174,7 +174,7 @@ func (c *CmdCreateDB) Analyze() error {
 }
 
 func (c *CmdCreateDB) Run() error {
-	vlog.LogInfoln("Called method Run()")
+	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
 	vcc := vclusterops.VClusterCommands{}
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {

@@ -123,13 +123,7 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string) error {
 // all validations of the arguments should go in here
 func (c *CmdAddSubcluster) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
-
-	err := c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
 }
 
 func (c *CmdAddSubcluster) Analyze() error {

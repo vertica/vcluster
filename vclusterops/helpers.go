@@ -17,29 +17,48 @@ package vclusterops
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // produceTransferConfigOps generates instructions to transfert some config
 // files from a bootstrap node to new nodes.
-func produceTransferConfigOps(instructions *[]ClusterOp, bootstrapHost, newNodeHosts []string, nodeMap map[string]VCoordinationNode) {
+func produceTransferConfigOps(instructions *[]ClusterOp, bootstrapHost, hosts, newNodeHosts []string, hostNodeMap map[string]string) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := MakeNMADownloadConfigOp(
-		"NMADownloadVerticaConfigOp", nodeMap, bootstrapHost, "config/vertica", &verticaConfContent)
+		"NMADownloadVerticaConfigOp", hostNodeMap, bootstrapHost, "config/vertica", &verticaConfContent)
 	nmaUploadVerticaConfigOp := MakeNMAUploadConfigOp(
-		"NMAUploadVerticaConfigOp", nodeMap, newNodeHosts, "config/vertica", &verticaConfContent)
+		"NMAUploadVerticaConfigOp", hostNodeMap, bootstrapHost, hosts, newNodeHosts, "config/vertica", &verticaConfContent)
 	var spreadConfContent string
 	nmaDownloadSpreadConfigOp := MakeNMADownloadConfigOp(
-		"NMADownloadSpreadConfigOp", nodeMap, bootstrapHost, "config/spread", &spreadConfContent)
+		"NMADownloadSpreadConfigOp", hostNodeMap, bootstrapHost, "config/spread", &spreadConfContent)
 	nmaUploadSpreadConfigOp := MakeNMAUploadConfigOp(
-		"NMAUploadSpreadConfigOp", nodeMap, newNodeHosts, "config/spread", &spreadConfContent)
+		"NMAUploadSpreadConfigOp", hostNodeMap, bootstrapHost, hosts, newNodeHosts, "config/spread", &spreadConfContent)
 	*instructions = append(*instructions,
 		&nmaDownloadVerticaConfigOp,
 		&nmaUploadVerticaConfigOp,
 		&nmaDownloadSpreadConfigOp,
 		&nmaUploadSpreadConfigOp,
 	)
+}
+
+// Get catalog path after we have db information from /catalog/database endpoint
+func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *NmaVDatabase, catalogPathMap map[string]string) error {
+	if len(hosts) == 0 {
+		return fmt.Errorf("[%s] fail to get host with highest catalog version", nmaVDB.Name)
+	}
+	for _, host := range hosts {
+		vnode, ok := nmaVDB.HostNodeMap[host]
+		if !ok {
+			return fmt.Errorf("fail to get catalog path from host %s", host)
+		}
+
+		// catalog/database endpoint gets the catalog path as /data/{db_name}/v_{db_name}_node0001_catalog/Catalog
+		// We need the parent dir of the full catalog path /data/{db_name}/v_{db_name}_node0001_catalog/
+		catalogPathMap[host] = path.Dir(vnode.CatalogPath)
+	}
+	return nil
 }
 
 // WriteClusterConfig writes config information to a yaml file.

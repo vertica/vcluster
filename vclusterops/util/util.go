@@ -394,6 +394,19 @@ func ParamNotSetErrorMsg(param string) error {
 	return fmt.Errorf("%s is pointed to nil", param)
 }
 
+// only works for the happy path and is temporary
+// will be remove after VER-88084 is completed
+func GetHostCatalogPath(hosts []string, dbName, catalogPath string) map[string]string {
+	dbNameLowerCase := strings.ToLower(dbName)
+	hostCatalogPath := make(map[string]string)
+	for i, h := range hosts {
+		nodeNameSuffix := i + 1
+		hostCatalogPath[h] = fmt.Sprintf("%s/%s/v_%s_node%04d_catalog",
+			catalogPath, dbName, dbNameLowerCase, nodeNameSuffix)
+	}
+	return hostCatalogPath
+}
+
 // ParseConfigParams builds and returns a map from a comma-separated list of params.
 func ParseConfigParams(configParamListStr string) (map[string]string, error) {
 	return ParseKeyValueListStr(configParamListStr, "config-param")

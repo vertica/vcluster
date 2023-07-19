@@ -79,11 +79,6 @@ func (options *VAddSubclusterOptions) validateRequiredOptions() error {
 	if *options.SCName == "" {
 		return fmt.Errorf("must specify a subcluster name")
 	}
-	err = util.ValidateName(*options.SCName, "subcluster")
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -103,10 +98,6 @@ func (options *VAddSubclusterOptions) validateExtraOptions() error {
 	}
 
 	if *options.CloneSC != "" {
-		err := util.ValidateName(*options.CloneSC, "clone subcluster")
-		if err != nil {
-			return err
-		}
 		// TODO remove this log after we supported subcluster clone
 		vlog.LogPrintWarningln("option CloneSC is not implemented yet so it will be ignored")
 	}
