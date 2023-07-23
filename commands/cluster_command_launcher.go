@@ -64,34 +64,7 @@ func MakeClusterCommandLauncher() ClusterCommandLauncher {
 	vlog.LogInfoln("New vcluster command initialization")
 	newLauncher := ClusterCommandLauncher{}
 
-	/* To add a new command:
-	 *   - Instantiate it below
-	 *   - Add it to allCommands
-	 */
-	createDB := MakeCmdCreateDB()
-	addNode := MakeCmdAddNode()
-	stopDB := MakeCmdStopDB()
-	startDB := MakeCmdStartDB()
-	dropDB := MakeCmdDropDB()
-	listAllNodes := MakeListAllNodes()
-	addSubcluster := MakeCmdAddSubcluster()
-	help := MakeCmdHelp()
-	init := MakeCmdInit()
-	config := MakeCmdConfig()
-
-	allCommands := []ClusterCommand{}
-	allCommands = append(allCommands,
-		&createDB,
-		&addNode,
-		&stopDB,
-		&startDB,
-		&help,
-		&init,
-		&config,
-		&dropDB,
-		&listAllNodes,
-		&addSubcluster,
-	)
+	allCommands := constructCmds()
 
 	newLauncher.commands = map[string]ClusterCommand{}
 	for _, c := range allCommands {
@@ -106,6 +79,28 @@ func MakeClusterCommandLauncher() ClusterCommandLauncher {
 	}
 
 	return newLauncher
+}
+
+// constructCmds returns a list of commands that will be executed
+// by the cluster command launcher.
+func constructCmds() []ClusterCommand {
+	return []ClusterCommand{
+		// db-scope cmds
+		MakeCmdCreateDB(),
+		MakeCmdStartDB(),
+		MakeCmdStopDB(),
+		MakeCmdDropDB(),
+		MakeListAllNodes(),
+		MakeCmdReIP(),
+		// sc-scope cmds
+		MakeCmdAddSubcluster(),
+		// node-scope cmds
+		MakeCmdAddNode(),
+		// others
+		MakeCmdHelp(),
+		MakeCmdInit(),
+		MakeCmdConfig(),
+	}
 }
 
 /* Run is expected be called by a CLI program

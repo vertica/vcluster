@@ -130,7 +130,7 @@ func (op *NMABootstrapCatalogOp) updateRequestBody(execContext *OpEngineExecCont
 		dataBytes, err := json.Marshal(op.hostRequestBodyMap[host])
 		if err != nil {
 			vlog.LogError(`[%s] fail to marshal request data to JSON string, detail %s, detail: %v`, op.name, err)
-			return nil
+			return err
 		}
 		op.marshaledRequestBodyMap[host] = string(dataBytes)
 

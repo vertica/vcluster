@@ -25,10 +25,10 @@ type HTTPSReloadSpreadOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPSReloadSpreadOp(opName string, hosts []string, useHTTPPassword bool,
+func MakeHTTPSReloadSpreadOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string) HTTPSReloadSpreadOp {
 	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
-	httpsReloadSpreadOp.name = opName
+	httpsReloadSpreadOp.name = "HTTPSReloadSpreadOp"
 	httpsReloadSpreadOp.hosts = hosts
 	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
 
@@ -86,7 +86,7 @@ func (op *HTTPSReloadSpreadOp) processResult(execContext *OpEngineExecContext) C
 		// {"detail": "Reloaded"}
 		reloadSpreadRsp, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			vlog.LogPrintError("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
+			vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s", op.name, host, err)
 			success = false
 			continue
 		}

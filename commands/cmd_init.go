@@ -39,8 +39,8 @@ type CmdInit struct {
 	ConfigHandler
 }
 
-func MakeCmdInit() CmdInit {
-	newCmd := CmdInit{}
+func MakeCmdInit() *CmdInit {
+	newCmd := &CmdInit{}
 	newCmd.parser = flag.NewFlagSet("init", flag.ExitOnError)
 	newCmd.directory = newCmd.parser.String(
 		"directory",

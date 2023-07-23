@@ -37,9 +37,9 @@ type CmdAddNode struct {
 	CmdBase
 }
 
-func MakeCmdAddNode() CmdAddNode {
+func MakeCmdAddNode() *CmdAddNode {
 	// CmdAddNode
-	newCmd := CmdAddNode{}
+	newCmd := &CmdAddNode{}
 
 	// parser, used to parse command-line flags
 	newCmd.parser = flag.NewFlagSet("db_add_node", flag.ExitOnError)
@@ -50,11 +50,9 @@ func MakeCmdAddNode() CmdAddNode {
 	newCmd.newHostListStr = newCmd.parser.String("add", "", "Comma-separated list of hosts to add to the database")
 
 	// optional flags
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."+
-		" The first host of the list is used as initiator and must be UP."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
 	addNodeOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
+	// VER-88096: get all nodes information from the database and remove this option
 	newCmd.vnodeListStr = newCmd.parser.String("vnodes", "", util.GetOptionalFlagMsg(
 		"Comma-separated list of VNODE=HOST pairs part of the database nodes."+
 			" Use it when you do not trust "+vclusterops.ConfigFileName))
@@ -63,8 +61,11 @@ func MakeCmdAddNode() CmdAddNode {
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
 	addNodeOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", util.GetOptionalFlagMsg("Path of catalog directory"))
 	addNodeOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
+	addNodeOptions.SkipRebalanceShards = newCmd.parser.Bool("skip-rebalance-shards", false,
+		util.GetOptionalFlagMsg("Skip the subcluster shards rebalancing"))
 
 	// Eon flags
+	// VER-88096: get all nodes information from the database and remove this option
 	newCmd.isEon = newCmd.parser.Bool("eon-mode", false, util.GetEonFlagMsg("indicate if the database is an Eon db."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
 	addNodeOptions.SCName = newCmd.parser.String("subcluster", "", util.GetEonFlagMsg("The Name of subcluster for the new node"))
@@ -121,11 +122,11 @@ func (c *CmdAddNode) validateAddNodeParseBaseOptions(opt *vclusterops.DatabaseOp
 	if !*opt.HonorUserInput {
 		return nil
 	}
-	err := c.ValidateParseBaseOptions(opt)
-	if err != nil {
-		return err
-	}
-	err = c.addNodeOptions.ParseNodeList(*c.vnodeListStr)
+	// parse IsEon
+	opt.IsEon.FromBoolPointer(c.isEon)
+	// parse Ipv6
+	opt.Ipv6.FromBoolPointer(c.ipv6)
+	err := c.addNodeOptions.ParseNodeList(*c.vnodeListStr)
 	return err
 }
 
@@ -143,7 +144,7 @@ func (c *CmdAddNode) Run() error {
 	// write cluster information to the YAML config file
 	err := vclusterops.WriteClusterConfig(&vdb, c.addNodeOptions.ConfigDirectory)
 	if err != nil {
-		vlog.LogPrintWarning("fail to write config file, details: %w", err)
+		vlog.LogPrintWarning("fail to write config file, details: %s", err)
 	}
 	vlog.LogPrintInfo("Added nodes %s to database %s", *c.newHostListStr, *c.addNodeOptions.Name)
 	return nil

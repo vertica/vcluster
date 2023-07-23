@@ -17,8 +17,6 @@ package vclusterops
 
 import (
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NMADownloadConfigOp struct {
@@ -68,7 +66,6 @@ func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) {
 func (op *NMADownloadConfigOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
 	// If the host input is a nil value, we find the host with the highest catalog version to update the host input.
 	// Otherwise, we use the host input.
-	vlog.LogInfo("chinh start")
 	if op.hosts == nil {
 		hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
 		if len(hostsWithLatestCatalog) == 0 {
@@ -78,7 +75,7 @@ func (op *NMADownloadConfigOp) Prepare(execContext *OpEngineExecContext) Cluster
 		// update the host with the highest catalog
 		op.hosts = hostWithHighestCatalog
 	}
-	vlog.LogInfo("chinh start host1 %s", op.hosts)
+
 	// Update the catalogPathMap for next download operation's steps from information of catalog editor
 	nmaVDB := execContext.nmaVDatabase
 	op.catalogPathMap = make(map[string]string)
@@ -86,7 +83,6 @@ func (op *NMADownloadConfigOp) Prepare(execContext *OpEngineExecContext) Cluster
 	if err != nil {
 		return MakeClusterOpResultException()
 	}
-	vlog.LogInfo("chinh debug catalog %s", op.catalogPathMap)
 
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)

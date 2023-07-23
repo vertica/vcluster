@@ -131,7 +131,7 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) Clu
 		nodesStateInfo := NodesStateInfo{}
 		err := op.parseAndCheckResponse(host, result.content, &nodesStateInfo)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
 			continue
 		}
 

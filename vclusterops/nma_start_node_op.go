@@ -27,9 +27,9 @@ type NMAStartNodeOp struct {
 	hostRequestBodyMap map[string]string
 }
 
-func MakeNMAStartNodeOp(opName string, hosts []string) NMAStartNodeOp {
+func MakeNMAStartNodeOp(hosts []string) NMAStartNodeOp {
 	nmaStartNodeOp := NMAStartNodeOp{}
-	nmaStartNodeOp.name = opName
+	nmaStartNodeOp.name = "NMAStartNodeOp"
 	nmaStartNodeOp.hosts = hosts
 
 	return nmaStartNodeOp

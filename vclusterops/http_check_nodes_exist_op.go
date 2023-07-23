@@ -20,23 +20,29 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPCheckNodeStateOp struct {
+// HTTPCheckNodesExistOp defines an operation to get the
+// node states and check if some hosts are already part
+// of the database.
+type HTTPCheckNodesExistOp struct {
 	OpBase
 	OpHTTPBase
+	// The IP addresses of the hosts whose existence we want to check
+	targetHosts []string
 }
 
-func MakeHTTPCheckNodeStateOp(opName string,
+// MakeHTTPCheckNodesExistOp will make a https op that check if new nodes exists in current database
+func MakeHTTPCheckNodesExistOp(
 	hosts []string,
+	targetHosts []string,
 	useHTTPPassword bool,
 	userName string,
-	httpsPassword *string,
-) HTTPCheckNodeStateOp {
-	nodeStateChecker := HTTPCheckNodeStateOp{}
-	nodeStateChecker.name = opName
+	httpsPassword *string) HTTPCheckNodesExistOp {
+	nodeStateChecker := HTTPCheckNodesExistOp{}
+	nodeStateChecker.name = "HTTPCheckNodesExistOp"
 	// The hosts are the ones we are going to talk to.
-	// They can be a subset of the actual host information that we return,
-	// as if any of the hosts is responsive, spread can give us the info of all nodes
+	// as if any of the hosts is responsive, spread can give us the info of all nodes.
 	nodeStateChecker.hosts = hosts
+	nodeStateChecker.targetHosts = targetHosts
 	nodeStateChecker.useHTTPPassword = useHTTPPassword
 
 	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
@@ -45,7 +51,7 @@ func MakeHTTPCheckNodeStateOp(opName string,
 	return nodeStateChecker
 }
 
-func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPCheckNodesExistOp) setupClusterHTTPRequest(hosts []string) {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -62,14 +68,14 @@ func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPCheckNodeStateOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodesExistOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
 	return MakeClusterOpResultPass()
 }
 
-func (op *HTTPCheckNodeStateOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodesExistOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
 	if err := op.execute(execContext); err != nil {
 		return MakeClusterOpResultException()
 	}
@@ -77,7 +83,7 @@ func (op *HTTPCheckNodeStateOp) Execute(execContext *OpEngineExecContext) Cluste
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodesExistOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
 	success := false
 	respondingNodeCount := 0
 
@@ -91,8 +97,10 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
 			} else {
-				// successful case, write the result into exec context
-				execContext.nodeStates = nodesInfo.NodeList
+				// We check if any of the new nodes already exist in the database
+				if op.checkNodesExist(nodesInfo.NodeList) {
+					return MakeClusterOpResultFail()
+				}
 				success = true
 			}
 			respondingNodeCount++
@@ -118,16 +126,6 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 	// if the request did not pass on any node
 	// we assume that all nodes are down
 	if respondingNodeCount == 0 {
-		// this list is built for Go client
-		var nodeStates []NodeInfo
-		for _, host := range op.hosts {
-			nodeInfo := NodeInfo{}
-			nodeInfo.Address = host
-			nodeInfo.State = "DOWN"
-			nodeStates = append(nodeStates, nodeInfo)
-		}
-		execContext.nodeStates = nodeStates
-
 		return MakeClusterOpResultFail()
 	}
 
@@ -137,6 +135,27 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 	return MakeClusterOpResultFail()
 }
 
-func (op *HTTPCheckNodeStateOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodesExistOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
 	return MakeClusterOpResultPass()
+}
+
+// checkNodesExist return true if at least one of the new hosts
+// already exists in the database.
+func (op *HTTPCheckNodesExistOp) checkNodesExist(nodes []NodeInfo) bool {
+	// verify the new nodes do not exist in current database
+	hostSet := make(map[string]struct{})
+	for _, host := range op.targetHosts {
+		hostSet[host] = struct{}{}
+	}
+	dupHosts := []string{}
+	for _, host := range nodes {
+		if _, exist := hostSet[host.Address]; exist {
+			dupHosts = append(dupHosts, host.Address)
+		}
+	}
+	if len(dupHosts) == 0 {
+		return false
+	}
+	vlog.LogPrintError("[%s] new nodes %v already exist in the database", op.name, dupHosts)
+	return true
 }

@@ -69,7 +69,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 	// produce list_allnodes instructions
 	instructions, err := produceListAllNodesInstructions(options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, %w", err)
+		vlog.LogPrintError("fail to produce instructions, %s", err)
 		return nil, err
 	}
 

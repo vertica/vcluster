@@ -25,9 +25,9 @@ type CmdStartDB struct {
 	Timeout             *int  // Timeout for starting the database
 }
 
-func MakeCmdStartDB() CmdStartDB {
+func MakeCmdStartDB() *CmdStartDB {
 	// CmdStartDB
-	newCmd := CmdStartDB{}
+	newCmd := &CmdStartDB{}
 
 	// parser, used to parse command-line flags
 	newCmd.parser = flag.NewFlagSet("start_db", flag.ExitOnError)

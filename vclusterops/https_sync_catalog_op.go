@@ -27,10 +27,10 @@ type HTTPSSyncCatalogOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPSSyncCatalogOp(opName string, hosts []string, useHTTPPassword bool,
+func MakeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string) HTTPSSyncCatalogOp {
 	httpsSyncCatalogOp := HTTPSSyncCatalogOp{}
-	httpsSyncCatalogOp.name = opName
+	httpsSyncCatalogOp.name = "HTTPSyncCatalogOp"
 	httpsSyncCatalogOp.hosts = hosts
 	httpsSyncCatalogOp.useHTTPPassword = useHTTPPassword
 

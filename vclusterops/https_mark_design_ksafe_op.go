@@ -113,7 +113,7 @@ func (op *HTTPSMarkDesignKSafeOp) processResult(execContext *OpEngineExecContext
 		markDesignKSafeRsp := MarkDesignKSafeRsp{}
 		err := op.parseAndCheckResponse(host, result.content, &markDesignKSafeRsp)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
 			success = false
 			continue
 		}

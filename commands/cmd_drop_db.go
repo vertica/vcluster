@@ -18,8 +18,8 @@ type CmdDropDB struct {
 	CmdBase
 }
 
-func MakeCmdDropDB() CmdDropDB {
-	newCmd := CmdDropDB{}
+func MakeCmdDropDB() *CmdDropDB {
+	newCmd := &CmdDropDB{}
 	newCmd.parser = flag.NewFlagSet("create_db", flag.ExitOnError)
 
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")

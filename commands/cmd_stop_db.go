@@ -37,9 +37,9 @@ type CmdStopDB struct {
 	stopDBOptions *vclusterops.VStopDatabaseOptions
 }
 
-func MakeCmdStopDB() CmdStopDB {
+func MakeCmdStopDB() *CmdStopDB {
 	// CmdStopDB
-	newCmd := CmdStopDB{}
+	newCmd := &CmdStopDB{}
 
 	// parser, used to parse command-line flags
 	newCmd.parser = flag.NewFlagSet("stop_db", flag.ExitOnError)

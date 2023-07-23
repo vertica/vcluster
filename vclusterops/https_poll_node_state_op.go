@@ -32,10 +32,10 @@ type HTTPSPollNodeStateOp struct {
 	notUpHosts []string
 }
 
-func MakeHTTPSPollNodeStateOp(opName string, hosts []string,
+func MakeHTTPSPollNodeStateOp(hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSPollNodeStateOp {
 	httpsPollNodeStateOp := HTTPSPollNodeStateOp{}
-	httpsPollNodeStateOp.name = opName
+	httpsPollNodeStateOp.name = "HTTPSPollNodeStateOp"
 	httpsPollNodeStateOp.hosts = hosts
 	httpsPollNodeStateOp.useHTTPPassword = useHTTPPassword
 
@@ -154,7 +154,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 			nodesInfo := NodesInfo{}
 			err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %w",
+				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
 				return false, err
 			}

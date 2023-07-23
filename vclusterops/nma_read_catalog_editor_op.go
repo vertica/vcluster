@@ -16,25 +16,34 @@
 package vclusterops
 
 import (
+	"encoding/json"
+
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"golang.org/x/exp/maps"
 )
 
 type NMAReadCatalogEditorOp struct {
-	OpBase                           // base fields of cluster ops
-	catalogPathMap map[string]string // A map of catalogPath built from new hosts
+	OpBase
+	catalogPathMap map[string]string
 }
 
 func MakeNMAReadCatalogEditorOp(
-	name string,
-	hostCatalogPath map[string]string,
+	mapHostToCatalogPath map[string]string,
+	initiator []string,
 ) (NMAReadCatalogEditorOp, error) {
 	op := NMAReadCatalogEditorOp{}
-	op.name = name
+	op.name = "NMAReadCatalogEditorOp"
 
 	op.catalogPathMap = make(map[string]string)
-	for host, catalogPath := range hostCatalogPath {
-		op.hosts = append(op.hosts, host)
-		op.catalogPathMap[host] = catalogPath
+
+	if len(initiator) == 0 {
+		op.hosts = maps.Keys(mapHostToCatalogPath)
+		op.catalogPathMap = mapHostToCatalogPath
+	} else {
+		for _, host := range initiator {
+			op.hosts = append(op.hosts, host)
+			op.catalogPathMap[host] = mapHostToCatalogPath[host]
+		}
 	}
 
 	return op, nil
@@ -79,11 +88,61 @@ func (op *NMAReadCatalogEditorOp) Finalize(execContext *OpEngineExecContext) Clu
 	return MakeClusterOpResultPass()
 }
 
+type NmaVersions struct {
+	Global      json.Number `json:"global"`
+	Local       json.Number `json:"local"`
+	Session     json.Number `json:"session"`
+	Spread      json.Number `json:"spread"`
+	Transaction json.Number `json:"transaction"`
+	TwoPhaseID  json.Number `json:"two_phase_id"`
+}
+
+type NmaVNode struct {
+	Address              string      `json:"address"`
+	AddressFamily        string      `json:"address_family"`
+	CatalogPath          string      `json:"catalog_path"`
+	ClientPort           json.Number `json:"client_port"`
+	ControlAddress       string      `json:"control_address"`
+	ControlAddressFamily string      `json:"control_address_family"`
+	ControlBroadcast     string      `json:"control_broadcast"`
+	ControlNode          json.Number `json:"control_node"`
+	ControlPort          json.Number `json:"control_port"`
+	EiAddress            json.Number `json:"ei_address"`
+	HasCatalog           bool        `json:"has_catalog"`
+	IsEphemeral          bool        `json:"is_ephemeral"`
+	IsPrimary            bool        `json:"is_primary"`
+	IsRecoveryClerk      bool        `json:"is_recovery_clerk"`
+	Name                 string      `json:"name"`
+	NodeParamMap         []any       `json:"node_param_map"`
+	NodeType             json.Number `json:"node_type"`
+	Oid                  json.Number `json:"oid"`
+	ParentFaultGroupID   json.Number `json:"parent_fault_group_id"`
+	ReplacedNode         json.Number `json:"replaced_node"`
+	Schema               json.Number `json:"schema"`
+	SiteUniqueID         json.Number `json:"site_unique_id"`
+	StartCommand         []string    `json:"start_command"`
+	StorageLocations     []string    `json:"storage_locations"`
+	Tag                  json.Number `json:"tag"`
+}
+
+type NmaVDatabase struct {
+	Name     string      `json:"name"`
+	Versions NmaVersions `json:"versions"`
+	Nodes    []NmaVNode  `json:"nodes"`
+	// this map will not be unmarshaled but will be used in NMAStartNodeOp
+	HostNodeMap             map[string]NmaVNode `json:",omitempty"`
+	ControlMode             string              `json:"control_mode"`
+	WillUpgrade             bool                `json:"will_upgrade"`
+	SpreadEncryption        string              `json:"spread_encryption"`
+	CommunalStorageLocation string              `json:"communal_storage_location"`
+}
+
 func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
 	success := true
 
 	var hostsWithLatestCatalog []string
 	var maxSpreadVersion int64
+	var latestNmaVDB NmaVDatabase
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
@@ -91,7 +150,7 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 			nmaVDB := NmaVDatabase{}
 			err := op.parseAndCheckResponse(host, result.content, &nmaVDB)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %w",
+				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
 				success = false
 				continue
@@ -108,7 +167,7 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 			// find hosts with latest catalog version
 			spreadVersion, err := nmaVDB.Versions.Spread.Int64()
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to convert spread Version to integer %s, details: %w",
+				vlog.LogPrintError("[%s] fail to convert spread Version to integer %s, details: %s",
 					op.name, host, err)
 				success = false
 				continue
@@ -117,7 +176,7 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 				hostsWithLatestCatalog = []string{host}
 				maxSpreadVersion = spreadVersion
 				// save the latest NMAVDatabase to execContext
-				execContext.nmaVDatabase = nmaVDB
+				latestNmaVDB = nmaVDB
 			} else if spreadVersion == maxSpreadVersion {
 				hostsWithLatestCatalog = append(hostsWithLatestCatalog, host)
 			}
@@ -127,7 +186,14 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 	}
 
 	// save hostsWithLatestCatalog to execContext
+	if len(hostsWithLatestCatalog) == 0 {
+		vlog.LogPrintError("[%s] cannot find any host with the latest catalog", op.name)
+		return MakeClusterOpResultFail()
+	}
+
 	execContext.hostsWithLatestCatalog = hostsWithLatestCatalog
+	// save the latest nmaVDB to execContext
+	execContext.nmaVDatabase = latestNmaVDB
 
 	if success {
 		return MakeClusterOpResultPass()

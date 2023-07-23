@@ -140,7 +140,7 @@ func (op *HTTPSAddSubclusterOp) processResult(execContext *OpEngineExecContext) 
 		*/
 		_, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
 			break
 		}
 

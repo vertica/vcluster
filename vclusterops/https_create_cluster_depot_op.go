@@ -29,7 +29,7 @@ type HTTPSCreateDepotOp struct {
 	RequestParams  map[string]string
 }
 
-func MakeHTTPSCreateDepotOp(opName string, vdb *VCoordinationDatabase, hosts []string,
+func MakeHTTPSCreateClusterDepotOp(opName string, vdb *VCoordinationDatabase, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSCreateDepotOp {
 	httpsCreateDepotOp := HTTPSCreateDepotOp{}
 	httpsCreateDepotOp.name = opName
@@ -130,7 +130,7 @@ func (op *HTTPSCreateDepotOp) processResult(execContext *OpEngineExecContext) Cl
 		createDepotClusterRsp := CreateDepotClusterRsp{}
 		err := op.parseAndCheckResponse(host, result.content, &createDepotClusterRsp)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
 			success = false
 			continue
 		}

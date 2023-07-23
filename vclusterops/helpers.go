@@ -106,3 +106,12 @@ func WriteClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
 
 	return nil
 }
+
+func mapHostToCatalogPath(hostNodeMap map[string]VCoordinationNode) map[string]string {
+	hostCatalogPathMap := make(map[string]string)
+	for host, vnode := range hostNodeMap {
+		hostCatalogPathMap[host] = vnode.CatalogPath
+	}
+
+	return hostCatalogPathMap
+}

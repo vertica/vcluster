@@ -20,8 +20,8 @@ type CmdListAllNodes struct {
 	CmdBase
 }
 
-func MakeListAllNodes() CmdListAllNodes {
-	newCmd := CmdListAllNodes{}
+func MakeListAllNodes() *CmdListAllNodes {
+	newCmd := &CmdListAllNodes{}
 	newCmd.parser = flag.NewFlagSet("list_allnodes", flag.ExitOnError)
 
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")

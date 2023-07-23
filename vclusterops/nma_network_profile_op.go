@@ -24,9 +24,9 @@ type NMANetworkProfileOp struct {
 	OpBase
 }
 
-func MakeNMANetworkProfileOp(opName string, hosts []string) NMANetworkProfileOp {
+func MakeNMANetworkProfileOp(hosts []string) NMANetworkProfileOp {
 	nmaNetworkProfileOp := NMANetworkProfileOp{}
-	nmaNetworkProfileOp.name = opName
+	nmaNetworkProfileOp.name = "NMANetworkProfileOp"
 	nmaNetworkProfileOp.hosts = hosts
 	return nmaNetworkProfileOp
 }
@@ -85,7 +85,7 @@ func (op *NMANetworkProfileOp) processResult(execContext *OpEngineExecContext) C
 			// unmarshal the result content
 			profile, err := op.parseResponse(host, result.content)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse network profile on host %s, details: %w",
+				vlog.LogPrintError("[%s] fail to parse network profile on host %s, details: %s",
 					op.name, host, err)
 				return MakeClusterOpResultException()
 			}

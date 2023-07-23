@@ -152,7 +152,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 
 	instructions, err := produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, %w", err)
+		vlog.LogPrintError("fail to produce instructions, %s", err)
 		return err
 	}
 
@@ -163,7 +163,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
 	if runError != nil {
-		vlog.LogPrintError("fail to stop database, %w", runError)
+		vlog.LogPrintError("fail to stop database, %s", runError)
 		return runError
 	}
 

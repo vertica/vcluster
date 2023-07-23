@@ -180,7 +180,7 @@ func (op *OpBase) getName() string {
 func (op *OpBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
 	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name)
 	if err != nil {
-		vlog.LogError("[%s] fail to parse response on host %s, detail: %w", op.name, host, err)
+		vlog.LogError("[%s] fail to parse response on host %s, detail: %s", op.name, host, err)
 		return err
 	}
 	vlog.LogInfo("[%s] JSON response from %s is %+v\n", op.name, host, responseObj)

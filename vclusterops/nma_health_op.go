@@ -19,9 +19,9 @@ type NMAHealthOp struct {
 	OpBase
 }
 
-func MakeNMAHealthOp(opName string, hosts []string) NMAHealthOp {
+func MakeNMAHealthOp(hosts []string) NMAHealthOp {
 	nmaHealthOp := NMAHealthOp{}
-	nmaHealthOp.name = opName
+	nmaHealthOp.name = "NMAHealthOp"
 	nmaHealthOp.hosts = hosts
 	return nmaHealthOp
 }

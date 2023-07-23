@@ -149,13 +149,13 @@ func RemoveConfigFile(configDirectory string) error {
 
 	err := os.RemoveAll(configFilePath)
 	if err != nil {
-		vlog.LogPrintError("Fail to remove the config file %s, detail: %w", configFilePath, err)
+		vlog.LogPrintError("Fail to remove the config file %s, detail: %s", configFilePath, err)
 		return err
 	}
 
 	err = os.RemoveAll(configBackupPath)
 	if err != nil {
-		vlog.LogPrintError("Fail to remove the backup config file %s, detail: %w", configBackupPath, err)
+		vlog.LogPrintError("Fail to remove the backup config file %s, detail: %s", configBackupPath, err)
 		return err
 	}
 

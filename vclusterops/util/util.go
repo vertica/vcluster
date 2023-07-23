@@ -37,6 +37,8 @@ import (
 
 const (
 	keyValueArrayLen = 2
+	ipv4Str          = "IPv4"
+	ipv6Str          = "IPv6"
 )
 
 func GetJSONLogErrors(responseContent string, responseObj any, opName string) error {
@@ -144,6 +146,25 @@ func IsIPv4(ip string) bool {
 
 func IsIPv6(ip string) bool {
 	return net.ParseIP(ip).To16() != nil
+}
+
+func AddressCheck(address string, ipv6 bool) error {
+	checkPassed := false
+	if ipv6 {
+		checkPassed = IsIPv6(address)
+	} else {
+		checkPassed = IsIPv4(address)
+	}
+
+	if !checkPassed {
+		ipVersion := ipv4Str
+		if ipv6 {
+			ipVersion = ipv6Str
+		}
+		return fmt.Errorf("%s in the re-ip file is not a valid %s address", address, ipVersion)
+	}
+
+	return nil
 }
 
 func ResolveToIPAddrs(hostname string, ipv6 bool) ([]string, error) {
@@ -396,13 +417,13 @@ func ParamNotSetErrorMsg(param string) error {
 
 // only works for the happy path and is temporary
 // will be remove after VER-88084 is completed
-func GetHostCatalogPath(hosts []string, dbName, catalogPath string) map[string]string {
+func GetHostCatalogPath(hosts []string, dbName, catalogPrefix string) map[string]string {
 	dbNameLowerCase := strings.ToLower(dbName)
 	hostCatalogPath := make(map[string]string)
 	for i, h := range hosts {
 		nodeNameSuffix := i + 1
 		hostCatalogPath[h] = fmt.Sprintf("%s/%s/v_%s_node%04d_catalog",
-			catalogPath, dbName, dbNameLowerCase, nodeNameSuffix)
+			catalogPrefix, dbName, dbNameLowerCase, nodeNameSuffix)
 	}
 	return hostCatalogPath
 }

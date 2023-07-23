@@ -206,7 +206,7 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 
 	instructions, err := produceAddSubclusterInstructions(&addSubclusterInfo, options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, %w", err)
+		vlog.LogPrintError("fail to produce instructions, %s", err)
 		return err
 	}
 
@@ -217,7 +217,7 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
 	if runError != nil {
-		vlog.LogPrintError("fail to add subcluster %s, %w", addSubclusterInfo.SCName, runError)
+		vlog.LogPrintError("fail to add subcluster %s, %s", addSubclusterInfo.SCName, runError)
 		return runError
 	}
 
