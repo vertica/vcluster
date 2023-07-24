@@ -37,10 +37,10 @@ func TestReIPOptions(t *testing.T) {
 	err = opt.ValidateAnalyzeOptions()
 	assert.ErrorContains(t, err, "the re-ip list is not provided")
 
-	var info reIPInfo
+	var info ReIPInfo
 	info.NodeAddress = "192.168.1.102"
 	info.TargetAddress = "192.168.1.103"
-	opt.reIPList = append(opt.reIPList, info)
+	opt.ReIPList = append(opt.ReIPList, info)
 	err = opt.ValidateAnalyzeOptions()
 	assert.NoError(t, err)
 }

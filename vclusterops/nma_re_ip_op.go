@@ -26,7 +26,7 @@ import (
 type NMAReIPOp struct {
 	OpBase
 	catalogPathMap     map[string]string
-	reIPList           []reIPInfo
+	reIPList           []ReIPInfo
 	quorumCount        int // quorumCount = (1/2 * number of primary nodes) + 1
 	primaryNodeCount   int
 	hostRequestBodyMap map[string]string
@@ -34,7 +34,7 @@ type NMAReIPOp struct {
 
 func makeNMAReIPOp(name string,
 	catalogPathMap map[string]string,
-	reIPList []reIPInfo) NMAReIPOp {
+	reIPList []ReIPInfo) NMAReIPOp {
 	op := NMAReIPOp{}
 	op.name = name
 	op.catalogPathMap = catalogPathMap
@@ -43,7 +43,7 @@ func makeNMAReIPOp(name string,
 	return op
 }
 
-type reIPInfo struct {
+type ReIPInfo struct {
 	NodeName               string `json:"node_name"`
 	NodeAddress            string `json:"-"`
 	TargetAddress          string `json:"address"`
@@ -53,7 +53,7 @@ type reIPInfo struct {
 
 type reIPParams struct {
 	CatalogPath  string     `json:"catalog_path"`
-	ReIPInfoList []reIPInfo `json:"re_ip_list"`
+	ReIPInfoList []ReIPInfo `json:"re_ip_list"`
 }
 
 func (op *NMAReIPOp) updateRequestBody(hosts []string, execContext *OpEngineExecContext) error {
@@ -175,7 +175,7 @@ func (op *NMAReIPOp) processResult(execContext *OpEngineExecContext) error {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			var reIPResult []reIPInfo
+			var reIPResult []ReIPInfo
 			err := op.parseAndCheckResponse(host, result.content, &reIPResult)
 			if err != nil {
 				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w",

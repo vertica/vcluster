@@ -13,7 +13,7 @@ import (
 type VReIPOptions struct {
 	DatabaseOptions
 
-	reIPList []reIPInfo
+	ReIPList []ReIPInfo
 }
 
 func VReIPFactory() VReIPOptions {
@@ -52,14 +52,14 @@ func (opt *VReIPOptions) ValidateAnalyzeOptions() error {
 	}
 
 	// the re-ip list must not be empty
-	if len(opt.reIPList) == 0 {
+	if len(opt.ReIPList) == 0 {
 		return errors.New("the re-ip list is not provided")
 	}
 
 	// address check
 	ipv6 := opt.Ipv6.ToBool()
 	nodeAddresses := make(map[string]struct{})
-	for _, info := range opt.reIPList {
+	for _, info := range opt.ReIPList {
 		// the addresses must be valid IPs
 		if err := util.AddressCheck(info.TargetAddress, ipv6); err != nil {
 			return err
@@ -129,7 +129,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
-	if len(options.reIPList) == 0 {
+	if len(options.ReIPList) == 0 {
 		return instructions, errors.New("the re-ip information is not provided")
 	}
 
@@ -151,7 +151,7 @@ func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	// re-ip
 	// at this stage the re-ip info should either by provided by
 	// the re-ip file (for vcluster CLI) or the Kubernetes operator
-	nmaReIPOP := makeNMAReIPOp("NMAReIPOp", mapHostToCatalogPath, options.reIPList)
+	nmaReIPOP := makeNMAReIPOp("NMAReIPOp", mapHostToCatalogPath, options.ReIPList)
 
 	instructions = append(instructions,
 		&nmaHealthOp,
@@ -207,7 +207,7 @@ func (opt *VReIPOptions) ReadReIPFile(path string) error {
 
 	ipv6 := opt.Ipv6.ToBool()
 	for _, row := range reIPRows {
-		var info reIPInfo
+		var info ReIPInfo
 		info.NodeAddress = row.CurrentAddress
 		if e := addressCheck(row.CurrentAddress, ipv6); e != nil {
 			return e
@@ -217,7 +217,7 @@ func (opt *VReIPOptions) ReadReIPFile(path string) error {
 		info.TargetControlAddress = row.NewControlAddress
 		info.TargetControlBroadcast = row.NewControlBroadcast
 
-		opt.reIPList = append(opt.reIPList, info)
+		opt.ReIPList = append(opt.ReIPList, info)
 	}
 
 	return nil
