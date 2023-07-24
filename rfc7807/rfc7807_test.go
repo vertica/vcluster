@@ -16,10 +16,12 @@
 package rfc7807
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,4 +67,50 @@ func TestHttpResponse(t *testing.T) {
 	assert.Equal(t, p.Status, resp.StatusCode)
 	assert.Equal(t, ContentType, resp.Header.Get("Content-Type"))
 	assert.Contains(t, string(body), p.Detail)
+}
+
+func TestProblemExtraction(t *testing.T) {
+	origProblem := New(CommunalRWAccessError).
+		WithDetail("could not read from communal storage").
+		WithStatus(500).
+		WithHost("pod-3")
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		origProblem.SendError(w)
+	}
+
+	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	resp := w.Result()
+	body, _ := io.ReadAll(resp.Body)
+	err := GenerateErrorFromResponse(string(body))
+	assert.NotEqual(t, err, nil)
+	extractProblem := &VProblem{}
+	ok := errors.As(err, &extractProblem)
+	assert.True(t, ok)
+	assert.Equal(t, origProblem.Detail, extractProblem.Detail)
+	assert.Equal(t, origProblem.Host, extractProblem.Host)
+	assert.Equal(t, origProblem.Status, extractProblem.Status)
+	assert.Equal(t, origProblem.Title, extractProblem.Title)
+	assert.Equal(t, origProblem.Type, extractProblem.Type)
+	assert.True(t, reflect.DeepEqual(origProblem, extractProblem))
+}
+
+func TestJSONExtractFailure(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "not json")
+	}
+	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	resp := w.Result()
+	body, _ := io.ReadAll(resp.Body)
+	err := GenerateErrorFromResponse(string(body))
+	assert.NotEqual(t, err, nil)
+	extractProblem := &VProblem{}
+	ok := errors.As(err, &extractProblem)
+	assert.False(t, ok)
+	assert.Contains(t, err.Error(), "failed to unmarshal the rfc7807 response")
 }

@@ -76,6 +76,19 @@ func New(id ProblemID) *VProblem {
 	}
 }
 
+// MakeFromResponse will generate a VProblem parsed from a response string
+// passed in. The VProblem will flow back as an error interface. You cannot
+// always assume a VProblem is flowed back -- there could be a problem parsing
+// the response. Callers should always use errors.At() function to check if it
+// is in fact a VProblem type.
+func GenerateErrorFromResponse(resp string) error {
+	prob := VProblem{}
+	if err := json.Unmarshal([]byte(resp), &prob); err != nil {
+		return fmt.Errorf("failed to unmarshal the rfc7807 response: %w", err)
+	}
+	return &prob
+}
+
 // newProblemID will generate a ProblemID struct for use with VProblem
 func newProblemID(errType, title string) ProblemID {
 	return ProblemID{

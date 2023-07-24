@@ -27,6 +27,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -130,7 +131,7 @@ func (adapter *HTTPAdapter) generateResult(resp *http.Response) HostHTTPResult {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return adapter.makeSuccessResult(bodyString, resp.StatusCode)
 	}
-	return adapter.makeFailResult(bodyString, resp.StatusCode)
+	return adapter.makeFailResult(resp.Header, bodyString, resp.StatusCode)
 }
 
 func (adapter *HTTPAdapter) readResponseBody(resp *http.Response) (bodyString string, err error) {
@@ -169,14 +170,24 @@ func (adapter *HTTPAdapter) makeExceptionResult(err error) HostHTTPResult {
 
 // makeFailResult is a factory method for HostHTTPResult when an error response
 // is received from a REST endpoint.
-func (adapter *HTTPAdapter) makeFailResult(respBody string, statusCode int) HostHTTPResult {
+func (adapter *HTTPAdapter) makeFailResult(header http.Header, respBody string, statusCode int) HostHTTPResult {
 	return HostHTTPResult{
 		host:       adapter.host,
 		status:     FAILURE,
 		statusCode: statusCode,
 		content:    respBody,
-		err:        fmt.Errorf("status code %d returned from host %s: %s", statusCode, adapter.host, respBody),
+		err:        adapter.extractErrorFromResponse(header, respBody, statusCode),
 	}
+}
+
+// extractErrorFromResponse is called when we get a failed response from a REST
+// call. We will look at the headers and response body to decide what error
+// object to create.
+func (adapter *HTTPAdapter) extractErrorFromResponse(header http.Header, respBody string, statusCode int) error {
+	if header.Get("Content-Type") == rfc7807.ContentType {
+		return rfc7807.GenerateErrorFromResponse(respBody)
+	}
+	return fmt.Errorf("status code %d returned from host %s: %s", statusCode, adapter.host, respBody)
 }
 
 func whetherUsePassword(request *HostHTTPRequest) (bool, error) {

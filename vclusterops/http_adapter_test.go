@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -161,4 +162,29 @@ func TestHandleRFC7807Response(t *testing.T) {
 	result := adapter.generateResult(mockResp)
 	assert.Equal(t, result.status, FAILURE)
 	assert.NotEqual(t, result.err, nil)
+	problem := &rfc7807.VProblem{}
+	ok := errors.As(result.err, &problem)
+	assert.True(t, ok)
+	assert.Equal(t, 500, problem.Status)
+	assert.Equal(t, "Cannot access communal storage", problem.Detail)
+}
+
+func TestHandleGenericErrorResponse(t *testing.T) {
+	const errorMessage = "generic error!"
+	mockBodyReader := MockReadCloser{
+		body: []byte(errorMessage),
+	}
+	mockResp := &http.Response{
+		StatusCode: 500,
+		Header:     http.Header{},
+		Body:       &mockBodyReader,
+	}
+	adapter := HTTPAdapter{}
+	result := adapter.generateResult(mockResp)
+	assert.Equal(t, result.status, FAILURE)
+	assert.NotEqual(t, result.err, nil)
+	problem := &rfc7807.VProblem{}
+	ok := errors.As(result.err, &problem)
+	assert.False(t, ok)
+	assert.Contains(t, result.err.Error(), errorMessage)
 }
