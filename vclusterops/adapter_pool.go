@@ -86,8 +86,6 @@ func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) err
 		go ar.adapter.sendRequest(&request, resultChannel)
 	}
 
-	// TODO: the status check code comes here
-
 	// handle results
 	// we expect to receive the same number of results from the channel as the number of hosts
 	// before proceeding to the next steps

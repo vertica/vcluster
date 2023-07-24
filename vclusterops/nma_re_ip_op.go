@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -109,14 +110,13 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAReIPOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAReIPOp) Prepare(execContext *OpEngineExecContext) error {
 	// calculate quorum and update the hosts
 	hostNodeMap := execContext.nmaVDatabase.HostNodeMap
 	for _, host := range execContext.hostsWithLatestCatalog {
 		vnode, ok := hostNodeMap[host]
 		if !ok {
-			vlog.LogPrintError("[%s] cannot find %s from the catalog", op.name, host)
-			return MakeClusterOpResultException()
+			return fmt.Errorf("[%s] cannot find %s from the catalog", op.name, host)
 		}
 		if vnode.IsPrimary {
 			op.hosts = append(op.hosts, host)
@@ -135,42 +135,41 @@ func (op *NMAReIPOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
 
 	// quorum check
 	if !op.hasQuorum(len(op.hosts)) {
-		return MakeClusterOpResultFail()
+		return fmt.Errorf("failed quorum check, not enough primaries exist with: %d", len(op.hosts))
 	}
 
 	// update re-ip list
 	err := op.updateReIPList(execContext)
 	if err != nil {
-		vlog.LogPrintError("[%s] %v", op.name, err)
-		return MakeClusterOpResultException()
+		return fmt.Errorf("[%s] error udating reIP list: %w", op.name, err)
 	}
 
 	// build request body for hosts
 	err = op.updateRequestBody(op.hosts, execContext)
 	if err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *NMAReIPOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAReIPOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAReIPOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *NMAReIPOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
-func (op *NMAReIPOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *NMAReIPOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 	var successCount int
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -179,29 +178,27 @@ func (op *NMAReIPOp) processResult(execContext *OpEngineExecContext) ClusterOpRe
 			var reIPResult []reIPInfo
 			err := op.parseAndCheckResponse(host, result.content, &reIPResult)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %w",
+				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w",
 					op.name, host, err)
-				success = false
+				allErrs = errors.Join(allErrs, err)
 				continue
 			}
 
 			successCount++
 		} else {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 			// VER-88054 rollback the commits
 		}
 	}
 
 	// quorum check
 	if !op.hasQuorum(successCount) {
-		success = false
 		// VER-88054 rollback the commits
+		err := fmt.Errorf("failed quroum check for re-ip update. Success count: %d", successCount)
+		allErrs = errors.Join(allErrs, err)
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultPass()
+	return allErrs
 }
 
 func (op *NMAReIPOp) hasQuorum(hostCount int) bool {

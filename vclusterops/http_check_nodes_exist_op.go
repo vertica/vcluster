@@ -16,6 +16,9 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -68,75 +71,59 @@ func (op *HTTPCheckNodesExistOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPCheckNodesExistOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodesExistOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPCheckNodesExistOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodesExistOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCheckNodesExistOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := false
-	respondingNodeCount := 0
-
+func (op *HTTPCheckNodesExistOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
-		if result.isPassing() {
-			// parse the /nodes endpoint response
-			nodesInfo := NodesInfo{}
-			err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
-			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
-					op.name, host, err)
-			} else {
-				// We check if any of the new nodes already exist in the database
-				if op.checkNodesExist(nodesInfo.NodeList) {
-					return MakeClusterOpResultFail()
-				}
-				success = true
-			}
-			respondingNodeCount++
-			break
-		}
 
 		if result.IsUnauthorizedRequest() {
-			vlog.LogPrintError("[%s] unauthorized request: %s", op.name, result.content)
-			respondingNodeCount++
-			// break here because we assume that
+			// return here because we assume that
 			// we will get the same error across other nodes
-			break
+			return fmt.Errorf("[%s] unauthorized request: %w", op.name, result.err)
 		}
 
-		if result.IsInternalError() {
-			vlog.LogPrintError("[%s] internal error of the /nodes endpoint: %s", op.name, result.content)
-			respondingNodeCount++
-			// for internal error, we use "continue" to try the next node
+		if result.err != nil {
+			err := fmt.Errorf("[%s] error of the /nodes endpoint: %w", op.name, result.err)
+			allErrs = errors.Join(allErrs, err)
+			// for any error, we use "continue" to try the next node
 			continue
 		}
-	}
 
-	// if the request did not pass on any node
-	// we assume that all nodes are down
-	if respondingNodeCount == 0 {
-		return MakeClusterOpResultFail()
+		// parse the /nodes endpoint response
+		nodesInfo := NodesInfo{}
+		err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
+		if err != nil {
+			err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w",
+				op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
+			continue
+		}
+		// We check if any of the new nodes already exist in the database
+		if op.checkNodesExist(nodesInfo.NodeList) {
+			return errors.New("new node already exists in the database")
+		}
+		return nil
 	}
-
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPCheckNodesExistOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPCheckNodesExistOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
 // checkNodesExist return true if at least one of the new hosts

@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -159,32 +160,32 @@ func (op *NMABootstrapCatalogOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *NMABootstrapCatalogOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMABootstrapCatalogOp) Prepare(execContext *OpEngineExecContext) error {
 	err := op.updateRequestBody(execContext)
 	if err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *NMABootstrapCatalogOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMABootstrapCatalogOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMABootstrapCatalogOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *NMABootstrapCatalogOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
-func (op *NMABootstrapCatalogOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *NMABootstrapCatalogOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -197,26 +198,24 @@ func (op *NMABootstrapCatalogOp) processResult(execContext *OpEngineExecContext)
 
 			responseMap, err := op.parseAndCheckMapResponse(host, result.content)
 			if err != nil {
-				success = false
+				allErrs = errors.Join(allErrs, err)
 				continue
 			}
 
 			code, ok := responseMap["bootstrap_catalog_return_code"]
 			if !ok {
-				vlog.LogError(`[%s] response does not contain the field "bootstrap_catalog_return_code"`, op.name)
-				success = false
+				err = fmt.Errorf(`[%s] response does not contain the field "bootstrap_catalog_return_code"`, op.name)
+				allErrs = errors.Join(allErrs, err)
+				continue
 			}
 			if code != "0" {
-				vlog.LogError(`[%s] bootstrap_catalog_return_code should be 0 but got %s`, op.name, code)
-				success = false
+				err = fmt.Errorf(`[%s] bootstrap_catalog_return_code should be 0 but got %s`, op.name, code)
+				allErrs = errors.Join(allErrs, err)
 			}
 		} else {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 		}
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }

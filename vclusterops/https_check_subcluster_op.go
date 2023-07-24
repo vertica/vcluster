@@ -16,8 +16,9 @@
 package vclusterops
 
 import (
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSCheckSubclusterOp struct {
@@ -62,20 +63,19 @@ func (op *HTTPSCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSCheckSubclusterOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSCheckSubclusterOp) Prepare(execContext *OpEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
-		vlog.LogError(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
-		return MakeClusterOpResultFail()
+		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
 	execContext.dispatcher.Setup(execContext.upHosts)
 	op.setupClusterHTTPRequest(execContext.upHosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSCheckSubclusterOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSCheckSubclusterOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
@@ -88,17 +88,18 @@ type SCInfo struct {
 	CtlSetSize  int    `json:"control_set_size"`
 }
 
-func (op *HTTPSCheckSubclusterOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := false
+func (op *HTTPSCheckSubclusterOp) processResult(execContext *OpEngineExecContext) error {
+	var err error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.IsUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
-			break
+			return result.err
 		}
 		if !result.isPassing() {
+			err = result.err
 			// try processing other hosts' responses when the current host has some server errors
 			continue
 		}
@@ -115,39 +116,30 @@ func (op *HTTPSCheckSubclusterOp) processResult(execContext *OpEngineExecContext
 			}
 		*/
 		scInfo := SCInfo{}
-		err := op.parseAndCheckResponse(host, result.content, &scInfo)
+		err = op.parseAndCheckResponse(host, result.content, &scInfo)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
-			break
+			return fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 		}
 
 		if scInfo.SCName != op.scName {
-			vlog.LogError(`[%s] new subcluster name should be '%s' but got '%s'`, op.name, op.scName, scInfo.SCName)
-			break
+			return fmt.Errorf(`[%s] new subcluster name should be '%s' but got '%s'`, op.name, op.scName, scInfo.SCName)
 		}
 		if scInfo.IsSecondary != op.isSecondary {
 			if op.isSecondary {
-				vlog.LogError(`[%s] new subcluster should be a secondary subcluster but got a primary subcluster`, op.name)
-			} else {
-				vlog.LogError(`[%s] new subcluster should be a primary subcluster but got a secondary subcluster`, op.name)
+				return fmt.Errorf(`[%s] new subcluster should be a secondary subcluster but got a primary subcluster`, op.name)
 			}
-			break
+			return fmt.Errorf(`[%s] new subcluster should be a primary subcluster but got a secondary subcluster`, op.name)
 		}
 		if scInfo.CtlSetSize != op.ctlSetSize {
-			vlog.LogError(`[%s] new subcluster should have control set size as %d but got %d`, op.name, op.ctlSetSize, scInfo.CtlSetSize)
-			break
+			return fmt.Errorf(`[%s] new subcluster should have control set size as %d but got %d`, op.name, op.ctlSetSize, scInfo.CtlSetSize)
 		}
 
-		success = true
-		break
+		return nil
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return err
 }
 
-func (op *HTTPSCheckSubclusterOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSCheckSubclusterOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

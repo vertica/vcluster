@@ -17,8 +17,6 @@ package vclusterops
 
 import (
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type VClusterOpEngine struct {
@@ -39,8 +37,6 @@ func (opEngine *VClusterOpEngine) shouldGetCertsFromOptions() bool {
 }
 
 func (opEngine *VClusterOpEngine) Run() error {
-	var statusCode = SUCCESS
-
 	execContext := MakeOpEngineExecContext()
 	opEngine.execContext = &execContext
 
@@ -48,31 +44,23 @@ func (opEngine *VClusterOpEngine) Run() error {
 
 	for _, op := range opEngine.instructions {
 		op.logPrepare()
-		prepareResult := op.Prepare(&execContext)
+		err := op.Prepare(&execContext)
+		if err != nil {
+			return fmt.Errorf("prepare %s failed, details: %w", op.getName(), err)
+		}
 
+		// execute an instruction
 		op.loadCertsIfNeeded(opEngine.certs, findCertsInOptions)
-
-		// execute an instruction if prepare succeed
-		if prepareResult.isPassing() {
-			op.logExecute()
-			executeResult := op.Execute(&execContext)
-			statusCode = executeResult.status
-			if executeResult.isFailing() {
-				vlog.LogPrintInfo("Execute %s failed, details: %+v\n", op.getName(), executeResult)
-			}
-			if executeResult.isException() {
-				vlog.LogPrintInfo("An exception happened during executing %s, details: %+v\n", op.getName(), executeResult)
-			}
-		} else if prepareResult.isFailing() {
-			vlog.LogPrintInfo("Prepare %s failed, details: %+v\n", op.getName(), prepareResult)
-		} else if prepareResult.isException() {
-			vlog.LogPrintInfo("Prepare %s got exception, details: %+v\n", op.getName(), prepareResult)
+		op.logExecute()
+		err = op.Execute(&execContext)
+		if err != nil {
+			return fmt.Errorf("execute %s failed, details: %w", op.getName(), err)
 		}
 
 		op.logFinalize()
-		op.Finalize(&execContext)
-		if statusCode != SUCCESS {
-			return fmt.Errorf("status code %d (%s)", statusCode, statusCode.getStatusString())
+		err = op.Finalize(&execContext)
+		if err != nil {
+			return fmt.Errorf("finalize failed %w", err)
 		}
 	}
 

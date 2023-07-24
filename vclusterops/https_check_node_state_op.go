@@ -16,6 +16,9 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -62,61 +65,65 @@ func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPCheckNodeStateOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodeStateOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPCheckNodeStateOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPCheckNodeStateOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := false
+func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 	respondingNodeCount := 0
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
-		if result.isPassing() {
-			// parse the /nodes endpoint response
-			nodesInfo := NodesInfo{}
-			err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
-			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
-					op.name, host, err)
-			} else {
-				// successful case, write the result into exec context
-				execContext.nodeStates = nodesInfo.NodeList
-				success = true
-			}
-			respondingNodeCount++
-			break
-		}
 
 		if result.IsUnauthorizedRequest() {
 			vlog.LogPrintError("[%s] unauthorized request: %s", op.name, result.content)
-			respondingNodeCount++
-			// break here because we assume that
+			// return here because we assume that
 			// we will get the same error across other nodes
-			break
+			allErrs = errors.Join(allErrs, result.err)
+			return allErrs
 		}
 
-		if result.IsInternalError() {
-			vlog.LogPrintError("[%s] internal error of the /nodes endpoint: %s", op.name, result.content)
-			respondingNodeCount++
-			// for internal error, we use "continue" to try the next node
+		if !result.isPassing() {
+			// for any error, we continue to the next node
+			if result.IsInternalError() {
+				vlog.LogPrintError("[%s] internal error of the /nodes endpoint: %s", op.name, result.content)
+				// At internal error originated from the server, so its a
+				// response, just not a successful one.
+				respondingNodeCount++
+			}
+			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}
+
+		// parse the /nodes endpoint response
+		respondingNodeCount++
+		nodesInfo := NodesInfo{}
+		err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
+		if err != nil {
+			err = fmt.Errorf("[%s] fail to parse result on host %s: %w",
+				op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
+			continue
+		}
+		// successful case, write the result into exec context
+		execContext.nodeStates = nodesInfo.NodeList
+		return nil
 	}
 
-	// if the request did not pass on any node
-	// we assume that all nodes are down
+	// If none of the requests succeed on any node, we
+	// can assume that all nodes are down.
 	if respondingNodeCount == 0 {
 		// this list is built for Go client
 		var nodeStates []NodeInfo
@@ -127,16 +134,10 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 			nodeStates = append(nodeStates, nodeInfo)
 		}
 		execContext.nodeStates = nodeStates
-
-		return MakeClusterOpResultFail()
 	}
-
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPCheckNodeStateOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPCheckNodeStateOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

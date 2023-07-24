@@ -16,6 +16,8 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -61,16 +63,16 @@ func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSGetUpNodesOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSGetUpNodesOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSGetUpNodesOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSGetUpNodesOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
@@ -106,7 +108,8 @@ type NodesStateInfo struct {
 	NodeList []NodeStateInfo `json:"node_list"`
 }
 
-func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 	// golang does not have set data structure, use a map to simulate it
 	upHosts := make(map[string]struct{})
 	exceptionHosts := []string{}
@@ -114,6 +117,10 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) Clu
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
+
+		if !result.isPassing() {
+			allErrs = errors.Join(allErrs, result.err)
+		}
 
 		// We assume all the hosts are in the same db cluster
 		// If any of the hosts reject the request, other hosts will reject the request too
@@ -131,14 +138,16 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) Clu
 		nodesStateInfo := NodesStateInfo{}
 		err := op.parseAndCheckResponse(host, result.content, &nodesStateInfo)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
+			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
 			continue
 		}
 
 		// collect all the up hosts
 		for _, node := range nodesStateInfo.NodeList {
 			if node.Database != op.DBName {
-				vlog.LogPrintError(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
+				err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
+				allErrs = errors.Join(allErrs, err)
 				break
 			}
 			if node.State == util.NodeUpState {
@@ -157,7 +166,7 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) Clu
 		}
 		// sorting the up hosts will be helpful for picking up the initiator in later instructions
 		sort.Strings(execContext.upHosts)
-		return MakeClusterOpResultPass()
+		return nil
 	}
 
 	if len(exceptionHosts) > 0 {
@@ -168,9 +177,9 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) Clu
 		vlog.LogPrintError(`[%s] did not detect database %s running on hosts %v`, op.name, op.DBName, downHosts)
 	}
 
-	return MakeClusterOpResultFail()
+	return errors.Join(allErrs, fmt.Errorf("no up nodes detected"))
 }
 
-func (op *HTTPSGetUpNodesOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSGetUpNodesOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

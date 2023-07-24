@@ -16,8 +16,10 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NMANetworkProfileOp struct {
@@ -46,23 +48,23 @@ func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *NMANetworkProfileOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMANetworkProfileOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *NMANetworkProfileOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMANetworkProfileOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMANetworkProfileOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *NMANetworkProfileOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
 type NetworkProfile struct {
@@ -73,8 +75,8 @@ type NetworkProfile struct {
 	Broadcast string
 }
 
-func (op *NMANetworkProfileOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *NMANetworkProfileOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	allNetProfiles := make(map[string]NetworkProfile)
 
@@ -85,23 +87,19 @@ func (op *NMANetworkProfileOp) processResult(execContext *OpEngineExecContext) C
 			// unmarshal the result content
 			profile, err := op.parseResponse(host, result.content)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse network profile on host %s, details: %s",
+				return fmt.Errorf("[%s] fail to parse network profile on host %s, details: %w",
 					op.name, host, err)
-				return MakeClusterOpResultException()
 			}
 			allNetProfiles[host] = profile
 		} else {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 		}
 	}
 
 	// save network profiles to execContext
 	execContext.networkProfiles = allNetProfiles
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
 func (op *NMANetworkProfileOp) parseResponse(host, resultContent string) (NetworkProfile, error) {

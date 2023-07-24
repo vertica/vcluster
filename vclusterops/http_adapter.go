@@ -74,14 +74,14 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 	// whether use password (for HTTPS endpoints only)
 	usePassword, err := whetherUsePassword(request)
 	if err != nil {
-		resultChannel <- adapter.makeExceptionResult(err.Error())
+		resultChannel <- adapter.makeExceptionResult(err)
 		return
 	}
 
 	// HTTP client
 	client, err := adapter.setupHTTPClient(request, usePassword, resultChannel)
 	if err != nil {
-		adapter.makeExceptionResult(err.Error())
+		resultChannel <- adapter.makeExceptionResult(err)
 		return
 	}
 
@@ -96,9 +96,9 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 	// build HTTP request
 	req, err := http.NewRequest(request.Method, requestURL, requestBody)
 	if err != nil {
-		errMessage := fmt.Sprintf("fail to build request %v on host %s, details %s",
-			request.Endpoint, adapter.host, err.Error())
-		resultChannel <- adapter.makeExceptionResult(errMessage)
+		err = fmt.Errorf("fail to build request %v on host %s, details %w",
+			request.Endpoint, adapter.host, err)
+		resultChannel <- adapter.makeExceptionResult(err)
 		return
 	}
 
@@ -111,72 +111,72 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 	// send HTTP request
 	resp, err := client.Do(req)
 	if err != nil {
-		errMessage := fmt.Sprintf("fail to send request %v on host %s, details %s",
-			request.Endpoint, adapter.host, err.Error())
-		resultChannel <- adapter.makeExceptionResult(errMessage)
+		err = fmt.Errorf("fail to send request %v on host %s, details %w",
+			request.Endpoint, adapter.host, err)
+		resultChannel <- adapter.makeExceptionResult(err)
 		return
 	}
 	defer resp.Body.Close()
 
-	// process result
-	adapter.processResult(resp, resultChannel)
+	// generate and return the result
+	resultChannel <- adapter.generateResult(resp)
 }
 
-func (adapter *HTTPAdapter) processResult(resp *http.Response, resultChannel chan<- HostHTTPResult) {
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		bodyString, ok := adapter.readResponseBody(resp, resultChannel)
-		if ok {
-			// save as a successful result to the result channel
-			resultChannel <- adapter.makeSucessResult(bodyString, resp.StatusCode)
-		}
-	} else {
-		bodyString, ok := adapter.readResponseBody(resp, resultChannel)
-		if ok {
-			// save as a failed result to the result channel
-			message := fmt.Sprintf("Request failed with code [%d], detail: %s", resp.StatusCode, bodyString)
-			resultChannel <- adapter.makeFailResult(message, resp.StatusCode)
-		}
+func (adapter *HTTPAdapter) generateResult(resp *http.Response) HostHTTPResult {
+	bodyString, err := adapter.readResponseBody(resp)
+	if err != nil {
+		return adapter.makeExceptionResult(err)
 	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return adapter.makeSuccessResult(bodyString, resp.StatusCode)
+	}
+	return adapter.makeFailResult(bodyString, resp.StatusCode)
 }
 
-func (adapter *HTTPAdapter) readResponseBody(
-	resp *http.Response,
-	resultChannel chan<- HostHTTPResult) (bodyString string, ok bool) {
+func (adapter *HTTPAdapter) readResponseBody(resp *http.Response) (bodyString string, err error) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		errMessage := fmt.Sprintf("fail to read the response body, details %s", err.Error())
-		resultChannel <- adapter.makeExceptionResult(errMessage)
-		return "", false
+		err = fmt.Errorf("fail to read the response body: %w", err)
+		return "", err
 	}
 	bodyString = string(bodyBytes)
 
-	return bodyString, true
+	return bodyString, nil
 }
 
-func (adapter *HTTPAdapter) makeSucessResult(content string, statusCode int) HostHTTPResult {
-	var result HostHTTPResult
-	result.host = adapter.host
-	result.status = SUCCESS
-	result.statusCode = statusCode
-	result.content = content
-	return result
+// makeSuccessResult is a factory method for HostHTTPResult when a success
+// response comes back from a REST endpoints.
+func (adapter *HTTPAdapter) makeSuccessResult(content string, statusCode int) HostHTTPResult {
+	return HostHTTPResult{
+		host:       adapter.host,
+		status:     SUCCESS,
+		statusCode: statusCode,
+		content:    content,
+	}
 }
 
-func (adapter *HTTPAdapter) makeExceptionResult(errMessage string) HostHTTPResult {
-	var result HostHTTPResult
-	result.host = adapter.host
-	result.status = EXCEPTION
-	result.errMsg = errMessage
-	return result
+// makeExceptionResult is a factory method for HostHTTPResult when an error
+// during the process of communicating with a REST endpoint. It won't refer to
+// the error received over the wire, but usually some error that occurred in the
+// process of communicating.
+func (adapter *HTTPAdapter) makeExceptionResult(err error) HostHTTPResult {
+	return HostHTTPResult{
+		host:   adapter.host,
+		status: EXCEPTION,
+		err:    err,
+	}
 }
 
-func (adapter *HTTPAdapter) makeFailResult(message string, statusCode int) HostHTTPResult {
-	var result HostHTTPResult
-	result.host = adapter.host
-	result.status = FAILURE
-	result.statusCode = statusCode
-	result.content = message
-	return result
+// makeFailResult is a factory method for HostHTTPResult when an error response
+// is received from a REST endpoint.
+func (adapter *HTTPAdapter) makeFailResult(respBody string, statusCode int) HostHTTPResult {
+	return HostHTTPResult{
+		host:       adapter.host,
+		status:     FAILURE,
+		statusCode: statusCode,
+		content:    respBody,
+		err:        fmt.Errorf("status code %d returned from host %s: %s", statusCode, adapter.host, respBody),
+	}
 }
 
 func whetherUsePassword(request *HostHTTPRequest) (bool, error) {

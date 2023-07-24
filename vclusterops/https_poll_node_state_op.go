@@ -16,6 +16,8 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"time"
@@ -70,32 +72,31 @@ func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSPollNodeStateOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSPollNodeStateOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSPollNodeStateOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSPollNodeStateOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSPollNodeStateOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSPollNodeStateOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
-func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) error {
 	startTime := time.Now()
 	timeoutSecondStr := util.GetEnv("NODE_STATE_POLLING_TIMEOUT", strconv.Itoa(StartupPollingTimeout))
 	timeoutSecond, err := strconv.Atoi(timeoutSecondStr)
 	if err != nil {
-		vlog.LogPrintError("invalid timeout value %s", timeoutSecondStr)
-		return MakeClusterOpResultFail()
+		return fmt.Errorf("invalid timeout value %s: %w", timeoutSecondStr, err)
 	}
 
 	duration := time.Duration(timeoutSecond) * time.Second
@@ -111,15 +112,15 @@ func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) 
 
 		shouldStopPoll, err := op.shouldStopPolling()
 		if err != nil {
-			return MakeClusterOpResultException()
+			return err
 		}
 
 		if shouldStopPoll {
-			return MakeClusterOpResultPass()
+			return nil
 		}
 
 		if err := op.execute(execContext); err != nil {
-			return MakeClusterOpResultException()
+			return err
 		}
 
 		count++
@@ -127,10 +128,10 @@ func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) 
 
 	// show the hosts that are not UP
 	sort.Strings(op.notUpHosts)
-	vlog.LogPrintError("The following hosts are not up after %d seconds: %v",
+	msg := fmt.Sprintf("The following hosts are not up after %d seconds: %v",
 		timeoutSecond, op.notUpHosts)
-
-	return MakeClusterOpResultFail()
+	vlog.LogPrintError(msg)
+	return errors.New(msg)
 }
 
 // the following structs only hosts necessary information for this op

@@ -16,12 +16,16 @@
 package vclusterops
 
 import (
+	"encoding/json"
+	"io"
+	"net/http"
 	"os"
 	"path"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vertica/vcluster/rfc7807"
 )
 
 func TestBuildQueryParams(t *testing.T) {
@@ -104,4 +108,57 @@ func TestBuildCertsFromMemory(t *testing.T) {
 	if !caCertPool1.Equal(caCertPool2) {
 		t.Errorf("Cert Pools are not the same")
 	}
+}
+
+type MockReadCloser struct {
+	read bool
+	body []byte
+}
+
+func (m *MockReadCloser) Read(p []byte) (n int, err error) {
+	if !m.read {
+		m.read = true
+		copy(p, m.body)
+		return len(m.body), nil
+	}
+	return 0, io.EOF
+}
+
+func (m *MockReadCloser) Close() error {
+	return nil
+}
+
+func TestHandleSuccessResponseCodes(t *testing.T) {
+	adapter := HTTPAdapter{}
+	mockBodyReader := MockReadCloser{
+		body: []byte("success!"),
+	}
+	mockResp := &http.Response{
+		StatusCode: 250,
+		Body:       &mockBodyReader,
+	}
+	result := adapter.generateResult(mockResp)
+	assert.Equal(t, result.status, SUCCESS)
+	assert.Equal(t, result.err, nil)
+}
+
+func TestHandleRFC7807Response(t *testing.T) {
+	adapter := HTTPAdapter{}
+	rfcErr := rfc7807.New(rfc7807.CommunalAccessError).
+		WithStatus(500).
+		WithDetail("Cannot access communal storage")
+	b, err := json.Marshal(rfcErr)
+	assert.Equal(t, err, nil)
+	mockBodyReader := MockReadCloser{
+		body: b,
+	}
+	mockResp := &http.Response{
+		StatusCode: rfcErr.Status,
+		Header:     http.Header{},
+		Body:       &mockBodyReader,
+	}
+	mockResp.Header.Add("Content-Type", rfc7807.ContentType)
+	result := adapter.generateResult(mockResp)
+	assert.Equal(t, result.status, FAILURE)
+	assert.NotEqual(t, result.err, nil)
 }

@@ -2,6 +2,7 @@ package vclusterops
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -89,27 +90,27 @@ func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *NMADeleteDirectoriesOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMADeleteDirectoriesOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMADeleteDirectoriesOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMADeleteDirectoriesOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *NMADeleteDirectoriesOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *NMADeleteDirectoriesOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -123,15 +124,12 @@ func (op *NMADeleteDirectoriesOp) processResult(execContext *OpEngineExecContext
 			// }
 			_, err := op.parseAndCheckMapResponse(host, result.content)
 			if err != nil {
-				success = false
+				allErrs = errors.Join(allErrs, err)
 			}
 		} else {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 		}
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }

@@ -13,7 +13,6 @@
  limitations under the License.
 */
 
-// TODO move this file to commands package
 package vclusterops
 
 import (

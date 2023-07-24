@@ -16,6 +16,9 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -59,16 +62,16 @@ func (op *HTTPSFindSubclusterOrDefaultOp) setupClusterHTTPRequest(hosts []string
 	}
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSFindSubclusterOrDefaultOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSFindSubclusterOrDefaultOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
@@ -84,17 +87,18 @@ type SCResp struct {
 	SCInfoList []SubclusterInfo `json:"subcluster_list"`
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := false
+func (op *HTTPSFindSubclusterOrDefaultOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.IsUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
-			break
+			return result.err
 		}
 		if !result.isPassing() {
+			allErrs = errors.Join(allErrs, result.err)
 			// try processing other hosts' responses when the current host has some server errors
 			continue
 		}
@@ -124,47 +128,46 @@ func (op *HTTPSFindSubclusterOrDefaultOp) processResult(execContext *OpEngineExe
 		scResp := SCResp{}
 		err := op.parseAndCheckResponse(host, result.content, &scResp)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
-			break
+			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
+			return allErrs
 		}
 
 		// find if subcluster exists if scName is provided
 		// otherwise, get the default subcluster name
 		if op.scName != "" {
+			exists := false
 			for _, scInfo := range scResp.SCInfoList {
 				if scInfo.SCName == op.scName {
-					success = true
+					exists = true
 					vlog.LogInfo(`[%s] subcluster '%s' exists in the database`, op.name, scInfo.SCName)
 					break
 				}
 			}
-			if !success {
-				vlog.LogPrintError(`[%s] subcluster '%s' does not exist in the database`, op.name, op.scName)
+			if !exists {
+				return fmt.Errorf(`[%s] subcluster '%s' does not exist in the database`, op.name, op.scName)
 			}
 		} else {
+			foundDefault := false
 			for _, scInfo := range scResp.SCInfoList {
 				if scInfo.IsDefault {
 					// store the default sc name for later rebalance-shards use
 					execContext.defaultSCName = scInfo.SCName
-					success = true
+					foundDefault = true
 					vlog.LogInfo(`[%s] found default subcluster '%s' in the database`, op.name, scInfo.SCName)
 					break
 				}
 			}
-			if !success {
-				vlog.LogPrintError(`[%s] cannot find a default subcluster in the database`, op.name)
+			if !foundDefault {
+				return fmt.Errorf(`[%s] cannot find a default subcluster in the database`, op.name)
 			}
 		}
 
-		break
+		return nil
 	}
-
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSFindSubclusterOrDefaultOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

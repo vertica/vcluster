@@ -1,5 +1,7 @@
 # vcluster
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/vertica/vcluster.svg)](https://pkg.go.dev/github.com/vertica/vcluster)
+
 This repository contains the Go library and command-line interface (CLI) to
 administer a Vertica cluster with HTTP RESTful interfaces. These interfaces are
 exposed by the following services:

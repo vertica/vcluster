@@ -17,10 +17,10 @@ package vclusterops
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSAddSubclusterOp struct {
@@ -91,42 +91,42 @@ func (op *HTTPSAddSubclusterOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSAddSubclusterOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSAddSubclusterOp) Prepare(execContext *OpEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
-		vlog.LogError(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
-		return MakeClusterOpResultFail()
+		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
 	// use first up host to execute https post request, this host will be the initiator
 	hosts := []string{execContext.upHosts[0]}
 	err := op.setupRequestBody(hosts)
 	if err != nil {
-		return MakeClusterOpResultFail()
+		return err
 	}
 	execContext.dispatcher.Setup(hosts)
 	op.setupClusterHTTPRequest(hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSAddSubclusterOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSAddSubclusterOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSAddSubclusterOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := false
+func (op *HTTPSAddSubclusterOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.IsUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
-			break
+			return result.err
 		}
 		if !result.isPassing() {
+			allErrs = errors.Join(allErrs, result.err)
 			// try processing other hosts' responses when the current host has some server errors
 			continue
 		}
@@ -140,20 +140,15 @@ func (op *HTTPSAddSubclusterOp) processResult(execContext *OpEngineExecContext) 
 		*/
 		_, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
-			break
+			return fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 		}
 
-		success = true
-		break
+		return nil
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPSAddSubclusterOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSAddSubclusterOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

@@ -17,6 +17,8 @@ package vclusterops
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 	"golang.org/x/exp/maps"
@@ -69,23 +71,23 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *NMAReadCatalogEditorOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAReadCatalogEditorOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *NMAReadCatalogEditorOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAReadCatalogEditorOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAReadCatalogEditorOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *NMAReadCatalogEditorOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
 type NmaVersions struct {
@@ -137,9 +139,8 @@ type NmaVDatabase struct {
 	CommunalStorageLocation string              `json:"communal_storage_location"`
 }
 
-func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
-
+func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 	var hostsWithLatestCatalog []string
 	var maxSpreadVersion int64
 	var latestNmaVDB NmaVDatabase
@@ -150,9 +151,9 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 			nmaVDB := NmaVDatabase{}
 			err := op.parseAndCheckResponse(host, result.content, &nmaVDB)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
+				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w",
 					op.name, host, err)
-				success = false
+				allErrs = errors.Join(allErrs, err)
 				continue
 			}
 
@@ -167,9 +168,9 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 			// find hosts with latest catalog version
 			spreadVersion, err := nmaVDB.Versions.Spread.Int64()
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to convert spread Version to integer %s, details: %s",
+				err = fmt.Errorf("[%s] fail to convert spread Version to integer %s, details: %w",
 					op.name, host, err)
-				success = false
+				allErrs = errors.Join(allErrs, err)
 				continue
 			}
 			if spreadVersion > maxSpreadVersion {
@@ -181,22 +182,20 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 				hostsWithLatestCatalog = append(hostsWithLatestCatalog, host)
 			}
 		} else {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 		}
 	}
 
 	// save hostsWithLatestCatalog to execContext
 	if len(hostsWithLatestCatalog) == 0 {
-		vlog.LogPrintError("[%s] cannot find any host with the latest catalog", op.name)
-		return MakeClusterOpResultFail()
+		err := fmt.Errorf("[%s] cannot find any host with the latest catalog", op.name)
+		allErrs = errors.Join(allErrs, err)
+		return allErrs
 	}
 
 	execContext.hostsWithLatestCatalog = hostsWithLatestCatalog
 	// save the latest nmaVDB to execContext
 	execContext.nmaVDatabase = latestNmaVDB
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }

@@ -16,6 +16,9 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -55,23 +58,23 @@ func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSInstallPackagesOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSInstallPackagesOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSInstallPackagesOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSInstallPackagesOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSInstallPackagesOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSInstallPackagesOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
 /*
@@ -93,14 +96,14 @@ func (op *HTTPSInstallPackagesOp) Finalize(execContext *OpEngineExecContext) Clu
 */
 type HTTPSInstallPackagesResponse map[string][]map[string]string
 
-func (op *HTTPSInstallPackagesOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *HTTPSInstallPackagesOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if !result.isPassing() {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}
 
@@ -108,20 +111,17 @@ func (op *HTTPSInstallPackagesOp) processResult(execContext *OpEngineExecContext
 		err := op.parseAndCheckResponse(host, result.content, &responseObj)
 
 		if err != nil {
-			success = false
+			allErrs = errors.Join(allErrs, err)
 			continue
 		}
 
 		installedPackages, ok := responseObj["packages"]
 		if !ok {
-			vlog.LogError(`[%s] response does not contain field "packages"`, op.name)
-			success = false
+			err = fmt.Errorf(`[%s] response does not contain field "packages"`, op.name)
+			allErrs = errors.Join(allErrs, err)
 		}
 
 		vlog.LogPrintInfo("[%s] installed packages: %v", op.name, installedPackages)
 	}
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }

@@ -16,8 +16,10 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const HTTPSSuccMsg = "REBALANCED SHARDS"
@@ -62,12 +64,11 @@ func (op *HTTPSRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []stri
 	}
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSRebalanceSubclusterShardsOp) Prepare(execContext *OpEngineExecContext) error {
 	// rebalance shards on the default subcluster if scName isn't provided
 	if op.scName == "" {
 		if execContext.defaultSCName == "" {
-			vlog.LogPrintError("default subcluster is not set")
-			return MakeClusterOpResultFail()
+			return errors.New("default subcluster is not set")
 		}
 		op.scName = execContext.defaultSCName
 	}
@@ -75,28 +76,29 @@ func (op *HTTPSRebalanceSubclusterShardsOp) Prepare(execContext *OpEngineExecCon
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSRebalanceSubclusterShardsOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := false
+func (op *HTTPSRebalanceSubclusterShardsOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.IsUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
-			break
+			return result.err
 		}
 		if !result.isPassing() {
+			allErrs = errors.Join(allErrs, result.err)
 			// try processing other hosts' responses when the current host has some server errors
 			continue
 		}
@@ -110,25 +112,23 @@ func (op *HTTPSRebalanceSubclusterShardsOp) processResult(execContext *OpEngineE
 		*/
 		resp, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
-			break
+			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
+			return allErrs
 		}
 		// verify if the response's content is correct
 		if resp["detail"] != HTTPSSuccMsg {
-			vlog.LogError(`[%s] response detail should be '%s' but got '%s'`, op.name, HTTPSSuccMsg, resp["detail"])
-			break
+			err = fmt.Errorf(`[%s] response detail should be '%s' but got '%s'`, op.name, HTTPSSuccMsg, resp["detail"])
+			allErrs = errors.Join(allErrs, err)
+			return allErrs
 		}
 
-		success = true
-		break
+		return nil
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSRebalanceSubclusterShardsOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

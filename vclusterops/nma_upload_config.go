@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -31,6 +32,7 @@ type NMAUploadConfigOp struct {
 	hostRequestBodyMap map[string]string
 	sourceConfigHost   []string
 	newNodeHosts       []string
+	skipExecute        bool // This can be set during prepare if we determine no work is needed
 }
 
 type uploadConfigRequestData struct {
@@ -101,17 +103,24 @@ func (op *NMAUploadConfigOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *NMAUploadConfigOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAUploadConfigOp) Prepare(execContext *OpEngineExecContext) error {
 	if op.sourceConfigHost == nil {
 		//  if the host with the highest catalog version for starting a database or starting nodes is nil value
 		// 	we identify the hosts that need to be synchronized.
 		hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
 		if len(hostsWithLatestCatalog) == 0 {
-			return MakeClusterOpResultException()
+			return fmt.Errorf("could not find at least one host with the latest catalog")
 		}
 		hostsNeedCatalogSync := util.SliceDiff(op.hosts, hostsWithLatestCatalog)
 		// Update the hosts that need to synchronize the catalog
 		op.hosts = hostsNeedCatalogSync
+		// If no hosts to upload, skip this operation. This can happen if all
+		// hosts have the latest catalog.
+		if len(op.hosts) == 0 {
+			vlog.LogInfo("no hosts require an upload, skipping the operation")
+			op.skipExecute = true
+			return nil
+		}
 	} else {
 		if op.newNodeHosts == nil {
 			// If the list of newly added hosts is null, the sourceConfigHost host will be the bootstrapHost input
@@ -129,33 +138,37 @@ func (op *NMAUploadConfigOp) Prepare(execContext *OpEngineExecContext) ClusterOp
 	op.catalogPathMap = make(map[string]string)
 	err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
 	if err != nil {
-		return MakeClusterOpResultException()
+		return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
 	}
 
 	err = op.setupRequestBody(op.hosts)
 	if err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *NMAUploadConfigOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAUploadConfigOp) Execute(execContext *OpEngineExecContext) error {
+	// Behave as a no-op if Prepare() determined there was nothing to do
+	if op.skipExecute {
+		return nil
+	}
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAUploadConfigOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *NMAUploadConfigOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
-func (op *NMAUploadConfigOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *NMAUploadConfigOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -164,22 +177,19 @@ func (op *NMAUploadConfigOp) processResult(execContext *OpEngineExecContext) Clu
 			// {"destination":"/data/vcluster_test_db/v_vcluster_test_db_node0003_catalog/vertica.conf"}
 			responseObj, err := op.parseAndCheckMapResponse(host, result.content)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s", op.name, host, err)
-				success = false
+				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
+				allErrs = errors.Join(allErrs, err)
 				continue
 			}
 			_, ok := responseObj["destination"]
 			if !ok {
-				vlog.LogError(`[%s] response does not contain field "destination"`, op.name)
-				success = false
+				err = fmt.Errorf(`[%s] response does not contain field "destination"`, op.name)
+				allErrs = errors.Join(allErrs, err)
 			}
 		} else {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 		}
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }

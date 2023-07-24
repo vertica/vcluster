@@ -16,11 +16,12 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSStopDBOp struct {
@@ -67,36 +68,35 @@ func (op *HTTPSStopDBOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSStopDBOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSStopDBOp) Prepare(execContext *OpEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
-		vlog.LogError(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
-		return MakeClusterOpResultFail()
+		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
 	// use first up host to execute https post request
 	hosts := []string{execContext.upHosts[0]}
 	execContext.dispatcher.Setup(hosts)
 	op.setupClusterHTTPRequest(hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSStopDBOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSStopDBOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSStopDBOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *HTTPSStopDBOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 	re := regexp.MustCompile(`Set subcluster \(.*\) to draining state.*`)
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if !result.isPassing() {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}
 
@@ -111,31 +111,28 @@ func (op *HTTPSStopDBOp) processResult(execContext *OpEngineExecContext) Cluster
 		//  Shutdown message sent to subcluster (default_subcluster)\n\n"}
 		response, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
-			success = false
+			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
 			continue
 		}
 
 		if _, ok := op.RequestParams["timeout"]; ok {
 			if re.MatchString(response["details"]) {
-				vlog.LogError(`[%s] response detail should like 'Set subcluster to draining state ...' but got '%s'`,
+				err = fmt.Errorf(`[%s] response detail should like 'Set subcluster to draining state ...' but got '%s'`,
 					op.name, response["detail"])
-				success = false
+				allErrs = errors.Join(allErrs, err)
 			}
 		} else {
 			if response["detail"] != "Shutdown: moveout complete" {
-				vlog.LogError(`[%s] response detail should be 'Shutdown: moveout complete' but got '%s'`, op.name, response["detail"])
-				success = false
+				err = fmt.Errorf(`[%s] response detail should be 'Shutdown: moveout complete' but got '%s'`, op.name, response["detail"])
+				allErrs = errors.Join(allErrs, err)
 			}
 		}
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPSStopDBOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSStopDBOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

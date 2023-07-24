@@ -15,6 +15,8 @@
 
 package vclusterops
 
+import "errors"
+
 type NMAHealthOp struct {
 	OpBase
 }
@@ -40,43 +42,39 @@ func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *NMAHealthOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAHealthOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *NMAHealthOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *NMAHealthOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAHealthOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *NMAHealthOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
 
-func (op *NMAHealthOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
-
+func (op *NMAHealthOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
 			_, err := op.parseAndCheckMapResponse(host, result.content)
 			if err != nil {
-				success = false
+				return errors.Join(allErrs, err)
 			}
 		} else {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 		}
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }

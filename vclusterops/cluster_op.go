@@ -13,6 +13,11 @@
  limitations under the License.
 */
 
+// vclusterops is a Go library to administer a Vertica cluster with HTTP RESTful
+// interfaces. These interfaces are exposed through the Node Management Agent
+// (NMA) and an HTTPS service embedded in the server. With this library you can
+// perform administrator-level operations, including: creating a database,
+// scaling up/down, restarting the cluster, and stopping the cluster.
 package vclusterops
 
 import (
@@ -63,12 +68,6 @@ const (
 	InternalErrorCode  = 500
 )
 
-// ClusterOpResult is used to hold the ClusterOp's result
-// at the steps of prepare, execute, and finalize
-type ClusterOpResult struct {
-	status ResultStatus
-}
-
 // HostHTTPResult is used to save result of an Adapter's sendRequest(...) function
 // it is the element of the adapter pool's channel
 type HostHTTPResult struct {
@@ -76,7 +75,7 @@ type HostHTTPResult struct {
 	statusCode int
 	host       string
 	content    string
-	errMsg     string
+	err        error // This is set if the http response ends in a failure scenario
 }
 
 func (hostResult *HostHTTPResult) IsUnauthorizedRequest() bool {
@@ -94,32 +93,8 @@ func (hostResult *HostHTTPResult) IsHTTPRunning() bool {
 	return false
 }
 
-func MakeClusterOpResultPass() ClusterOpResult {
-	return ClusterOpResult{status: SUCCESS}
-}
-
-func MakeClusterOpResultFail() ClusterOpResult {
-	return ClusterOpResult{status: FAILURE}
-}
-
-func MakeClusterOpResultException() ClusterOpResult {
-	return ClusterOpResult{status: EXCEPTION}
-}
-
-func (clusterOpResult *ClusterOpResult) isPassing() bool {
-	return clusterOpResult.status == SUCCESS
-}
-
-func (clusterOpResult *ClusterOpResult) isFailing() bool {
-	return clusterOpResult.status == FAILURE
-}
-
-func (clusterOpResult *ClusterOpResult) isException() bool {
-	return clusterOpResult.status == EXCEPTION
-}
-
 func (hostResult *HostHTTPResult) isPassing() bool {
-	return hostResult.status == SUCCESS
+	return hostResult.err == nil
 }
 
 func (hostResult *HostHTTPResult) isFailing() bool {
@@ -149,10 +124,10 @@ func (status ResultStatus) getStatusString() string {
 type ClusterOp interface {
 	getName() string
 	setupClusterHTTPRequest(hosts []string)
-	Prepare(execContext *OpEngineExecContext) ClusterOpResult
-	Execute(execContext *OpEngineExecContext) ClusterOpResult
-	Finalize(execContext *OpEngineExecContext) ClusterOpResult
-	processResult(execContext *OpEngineExecContext) ClusterOpResult
+	Prepare(execContext *OpEngineExecContext) error
+	Execute(execContext *OpEngineExecContext) error
+	Finalize(execContext *OpEngineExecContext) error
+	processResult(execContext *OpEngineExecContext) error
 	logResponse(host string, result HostHTTPResult)
 	logPrepare()
 	logExecute()

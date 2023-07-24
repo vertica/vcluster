@@ -16,8 +16,10 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSCreateNodesDepotOp struct {
@@ -65,23 +67,23 @@ func (op *HTTPSCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSCreateNodesDepotOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSCreateNodesDepotOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSCreateNodesDepotOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSCreateNodesDepotOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSCreateNodesDepotOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *HTTPSCreateNodesDepotOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	// every host needs to have a successful result, otherwise we fail this op
 	// because we want depot created successfully on all hosts
@@ -89,7 +91,7 @@ func (op *HTTPSCreateNodesDepotOp) processResult(execContext *OpEngineExecContex
 		op.logResponse(host, result)
 
 		if !result.isPassing() {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 			// not break here because we want to log all the failed nodes
 			continue
 		}
@@ -103,27 +105,23 @@ func (op *HTTPSCreateNodesDepotOp) processResult(execContext *OpEngineExecContex
 		*/
 		resp, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			vlog.LogPrintError(`[%s] fail to parse result on host %s, details: %s`, op.name, host, err)
-			success = false
+			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
 			// not break here because we want to log all the failed nodes
 			continue
 		}
 
 		// verify if the node name and the depot location are correct
 		if resp["node"] != op.HostNodeMap[host].Name || resp["depot_location"] != op.HostNodeMap[host].DepotPath {
-			vlog.LogError(`[%s] should create depot %s on node %s, but created depot %s on node %s from host %s`,
+			err := fmt.Errorf(`[%s] should create depot %s on node %s, but created depot %s on node %s from host %s`,
 				op.name, op.HostNodeMap[host].DepotPath, op.HostNodeMap[host].Name, resp["depot_location"], resp["node"], host)
-			success = false
+			allErrs = errors.Join(allErrs, err)
 			// not break here because we want to log all the failed nodes
 		}
 	}
-
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPSCreateNodesDepotOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSCreateNodesDepotOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }

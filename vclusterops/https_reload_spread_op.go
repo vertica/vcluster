@@ -16,8 +16,10 @@
 package vclusterops
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSReloadSpreadOp struct {
@@ -55,29 +57,29 @@ func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
-func (op *HTTPSReloadSpreadOp) Prepare(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSReloadSpreadOp) Prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 
-	return MakeClusterOpResultPass()
+	return nil
 }
 
-func (op *HTTPSReloadSpreadOp) Execute(execContext *OpEngineExecContext) ClusterOpResult {
+func (op *HTTPSReloadSpreadOp) Execute(execContext *OpEngineExecContext) error {
 	if err := op.execute(execContext); err != nil {
-		return MakeClusterOpResultException()
+		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSReloadSpreadOp) processResult(execContext *OpEngineExecContext) ClusterOpResult {
-	success := true
+func (op *HTTPSReloadSpreadOp) processResult(execContext *OpEngineExecContext) error {
+	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if !result.isPassing() {
-			success = false
+			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}
 
@@ -86,24 +88,21 @@ func (op *HTTPSReloadSpreadOp) processResult(execContext *OpEngineExecContext) C
 		// {"detail": "Reloaded"}
 		reloadSpreadRsp, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s", op.name, host, err)
-			success = false
+			err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
 			continue
 		}
 
 		// verify if the response's content is correct
 		if reloadSpreadRsp["detail"] != "Reloaded" {
-			vlog.LogError(`[%s] response detail should be 'Reloaded' but got '%s'`, op.name, reloadSpreadRsp["detail"])
-			success = false
+			err = fmt.Errorf(`[%s] response detail should be 'Reloaded' but got '%s'`, op.name, reloadSpreadRsp["detail"])
+			allErrs = errors.Join(allErrs, err)
 		}
 	}
 
-	if success {
-		return MakeClusterOpResultPass()
-	}
-	return MakeClusterOpResultFail()
+	return allErrs
 }
 
-func (op *HTTPSReloadSpreadOp) Finalize(execContext *OpEngineExecContext) ClusterOpResult {
-	return MakeClusterOpResultPass()
+func (op *HTTPSReloadSpreadOp) Finalize(execContext *OpEngineExecContext) error {
+	return nil
 }
