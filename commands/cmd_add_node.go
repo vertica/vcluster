@@ -57,6 +57,8 @@ func MakeCmdAddNode() *CmdAddNode {
 		"Comma-separated list of VNODE=HOST pairs part of the database nodes."+
 			" Use it when you do not trust "+vclusterops.ConfigFileName))
 	addNodeOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	addNodeOptions.InputHost = *newCmd.parser.String("host", "", util.GetOptionalFlagMsg(
+		"The name or ip address of an up node that will be used to execute operations"))
 	addNodeOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
 	addNodeOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", util.GetOptionalFlagMsg("Path of catalog directory"))

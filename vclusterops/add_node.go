@@ -32,7 +32,10 @@ type VAddNodeOptions struct {
 	// Name of the subcluster that the new nodes will be added to
 	SCName *string
 	// A set of nodes(vnode - host) in the database
-	Nodes     map[string]string
+	Nodes map[string]string
+	// A (must be up) host that will be used to execute
+	// add_node operations.
+	InputHost string
 	DepotSize *string // like 10G
 	// Skip rebalance shards if true
 	SkipRebalanceShards *bool
@@ -54,6 +57,7 @@ func (o *VAddNodeOptions) SetDefaultValues() {
 	o.SkipRebalanceShards = new(bool)
 	// true by default for the operator
 	*o.SkipRebalanceShards = true
+	o.DepotSize = new(string)
 }
 
 func (o *VAddNodeOptions) validateRequiredOptions() error {
@@ -88,6 +92,9 @@ func (o *VAddNodeOptions) validateEonOptions(config *ClusterConfig) error {
 func (o *VAddNodeOptions) validateExtraOptions() error {
 	if !*o.HonorUserInput {
 		return nil
+	}
+	if len(o.Nodes) == 0 {
+		return fmt.Errorf("must specify a non-empty set of nodes(vnode - host)")
 	}
 	// catalog prefix path
 	err := util.ValidateRequiredAbsPath(o.CatalogPrefix, "catalog path")
@@ -140,6 +147,13 @@ func (o *VAddNodeOptions) analyzeOptions() (err error) {
 	o.NewHosts, err = util.ResolveRawHostsToAddresses(o.NewHosts, o.Ipv6.ToBool())
 	if err != nil {
 		return err
+	}
+
+	if o.InputHost != "" {
+		o.InputHost, err = util.ResolveToOneIP(o.InputHost, o.Ipv6.ToBool())
+		if err != nil {
+			return err
+		}
 	}
 
 	// process correct catalog path, data path and depot path prefixes
@@ -232,12 +246,16 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
-	// We are going to use this host to run the operations
-	// we assume that the user/config input hosts are up.
-	// There is already a Jira(VER-88096) to improve how we get all nodes
-	// information of a running database.
-	inputHost := []string{
-		util.SliceDiff(vdb.HostList, options.NewHosts)[0],
+	var inputHost []string
+	if options.InputHost != "" {
+		// If the user specified an input host, we use it to execute the ops.
+		// It must be up.
+		inputHost = append(inputHost, options.InputHost)
+	} else {
+		// If an input host is not specified we use one from user/config host list.
+		// There is already a Jira(VER-88096) to improve how we get all nodes
+		// information of a running database.
+		inputHost = append(inputHost, util.SliceDiff(vdb.HostList, options.NewHosts)[0])
 	}
 	newNodeHosts := options.NewHosts
 	// Some operations need all of the new hosts, plus the initiator host.
@@ -246,7 +264,6 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 	allHosts = append(allHosts, newNodeHosts...)
 
 	nmaHealthOp := MakeNMAHealthOp(allHosts)
-
 	// require to have the same vertica version
 	nmaVerticaVersionOp := MakeNMAVerticaVersionOp(allHosts, true)
 
@@ -267,34 +284,29 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
 		&httpCheckNodesExistOp)
-
 	if vdb.IsEon {
 		httpsFindSubclusterOrDefaultOp := MakeHTTPSFindSubclusterOrDefaultOp(
 			inputHost, usePassword, username, options.Password, *options.SCName)
 		instructions = append(instructions, &httpsFindSubclusterOrDefaultOp)
 	}
-
 	nmaPrepareDirectoriesOp, err := MakeNMAPrepareDirectoriesOp(options.NewHostNodeMap)
 	if err != nil {
 		return instructions, err
 	}
-
 	nmaNetworkProfileOp := MakeNMANetworkProfileOp(allHosts)
-
 	httpCreateNodeOp := MakeHTTPCreateNodeOp(newNodeHosts, inputHost,
 		usePassword, *options.UserName, options.Password, vdb, *options.SCName)
-
 	httpsReloadSpreadOp := MakeHTTPSReloadSpreadOp(inputHost, true, username, options.Password)
 
 	mapHostToCatalogPath := make(map[string]string)
 	for h, vnode := range vdb.HostNodeMap {
 		mapHostToCatalogPath[h] = vnode.CatalogPath
 	}
+
 	nmaReadCatalogEditorOp, err := MakeNMAReadCatalogEditorOp(mapHostToCatalogPath, inputHost)
 	if err != nil {
 		return instructions, err
 	}
-
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,
 		&nmaNetworkProfileOp,
@@ -310,13 +322,11 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 		&nmaStartNewNodesOp,
 		&httpsPollNodeStateOp,
 	)
-
 	if vdb.UseDepot {
 		httpsCreateNodesDepotOp := MakeHTTPSCreateNodesDepotOp(vdb,
 			newNodeHosts, usePassword, username, options.Password)
 		instructions = append(instructions, &httpsCreateNodesDepotOp)
 	}
-
 	if vdb.IsEon {
 		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(inputHost, true, username, options.Password)
 		instructions = append(instructions, &httpsSyncCatalogOp)
@@ -326,6 +336,5 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 			instructions = append(instructions, &httpsRBSCShardsOp)
 		}
 	}
-
 	return instructions, nil
 }
