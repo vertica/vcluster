@@ -75,8 +75,11 @@ func (opt *VReIPOptions) ValidateAnalyzeOptions() error {
 			}
 		}
 
-		// the node addresses in the re-ip list must not be duplicate
-		addr := info.NodeAddress
+		// the target node addresses in the re-ip list must not be empty or duplicate
+		addr := info.TargetAddress
+		if addr == "" {
+			return errors.New("the new node address should not be empty")
+		}
 		if _, ok := nodeAddresses[addr]; ok {
 			return fmt.Errorf("the provided node address %s is duplicate", addr)
 		}
