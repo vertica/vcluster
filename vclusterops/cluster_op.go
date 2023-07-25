@@ -22,6 +22,7 @@ package vclusterops
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -33,6 +34,8 @@ import (
 // ResultStatus is the data type for the status of
 // ClusterOpResult and HostHTTPResult
 type ResultStatus int
+
+var wrongCredentialErrMsg = []string{"Wrong password", "Wrong certificate"}
 
 const (
 	SUCCESS   ResultStatus = 0
@@ -78,8 +81,29 @@ type HostHTTPResult struct {
 	err        error // This is set if the http response ends in a failure scenario
 }
 
+// The HTTP response with a 401 status code can have several scenarios:
+// 1. Wrong password
+// 2. Wrong certificate
+// 3. The local node has not yet joined the cluster; the HTTP server will accept connections once the node joins the cluster.
+// HTTPCheckDBRunningOp in create_db need to check all scenarios to see any HTTP running
+// For HTTPSPollNodeStateOp in start_db, it requires only handling the first and second scenarios
 func (hostResult *HostHTTPResult) IsUnauthorizedRequest() bool {
 	return hostResult.statusCode == UnauthorizedCode
+}
+
+// check only password and certificate for start_db
+func (hostResult *HostHTTPResult) IsPasswordandCertificateError() bool {
+	if !hostResult.IsUnauthorizedRequest() {
+		return false
+	}
+	resultString := fmt.Sprintf("%v", hostResult)
+	for _, msg := range wrongCredentialErrMsg {
+		if strings.Contains(resultString, msg) {
+			vlog.LogError("the user has provided %s", msg)
+			return true
+		}
+	}
+	return false
 }
 
 func (hostResult *HostHTTPResult) IsInternalError() bool {

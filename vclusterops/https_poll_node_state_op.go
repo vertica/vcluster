@@ -149,7 +149,15 @@ type NodesInfo struct {
 func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
-
+		// VER-88185 vcluster start_db - password related issues
+		// We don't need to wait until timeout to determine if all nodes are up or not.
+		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately."
+		if result.IsPasswordandCertificateError() {
+			vlog.LogPrintError("[%s] Database is UP, but user has provided wrong credentials so unable to perform further operations",
+				op.name)
+			return false, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
+				op.name, host)
+		}
 		if result.isPassing() {
 			// parse the /nodes endpoint response
 			nodesInfo := NodesInfo{}
