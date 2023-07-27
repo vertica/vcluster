@@ -119,7 +119,7 @@ func (op *NMAVerticaVersionOp) logResponseCollectVersions() error {
 func (op *NMAVerticaVersionOp) logCheckVersionMatch() error {
 	versionStr := NoVersion
 	for host, version := range op.HostVersionMap {
-		vlog.LogInfo("[%s] Host {%s}: version {s%}", op.name, host, version)
+		vlog.LogInfo("[%s] Host {%s}: version {%s}", op.name, host, version)
 		if version == "" {
 			return fmt.Errorf("[%s] No version collected for host: [%s]", op.name, host)
 		} else if versionStr == NoVersion {

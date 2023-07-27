@@ -30,15 +30,18 @@ type NMAReIPOp struct {
 	quorumCount        int // quorumCount = (1/2 * number of primary nodes) + 1
 	primaryNodeCount   int
 	hostRequestBodyMap map[string]string
+	mapHostToNodeName  map[string]string
 }
 
 func makeNMAReIPOp(name string,
 	catalogPathMap map[string]string,
-	reIPList []ReIPInfo) NMAReIPOp {
+	reIPList []ReIPInfo,
+	mapHostToNodeName map[string]string) NMAReIPOp {
 	op := NMAReIPOp{}
 	op.name = name
 	op.catalogPathMap = catalogPathMap
 	op.reIPList = reIPList
+	op.mapHostToNodeName = mapHostToNodeName
 
 	return op
 }
@@ -111,27 +114,28 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 }
 
 func (op *NMAReIPOp) Prepare(execContext *OpEngineExecContext) error {
-	// calculate quorum and update the hosts
-	hostNodeMap := execContext.nmaVDatabase.HostNodeMap
-	for _, host := range execContext.hostsWithLatestCatalog {
-		vnode, ok := hostNodeMap[host]
-		if !ok {
-			return fmt.Errorf("[%s] cannot find %s from the catalog", op.name, host)
-		}
+	// get the primary node names
+	// this step is needed as the new host addresses
+	// are not in the catalog
+	primaryNodes := make(map[string]struct{})
+	nodeList := execContext.nmaVDatabase.Nodes
+	for i := 0; i < len(nodeList); i++ {
+		vnode := nodeList[i]
 		if vnode.IsPrimary {
+			primaryNodes[vnode.Name] = struct{}{}
+		}
+	}
+
+	// calculate quorum and update the hosts
+	for _, host := range execContext.hostsWithLatestCatalog {
+		nodeName := op.mapHostToNodeName[host]
+		if _, ok := primaryNodes[nodeName]; ok {
 			op.hosts = append(op.hosts, host)
 		}
 	}
 
-	// count the quorum
-	op.primaryNodeCount = 0
-	for h := range hostNodeMap {
-		vnode := hostNodeMap[h]
-		if vnode.IsPrimary {
-			op.primaryNodeCount++
-		}
-	}
-	op.quorumCount = op.primaryNodeCount/2 + 1
+	// get the quorum count
+	op.quorumCount = execContext.nmaVDatabase.QuorumCount
 
 	// quorum check
 	if !op.hasQuorum(len(op.hosts)) {

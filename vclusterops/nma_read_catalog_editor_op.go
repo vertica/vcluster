@@ -137,6 +137,9 @@ type NmaVDatabase struct {
 	WillUpgrade             bool                `json:"will_upgrade"`
 	SpreadEncryption        string              `json:"spread_encryption"`
 	CommunalStorageLocation string              `json:"communal_storage_location"`
+	// the quorum count will not be unmarshaled but will be used in NMAReIPOp
+	// quorumCount = (1/2 * number of primary nodes) + 1
+	QuorumCount int `json:",omitempty"`
 }
 
 func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext) error {
@@ -157,13 +160,18 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 				continue
 			}
 
+			var primaryNodeCount int
 			// build host to node map for NMAStartNodeOp
 			hostNodeMap := make(map[string]NmaVNode)
 			for i := 0; i < len(nmaVDB.Nodes); i++ {
 				n := nmaVDB.Nodes[i]
 				hostNodeMap[n.Address] = n
+				if n.IsPrimary {
+					primaryNodeCount++
+				}
 			}
 			nmaVDB.HostNodeMap = hostNodeMap
+			nmaVDB.QuorumCount = primaryNodeCount/2 + 1
 
 			// find hosts with latest catalog version
 			spreadVersion, err := nmaVDB.Versions.Spread.Int64()

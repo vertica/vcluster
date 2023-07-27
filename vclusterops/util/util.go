@@ -416,7 +416,7 @@ func ParamNotSetErrorMsg(param string) error {
 }
 
 // only works for the happy path and is temporary
-// will be remove after VER-88084 is completed
+// will be removed after VER-88084 is completed
 func GetHostCatalogPath(hosts []string, dbName, catalogPrefix string) map[string]string {
 	dbNameLowerCase := strings.ToLower(dbName)
 	hostCatalogPath := make(map[string]string)
@@ -426,6 +426,19 @@ func GetHostCatalogPath(hosts []string, dbName, catalogPrefix string) map[string
 			catalogPrefix, dbName, dbNameLowerCase, nodeNameSuffix)
 	}
 	return hostCatalogPath
+}
+
+// GetHostNodeName is temporary, which
+// will be removed after VER-88084 is completed
+func GetHostNodeName(hosts []string, dbName string) map[string]string {
+	dbNameLowerCase := strings.ToLower(dbName)
+	mapHostToNodeName := make(map[string]string)
+	for i, h := range hosts {
+		nodeNameSuffix := i + 1
+		mapHostToNodeName[h] = fmt.Sprintf("v_%s_node%04d",
+			dbNameLowerCase, nodeNameSuffix)
+	}
+	return mapHostToNodeName
 }
 
 // ParseConfigParams builds and returns a map from a comma-separated list of params.

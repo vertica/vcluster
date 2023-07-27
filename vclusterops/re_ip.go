@@ -144,6 +144,7 @@ func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	// VER-88084 call getCatalogPath endpoint
 	// to get mapHostToCatalogPath and hostNodeMap
 	mapHostToCatalogPath := util.GetHostCatalogPath(hosts, *options.Name, *options.CatalogPrefix)
+	mapHostToNodeName := util.GetHostNodeName(hosts, *options.Name)
 
 	// read catalog editor to get hosts with latest catalog
 	nmaReadCatEdOp, err := MakeNMAReadCatalogEditorOp(mapHostToCatalogPath, []string{})
@@ -154,7 +155,7 @@ func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	// re-ip
 	// at this stage the re-ip info should either by provided by
 	// the re-ip file (for vcluster CLI) or the Kubernetes operator
-	nmaReIPOP := makeNMAReIPOp("NMAReIPOp", mapHostToCatalogPath, options.ReIPList)
+	nmaReIPOP := makeNMAReIPOp("NMAReIPOp", mapHostToCatalogPath, options.ReIPList, mapHostToNodeName)
 
 	instructions = append(instructions,
 		&nmaHealthOp,
