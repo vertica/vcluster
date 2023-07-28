@@ -156,7 +156,8 @@ type ClusterOp interface {
 	logPrepare()
 	logExecute()
 	logFinalize()
-	loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool)
+	loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) error
+	isSkipExecute() bool
 }
 
 /* Cluster ops basic fields and functions
@@ -168,6 +169,7 @@ type OpBase struct {
 	name               string
 	hosts              []string
 	clusterHTTPRequest ClusterHTTPRequest
+	skipExecute        bool // This can be set during prepare if we determine no work is needed
 }
 
 type OpResponseMap map[string]string
@@ -227,14 +229,14 @@ func (op *OpBase) execute(execContext *OpEngineExecContext) error {
 }
 
 // if found certs in the options, we add the certs to http requests of each instruction
-func (op *OpBase) loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) {
+func (op *OpBase) loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) error {
 	if !findCertsInOptions {
-		return
+		return nil
 	}
 
 	// this step is executed after Prepare() so all http requests should be set up
 	if len(op.clusterHTTPRequest.RequestCollection) == 0 {
-		panic(fmt.Sprintf("[%s] has not set up a http request", op.name))
+		return fmt.Errorf("[%s] has not set up a http request", op.name)
 	}
 
 	for host := range op.clusterHTTPRequest.RequestCollection {
@@ -245,6 +247,16 @@ func (op *OpBase) loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) 
 		request.Certs.caCert = certs.caCert
 		op.clusterHTTPRequest.RequestCollection[host] = request
 	}
+	return nil
+}
+
+// isSkipExecute will check state to see if the Execute() portion of the
+// operation should be skipped. Some operations can choose to implement this if
+// they can only determine at runtime where the operation is needed. One
+// instance of this is the nma_upload_config.go. If all nodes already have the
+// latest catalog information, there is nothing to be done during execution.
+func (op *OpBase) isSkipExecute() bool {
+	return op.skipExecute
 }
 
 /* Sensitive fields in request body

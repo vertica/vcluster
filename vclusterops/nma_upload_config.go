@@ -32,7 +32,6 @@ type NMAUploadConfigOp struct {
 	hostRequestBodyMap map[string]string
 	sourceConfigHost   []string
 	newNodeHosts       []string
-	skipExecute        bool // This can be set during prepare if we determine no work is needed
 }
 
 type uploadConfigRequestData struct {
@@ -152,10 +151,6 @@ func (op *NMAUploadConfigOp) Prepare(execContext *OpEngineExecContext) error {
 }
 
 func (op *NMAUploadConfigOp) Execute(execContext *OpEngineExecContext) error {
-	// Behave as a no-op if Prepare() determined there was nothing to do
-	if op.skipExecute {
-		return nil
-	}
 	if err := op.execute(execContext); err != nil {
 		return err
 	}
