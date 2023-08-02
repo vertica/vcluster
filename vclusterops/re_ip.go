@@ -141,6 +141,13 @@ func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	nmaHealthOp := MakeNMAHealthOp(hosts)
 	nmaVerticaVersionOp := MakeNMAVerticaVersionOp(hosts, true)
 
+	// get network profiles of the new addresses
+	var newAddresses []string
+	for _, info := range options.ReIPList {
+		newAddresses = append(newAddresses, info.TargetAddress)
+	}
+	nmaNetworkProfileOp := MakeNMANetworkProfileOp(newAddresses)
+
 	// VER-88084 call getCatalogPath endpoint
 	// to get mapHostToCatalogPath and hostNodeMap
 	mapHostToCatalogPath := util.GetHostCatalogPath(hosts, *options.Name, *options.CatalogPrefix)
@@ -160,6 +167,7 @@ func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
+		&nmaNetworkProfileOp,
 		&nmaReadCatEdOp,
 		&nmaReIPOP,
 	)

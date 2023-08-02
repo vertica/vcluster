@@ -99,6 +99,7 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 
 	for i := 0; i < len(op.reIPList); i++ {
 		info := op.reIPList[i]
+		// update node name if not given
 		if info.NodeName == "" {
 			vnode, ok := hostNodeMap[info.NodeAddress]
 			if !ok {
@@ -106,8 +107,19 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 					info.NodeAddress)
 			}
 			info.NodeName = vnode.Name
-			op.reIPList[i] = info
 		}
+		// update control address if not given
+		if info.TargetControlAddress == "" {
+			info.TargetControlAddress = info.TargetAddress
+		}
+		// update control broadcast if not given
+		profile, ok := execContext.networkProfiles[info.TargetAddress]
+		if !ok {
+			return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, info.TargetAddress)
+		}
+		info.TargetControlBroadcast = profile.Broadcast
+
+		op.reIPList[i] = info
 	}
 
 	return nil
