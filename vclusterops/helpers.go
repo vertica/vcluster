@@ -16,6 +16,7 @@
 package vclusterops
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 
@@ -23,18 +24,18 @@ import (
 )
 
 // produceTransferConfigOps generates instructions to transfert some config
-// files from a bootstrap node to new nodes.
-func produceTransferConfigOps(instructions *[]ClusterOp, bootstrapHost, hosts, newNodeHosts []string, hostNodeMap map[string]string) {
+// files from a sourceConfig node to new nodes.
+func produceTransferConfigOps(instructions *[]ClusterOp, sourceConfigHost, hosts, newNodeHosts []string) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := MakeNMADownloadConfigOp(
-		"NMADownloadVerticaConfigOp", hostNodeMap, bootstrapHost, "config/vertica", &verticaConfContent)
+		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent)
 	nmaUploadVerticaConfigOp := MakeNMAUploadConfigOp(
-		"NMAUploadVerticaConfigOp", hostNodeMap, bootstrapHost, hosts, newNodeHosts, "config/vertica", &verticaConfContent)
+		"NMAUploadVerticaConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/vertica", &verticaConfContent)
 	var spreadConfContent string
 	nmaDownloadSpreadConfigOp := MakeNMADownloadConfigOp(
-		"NMADownloadSpreadConfigOp", hostNodeMap, bootstrapHost, "config/spread", &spreadConfContent)
+		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent)
 	nmaUploadSpreadConfigOp := MakeNMAUploadConfigOp(
-		"NMAUploadSpreadConfigOp", hostNodeMap, bootstrapHost, hosts, newNodeHosts, "config/spread", &spreadConfContent)
+		"NMAUploadSpreadConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/spread", &spreadConfContent)
 	*instructions = append(*instructions,
 		&nmaDownloadVerticaConfigOp,
 		&nmaUploadVerticaConfigOp,
@@ -114,4 +115,34 @@ func mapHostToCatalogPath(hostNodeMap map[string]VCoordinationNode) map[string]s
 	}
 
 	return hostCatalogPathMap
+}
+
+// The following structs will store hosts' necessary information for https_get_up_nodes_op,
+// https_get_nodes_information_from_running_db, and incoming operations.
+type NodeStateInfo struct {
+	Address     string `json:"address"`
+	State       string `json:"state"`
+	Database    string `json:"database"`
+	CatalogPath string `json:"catalog_path"`
+	IsPrimary   bool   `json:"is_primary"`
+	Name        string `json:"name"`
+}
+
+type NodesStateInfo struct {
+	NodeList []NodeStateInfo `json:"node_list"`
+}
+
+type NodeStartCommand struct {
+	StartCommand []string `json:"start_command"`
+}
+
+func updateHostRequestBodyMapFromNodeStartCommand(host string, hostStartCommand []string,
+	catalogPathMap map[string]string, opName string) error {
+	nodeStartCommand := NodeStartCommand{StartCommand: hostStartCommand}
+	marshaledCommand, err := json.Marshal(nodeStartCommand)
+	if err != nil {
+		return fmt.Errorf("[%s] fail to marshal start command to JSON string %w", opName, err)
+	}
+	catalogPathMap[host] = string(marshaledCommand)
+	return nil
 }

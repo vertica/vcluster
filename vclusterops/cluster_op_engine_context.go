@@ -19,7 +19,8 @@ type OpEngineExecContext struct {
 	dispatcher             HTTPRequestDispatcher
 	networkProfiles        map[string]NetworkProfile
 	nmaVDatabase           NmaVDatabase
-	upHosts                []string // a sorted host list that contains all up nodes
+	upHosts                []string        // a sorted host list that contains all up nodes
+	nodesInfo              []NodeStateInfo // store the primary up nodes of the database
 	nodeStates             []NodeInfo
 	defaultSCName          string // store the default subcluster name of the database
 	hostsWithLatestCatalog []string

@@ -18,6 +18,9 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"path"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type NMADownloadConfigOp struct {
@@ -29,14 +32,13 @@ type NMADownloadConfigOp struct {
 
 func MakeNMADownloadConfigOp(
 	opName string,
-	hostCatalogPath map[string]string,
-	bootstrapHosts []string,
+	sourceConfigHost []string,
 	endpoint string,
 	fileContent *string,
 ) NMADownloadConfigOp {
 	nmaDownloadConfigOp := NMADownloadConfigOp{}
 	nmaDownloadConfigOp.name = opName
-	nmaDownloadConfigOp.hosts = bootstrapHosts
+	nmaDownloadConfigOp.hosts = sourceConfigHost
 	nmaDownloadConfigOp.endpoint = endpoint
 	nmaDownloadConfigOp.fileContent = fileContent
 
@@ -65,23 +67,45 @@ func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) {
 }
 
 func (op *NMADownloadConfigOp) Prepare(execContext *OpEngineExecContext) error {
-	// If the host input is a nil value, we find the host with the highest catalog version to update the host input.
-	// Otherwise, we use the host input.
-	if op.hosts == nil {
-		hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
-		if len(hostsWithLatestCatalog) == 0 {
-			return fmt.Errorf("could not find at least one host with the latest catalog")
-		}
-		hostWithHighestCatalog := hostsWithLatestCatalog[:1]
-		// update the host with the highest catalog
-		op.hosts = hostWithHighestCatalog
-	}
-	// Update the catalogPathMap for next download operation's steps from information of catalog editor
-	nmaVDB := execContext.nmaVDatabase
 	op.catalogPathMap = make(map[string]string)
-	err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
-	if err != nil {
-		return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
+	// If nodesInfo is available, we set catalogPathMap from nodeInfo state.
+	// This case is used for restarting nodes operation.
+	// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
+	if len(execContext.nodesInfo) == 0 {
+		if op.hosts == nil {
+			// If the host input is a nil value, we find the host with the highest catalog version to update the host input.
+			// Otherwise, we use the host input.
+			hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
+			if len(hostsWithLatestCatalog) == 0 {
+				return fmt.Errorf("could not find at least one host with the latest catalog")
+			}
+			hostWithHighestCatalog := hostsWithLatestCatalog[:1]
+			// update the host with the highest catalog
+			op.hosts = hostWithHighestCatalog
+		}
+		// For createDb and AddNodes, sourceConfigHost input is the bootstrap host.
+		// we update the catalogPathMap for next download operation's steps from information of catalog editor
+		nmaVDB := execContext.nmaVDatabase
+		err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
+		if err != nil {
+			return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
+		}
+	} else {
+		// For restartNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
+		// we update the catalogPathMap for next download operation's steps from node information by using HTTPS /v1/nodes
+		var primaryUpHosts []string
+		nodesList := execContext.nodesInfo
+		for _, node := range nodesList {
+			if node.IsPrimary && node.State == util.NodeUpState {
+				primaryUpHosts = append(primaryUpHosts, node.Address)
+				op.catalogPathMap[node.Address] = path.Dir(node.CatalogPath)
+				break
+			}
+		}
+		if len(primaryUpHosts) == 0 {
+			return fmt.Errorf("could not find any primary up nodes")
+		}
+		op.hosts = primaryUpHosts
 	}
 
 	execContext.dispatcher.Setup(op.hosts)

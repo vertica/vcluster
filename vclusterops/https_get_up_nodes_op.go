@@ -97,17 +97,6 @@ func (op *HTTPSGetUpNodesOp) Execute(execContext *OpEngineExecContext) error {
 	{'message': 'Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n'}
 */
 
-// the following structs will store hosts' necessary information for this op
-type NodeStateInfo struct {
-	Address  string `json:"address"`
-	State    string `json:"state"`
-	Database string `json:"database"`
-}
-
-type NodesStateInfo struct {
-	NodeList []NodeStateInfo `json:"node_list"`
-}
-
 func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) error {
 	var allErrs error
 	// golang does not have set data structure, use a map to simulate it

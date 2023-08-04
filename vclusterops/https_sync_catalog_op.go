@@ -27,14 +27,16 @@ import (
 type HTTPSSyncCatalogOp struct {
 	OpBase
 	OpHTTPBase
+	clusterFileContent *string
 }
 
 func MakeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string) HTTPSSyncCatalogOp {
+	userName string, httpsPassword *string, clusterFileContent *string) HTTPSSyncCatalogOp {
 	httpsSyncCatalogOp := HTTPSSyncCatalogOp{}
 	httpsSyncCatalogOp.name = "HTTPSyncCatalogOp"
 	httpsSyncCatalogOp.hosts = hosts
 	httpsSyncCatalogOp.useHTTPPassword = useHTTPPassword
+	httpsSyncCatalogOp.clusterFileContent = clusterFileContent
 
 	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
 	httpsSyncCatalogOp.userName = userName
@@ -61,7 +63,31 @@ func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) {
 	}
 }
 
+type ClusterStateInfo struct {
+	IsEon bool `json:"is_eon"`
+}
+
 func (op *HTTPSSyncCatalogOp) Prepare(execContext *OpEngineExecContext) error {
+	// If the content of the cluster file is nil, we continue processing the sync catalog operation.
+	// We use the "eonmode" flag provided by the user to proceed with this operation.
+	// This case is used for certain operations (e.g., start_db, create_db) when the database is down.
+	// Otherwise, we can call /cluster to check whether this is an EON database or not.
+	if op.clusterFileContent != nil {
+		// unmarshal the response content
+		clusterStateInfo := ClusterStateInfo{}
+		err := util.GetJSONLogErrors(*op.clusterFileContent, &clusterStateInfo, op.name)
+		if err != nil {
+			vlog.LogError("[%s] fail to parse response, detail: %s", op.name, err)
+			return err
+		}
+		// if this is not eon database, skip the operation
+		// Sync Catalog  operation only support eon mode
+		if !clusterStateInfo.IsEon {
+			vlog.LogInfo("[%s] Sync Catalog operation will not be processed, as it only supports EON mode", op.name)
+			op.skipExecute = true
+			return nil
+		}
+	}
 	execContext.dispatcher.Setup(op.hosts)
 	op.setupClusterHTTPRequest(op.hosts)
 

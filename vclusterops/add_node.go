@@ -315,8 +315,8 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 		&nmaReadCatalogEditorOp,
 	)
 
-	produceTransferConfigOps(&instructions, inputHost, nil, newNodeHosts, make(map[string]string))
-	nmaStartNewNodesOp := MakeNMAStartNodeOp(newNodeHosts)
+	produceTransferConfigOps(&instructions, inputHost, nil, newNodeHosts)
+	nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts, nil)
 	httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp(allHosts, usePassword, username, options.Password)
 	instructions = append(instructions,
 		&nmaStartNewNodesOp,
@@ -328,7 +328,7 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 		instructions = append(instructions, &httpsCreateNodesDepotOp)
 	}
 	if vdb.IsEon {
-		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(inputHost, true, username, options.Password)
+		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(inputHost, true, username, options.Password, nil)
 		instructions = append(instructions, &httpsSyncCatalogOp)
 		if !*options.SkipRebalanceShards {
 			httpsRBSCShardsOp := MakeHTTPSRebalanceSubclusterShardsOp(

@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -31,7 +32,7 @@ type NMAUploadConfigOp struct {
 	fileContent        *string
 	hostRequestBodyMap map[string]string
 	sourceConfigHost   []string
-	newNodeHosts       []string
+	destHosts          []string
 }
 
 type uploadConfigRequestData struct {
@@ -48,7 +49,6 @@ type uploadConfigRequestData struct {
 // for newNodeHosts and provide a nil value for hosts.
 func MakeNMAUploadConfigOp(
 	opName string,
-	hostCatalogPath map[string]string, // map <host,catalogPath> e.g. <ip1:/data/{db_name}/v_{db_name}_node0001_catalog/>
 	sourceConfigHost []string, // source host for transferring configuration files, specifically, it is
 	// 1. the bootstrap host when creating the database
 	// 2. the host with the highest catalog version for starting a database or starting nodes
@@ -64,7 +64,7 @@ func MakeNMAUploadConfigOp(
 	nmaUploadConfigOp.catalogPathMap = make(map[string]string)
 	nmaUploadConfigOp.hosts = hosts
 	nmaUploadConfigOp.sourceConfigHost = sourceConfigHost
-	nmaUploadConfigOp.newNodeHosts = newNodeHosts
+	nmaUploadConfigOp.destHosts = newNodeHosts
 
 	return nmaUploadConfigOp
 }
@@ -103,44 +103,56 @@ func (op *NMAUploadConfigOp) setupClusterHTTPRequest(hosts []string) {
 }
 
 func (op *NMAUploadConfigOp) Prepare(execContext *OpEngineExecContext) error {
-	if op.sourceConfigHost == nil {
-		//  if the host with the highest catalog version for starting a database or starting nodes is nil value
-		// 	we identify the hosts that need to be synchronized.
-		hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
-		if len(hostsWithLatestCatalog) == 0 {
-			return fmt.Errorf("could not find at least one host with the latest catalog")
-		}
-		hostsNeedCatalogSync := util.SliceDiff(op.hosts, hostsWithLatestCatalog)
-		// Update the hosts that need to synchronize the catalog
-		op.hosts = hostsNeedCatalogSync
-		// If no hosts to upload, skip this operation. This can happen if all
-		// hosts have the latest catalog.
-		if len(op.hosts) == 0 {
-			vlog.LogInfo("no hosts require an upload, skipping the operation")
-			op.skipExecute = true
-			return nil
+	op.catalogPathMap = make(map[string]string)
+	// If nodesInfo is available, we set catalogPathMap from nodeInfo state.
+	// This case is used for restarting nodes operation.
+	// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
+	if len(execContext.nodesInfo) == 0 {
+		if op.sourceConfigHost == nil {
+			//  if the host with the highest catalog version for starting a database or starting nodes is nil value
+			// 	we identify the hosts that need to be synchronized.
+			hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
+			if len(hostsWithLatestCatalog) == 0 {
+				return fmt.Errorf("could not find at least one host with the latest catalog")
+			}
+			hostsNeedCatalogSync := util.SliceDiff(op.hosts, hostsWithLatestCatalog)
+			// Update the hosts that need to synchronize the catalog
+			op.hosts = hostsNeedCatalogSync
+			// If no hosts to upload, skip this operation. This can happen if all
+			// hosts have the latest catalog.
+			if len(op.hosts) == 0 {
+				vlog.LogInfo("no hosts require an upload, skipping the operation")
+				op.skipExecute = true
+				return nil
+			}
+		} else {
+			if op.destHosts == nil {
+				// If the list of newly added hosts is null, the sourceConfigHost host will be the bootstrapHost input
+				// when creating the database
+				// we identify the hosts that need to be synchronized from bootstrapHost and list of hosts input
+				op.hosts = util.SliceDiff(op.hosts, op.sourceConfigHost)
+			} else {
+				// The hosts that need to be synchronized are the list of newly added hosts.
+				op.hosts = op.destHosts
+			}
+			// Update the catalogPathMap for next upload operation's steps from information of catalog editor
+			nmaVDB := execContext.nmaVDatabase
+			err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
+			if err != nil {
+				return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
+			}
 		}
 	} else {
-		if op.newNodeHosts == nil {
-			// If the list of newly added hosts is null, the sourceConfigHost host will be the bootstrapHost input
-			// when creating the database
-			// we identify the hosts that need to be synchronized from bootstrapHost and list of hosts input
-			op.hosts = util.SliceDiff(op.hosts, op.sourceConfigHost)
-		} else {
-			// The hosts that need to be synchronized are the list of newly added hosts.
-			op.hosts = op.newNodeHosts
+		// use started nodes input provided by the user
+		op.hosts = op.destHosts
+		// Update the catalogPathMap for next upload operation's steps from node List information
+		nodesList := execContext.nodesInfo
+		for _, node := range nodesList {
+			op.catalogPathMap[node.Address] = path.Dir(node.CatalogPath)
 		}
 	}
 
-	// Update the catalogPathMap for next upload operation's steps from information of catalog editor
-	nmaVDB := execContext.nmaVDatabase
-	op.catalogPathMap = make(map[string]string)
-	err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
-	if err != nil {
-		return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
-	}
-
-	err = op.setupRequestBody(op.hosts)
+	err := op.setupRequestBody(op.hosts)
 	if err != nil {
 		return err
 	}

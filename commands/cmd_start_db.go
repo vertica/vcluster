@@ -74,8 +74,6 @@ func (c *CmdStartDB) CommandType() string {
 }
 
 func (c *CmdStartDB) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
-
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}

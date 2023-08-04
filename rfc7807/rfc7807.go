@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 const (
@@ -136,4 +137,13 @@ func (v *VProblem) SendError(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", ContentType)
 	w.WriteHeader(v.Status)
 	fmt.Fprintln(w, string(respBytes))
+}
+
+func MakeProblem(problemID ProblemID, detail string, httpStatus int) Problem {
+	hostname, _ := os.Hostname()
+
+	return New(problemID).
+		WithDetail(detail).
+		WithStatus(httpStatus).
+		WithHost(hostname)
 }

@@ -175,9 +175,9 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	// sourceConfHost is set to nil value in upload and download step
 	// we use information from catalog editor operation to update the sourceConfHost value
 	// after we find host with the highest catalog and hosts that need to synchronize the catalog
-	produceTransferConfigOps(&instructions, nil, startDBInfo.Hosts, nil, startDBInfo.HostCatalogPath)
+	produceTransferConfigOps(&instructions, nil, startDBInfo.Hosts, nil)
 
-	nmaStartNewNodesOp := MakeNMAStartNodeOp(startDBInfo.Hosts)
+	nmaStartNewNodesOp := makeNMAStartNodeOp(startDBInfo.Hosts, nil)
 	httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp(startDBInfo.Hosts,
 		usePassword, *options.UserName, options.Password)
 
@@ -187,7 +187,7 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	)
 
 	if options.IsEon.ToBool() {
-		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(startDBInfo.Hosts, true, *options.UserName, options.Password)
+		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(startDBInfo.Hosts, true, *options.UserName, options.Password, nil)
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
 

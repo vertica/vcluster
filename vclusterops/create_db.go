@@ -503,7 +503,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 		return instructions, err
 	}
 
-	nmaStartNodeOp := MakeNMAStartNodeOp(bootstrapHost)
+	nmaRestartNodeOp := makeNMAStartNodeOp(bootstrapHost, nil)
 
 	httpsPollBootstrapNodeStateOp := MakeHTTPSPollNodeStateOp(bootstrapHost, true, *options.UserName, options.Password)
 
@@ -515,7 +515,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 		&nmaNetworkProfileOp,
 		&nmaBootstrapCatalogOp,
 		&nmaReadCatalogEditorOp,
-		&nmaStartNodeOp,
+		&nmaRestartNodeOp,
 		&httpsPollBootstrapNodeStateOp,
 	)
 
@@ -536,9 +536,8 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 
 	if len(hosts) > 1 {
 		instructions = append(instructions, &nmaReadCatalogEditorOp)
-		produceTransferConfigOps(&instructions, bootstrapHost, hosts, nil, hostNodeMap)
-		newNodeHosts := util.SliceDiff(vdb.HostList, bootstrapHost)
-		nmaStartNewNodesOp := MakeNMAStartNodeOp(newNodeHosts)
+		produceTransferConfigOps(&instructions, bootstrapHost, hosts, nil)
+		nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts, nil)
 		instructions = append(instructions, &nmaStartNewNodesOp)
 	}
 
@@ -575,7 +574,7 @@ func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *
 	}
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(bootstrapHost, true, username, options.Password)
+		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(bootstrapHost, true, username, options.Password, nil)
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
 	return instructions, nil

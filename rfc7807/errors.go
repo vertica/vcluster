@@ -45,4 +45,16 @@ var (
 		"https://integrators.vertica.com/vcluster/errors/communal-access-error",
 		"Error accessing communal storage",
 	)
+	GenericLicenseCheckFailure = newProblemID(
+		"https://integrators.vertica.com/vcluster/errors/internal-license-check-failure",
+		"Internal error while checking license file",
+	)
+	WrongRequestMethod = newProblemID(
+		"https://integrators.vertica.com/vcluster/errors/wrong-reqeust-method",
+		"Wrong request method used",
+	)
+	BadRequest = newProblemID(
+		"https://integrators.vertica.com/vcluster/errors/bad-request",
+		"Bad request sent",
+	)
 )
