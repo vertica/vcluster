@@ -168,10 +168,8 @@ func (options *VAddSubclusterOptions) ValidateAnalyzeOptions(config *ClusterConf
 	if err := options.validateParseOptions(config); err != nil {
 		return err
 	}
-	if err := options.analyzeOptions(); err != nil {
-		return err
-	}
-	return nil
+	err := options.analyzeOptions()
+	return err
 }
 
 // VAddSubcluster can add a new subcluster to a running database
@@ -249,14 +247,23 @@ func produceAddSubclusterInstructions(addSubclusterInfo *VAddSubclusterInfo, opt
 	}
 
 	username := *options.UserName
-	httpsGetUpNodesOp := MakeHTTPSGetUpNodesOp("HTTPSGetUpNodesOp", addSubclusterInfo.DBName, addSubclusterInfo.Hosts,
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(addSubclusterInfo.DBName, addSubclusterInfo.Hosts,
 		usePassword, username, addSubclusterInfo.Password)
+	if err != nil {
+		return instructions, err
+	}
 
-	httpsAddSubclusterOp := MakeHTTPSAddSubclusterOp("HTTPSAddSubclusterOp", usePassword, username, addSubclusterInfo.Password,
+	httpsAddSubclusterOp, err := makeHTTPSAddSubclusterOp(usePassword, username, addSubclusterInfo.Password,
 		addSubclusterInfo.SCName, addSubclusterInfo.IsPrimary, addSubclusterInfo.ControlSetSize)
+	if err != nil {
+		return instructions, err
+	}
 
-	httpsCheckSubclusterOp := MakeHTTPSCheckSubclusterOp("HTTPSCheckSubclusterOp", usePassword, username, addSubclusterInfo.Password,
+	httpsCheckSubclusterOp, err := makeHTTPSCheckSubclusterOp(usePassword, username, addSubclusterInfo.Password,
 		addSubclusterInfo.SCName, addSubclusterInfo.IsPrimary, addSubclusterInfo.ControlSetSize)
+	if err != nil {
+		return instructions, err
+	}
 
 	instructions = append(instructions,
 		&httpsGetUpNodesOp,

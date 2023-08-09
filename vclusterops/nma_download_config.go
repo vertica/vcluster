@@ -21,6 +21,7 @@ import (
 	"path"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NMADownloadConfigOp struct {
@@ -30,7 +31,7 @@ type NMADownloadConfigOp struct {
 	fileContent    *string
 }
 
-func MakeNMADownloadConfigOp(
+func makeNMADownloadConfigOp(
 	opName string,
 	sourceConfigHost []string,
 	endpoint string,
@@ -45,7 +46,7 @@ func MakeNMADownloadConfigOp(
 	return nmaDownloadConfigOp
 }
 
-func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -57,21 +58,22 @@ func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) {
 
 		catalogPath, ok := op.catalogPathMap[host]
 		if !ok {
-			msg := fmt.Errorf("[%s] fail to get catalog path from host %s", op.name, host)
-			panic(msg)
+			return fmt.Errorf("[%s] fail to get catalog path from host %s", op.name, host)
 		}
 		httpRequest.QueryParams = map[string]string{"catalog_path": catalogPath}
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
+	return nil
 }
 
-func (op *NMADownloadConfigOp) Prepare(execContext *OpEngineExecContext) error {
+func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
 	op.catalogPathMap = make(map[string]string)
 	// If nodesInfo is available, we set catalogPathMap from nodeInfo state.
 	// This case is used for restarting nodes operation.
 	// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
-	if len(execContext.nodesInfo) == 0 {
+	if len(execContext.nodeStates) == 0 {
 		if op.hosts == nil {
 			// If the host input is a nil value, we find the host with the highest catalog version to update the host input.
 			// Otherwise, we use the host input.
@@ -94,7 +96,7 @@ func (op *NMADownloadConfigOp) Prepare(execContext *OpEngineExecContext) error {
 		// For restartNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
 		// we update the catalogPathMap for next download operation's steps from node information by using HTTPS /v1/nodes
 		var primaryUpHosts []string
-		nodesList := execContext.nodesInfo
+		nodesList := execContext.nodeStates
 		for _, node := range nodesList {
 			if node.IsPrimary && node.State == util.NodeUpState {
 				primaryUpHosts = append(primaryUpHosts, node.Address)
@@ -109,27 +111,28 @@ func (op *NMADownloadConfigOp) Prepare(execContext *OpEngineExecContext) error {
 	}
 
 	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
-	return nil
+	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMADownloadConfigOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMADownloadConfigOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMADownloadConfigOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMADownloadConfigOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMADownloadConfigOp) processResult(execContext *OpEngineExecContext) error {
+func (op *NMADownloadConfigOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
-		op.logResponse(host, result)
+		// VER-88362 will re-enable the result details and hide sensitive info in it
+		vlog.LogPrintInfo("[%s] result from host %s summary %s",
+			op.name, host, result.status.getStatusString())
 		if result.isPassing() {
 			// The content of config file will be stored as content of the response
 			*op.fileContent = result.content

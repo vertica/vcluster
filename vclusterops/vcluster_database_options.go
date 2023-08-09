@@ -50,6 +50,7 @@ type DatabaseOptions struct {
 	// part 4: other info
 	LogPath        *string
 	HonorUserInput *bool
+	usePassword    bool
 }
 
 const (
@@ -230,6 +231,21 @@ func (opt *DatabaseOptions) ValidateUserName() error {
 		*opt.UserName = username
 	}
 	vlog.LogInfo("Current username is %s", *opt.UserName)
+
+	return nil
+}
+
+func (opt *DatabaseOptions) SetUsePassword() error {
+	// when password is specified,
+	// we will use username/password to call https endpoints
+	opt.usePassword = false
+	if opt.Password != nil {
+		opt.usePassword = true
+		err := opt.ValidateUserName()
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

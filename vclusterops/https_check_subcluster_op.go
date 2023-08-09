@@ -29,24 +29,27 @@ type HTTPSCheckSubclusterOp struct {
 	ctlSetSize  int
 }
 
-func MakeHTTPSCheckSubclusterOp(opName string, useHTTPPassword bool, userName string, httpsPassword *string,
-	scName string, isPrimary bool, ctlSetSize int) HTTPSCheckSubclusterOp {
+func makeHTTPSCheckSubclusterOp(useHTTPPassword bool, userName string, httpsPassword *string,
+	scName string, isPrimary bool, ctlSetSize int) (HTTPSCheckSubclusterOp, error) {
 	httpsCheckSubclusterOp := HTTPSCheckSubclusterOp{}
-	httpsCheckSubclusterOp.name = opName
+	httpsCheckSubclusterOp.name = "HTTPSCheckSubclusterOp"
 	httpsCheckSubclusterOp.scName = scName
 	httpsCheckSubclusterOp.isSecondary = !isPrimary
 	httpsCheckSubclusterOp.ctlSetSize = ctlSetSize
 
 	httpsCheckSubclusterOp.useHTTPPassword = useHTTPPassword
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+		err := util.ValidateUsernameAndPassword(httpsCheckSubclusterOp.name, useHTTPPassword, userName)
+		if err != nil {
+			return httpsCheckSubclusterOp, err
+		}
 		httpsCheckSubclusterOp.userName = userName
 		httpsCheckSubclusterOp.httpsPassword = httpsPassword
 	}
-	return httpsCheckSubclusterOp
+	return httpsCheckSubclusterOp, nil
 }
 
-func (op *HTTPSCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -61,20 +64,21 @@ func (op *HTTPSCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSCheckSubclusterOp) Prepare(execContext *OpEngineExecContext) error {
-	if len(execContext.upHosts) == 0 {
-		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
-	}
-	execContext.dispatcher.Setup(execContext.upHosts)
-	op.setupClusterHTTPRequest(execContext.upHosts)
 
 	return nil
 }
 
-func (op *HTTPSCheckSubclusterOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSCheckSubclusterOp) prepare(execContext *OpEngineExecContext) error {
+	if len(execContext.upHosts) == 0 {
+		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+	}
+	execContext.dispatcher.Setup(execContext.upHosts)
+
+	return op.setupClusterHTTPRequest(execContext.upHosts)
+}
+
+func (op *HTTPSCheckSubclusterOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -88,7 +92,7 @@ type SCInfo struct {
 	CtlSetSize  int    `json:"control_set_size"`
 }
 
-func (op *HTTPSCheckSubclusterOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSCheckSubclusterOp) processResult(_ *OpEngineExecContext) error {
 	var err error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -140,6 +144,6 @@ func (op *HTTPSCheckSubclusterOp) processResult(execContext *OpEngineExecContext
 	return err
 }
 
-func (op *HTTPSCheckSubclusterOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSCheckSubclusterOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

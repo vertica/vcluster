@@ -29,23 +29,27 @@ type HTTPSFindSubclusterOrDefaultOp struct {
 	scName string
 }
 
-func MakeHTTPSFindSubclusterOrDefaultOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, scName string) HTTPSFindSubclusterOrDefaultOp {
-	httpsFindSubclusterOrDefaultOp := HTTPSFindSubclusterOrDefaultOp{}
-	httpsFindSubclusterOrDefaultOp.name = "HTTPSFindSubclusterOrDefaultOp"
-	httpsFindSubclusterOrDefaultOp.hosts = hosts
-	httpsFindSubclusterOrDefaultOp.scName = scName
+func makeHTTPSFindSubclusterOrDefaultOp(hosts []string, useHTTPPassword bool,
+	userName string, httpsPassword *string, scName string,
+) (HTTPSFindSubclusterOrDefaultOp, error) {
+	op := HTTPSFindSubclusterOrDefaultOp{}
+	op.name = "HTTPSFindSubclusterOrDefaultOp"
+	op.hosts = hosts
+	op.scName = scName
 
-	httpsFindSubclusterOrDefaultOp.useHTTPPassword = useHTTPPassword
+	op.useHTTPPassword = useHTTPPassword
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
-		httpsFindSubclusterOrDefaultOp.userName = userName
-		httpsFindSubclusterOrDefaultOp.httpsPassword = httpsPassword
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+		if err != nil {
+			return op, err
+		}
+		op.userName = userName
+		op.httpsPassword = httpsPassword
 	}
-	return httpsFindSubclusterOrDefaultOp
+	return op, nil
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSFindSubclusterOrDefaultOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -60,17 +64,18 @@ func (op *HTTPSFindSubclusterOrDefaultOp) setupClusterHTTPRequest(hosts []string
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSFindSubclusterOrDefaultOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSFindSubclusterOrDefaultOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSFindSubclusterOrDefaultOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -168,6 +173,6 @@ func (op *HTTPSFindSubclusterOrDefaultOp) processResult(execContext *OpEngineExe
 	return allErrs
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSFindSubclusterOrDefaultOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

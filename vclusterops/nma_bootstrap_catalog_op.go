@@ -51,13 +51,12 @@ type bootstrapCatalogRequestData struct {
 	SensitiveFields
 }
 
-func MakeNMABootstrapCatalogOp(
-	opName string,
+func makeNMABootstrapCatalogOp(
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions,
 	bootstrapHosts []string) (NMABootstrapCatalogOp, error) {
 	nmaBootstrapCatalogOp := NMABootstrapCatalogOp{}
-	nmaBootstrapCatalogOp.name = opName
+	nmaBootstrapCatalogOp.name = "NMABootstrapCatalogOp"
 	// usually, only one node need bootstrap catalog
 	nmaBootstrapCatalogOp.hosts = bootstrapHosts
 
@@ -145,7 +144,7 @@ func (op *NMABootstrapCatalogOp) updateRequestBody(execContext *OpEngineExecCont
 	return nil
 }
 
-func (op *NMABootstrapCatalogOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMABootstrapCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -158,33 +157,34 @@ func (op *NMABootstrapCatalogOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.RequestData = op.marshaledRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
+	return nil
 }
 
-func (op *NMABootstrapCatalogOp) Prepare(execContext *OpEngineExecContext) error {
+func (op *NMABootstrapCatalogOp) prepare(execContext *OpEngineExecContext) error {
 	err := op.updateRequestBody(execContext)
 	if err != nil {
 		return err
 	}
 
 	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
-	return nil
+	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMABootstrapCatalogOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMABootstrapCatalogOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMABootstrapCatalogOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMABootstrapCatalogOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMABootstrapCatalogOp) processResult(execContext *OpEngineExecContext) error {
+func (op *NMABootstrapCatalogOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

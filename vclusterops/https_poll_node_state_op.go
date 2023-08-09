@@ -34,14 +34,18 @@ type HTTPSPollNodeStateOp struct {
 	notUpHosts []string
 }
 
-func MakeHTTPSPollNodeStateOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSPollNodeStateOp {
+func makeHTTPSPollNodeStateOp(hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+) (HTTPSPollNodeStateOp, error) {
 	httpsPollNodeStateOp := HTTPSPollNodeStateOp{}
 	httpsPollNodeStateOp.name = "HTTPSPollNodeStateOp"
 	httpsPollNodeStateOp.hosts = hosts
 	httpsPollNodeStateOp.useHTTPPassword = useHTTPPassword
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(httpsPollNodeStateOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return httpsPollNodeStateOp, err
+	}
 	httpsPollNodeStateOp.userName = userName
 	httpsPollNodeStateOp.httpsPassword = httpsPassword
 
@@ -51,10 +55,10 @@ func MakeHTTPSPollNodeStateOp(hosts []string,
 		httpsPollNodeStateOp.allHosts[h] = struct{}{}
 	}
 
-	return httpsPollNodeStateOp
+	return httpsPollNodeStateOp, nil
 }
 
-func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -70,24 +74,25 @@ func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) {
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSPollNodeStateOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSPollNodeStateOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSPollNodeStateOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSPollNodeStateOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSPollNodeStateOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSPollNodeStateOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
@@ -119,7 +124,7 @@ func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) 
 			return nil
 		}
 
-		if err := op.execute(execContext); err != nil {
+		if err := op.runExecute(execContext); err != nil {
 			return err
 		}
 

@@ -28,27 +28,30 @@ type HTTPCheckNodeStateOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPCheckNodeStateOp(opName string,
-	hosts []string,
+func makeHTTPCheckNodeStateOp(hosts []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,
-) HTTPCheckNodeStateOp {
+) (HTTPCheckNodeStateOp, error) {
 	nodeStateChecker := HTTPCheckNodeStateOp{}
-	nodeStateChecker.name = opName
+	nodeStateChecker.name = "HTTPCheckNodeStateOp"
 	// The hosts are the ones we are going to talk to.
 	// They can be a subset of the actual host information that we return,
 	// as if any of the hosts is responsive, spread can give us the info of all nodes
 	nodeStateChecker.hosts = hosts
 	nodeStateChecker.useHTTPPassword = useHTTPPassword
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(nodeStateChecker.name, useHTTPPassword, userName)
+	if err != nil {
+		return nodeStateChecker, err
+	}
+
 	nodeStateChecker.userName = userName
 	nodeStateChecker.httpsPassword = httpsPassword
-	return nodeStateChecker
+	return nodeStateChecker, nil
 }
 
-func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -63,17 +66,18 @@ func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPCheckNodeStateOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPCheckNodeStateOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPCheckNodeStateOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPCheckNodeStateOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -118,7 +122,7 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 			continue
 		}
 		// successful case, write the result into exec context
-		execContext.nodeStates = nodesInfo.NodeList
+		execContext.nodesInfo = nodesInfo.NodeList
 		return nil
 	}
 
@@ -133,11 +137,11 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 			nodeInfo.State = "DOWN"
 			nodeStates = append(nodeStates, nodeInfo)
 		}
-		execContext.nodeStates = nodeStates
+		execContext.nodesInfo = nodeStates
 	}
 	return allErrs
 }
 
-func (op *HTTPCheckNodeStateOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPCheckNodeStateOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

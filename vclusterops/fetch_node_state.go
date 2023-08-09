@@ -45,10 +45,8 @@ func (options *VFetchNodeStateOptions) ValidateAnalyzeOptions() error {
 	if err := options.validateParseOptions(); err != nil {
 		return err
 	}
-	if err := options.analyzeOptions(); err != nil {
-		return err
-	}
-	return nil
+	err := options.analyzeOptions()
+	return err
 }
 
 // VFetchNodeState fetches node states (e.g., up or down) in the cluster
@@ -79,7 +77,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
-	nodeStates := clusterOpEngine.execContext.nodeStates
+	nodeStates := clusterOpEngine.execContext.nodesInfo
 
 	return nodeStates, runError
 }
@@ -102,8 +100,11 @@ func produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]Cluster
 		}
 	}
 
-	httpsCheckNodeStateOp := MakeHTTPCheckNodeStateOp("HTTPCheckNodeStateOp", hosts,
+	httpsCheckNodeStateOp, err := makeHTTPCheckNodeStateOp(hosts,
 		usePassword, *options.UserName, options.Password)
+	if err != nil {
+		return instructions, err
+	}
 
 	instructions = append(instructions, &httpsCheckNodeStateOp)
 

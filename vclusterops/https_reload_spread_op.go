@@ -27,20 +27,23 @@ type HTTPSReloadSpreadOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPSReloadSpreadOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string) HTTPSReloadSpreadOp {
+func makeHTTPSReloadSpreadOp(hosts []string, useHTTPPassword bool,
+	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
 	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
 	httpsReloadSpreadOp.name = "HTTPSReloadSpreadOp"
 	httpsReloadSpreadOp.hosts = hosts
 	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(httpsReloadSpreadOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return httpsReloadSpreadOp, err
+	}
 	httpsReloadSpreadOp.userName = userName
 	httpsReloadSpreadOp.httpsPassword = httpsPassword
-	return httpsReloadSpreadOp
+	return httpsReloadSpreadOp, nil
 }
 
-func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -55,24 +58,25 @@ func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSReloadSpreadOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSReloadSpreadOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSReloadSpreadOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSReloadSpreadOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSReloadSpreadOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSReloadSpreadOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -103,6 +107,6 @@ func (op *HTTPSReloadSpreadOp) processResult(execContext *OpEngineExecContext) e
 	return allErrs
 }
 
-func (op *HTTPSReloadSpreadOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSReloadSpreadOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

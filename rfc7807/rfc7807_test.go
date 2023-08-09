@@ -58,7 +58,7 @@ func TestHttpResponse(t *testing.T) {
 		p.SendError(w)
 	}
 
-	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", nil)
+	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", http.NoBody)
 	w := httptest.NewRecorder()
 	handler(w, req)
 
@@ -78,7 +78,7 @@ func TestProblemExtraction(t *testing.T) {
 		origProblem.SendError(w)
 	}
 
-	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", nil)
+	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", http.NoBody)
 	w := httptest.NewRecorder()
 	handler(w, req)
 
@@ -101,7 +101,7 @@ func TestJSONExtractFailure(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "not json")
 	}
-	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", nil)
+	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", http.NoBody)
 	w := httptest.NewRecorder()
 	handler(w, req)
 

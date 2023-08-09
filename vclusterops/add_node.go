@@ -176,11 +176,17 @@ func (o *VAddNodeOptions) ParseNewHostList(hosts string) error {
 }
 
 func (o *VAddNodeOptions) validateAnalyzeOptions(config *ClusterConfig) error {
-	if err := o.validateParseOptions(config); err != nil {
+	err := o.validateParseOptions(config)
+	if err != nil {
 		return err
 	}
-	err := o.analyzeOptions()
-	return err
+
+	err = o.analyzeOptions()
+	if err != nil {
+		return err
+	}
+
+	return o.SetUsePassword()
 }
 
 // VAddNode is the top-level API for adding node(s) to an existing database.
@@ -243,10 +249,81 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 //   - Create depot on the new node (Eon mode only)
 //   - Sync catalog
 //   - Rebalance shards on subcluster (Eon mode only)
-func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOptions) ([]ClusterOp, error) {
+func produceAddNodeInstructions(vdb *VCoordinationDatabase,
+	options *VAddNodeOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
-	var inputHost []string
+	inputHost, newNodeHosts, allHosts := getAddNodeHosts(vdb, options)
+	usePassword := options.usePassword
+	username := *options.UserName
+
+	nmaHealthOp := makeNMAHealthOp(allHosts)
+	// require to have the same vertica version
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(allHosts, true)
+
+	httpCheckNodesExistOp, err := makeHTTPCheckNodesExistOp(inputHost,
+		newNodeHosts, usePassword, username, options.Password)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions,
+		&nmaHealthOp,
+		&nmaVerticaVersionOp,
+		&httpCheckNodesExistOp)
+	if vdb.IsEon {
+		httpsFindSubclusterOrDefaultOp, e := makeHTTPSFindSubclusterOrDefaultOp(
+			inputHost, usePassword, username, options.Password, *options.SCName)
+		if e != nil {
+			return instructions, e
+		}
+		instructions = append(instructions, &httpsFindSubclusterOrDefaultOp)
+	}
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(options.NewHostNodeMap)
+	if err != nil {
+		return instructions, err
+	}
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(allHosts)
+	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newNodeHosts, inputHost,
+		usePassword, *options.UserName, options.Password, vdb, *options.SCName)
+	if err != nil {
+		return instructions, err
+	}
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(inputHost, true, username, options.Password)
+	if err != nil {
+		return instructions, err
+	}
+
+	mapHostToCatalogPath := setupMapHostToCatalogPath(vdb)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(mapHostToCatalogPath, inputHost)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions,
+		&nmaPrepareDirectoriesOp,
+		&nmaNetworkProfileOp,
+		&httpsCreateNodeOp,
+		&httpsReloadSpreadOp,
+		&nmaReadCatalogEditorOp,
+	)
+
+	produceTransferConfigOps(&instructions, inputHost, nil, newNodeHosts)
+	nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(allHosts, usePassword, username, options.Password)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions,
+		&nmaStartNewNodesOp,
+		&httpsPollNodeStateOp,
+	)
+
+	return prepareAdditionalEonInstructions(vdb, options, instructions,
+		username, usePassword, inputHost, newNodeHosts)
+}
+
+func getAddNodeHosts(vdb *VCoordinationDatabase,
+	options *VAddNodeOptions) (inputHost, newNodeHosts, allHosts []string) {
 	if options.InputHost != "" {
 		// If the user specified an input host, we use it to execute the ops.
 		// It must be up.
@@ -257,84 +334,45 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase, options *VAddNodeOpt
 		// information of a running database.
 		inputHost = append(inputHost, util.SliceDiff(vdb.HostList, options.NewHosts)[0])
 	}
-	newNodeHosts := options.NewHosts
+
+	newNodeHosts = options.NewHosts
+
 	// Some operations need all of the new hosts, plus the initiator host.
 	// allHosts includes them all.
-	allHosts := inputHost
+	allHosts = inputHost
 	allHosts = append(allHosts, newNodeHosts...)
 
-	nmaHealthOp := MakeNMAHealthOp(allHosts)
-	// require to have the same vertica version
-	nmaVerticaVersionOp := MakeNMAVerticaVersionOp(allHosts, true)
+	return inputHost, newNodeHosts, allHosts
+}
 
-	// when password is specified, we will use username/password to call https endpoints
-	usePassword := false
-	if options.Password != nil {
-		usePassword = true
-		err := options.ValidateUserName()
+func prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
+	options *VAddNodeOptions,
+	instructions []ClusterOp,
+	username string, usePassword bool,
+	inputHost, newNodeHosts []string) ([]ClusterOp, error) {
+	if vdb.UseDepot {
+		httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vdb,
+			newNodeHosts, usePassword, username, options.Password)
 		if err != nil {
 			return instructions, err
 		}
-	}
-	username := *options.UserName
-
-	httpCheckNodesExistOp := MakeHTTPCheckNodesExistOp(inputHost,
-		newNodeHosts, usePassword, username, options.Password)
-	instructions = append(instructions,
-		&nmaHealthOp,
-		&nmaVerticaVersionOp,
-		&httpCheckNodesExistOp)
-	if vdb.IsEon {
-		httpsFindSubclusterOrDefaultOp := MakeHTTPSFindSubclusterOrDefaultOp(
-			inputHost, usePassword, username, options.Password, *options.SCName)
-		instructions = append(instructions, &httpsFindSubclusterOrDefaultOp)
-	}
-	nmaPrepareDirectoriesOp, err := MakeNMAPrepareDirectoriesOp(options.NewHostNodeMap)
-	if err != nil {
-		return instructions, err
-	}
-	nmaNetworkProfileOp := MakeNMANetworkProfileOp(allHosts)
-	httpCreateNodeOp := MakeHTTPCreateNodeOp(newNodeHosts, inputHost,
-		usePassword, *options.UserName, options.Password, vdb, *options.SCName)
-	httpsReloadSpreadOp := MakeHTTPSReloadSpreadOp(inputHost, true, username, options.Password)
-
-	mapHostToCatalogPath := make(map[string]string)
-	for h, vnode := range vdb.HostNodeMap {
-		mapHostToCatalogPath[h] = vnode.CatalogPath
-	}
-
-	nmaReadCatalogEditorOp, err := MakeNMAReadCatalogEditorOp(mapHostToCatalogPath, inputHost)
-	if err != nil {
-		return instructions, err
-	}
-	instructions = append(instructions,
-		&nmaPrepareDirectoriesOp,
-		&nmaNetworkProfileOp,
-		&httpCreateNodeOp,
-		&httpsReloadSpreadOp,
-		&nmaReadCatalogEditorOp,
-	)
-
-	produceTransferConfigOps(&instructions, inputHost, nil, newNodeHosts)
-	nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts, nil)
-	httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp(allHosts, usePassword, username, options.Password)
-	instructions = append(instructions,
-		&nmaStartNewNodesOp,
-		&httpsPollNodeStateOp,
-	)
-	if vdb.UseDepot {
-		httpsCreateNodesDepotOp := MakeHTTPSCreateNodesDepotOp(vdb,
-			newNodeHosts, usePassword, username, options.Password)
 		instructions = append(instructions, &httpsCreateNodesDepotOp)
 	}
 	if vdb.IsEon {
-		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(inputHost, true, username, options.Password, nil)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(inputHost, true, username, options.Password)
+		if err != nil {
+			return instructions, err
+		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
 		if !*options.SkipRebalanceShards {
-			httpsRBSCShardsOp := MakeHTTPSRebalanceSubclusterShardsOp(
+			httpsRBSCShardsOp, err := makeHTTPSRebalanceSubclusterShardsOp(
 				inputHost, usePassword, username, options.Password, *options.SCName)
+			if err != nil {
+				return instructions, err
+			}
 			instructions = append(instructions, &httpsRBSCShardsOp)
 		}
 	}
+
 	return instructions, nil
 }

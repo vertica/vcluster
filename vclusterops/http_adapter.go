@@ -258,7 +258,7 @@ func (adapter *HTTPAdapter) buildCertsFromMemory(key, cert, caCert string) (tls.
 func (adapter *HTTPAdapter) setupHTTPClient(
 	request *HostHTTPRequest,
 	usePassword bool,
-	resultChannel chan<- HostHTTPResult) (*http.Client, error) {
+	_ chan<- HostHTTPResult) (*http.Client, error) {
 	var client *http.Client
 
 	// set up request timeout

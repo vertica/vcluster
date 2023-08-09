@@ -22,17 +22,17 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-type HTTPCreateNodeOp struct {
+type HTTPSCreateNodeOp struct {
 	OpBase
 	OpHTTPBase
 	RequestParams map[string]string
 }
 
-func MakeHTTPCreateNodeOp(hosts []string, bootstrapHost []string,
+func makeHTTPSCreateNodeOp(hosts []string, bootstrapHost []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-	vdb *VCoordinationDatabase, scName string) HTTPCreateNodeOp {
-	createNodeOp := HTTPCreateNodeOp{}
-	createNodeOp.name = "HTTPCreateNodeOp"
+	vdb *VCoordinationDatabase, scName string) (HTTPSCreateNodeOp, error) {
+	createNodeOp := HTTPSCreateNodeOp{}
+	createNodeOp.name = "HTTPSCreateNodeOp"
 	createNodeOp.hosts = bootstrapHost
 	createNodeOp.RequestParams = make(map[string]string)
 	// HTTPS create node endpoint requires passing everything before node name
@@ -44,14 +44,17 @@ func MakeHTTPCreateNodeOp(hosts []string, bootstrapHost []string,
 	}
 	createNodeOp.useHTTPPassword = useHTTPPassword
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(createNodeOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return createNodeOp, err
+	}
 
 	createNodeOp.userName = userName
 	createNodeOp.httpsPassword = httpsPassword
-	return createNodeOp
+	return createNodeOp, nil
 }
 
-func (op *HTTPCreateNodeOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSCreateNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -69,42 +72,47 @@ func (op *HTTPCreateNodeOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.QueryParams = op.RequestParams
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPCreateNodeOp) updateQueryParams(execContext *OpEngineExecContext) {
-	for _, host := range op.hosts {
-		profile, ok := execContext.networkProfiles[host]
-		if !ok {
-			msg := fmt.Sprintf("[%s] unable to find network profile for host %s", op.name, host)
-			panic(msg)
-		}
-		op.RequestParams["broadcast"] = profile.Broadcast
-	}
-}
-
-func (op *HTTPCreateNodeOp) Prepare(execContext *OpEngineExecContext) error {
-	op.updateQueryParams(execContext)
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPCreateNodeOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSCreateNodeOp) updateQueryParams(execContext *OpEngineExecContext) error {
+	for _, host := range op.hosts {
+		profile, ok := execContext.networkProfiles[host]
+		if !ok {
+			return fmt.Errorf("[%s] unable to find network profile for host %s", op.name, host)
+		}
+		op.RequestParams["broadcast"] = profile.Broadcast
+	}
+	return nil
+}
+
+func (op *HTTPSCreateNodeOp) prepare(execContext *OpEngineExecContext) error {
+	err := op.updateQueryParams(execContext)
+	if err != nil {
+		return err
+	}
+
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSCreateNodeOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCreateNodeOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSCreateNodeOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
 type HTTPCreateNodeResponse map[string][]map[string]string
 
-func (op *HTTPCreateNodeOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSCreateNodeOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type NMAHealthOpResponse map[string]string
@@ -187,16 +186,12 @@ func TestGetEnv(t *testing.T) {
 
 func TestValidateUsernamePassword(t *testing.T) {
 	// when user name is "" but use password, the check should fail
-	checkFunc := func() {
-		ValidateUsernameAndPassword(true, "")
-	}
-	require.Panics(t, checkFunc)
+	err := ValidateUsernameAndPassword("mock_op", true, "")
+	assert.Error(t, err)
 
 	// when user name is not empty and use password, the check should succeed
-	checkFunc = func() {
-		ValidateUsernameAndPassword(true, "dkr_dbadmin")
-	}
-	require.NotPanics(t, checkFunc)
+	err = ValidateUsernameAndPassword("mock_op", true, "dkr_dbadmin")
+	assert.NoError(t, err)
 }
 
 func TestNewErrorFormatVerb(t *testing.T) {

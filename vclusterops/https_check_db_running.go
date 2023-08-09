@@ -59,22 +59,27 @@ type HTTPCheckRunningDBOp struct {
 	opType OpType
 }
 
-func MakeHTTPCheckRunningDBOp(opName string, hosts []string,
+func makeHTTPCheckRunningDBOp(hosts []string,
 	useHTTPPassword bool, userName string,
-	httpsPassword *string, opType OpType) HTTPCheckRunningDBOp {
+	httpsPassword *string, opType OpType,
+) (HTTPCheckRunningDBOp, error) {
 	runningDBChecker := HTTPCheckRunningDBOp{}
-	runningDBChecker.name = opName
+	runningDBChecker.name = "HTTPCheckDBRunningOp"
 	runningDBChecker.hosts = hosts
 	runningDBChecker.useHTTPPassword = useHTTPPassword
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(runningDBChecker.name, useHTTPPassword, userName)
+	if err != nil {
+		return runningDBChecker, err
+	}
+
 	runningDBChecker.userName = userName
 	runningDBChecker.httpsPassword = httpsPassword
 	runningDBChecker.opType = opType
-	return runningDBChecker
+	return runningDBChecker, nil
 }
 
-func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -89,17 +94,18 @@ func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
+	return nil
 }
 
 func (op *HTTPCheckRunningDBOp) logPrepare() {
 	vlog.LogInfo("[%s] Prepare() called for operation %s \n", op.name, op.opType)
 }
 
-func (op *HTTPCheckRunningDBOp) Prepare(execContext *OpEngineExecContext) error {
+func (op *HTTPCheckRunningDBOp) prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
-	return nil
+	return op.setupClusterHTTPRequest(op.hosts)
 }
 
 /* HTTPNodeStateResponse example:
@@ -140,7 +146,7 @@ func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
 		}
 		return false, msg, nil
 	}
-	// exception, panic out loudly
+	// exception, throw an error
 	if len(nodeList) == 0 {
 		noNodeErr := fmt.Errorf("[%s] Unexpected result from host %s: empty node_list obtained from /nodes endpoint response",
 			op.name, host)
@@ -149,7 +155,7 @@ func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
 
 	nodeInfo := nodeList[0]
 	runningDBName, ok := nodeInfo["database"]
-	// exception, panic out
+	// exception, throw an error
 	if !ok {
 		noDBInfoErr := fmt.Errorf("[%s] Unexpected result from host %s: no database name returned from /nodes endpoint response", op.name, host)
 		return true, "", noDBInfoErr
@@ -162,7 +168,7 @@ func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
 // processResult will look at all of the results that come back from the hosts.
 // We don't return an error if all of the nodes are down. Otherwise, an error is
 // returned.
-func (op *HTTPCheckRunningDBOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	// golang doesn't have set data structure,
 	// so use maps for caching distinct up and down hosts
@@ -234,7 +240,7 @@ func (op *HTTPCheckRunningDBOp) processResult(execContext *OpEngineExecContext) 
 	return allErrs
 }
 
-func (op *HTTPCheckRunningDBOp) Execute(execContext *OpEngineExecContext) error {
+func (op *HTTPCheckRunningDBOp) execute(execContext *OpEngineExecContext) error {
 	if op.opType == CreateDB {
 		vlog.LogInfo("[%s] Execute() for operation %s", op.name, op.opType)
 		return op.checkDBConnection(execContext)
@@ -294,6 +300,6 @@ func (op *HTTPCheckRunningDBOp) checkDBConnection(execContext *OpEngineExecConte
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCheckRunningDBOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPCheckRunningDBOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

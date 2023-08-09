@@ -16,7 +16,7 @@
 package vclusterops
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 
@@ -27,14 +27,14 @@ import (
 // files from a sourceConfig node to new nodes.
 func produceTransferConfigOps(instructions *[]ClusterOp, sourceConfigHost, hosts, newNodeHosts []string) {
 	var verticaConfContent string
-	nmaDownloadVerticaConfigOp := MakeNMADownloadConfigOp(
+	nmaDownloadVerticaConfigOp := makeNMADownloadConfigOp(
 		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent)
-	nmaUploadVerticaConfigOp := MakeNMAUploadConfigOp(
+	nmaUploadVerticaConfigOp := makeNMAUploadConfigOp(
 		"NMAUploadVerticaConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/vertica", &verticaConfContent)
 	var spreadConfContent string
-	nmaDownloadSpreadConfigOp := MakeNMADownloadConfigOp(
+	nmaDownloadSpreadConfigOp := makeNMADownloadConfigOp(
 		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent)
-	nmaUploadSpreadConfigOp := MakeNMAUploadConfigOp(
+	nmaUploadSpreadConfigOp := makeNMAUploadConfigOp(
 		"NMAUploadSpreadConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/spread", &spreadConfContent)
 	*instructions = append(*instructions,
 		&nmaDownloadVerticaConfigOp,
@@ -77,7 +77,7 @@ func WriteClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
 		node, ok := vdb.HostNodeMap[host]
 		if !ok {
 			errMsg := fmt.Sprintf("cannot find node info from host %s", host)
-			panic(vlog.ErrorLog + errMsg)
+			return errors.New(vlog.ErrorLog + errMsg)
 		}
 		nodeConfig.Address = host
 		nodeConfig.Name = node.Name
@@ -132,17 +132,11 @@ type NodesStateInfo struct {
 	NodeList []NodeStateInfo `json:"node_list"`
 }
 
-type NodeStartCommand struct {
-	StartCommand []string `json:"start_command"`
-}
-
-func updateHostRequestBodyMapFromNodeStartCommand(host string, hostStartCommand []string,
-	catalogPathMap map[string]string, opName string) error {
-	nodeStartCommand := NodeStartCommand{StartCommand: hostStartCommand}
-	marshaledCommand, err := json.Marshal(nodeStartCommand)
-	if err != nil {
-		return fmt.Errorf("[%s] fail to marshal start command to JSON string %w", opName, err)
+func setupMapHostToCatalogPath(vdb *VCoordinationDatabase) map[string]string {
+	mapHostToCatalogPath := make(map[string]string)
+	for h, vnode := range vdb.HostNodeMap {
+		mapHostToCatalogPath[h] = vnode.CatalogPath
 	}
-	catalogPathMap[host] = string(marshaledCommand)
-	return nil
+
+	return mapHostToCatalogPath
 }

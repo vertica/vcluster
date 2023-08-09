@@ -122,7 +122,7 @@ func (c ClusterCommandLauncher) Run(inputArgv []string) error {
 		return minArgsError
 	}
 
-	subCommand, idError := identifySubcommand(c.argv, c.commands)
+	subCommand, idError := identifySubcommand(c.commands)
 	if idError != nil {
 		return idError
 	}
@@ -153,7 +153,7 @@ func (c ClusterCommandLauncher) Run(inputArgv []string) error {
 	return subCommand.Run()
 }
 
-func identifySubcommand(inputArgv []string, commands map[string]ClusterCommand) (ClusterCommand, error) {
+func identifySubcommand(commands map[string]ClusterCommand) (ClusterCommand, error) {
 	userCommandString := os.Args[1]
 	command, ok := commands[userCommandString]
 

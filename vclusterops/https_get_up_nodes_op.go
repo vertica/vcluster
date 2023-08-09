@@ -30,23 +30,27 @@ type HTTPSGetUpNodesOp struct {
 	DBName string
 }
 
-func MakeHTTPSGetUpNodesOp(opName string, dbName string, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSGetUpNodesOp {
+func makeHTTPSGetUpNodesOp(dbName string, hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+) (HTTPSGetUpNodesOp, error) {
 	httpsGetUpNodesOp := HTTPSGetUpNodesOp{}
-	httpsGetUpNodesOp.name = opName
+	httpsGetUpNodesOp.name = "HTTPSGetUpNodesOp"
 	httpsGetUpNodesOp.hosts = hosts
 	httpsGetUpNodesOp.useHTTPPassword = useHTTPPassword
 	httpsGetUpNodesOp.DBName = dbName
 
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+		err := util.ValidateUsernameAndPassword(httpsGetUpNodesOp.name, useHTTPPassword, userName)
+		if err != nil {
+			return httpsGetUpNodesOp, err
+		}
 		httpsGetUpNodesOp.userName = userName
 		httpsGetUpNodesOp.httpsPassword = httpsPassword
 	}
-	return httpsGetUpNodesOp
+	return httpsGetUpNodesOp, nil
 }
 
-func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -61,17 +65,18 @@ func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSGetUpNodesOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSGetUpNodesOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSGetUpNodesOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSGetUpNodesOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -169,6 +174,6 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 	return errors.Join(allErrs, fmt.Errorf("no up nodes detected"))
 }
 
-func (op *HTTPSGetUpNodesOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSGetUpNodesOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

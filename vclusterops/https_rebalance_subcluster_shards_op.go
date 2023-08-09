@@ -30,9 +30,9 @@ type HTTPSRebalanceSubclusterShardsOp struct {
 	scName string
 }
 
-// MakeHTTPSRebalanceSubclusterShardsOp will make an op that call vertica-http service to rebalance shards of a subcluster
-func MakeHTTPSRebalanceSubclusterShardsOp(bootstrapHost []string, useHTTPPassword bool, userName string,
-	httpsPassword *string, scName string) HTTPSRebalanceSubclusterShardsOp {
+// makeHTTPSRebalanceSubclusterShardsOp creates an op that calls vertica-http service to rebalance shards of a subcluster
+func makeHTTPSRebalanceSubclusterShardsOp(bootstrapHost []string, useHTTPPassword bool, userName string,
+	httpsPassword *string, scName string) (HTTPSRebalanceSubclusterShardsOp, error) {
 	httpsRBSCShardsOp := HTTPSRebalanceSubclusterShardsOp{}
 	httpsRBSCShardsOp.name = "HTTPSRebalanceSubclusterShardsOp"
 	httpsRBSCShardsOp.hosts = bootstrapHost
@@ -40,14 +40,17 @@ func MakeHTTPSRebalanceSubclusterShardsOp(bootstrapHost []string, useHTTPPasswor
 
 	httpsRBSCShardsOp.useHTTPPassword = useHTTPPassword
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+		err := util.ValidateUsernameAndPassword(httpsRBSCShardsOp.name, useHTTPPassword, userName)
+		if err != nil {
+			return httpsRBSCShardsOp, err
+		}
 		httpsRBSCShardsOp.userName = userName
 		httpsRBSCShardsOp.httpsPassword = httpsPassword
 	}
-	return httpsRBSCShardsOp
+	return httpsRBSCShardsOp, nil
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -62,9 +65,11 @@ func (op *HTTPSRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []stri
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
+	return nil
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) Prepare(execContext *OpEngineExecContext) error {
+func (op *HTTPSRebalanceSubclusterShardsOp) prepare(execContext *OpEngineExecContext) error {
 	// rebalance shards on the default subcluster if scName isn't provided
 	if op.scName == "" {
 		if execContext.defaultSCName == "" {
@@ -74,20 +79,19 @@ func (op *HTTPSRebalanceSubclusterShardsOp) Prepare(execContext *OpEngineExecCon
 	}
 
 	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
-	return nil
+	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSRebalanceSubclusterShardsOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSRebalanceSubclusterShardsOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -129,6 +133,6 @@ func (op *HTTPSRebalanceSubclusterShardsOp) processResult(execContext *OpEngineE
 	return allErrs
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSRebalanceSubclusterShardsOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

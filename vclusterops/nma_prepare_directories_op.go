@@ -38,7 +38,7 @@ type prepareDirectoriesRequestData struct {
 	IgnoreParent     bool     `json:"ignore_parent"`
 }
 
-func MakeNMAPrepareDirectoriesOp(
+func makeNMAPrepareDirectoriesOp(
 	hostNodeMap map[string]VCoordinationNode) (NMAPrepareDirectoriesOp, error) {
 	nmaPrepareDirectoriesOp := NMAPrepareDirectoriesOp{}
 	nmaPrepareDirectoriesOp.name = "NMAPrepareDirectoriesOp"
@@ -77,7 +77,7 @@ func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap map[string]VCoor
 	return nil
 }
 
-func (op *NMAPrepareDirectoriesOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMAPrepareDirectoriesOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -89,28 +89,28 @@ func (op *NMAPrepareDirectoriesOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *NMAPrepareDirectoriesOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *NMAPrepareDirectoriesOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMAPrepareDirectoriesOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *NMAPrepareDirectoriesOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAPrepareDirectoriesOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMAPrepareDirectoriesOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAPrepareDirectoriesOp) processResult(execContext *OpEngineExecContext) error {
+func (op *NMAPrepareDirectoriesOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

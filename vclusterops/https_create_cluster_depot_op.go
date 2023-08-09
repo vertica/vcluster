@@ -31,10 +31,10 @@ type HTTPSCreateDepotOp struct {
 	RequestParams  map[string]string
 }
 
-func MakeHTTPSCreateClusterDepotOp(opName string, vdb *VCoordinationDatabase, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSCreateDepotOp {
+func makeHTTPSCreateClusterDepotOp(vdb *VCoordinationDatabase, hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string) (HTTPSCreateDepotOp, error) {
 	httpsCreateDepotOp := HTTPSCreateDepotOp{}
-	httpsCreateDepotOp.name = opName
+	httpsCreateDepotOp.name = "HTTPSCreateDepotOp"
 	httpsCreateDepotOp.hosts = hosts
 	httpsCreateDepotOp.useHTTPPassword = useHTTPPassword
 
@@ -51,13 +51,16 @@ func MakeHTTPSCreateClusterDepotOp(opName string, vdb *VCoordinationDatabase, ho
 		httpsCreateDepotOp.RequestParams["size"] = vdb.DepotSize
 	}
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(httpsCreateDepotOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return httpsCreateDepotOp, err
+	}
 	httpsCreateDepotOp.userName = userName
 	httpsCreateDepotOp.httpsPassword = httpsPassword
-	return httpsCreateDepotOp
+	return httpsCreateDepotOp, nil
 }
 
-func (op *HTTPSCreateDepotOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSCreateDepotOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -73,17 +76,18 @@ func (op *HTTPSCreateDepotOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.QueryParams = op.RequestParams
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSCreateDepotOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSCreateDepotOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSCreateDepotOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSCreateDepotOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -100,7 +104,7 @@ type CreateDepotClusterRsp struct {
 	ClusterRsp []CreateDepotNodeRsp `json:"depots"`
 }
 
-func (op *HTTPSCreateDepotOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSCreateDepotOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -162,6 +166,6 @@ func (op *HTTPSCreateDepotOp) processResult(execContext *OpEngineExecContext) er
 	return allErrs
 }
 
-func (op *HTTPSCreateDepotOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSCreateDepotOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

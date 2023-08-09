@@ -77,10 +77,6 @@ func (c *CmdRestartNodes) Parse(inputArgv []string) error {
 		c.CmdBase.ipv6 = nil
 	}
 
-	if util.IsOptionSet(c.parser, "password") {
-		c.restartNodesOptions.UsePassword = true
-	}
-
 	return c.validateParse()
 }
 
@@ -102,8 +98,15 @@ func (c *CmdRestartNodes) Analyze() error {
 
 func (c *CmdRestartNodes) Run() error {
 	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
+	// call VPrepareRestartNodes to determine whether this is an EON database
+	isEon, err := vclusterops.VPrepareRestartNodes(c.restartNodesOptions)
+	if err != nil {
+		return err
+	}
+	c.restartNodesOptions.IsEon.FromBoolPointer(&isEon)
 	vcc := vclusterops.VClusterCommands{}
-	err := vcc.VRestartNodes(c.restartNodesOptions)
+	// this is the instruction that will be used by both CLI and operator
+	err = vcc.VRestartNodes(c.restartNodesOptions)
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,7 @@ type NMAHealthOp struct {
 	OpBase
 }
 
-func MakeNMAHealthOp(hosts []string) NMAHealthOp {
+func makeNMAHealthOp(hosts []string) NMAHealthOp {
 	nmaHealthOp := NMAHealthOp{}
 	nmaHealthOp.name = "NMAHealthOp"
 	nmaHealthOp.hosts = hosts
@@ -29,7 +29,7 @@ func MakeNMAHealthOp(hosts []string) NMAHealthOp {
 }
 
 // setupClusterHTTPRequest works as the module setup in Admintools
-func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -40,28 +40,29 @@ func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.BuildNMAEndpoint("health")
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *NMAHealthOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *NMAHealthOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMAHealthOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *NMAHealthOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAHealthOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMAHealthOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAHealthOp) processResult(execContext *OpEngineExecContext) error {
+func (op *NMAHealthOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)

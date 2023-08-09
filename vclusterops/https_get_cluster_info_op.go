@@ -20,31 +20,35 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsGetClusterInfoOp struct {
 	OpBase
 	OpHTTPBase
-	clusterFileContent *string
 }
 
 func makeHTTPSGetClusterInfoOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string, clusterFileContent *string) httpsGetClusterInfoOp {
-	httpGetClusterInfoOp := httpsGetClusterInfoOp{}
-	httpGetClusterInfoOp.name = "HTTPSGetClusterInfoOp"
-	httpGetClusterInfoOp.hosts = hosts
-	httpGetClusterInfoOp.clusterFileContent = clusterFileContent
-	httpGetClusterInfoOp.useHTTPPassword = useHTTPPassword
+	useHTTPPassword bool, userName string, httpsPassword *string,
+) (httpsGetClusterInfoOp, error) {
+	op := httpsGetClusterInfoOp{}
+	op.name = "HTTPSGetClusterInfoOp"
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
 
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
-		httpGetClusterInfoOp.userName = userName
-		httpGetClusterInfoOp.httpsPassword = httpsPassword
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+		if err != nil {
+			return op, err
+		}
+		op.userName = userName
+		op.httpsPassword = httpsPassword
 	}
-	return httpGetClusterInfoOp
+
+	return op, nil
 }
 
-func (op *httpsGetClusterInfoOp) setupClusterHTTPRequest(hosts []string) {
+func (op *httpsGetClusterInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -60,21 +64,26 @@ func (op *httpsGetClusterInfoOp) setupClusterHTTPRequest(hosts []string) {
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *httpsGetClusterInfoOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *httpsGetClusterInfoOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *httpsGetClusterInfoOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *httpsGetClusterInfoOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
+}
+
+type ClusterStateInfo struct {
+	IsEon bool `json:"is_eon"`
 }
 
 func (op *httpsGetClusterInfoOp) processResult(execContext *OpEngineExecContext) error {
@@ -88,11 +97,14 @@ func (op *httpsGetClusterInfoOp) processResult(execContext *OpEngineExecContext)
 		}
 
 		if result.isPassing() {
-			// The content of cluster file will be stored as content of the response
-			*op.clusterFileContent = result.content
-			if *op.clusterFileContent == "" {
-				return fmt.Errorf("[%s] cluster file content should not be empty", op.name)
+			// unmarshal the response content
+			clusterStateInfo := ClusterStateInfo{}
+			err := util.GetJSONLogErrors(result.content, &clusterStateInfo, op.name)
+			if err != nil {
+				vlog.LogError("[%s] fail to parse response, detail: %s", op.name, err)
+				return err
 			}
+			execContext.isEon = clusterStateInfo.IsEon
 			return nil
 		}
 		allErrs = errors.Join(allErrs, result.err)
@@ -100,6 +112,6 @@ func (op *httpsGetClusterInfoOp) processResult(execContext *OpEngineExecContext)
 	return errors.Join(allErrs, fmt.Errorf("could not find a host with a passing result"))
 }
 
-func (op *httpsGetClusterInfoOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *httpsGetClusterInfoOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

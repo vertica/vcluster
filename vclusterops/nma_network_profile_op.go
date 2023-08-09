@@ -26,14 +26,14 @@ type NMANetworkProfileOp struct {
 	OpBase
 }
 
-func MakeNMANetworkProfileOp(hosts []string) NMANetworkProfileOp {
+func makeNMANetworkProfileOp(hosts []string) NMANetworkProfileOp {
 	nmaNetworkProfileOp := NMANetworkProfileOp{}
 	nmaNetworkProfileOp.name = "NMANetworkProfileOp"
 	nmaNetworkProfileOp.hosts = hosts
 	return nmaNetworkProfileOp
 }
 
-func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -46,24 +46,24 @@ func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) {
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *NMANetworkProfileOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *NMANetworkProfileOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMANetworkProfileOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *NMANetworkProfileOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMANetworkProfileOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMANetworkProfileOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 

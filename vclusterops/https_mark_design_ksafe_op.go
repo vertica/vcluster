@@ -34,14 +34,14 @@ type HTTPSMarkDesignKSafeOp struct {
 	ksafeValue    int
 }
 
-func MakeHTTPSMarkDesignKSafeOp(opName string,
-	hosts []string,
+func makeHTTPSMarkDesignKSafeOp(hosts []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,
-	ksafeValue int) HTTPSMarkDesignKSafeOp {
+	ksafeValue int,
+) (HTTPSMarkDesignKSafeOp, error) {
 	httpsMarkDesignKSafeOp := HTTPSMarkDesignKSafeOp{}
-	httpsMarkDesignKSafeOp.name = opName
+	httpsMarkDesignKSafeOp.name = "HTTPSMarkDesignKsafeOp"
 	httpsMarkDesignKSafeOp.hosts = hosts
 	httpsMarkDesignKSafeOp.useHTTPPassword = useHTTPPassword
 
@@ -51,13 +51,16 @@ func MakeHTTPSMarkDesignKSafeOp(opName string,
 	httpsMarkDesignKSafeOp.RequestParams = make(map[string]string)
 	httpsMarkDesignKSafeOp.RequestParams["k"] = strconv.Itoa(ksafeValue)
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(httpsMarkDesignKSafeOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return httpsMarkDesignKSafeOp, err
+	}
 	httpsMarkDesignKSafeOp.userName = userName
 	httpsMarkDesignKSafeOp.httpsPassword = httpsPassword
-	return httpsMarkDesignKSafeOp
+	return httpsMarkDesignKSafeOp, nil
 }
 
-func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -74,17 +77,18 @@ func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.QueryParams = op.RequestParams
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSMarkDesignKSafeOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSMarkDesignKSafeOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSMarkDesignKSafeOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSMarkDesignKSafeOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -98,7 +102,7 @@ type MarkDesignKSafeRsp struct {
 	Detail string `json:"detail"`
 }
 
-func (op *HTTPSMarkDesignKSafeOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSMarkDesignKSafeOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	// in practice, just the initiator node
@@ -148,6 +152,6 @@ func (op *HTTPSMarkDesignKSafeOp) processResult(execContext *OpEngineExecContext
 	return allErrs
 }
 
-func (op *HTTPSMarkDesignKSafeOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSMarkDesignKSafeOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

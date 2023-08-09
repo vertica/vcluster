@@ -33,13 +33,13 @@ type HTTPCheckNodesExistOp struct {
 	targetHosts []string
 }
 
-// MakeHTTPCheckNodesExistOp will make a https op that check if new nodes exists in current database
-func MakeHTTPCheckNodesExistOp(
+// makeHTTPCheckNodesExistOp will make a https op that check if new nodes exists in current database
+func makeHTTPCheckNodesExistOp(
 	hosts []string,
 	targetHosts []string,
 	useHTTPPassword bool,
 	userName string,
-	httpsPassword *string) HTTPCheckNodesExistOp {
+	httpsPassword *string) (HTTPCheckNodesExistOp, error) {
 	nodeStateChecker := HTTPCheckNodesExistOp{}
 	nodeStateChecker.name = "HTTPCheckNodesExistOp"
 	// The hosts are the ones we are going to talk to.
@@ -48,13 +48,17 @@ func MakeHTTPCheckNodesExistOp(
 	nodeStateChecker.targetHosts = targetHosts
 	nodeStateChecker.useHTTPPassword = useHTTPPassword
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(nodeStateChecker.name, useHTTPPassword, userName)
+	if err != nil {
+		return nodeStateChecker, err
+	}
+
 	nodeStateChecker.userName = userName
 	nodeStateChecker.httpsPassword = httpsPassword
-	return nodeStateChecker
+	return nodeStateChecker, nil
 }
 
-func (op *HTTPCheckNodesExistOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPCheckNodesExistOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -69,24 +73,24 @@ func (op *HTTPCheckNodesExistOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPCheckNodesExistOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPCheckNodesExistOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPCheckNodesExistOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPCheckNodesExistOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCheckNodesExistOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPCheckNodesExistOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -122,7 +126,7 @@ func (op *HTTPCheckNodesExistOp) processResult(execContext *OpEngineExecContext)
 	return allErrs
 }
 
-func (op *HTTPCheckNodesExistOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPCheckNodesExistOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 

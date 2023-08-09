@@ -52,7 +52,7 @@ func (options *VStartDatabaseOptions) validateRequiredOptions() error {
 	return nil
 }
 
-func (options *VStartDatabaseOptions) validateParseOptions(config *ClusterConfig) error {
+func (options *VStartDatabaseOptions) validateParseOptions() error {
 	return options.validateRequiredOptions()
 }
 
@@ -68,14 +68,12 @@ func (options *VStartDatabaseOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VStartDatabaseOptions) ValidateAnalyzeOptions(config *ClusterConfig) error {
-	if err := options.validateParseOptions(config); err != nil {
+func (options *VStartDatabaseOptions) ValidateAnalyzeOptions() error {
+	if err := options.validateParseOptions(); err != nil {
 		return err
 	}
-	if err := options.analyzeOptions(); err != nil {
-		return err
-	}
-	return nil
+	err := options.analyzeOptions()
+	return err
 }
 
 func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error {
@@ -92,7 +90,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 		return err
 	}
 
-	err = options.ValidateAnalyzeOptions(config)
+	err = options.ValidateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
@@ -145,9 +143,9 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStartDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
-	nmaHealthOp := MakeNMAHealthOp(startDBInfo.Hosts)
+	nmaHealthOp := makeNMAHealthOp(startDBInfo.Hosts)
 	// require to have the same vertica version
-	nmaVerticaVersionOp := MakeNMAVerticaVersionOp(startDBInfo.Hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(startDBInfo.Hosts, true)
 	// need username for https operations
 	usePassword := false
 	if options.Password != nil {
@@ -158,10 +156,13 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 		}
 	}
 
-	checkDBRunningOp := MakeHTTPCheckRunningDBOp("HTTPCheckDBRunningOp", startDBInfo.Hosts,
+	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(startDBInfo.Hosts,
 		usePassword, *options.UserName, options.Password, StartDB)
+	if err != nil {
+		return instructions, err
+	}
 
-	nmaReadCatalogEditorOp, err := MakeNMAReadCatalogEditorOp(startDBInfo.HostCatalogPath, []string{})
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(startDBInfo.HostCatalogPath, []string{})
 	if err != nil {
 		return instructions, err
 	}
@@ -177,9 +178,12 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	// after we find host with the highest catalog and hosts that need to synchronize the catalog
 	produceTransferConfigOps(&instructions, nil, startDBInfo.Hosts, nil)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOp(startDBInfo.Hosts, nil)
-	httpsPollNodeStateOp := MakeHTTPSPollNodeStateOp(startDBInfo.Hosts,
+	nmaStartNewNodesOp := makeNMAStartNodeOp(startDBInfo.Hosts)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(startDBInfo.Hosts,
 		usePassword, *options.UserName, options.Password)
+	if err != nil {
+		return instructions, err
+	}
 
 	instructions = append(instructions,
 		&nmaStartNewNodesOp,
@@ -187,7 +191,10 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	)
 
 	if options.IsEon.ToBool() {
-		httpsSyncCatalogOp := MakeHTTPSSyncCatalogOp(startDBInfo.Hosts, true, *options.UserName, options.Password, nil)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(startDBInfo.Hosts, true, *options.UserName, options.Password)
+		if err != nil {
+			return instructions, err
+		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
 

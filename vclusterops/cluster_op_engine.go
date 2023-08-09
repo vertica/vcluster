@@ -44,7 +44,7 @@ func (opEngine *VClusterOpEngine) Run() error {
 
 	for _, op := range opEngine.instructions {
 		op.logPrepare()
-		err := op.Prepare(&execContext)
+		err := op.prepare(&execContext)
 		if err != nil {
 			return fmt.Errorf("prepare %s failed, details: %w", op.getName(), err)
 		}
@@ -57,14 +57,14 @@ func (opEngine *VClusterOpEngine) Run() error {
 
 			// execute an instruction
 			op.logExecute()
-			err = op.Execute(&execContext)
+			err = op.execute(&execContext)
 			if err != nil {
 				return fmt.Errorf("execute %s failed, details: %w", op.getName(), err)
 			}
 		}
 
 		op.logFinalize()
-		err = op.Finalize(&execContext)
+		err = op.finalize(&execContext)
 		if err != nil {
 			return fmt.Errorf("finalize failed %w", err)
 		}

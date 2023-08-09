@@ -32,21 +32,24 @@ type HTTPSAddSubclusterOp struct {
 	ctlSetSize         int
 }
 
-func MakeHTTPSAddSubclusterOp(opName string, useHTTPPassword bool, userName string, httpsPassword *string,
-	scName string, isPrimary bool, ctlSetSize int) HTTPSAddSubclusterOp {
+func makeHTTPSAddSubclusterOp(useHTTPPassword bool, userName string, httpsPassword *string,
+	scName string, isPrimary bool, ctlSetSize int) (HTTPSAddSubclusterOp, error) {
 	httpsAddSubclusterOp := HTTPSAddSubclusterOp{}
-	httpsAddSubclusterOp.name = opName
+	httpsAddSubclusterOp.name = "HTTPSAddSubclusterOp"
 	httpsAddSubclusterOp.scName = scName
 	httpsAddSubclusterOp.isSecondary = !isPrimary
 	httpsAddSubclusterOp.ctlSetSize = ctlSetSize
 
 	httpsAddSubclusterOp.useHTTPPassword = useHTTPPassword
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+		err := util.ValidateUsernameAndPassword(httpsAddSubclusterOp.name, useHTTPPassword, userName)
+		if err != nil {
+			return httpsAddSubclusterOp, err
+		}
 		httpsAddSubclusterOp.userName = userName
 		httpsAddSubclusterOp.httpsPassword = httpsPassword
 	}
-	return httpsAddSubclusterOp
+	return httpsAddSubclusterOp, nil
 }
 
 type addSubclusterRequestData struct {
@@ -73,7 +76,7 @@ func (op *HTTPSAddSubclusterOp) setupRequestBody(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSAddSubclusterOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSAddSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -89,9 +92,11 @@ func (op *HTTPSAddSubclusterOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
+	return nil
 }
 
-func (op *HTTPSAddSubclusterOp) Prepare(execContext *OpEngineExecContext) error {
+func (op *HTTPSAddSubclusterOp) prepare(execContext *OpEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
@@ -102,20 +107,19 @@ func (op *HTTPSAddSubclusterOp) Prepare(execContext *OpEngineExecContext) error 
 		return err
 	}
 	execContext.dispatcher.Setup(hosts)
-	op.setupClusterHTTPRequest(hosts)
 
-	return nil
+	return op.setupClusterHTTPRequest(hosts)
 }
 
-func (op *HTTPSAddSubclusterOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSAddSubclusterOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSAddSubclusterOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSAddSubclusterOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -149,6 +153,6 @@ func (op *HTTPSAddSubclusterOp) processResult(execContext *OpEngineExecContext) 
 	return allErrs
 }
 
-func (op *HTTPSAddSubclusterOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSAddSubclusterOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

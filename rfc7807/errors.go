@@ -57,4 +57,8 @@ var (
 		"https://integrators.vertica.com/vcluster/errors/bad-request",
 		"Bad request sent",
 	)
+	GenericGetNodeInfoFailure = newProblemID(
+		"https://integrators.vertica.com/vcluster/errors/internal-get-node-info-failure",
+		"Internal error while getting node information",
+	)
 )

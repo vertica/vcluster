@@ -33,12 +33,12 @@ type NMAReIPOp struct {
 	mapHostToNodeName  map[string]string
 }
 
-func makeNMAReIPOp(name string,
+func makeNMAReIPOp(
 	catalogPathMap map[string]string,
 	reIPList []ReIPInfo,
 	mapHostToNodeName map[string]string) NMAReIPOp {
 	op := NMAReIPOp{}
-	op.name = name
+	op.name = "NMAReIPOp"
 	op.catalogPathMap = catalogPathMap
 	op.reIPList = reIPList
 	op.mapHostToNodeName = mapHostToNodeName
@@ -59,7 +59,7 @@ type reIPParams struct {
 	ReIPInfoList []ReIPInfo `json:"re_ip_list"`
 }
 
-func (op *NMAReIPOp) updateRequestBody(hosts []string, execContext *OpEngineExecContext) error {
+func (op *NMAReIPOp) updateRequestBody(hosts []string, _ *OpEngineExecContext) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range hosts {
@@ -78,7 +78,7 @@ func (op *NMAReIPOp) updateRequestBody(hosts []string, execContext *OpEngineExec
 	return nil
 }
 
-func (op *NMAReIPOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMAReIPOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -91,6 +91,8 @@ func (op *NMAReIPOp) setupClusterHTTPRequest(hosts []string) {
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
+	return nil
 }
 
 // updateReIPList is used for the vcluster CLI to update node names
@@ -113,11 +115,13 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 			info.TargetControlAddress = info.TargetAddress
 		}
 		// update control broadcast if not given
-		profile, ok := execContext.networkProfiles[info.TargetAddress]
-		if !ok {
-			return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, info.TargetAddress)
+		if info.TargetControlBroadcast == "" {
+			profile, ok := execContext.networkProfiles[info.TargetAddress]
+			if !ok {
+				return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, info.TargetAddress)
+			}
+			info.TargetControlBroadcast = profile.Broadcast
 		}
-		info.TargetControlBroadcast = profile.Broadcast
 
 		op.reIPList[i] = info
 	}
@@ -125,7 +129,7 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAReIPOp) Prepare(execContext *OpEngineExecContext) error {
+func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 	// get the primary node names
 	// this step is needed as the new host addresses
 	// are not in the catalog
@@ -167,24 +171,22 @@ func (op *NMAReIPOp) Prepare(execContext *OpEngineExecContext) error {
 	}
 
 	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
-
-	return nil
+	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAReIPOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMAReIPOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAReIPOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMAReIPOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAReIPOp) processResult(execContext *OpEngineExecContext) error {
+func (op *NMAReIPOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	var successCount int
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

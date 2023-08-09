@@ -115,17 +115,20 @@ func produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabas
 		}
 	}
 
-	nmaHealthOp := MakeNMAHealthOp(hosts)
+	nmaHealthOp := makeNMAHealthOp(hosts)
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := MakeNMAVerticaVersionOp(hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(hosts, true)
 
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
-	checkDBRunningOp := MakeHTTPCheckRunningDBOp("HTTPCheckDBRunningOp", hosts,
-		usePassword, *options.UserName, options.Password, CreateDB)
+	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(hosts, usePassword,
+		*options.UserName, options.Password, CreateDB)
+	if err != nil {
+		return instructions, err
+	}
 
-	nmaDeleteDirectoriesOp, err := MakeNMADeleteDirectoriesOp("NMADeleteDirectoriesOp", vdb, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, *options.ForceDelete)
 	if err != nil {
 		return instructions, err
 	}

@@ -28,20 +28,24 @@ type HTTPSInstallPackagesOp struct {
 	OpHTTPBase
 }
 
-func MakeHTTPSInstallPackagesOp(opName string, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSInstallPackagesOp {
+func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,
+	userName string, httpsPassword *string,
+) (HTTPSInstallPackagesOp, error) {
 	installPackagesOp := HTTPSInstallPackagesOp{}
-	installPackagesOp.name = opName
+	installPackagesOp.name = "HTTPSInstallPackagesOp"
 	installPackagesOp.hosts = hosts
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(installPackagesOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return installPackagesOp, err
+	}
 	installPackagesOp.useHTTPPassword = useHTTPPassword
 	installPackagesOp.userName = userName
 	installPackagesOp.httpsPassword = httpsPassword
-	return installPackagesOp
+	return installPackagesOp, nil
 }
 
-func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -56,24 +60,25 @@ func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSInstallPackagesOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSInstallPackagesOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSInstallPackagesOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSInstallPackagesOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSInstallPackagesOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSInstallPackagesOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
@@ -96,7 +101,7 @@ func (op *HTTPSInstallPackagesOp) Finalize(execContext *OpEngineExecContext) err
 */
 type HTTPSInstallPackagesResponse map[string][]map[string]string
 
-func (op *HTTPSInstallPackagesOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSInstallPackagesOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

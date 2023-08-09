@@ -31,7 +31,7 @@ type NMAVerticaVersionOp struct {
 	HostVersionMap     map[string]string
 }
 
-func MakeNMAVerticaVersionOp(hosts []string, sameVersion bool) NMAVerticaVersionOp {
+func makeNMAVerticaVersionOp(hosts []string, sameVersion bool) NMAVerticaVersionOp {
 	nmaVerticaVersionOp := NMAVerticaVersionOp{}
 	nmaVerticaVersionOp.name = "NMAVerticaVersionOp"
 	nmaVerticaVersionOp.hosts = hosts
@@ -40,7 +40,7 @@ func MakeNMAVerticaVersionOp(hosts []string, sameVersion bool) NMAVerticaVersion
 	return nmaVerticaVersionOp
 }
 
-func (op *NMAVerticaVersionOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMAVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -51,24 +51,25 @@ func (op *NMAVerticaVersionOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.BuildNMAEndpoint("vertica/version")
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *NMAVerticaVersionOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *NMAVerticaVersionOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMAVerticaVersionOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *NMAVerticaVersionOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAVerticaVersionOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMAVerticaVersionOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
@@ -136,7 +137,7 @@ func (op *NMAVerticaVersionOp) logCheckVersionMatch() error {
 	return nil
 }
 
-func (op *NMAVerticaVersionOp) processResult(execContext *OpEngineExecContext) error {
+func (op *NMAVerticaVersionOp) processResult(_ *OpEngineExecContext) error {
 	err := op.logResponseCollectVersions()
 	if err != nil {
 		return err

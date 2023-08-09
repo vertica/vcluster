@@ -29,9 +29,10 @@ type HTTPSCreateNodesDepotOp struct {
 	DepotSize   string
 }
 
-// MakeHTTPSCreateNodesDepotOp will make an op that call vertica-http service to create depot for the new nodes
-func MakeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) HTTPSCreateNodesDepotOp {
+// makeHTTPSCreateNodesDepotOp will make an op that call vertica-http service to create depot for the new nodes
+func makeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+) (HTTPSCreateNodesDepotOp, error) {
 	httpsCreateNodesDepotOp := HTTPSCreateNodesDepotOp{}
 	httpsCreateNodesDepotOp.name = "HTTPSCreateNodesDepotOp"
 	httpsCreateNodesDepotOp.hosts = nodes
@@ -39,13 +40,17 @@ func MakeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
 	httpsCreateNodesDepotOp.HostNodeMap = vdb.HostNodeMap
 	httpsCreateNodesDepotOp.DepotSize = vdb.DepotSize
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(httpsCreateNodesDepotOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return httpsCreateNodesDepotOp, err
+	}
+
 	httpsCreateNodesDepotOp.userName = userName
 	httpsCreateNodesDepotOp.httpsPassword = httpsPassword
-	return httpsCreateNodesDepotOp
+	return httpsCreateNodesDepotOp, nil
 }
 
-func (op *HTTPSCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -65,24 +70,25 @@ func (op *HTTPSCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *HTTPSCreateNodesDepotOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSCreateNodesDepotOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSCreateNodesDepotOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSCreateNodesDepotOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSCreateNodesDepotOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSCreateNodesDepotOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	// every host needs to have a successful result, otherwise we fail this op
@@ -122,6 +128,6 @@ func (op *HTTPSCreateNodesDepotOp) processResult(execContext *OpEngineExecContex
 	return allErrs
 }
 
-func (op *HTTPSCreateNodesDepotOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSCreateNodesDepotOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

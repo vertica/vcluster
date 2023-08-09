@@ -20,13 +20,12 @@ type deleteDirParams struct {
 	Sandbox     bool     `json:"sandbox"`
 }
 
-func MakeNMADeleteDirectoriesOp(
-	opName string,
+func makeNMADeleteDirectoriesOp(
 	vdb *VCoordinationDatabase,
 	forceDelete bool,
 ) (NMADeleteDirectoriesOp, error) {
 	nmaDeleteDirectoriesOp := NMADeleteDirectoriesOp{}
-	nmaDeleteDirectoriesOp.name = opName
+	nmaDeleteDirectoriesOp.name = "NMADeleteDirectoriesOp"
 	nmaDeleteDirectoriesOp.hosts = vdb.HostList
 
 	err := nmaDeleteDirectoriesOp.buildRequestBody(vdb, forceDelete)
@@ -76,7 +75,7 @@ func (op *NMADeleteDirectoriesOp) buildRequestBody(
 	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -88,28 +87,29 @@ func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) {
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *NMADeleteDirectoriesOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMADeleteDirectoriesOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *NMADeleteDirectoriesOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMADeleteDirectoriesOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMADeleteDirectoriesOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) processResult(execContext *OpEngineExecContext) error {
+func (op *NMADeleteDirectoriesOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

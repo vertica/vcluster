@@ -27,24 +27,27 @@ import (
 type HTTPSSyncCatalogOp struct {
 	OpBase
 	OpHTTPBase
-	clusterFileContent *string
 }
 
-func MakeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, clusterFileContent *string) HTTPSSyncCatalogOp {
-	httpsSyncCatalogOp := HTTPSSyncCatalogOp{}
-	httpsSyncCatalogOp.name = "HTTPSyncCatalogOp"
-	httpsSyncCatalogOp.hosts = hosts
-	httpsSyncCatalogOp.useHTTPPassword = useHTTPPassword
-	httpsSyncCatalogOp.clusterFileContent = clusterFileContent
+func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
+	userName string, httpsPassword *string,
+) (HTTPSSyncCatalogOp, error) {
+	op := HTTPSSyncCatalogOp{}
+	op.name = "HTTPSSyncCatalogOp"
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
 
-	util.ValidateUsernameAndPassword(useHTTPPassword, userName)
-	httpsSyncCatalogOp.userName = userName
-	httpsSyncCatalogOp.httpsPassword = httpsPassword
-	return httpsSyncCatalogOp
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+	if err != nil {
+		return op, err
+	}
+
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	return op, nil
 }
 
-func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) {
+func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -61,48 +64,29 @@ func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) {
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-type ClusterStateInfo struct {
-	IsEon bool `json:"is_eon"`
-}
-
-func (op *HTTPSSyncCatalogOp) Prepare(execContext *OpEngineExecContext) error {
-	// If the content of the cluster file is nil, we continue processing the sync catalog operation.
-	// We use the "eonmode" flag provided by the user to proceed with this operation.
-	// This case is used for certain operations (e.g., start_db, create_db) when the database is down.
-	// Otherwise, we can call /cluster to check whether this is an EON database or not.
-	if op.clusterFileContent != nil {
-		// unmarshal the response content
-		clusterStateInfo := ClusterStateInfo{}
-		err := util.GetJSONLogErrors(*op.clusterFileContent, &clusterStateInfo, op.name)
-		if err != nil {
-			vlog.LogError("[%s] fail to parse response, detail: %s", op.name, err)
-			return err
-		}
-		// if this is not eon database, skip the operation
-		// Sync Catalog  operation only support eon mode
-		if !clusterStateInfo.IsEon {
-			vlog.LogInfo("[%s] Sync Catalog operation will not be processed, as it only supports EON mode", op.name)
-			op.skipExecute = true
-			return nil
-		}
-	}
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *HTTPSSyncCatalogOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *HTTPSSyncCatalogOp) prepare(execContext *OpEngineExecContext) error {
+	// If the content of the cluster file is nil, we continue processing the sync catalog operation.
+	// We use the "eonmode" flag provided by the user to proceed with this operation.
+	// This case is used for certain operations (e.g., start_db, create_db) when the database is down.
+	// Otherwise, we can call /cluster to check whether this is an EON database or not.
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *HTTPSSyncCatalogOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSSyncCatalogOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSSyncCatalogOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -130,6 +114,6 @@ func (op *HTTPSSyncCatalogOp) processResult(execContext *OpEngineExecContext) er
 	return allErrs
 }
 
-func (op *HTTPSSyncCatalogOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *HTTPSSyncCatalogOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

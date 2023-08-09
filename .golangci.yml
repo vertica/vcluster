@@ -1,6 +1,11 @@
 linters-settings:
   depguard:
-    list-type: blacklist
+    rules:
+      main:
+        allow:
+          - $gostd
+          - github.com
+          - vertica.com
   dupl:
     threshold: 100
   funlen:

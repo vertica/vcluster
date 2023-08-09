@@ -29,21 +29,26 @@ type httpsGetNodesInfoOp struct {
 }
 
 func makeHTTPSGetNodesInfoOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) httpsGetNodesInfoOp {
-	httpGetNodeInfoOp := httpsGetNodesInfoOp{}
-	httpGetNodeInfoOp.name = "HTTPSGetNodeInfoOp"
-	httpGetNodeInfoOp.hosts = hosts
-	httpGetNodeInfoOp.useHTTPPassword = useHTTPPassword
+	useHTTPPassword bool, userName string, httpsPassword *string,
+) (httpsGetNodesInfoOp, error) {
+	op := httpsGetNodesInfoOp{}
+	op.name = "HTTPSGetNodeInfoOp"
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
 
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
-		httpGetNodeInfoOp.userName = userName
-		httpGetNodeInfoOp.httpsPassword = httpsPassword
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+		if err != nil {
+			return op, err
+		}
+		op.userName = userName
+		op.httpsPassword = httpsPassword
 	}
-	return httpGetNodeInfoOp
+
+	return op, nil
 }
 
-func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) {
+func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -59,17 +64,18 @@ func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) {
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *httpsGetNodesInfoOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *httpsGetNodesInfoOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *httpsGetNodesInfoOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *httpsGetNodesInfoOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -96,7 +102,7 @@ func (op *httpsGetNodesInfoOp) processResult(execContext *OpEngineExecContext) e
 				return err
 			}
 			// save node list information to execContext
-			execContext.nodesInfo = nodesStateInfo.NodeList
+			execContext.nodeStates = nodesStateInfo.NodeList
 			return nil
 		}
 		allErrs = errors.Join(allErrs, result.err)
@@ -104,6 +110,6 @@ func (op *httpsGetNodesInfoOp) processResult(execContext *OpEngineExecContext) e
 	return errors.Join(allErrs, fmt.Errorf("could not find a host with a passing result"))
 }
 
-func (op *httpsGetNodesInfoOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *httpsGetNodesInfoOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

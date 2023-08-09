@@ -147,10 +147,10 @@ func (status ResultStatus) getStatusString() string {
 // log* implemented by embedding OpBase, but overrideable
 type ClusterOp interface {
 	getName() string
-	setupClusterHTTPRequest(hosts []string)
-	Prepare(execContext *OpEngineExecContext) error
-	Execute(execContext *OpEngineExecContext) error
-	Finalize(execContext *OpEngineExecContext) error
+	setupClusterHTTPRequest(hosts []string) error
+	prepare(execContext *OpEngineExecContext) error
+	execute(execContext *OpEngineExecContext) error
+	finalize(execContext *OpEngineExecContext) error
 	processResult(execContext *OpEngineExecContext) error
 	logResponse(host string, result HostHTTPResult)
 	logPrepare()
@@ -219,7 +219,7 @@ func (op *OpBase) logFinalize() {
 	vlog.LogInfo("[%s] Finalize() called\n", op.name)
 }
 
-func (op *OpBase) execute(execContext *OpEngineExecContext) error {
+func (op *OpBase) runExecute(execContext *OpEngineExecContext) error {
 	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
 	if err != nil {
 		vlog.LogError("Fail to dispatch request %v", op.clusterHTTPRequest)

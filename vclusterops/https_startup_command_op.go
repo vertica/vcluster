@@ -25,25 +25,28 @@ import (
 type httpsStartUpCommandOp struct {
 	OpBase
 	OpHTTPBase
-	startUpCommandFileContent *string
 }
 
 func makeHTTPSRestartUpCommandOp(
-	useHTTPPassword bool, userName string, httpsPassword *string, startUpCommandFileContent *string) httpsStartUpCommandOp {
-	httpStartUpCommandOp := httpsStartUpCommandOp{}
-	httpStartUpCommandOp.name = "HTTPSStartUpCommandOp"
-	httpStartUpCommandOp.useHTTPPassword = useHTTPPassword
-	httpStartUpCommandOp.startUpCommandFileContent = startUpCommandFileContent
+	useHTTPPassword bool, userName string, httpsPassword *string) (httpsStartUpCommandOp, error) {
+	op := httpsStartUpCommandOp{}
+	op.name = "HTTPSStartUpCommandOp"
+	op.useHTTPPassword = useHTTPPassword
 
 	if useHTTPPassword {
-		util.ValidateUsernameAndPassword(useHTTPPassword, userName)
-		httpStartUpCommandOp.userName = userName
-		httpStartUpCommandOp.httpsPassword = httpsPassword
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+		if err != nil {
+			return op, err
+		}
+
+		op.userName = userName
+		op.httpsPassword = httpsPassword
 	}
-	return httpStartUpCommandOp
+
+	return op, nil
 }
 
-func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) {
+func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -61,12 +64,14 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) {
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
+	return nil
 }
 
-func (op *httpsStartUpCommandOp) Prepare(execContext *OpEngineExecContext) error {
+func (op *httpsStartUpCommandOp) prepare(execContext *OpEngineExecContext) error {
 	// Use the /v1/startup/command endpoint for a primary Up host to view every start command of existing nodes
 	var primaryUpHosts []string
-	nodesList := execContext.nodesInfo
+	nodesList := execContext.nodeStates
 	for _, node := range nodesList {
 		if node.IsPrimary && node.State == util.NodeUpState {
 			primaryUpHosts = append(primaryUpHosts, node.Address)
@@ -75,13 +80,12 @@ func (op *httpsStartUpCommandOp) Prepare(execContext *OpEngineExecContext) error
 	}
 	op.hosts = primaryUpHosts
 	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
-	return nil
+	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsStartUpCommandOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *httpsStartUpCommandOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
@@ -99,6 +103,7 @@ func (op *httpsStartUpCommandOp) processResult(execContext *OpEngineExecContext)
 		}
 
 		if result.isPassing() {
+			type HTTPStartUpCommandResponse map[string][]string
 			/* "v_practice_db_node0001": [
 				  "\/opt\/vertica\/bin\/vertica",
 				  "-D",
@@ -134,12 +139,13 @@ func (op *httpsStartUpCommandOp) processResult(execContext *OpEngineExecContext)
 				  "ipv4"
 			    ],
 			*/
-
-			// The content of starup command file will be stored as content of the response
-			*op.startUpCommandFileContent = result.content
-			if *op.startUpCommandFileContent == "" {
-				return fmt.Errorf("[%s] file content should not be empty", op.name)
+			var responseObj HTTPStartUpCommandResponse
+			err := op.parseAndCheckResponse(host, result.content, &responseObj)
+			if err != nil {
+				allErrs = errors.Join(allErrs, err)
+				continue
 			}
+			execContext.startupCommandMap = responseObj
 			return nil
 		}
 		allErrs = errors.Join(allErrs, result.err)
@@ -147,6 +153,6 @@ func (op *httpsStartUpCommandOp) processResult(execContext *OpEngineExecContext)
 	return nil
 }
 
-func (op *httpsStartUpCommandOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *httpsStartUpCommandOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

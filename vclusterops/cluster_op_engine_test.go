@@ -38,33 +38,34 @@ func makeMockOp(skipExecute bool) mockOp {
 	}
 }
 
-func (m *mockOp) Prepare(execContext *OpEngineExecContext) error {
+func (m *mockOp) prepare(_ *OpEngineExecContext) error {
 	m.calledPrepare = true
 	if !m.skipExecute {
-		m.setupClusterHTTPRequest([]string{"host1"})
+		return m.setupClusterHTTPRequest([]string{"host1"})
 	}
 	return nil
 }
 
-func (m *mockOp) Execute(execContext *OpEngineExecContext) error {
+func (m *mockOp) execute(_ *OpEngineExecContext) error {
 	m.calledExecute = true
 	return nil
 }
 
-func (m *mockOp) Finalize(execContext *OpEngineExecContext) error {
+func (m *mockOp) finalize(_ *OpEngineExecContext) error {
 	m.calledFinalize = true
 	return nil
 }
 
-func (m *mockOp) processResult(execContext *OpEngineExecContext) error {
+func (m *mockOp) processResult(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (m *mockOp) setupClusterHTTPRequest(hosts []string) {
+func (m *mockOp) setupClusterHTTPRequest(hosts []string) error {
 	m.clusterHTTPRequest.RequestCollection = map[string]HostHTTPRequest{}
 	for i := range hosts {
 		m.clusterHTTPRequest.RequestCollection[hosts[i]] = HostHTTPRequest{}
 	}
+	return nil
 }
 
 func TestSkipExecuteOp(t *testing.T) {

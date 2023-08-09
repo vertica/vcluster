@@ -29,7 +29,7 @@ type NMAReadCatalogEditorOp struct {
 	catalogPathMap map[string]string
 }
 
-func MakeNMAReadCatalogEditorOp(
+func makeNMAReadCatalogEditorOp(
 	mapHostToCatalogPath map[string]string,
 	initiator []string,
 ) (NMAReadCatalogEditorOp, error) {
@@ -51,7 +51,7 @@ func MakeNMAReadCatalogEditorOp(
 	return op, nil
 }
 
-func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) {
+func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -69,24 +69,25 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) {
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-}
-
-func (op *NMAReadCatalogEditorOp) Prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
-	op.setupClusterHTTPRequest(op.hosts)
 
 	return nil
 }
 
-func (op *NMAReadCatalogEditorOp) Execute(execContext *OpEngineExecContext) error {
-	if err := op.execute(execContext); err != nil {
+func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) error {
+	execContext.dispatcher.Setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *NMAReadCatalogEditorOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
 	return op.processResult(execContext)
 }
 
-func (op *NMAReadCatalogEditorOp) Finalize(execContext *OpEngineExecContext) error {
+func (op *NMAReadCatalogEditorOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 

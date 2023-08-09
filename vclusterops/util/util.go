@@ -283,10 +283,11 @@ func CheckMissingFields(object any) error {
 }
 
 // when password is given, the user name cannot be empty
-func ValidateUsernameAndPassword(useHTTPPassword bool, userName string) {
+func ValidateUsernameAndPassword(opName string, useHTTPPassword bool, userName string) error {
 	if useHTTPPassword && userName == "" {
-		panic("[Programmer error] should provide a username for using basic authentication for HTTPS requests")
+		return fmt.Errorf("[%s] should provide a username for using basic authentication for HTTPS requests", opName)
 	}
+	return nil
 }
 
 const (
