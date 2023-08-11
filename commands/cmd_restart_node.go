@@ -18,7 +18,9 @@ type CmdRestartNodes struct {
 	restartNodesOptions *vclusterops.VRestartNodesOptions
 
 	// Comma-separated list of hosts to restart
-	HostsToRestartStr *string
+	nodeNamesToRestartStr *string
+	hostsToRestartStr     *string
+	ipsToRestartStr       *string
 }
 
 func MakeCmdRestartNodes() *CmdRestartNodes {
@@ -31,9 +33,11 @@ func MakeCmdRestartNodes() *CmdRestartNodes {
 
 	// require flags
 	restartNodesOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to restart nodes")
-	newCmd.HostsToRestartStr = newCmd.parser.String("restart", "", "Comma-separated list of hosts to restart")
+	newCmd.hostsToRestartStr = newCmd.parser.String("vnodes", "", "Comma-separated list of nodes to restart")
+	newCmd.nodeNamesToRestartStr = newCmd.parser.String("node-names", "", "Comma-separated list of node names to restart")
 
 	// optional flags
+	newCmd.ipsToRestartStr = newCmd.parser.String("new-host-ips", "", "Comma-separated list of new IPs for the hosts to be restarted")
 	restartNodesOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that participate in the database"+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
@@ -81,9 +85,23 @@ func (c *CmdRestartNodes) Parse(inputArgv []string) error {
 }
 
 func (c *CmdRestartNodes) validateParse() error {
-	err := c.restartNodesOptions.ParseHostListToRestart(*c.HostsToRestartStr)
-	if err != nil {
-		return err
+	if *c.nodeNamesToRestartStr != "" {
+		err := c.restartNodesOptions.ParseNodeNamesListToRestart(*c.nodeNamesToRestartStr)
+		if err != nil {
+			return err
+		}
+	}
+	if *c.hostsToRestartStr != "" {
+		err := c.restartNodesOptions.ParseHostListToRestart(*c.hostsToRestartStr)
+		if err != nil {
+			return err
+		}
+	}
+	if *c.ipsToRestartStr != "" {
+		err := c.restartNodesOptions.ParseIpsToRestart(*c.ipsToRestartStr)
+		if err != nil {
+			return err
+		}
 	}
 
 	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
@@ -105,7 +123,9 @@ func (c *CmdRestartNodes) Run() error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Successfully restart nodes %s of the database %s", *c.HostsToRestartStr, *c.restartNodesOptions.Name)
-
+	if *c.hostsToRestartStr != "" {
+		vlog.LogPrintInfo("Successfully restart nodes %s of the database %s", *c.hostsToRestartStr, *c.restartNodesOptions.Name)
+	}
+	vlog.LogPrintInfo("Successfully restart node names %s of the database %s", *c.nodeNamesToRestartStr, *c.restartNodesOptions.Name)
 	return nil
 }

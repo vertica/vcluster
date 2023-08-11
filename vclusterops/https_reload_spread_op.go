@@ -63,6 +63,10 @@ func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPSReloadSpreadOp) prepare(execContext *OpEngineExecContext) error {
+	// If the host input is a nil value, we find up hosts to update the host input
+	if op.hosts == nil {
+		op.hosts = execContext.upHosts
+	}
 	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)

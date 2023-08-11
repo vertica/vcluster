@@ -1,0 +1,166 @@
+/*
+ (c) Copyright [2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+package vclusterops
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
+)
+
+type httpsReIPOp struct {
+	OpBase
+	OpHTTPBase
+	hostToReIP    []string
+	reIPList      map[string]ReIPInfo
+	nodeNamesList []string
+	upHost        string
+}
+
+func makeHTTPSReIPOp(nodeNamesList, hostToReIP []string,
+	useHTTPPassword bool, userName string, httpsPassword *string) (httpsReIPOp, error) {
+	op := httpsReIPOp{}
+	op.name = "HTTPSReIpOp"
+	op.useHTTPPassword = useHTTPPassword
+	op.nodeNamesList = nodeNamesList
+	op.hostToReIP = hostToReIP
+
+	if useHTTPPassword {
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+		if err != nil {
+			return op, err
+		}
+
+		op.userName = userName
+		op.httpsPassword = httpsPassword
+	}
+
+	return op, nil
+}
+
+func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
+	op.clusterHTTPRequest = ClusterHTTPRequest{}
+	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
+	op.setVersionToSemVar()
+
+	for _, host := range hosts {
+		httpRequest := HostHTTPRequest{}
+		httpRequest.Method = PutMethod
+		nodesInfo, ok := op.reIPList[host]
+		if !ok {
+			return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, host)
+		}
+		httpRequest.BuildHTTPSEndpoint("nodes/" + nodesInfo.NodeName + "/ip")
+		httpRequest.QueryParams = make(map[string]string)
+		httpRequest.QueryParams["host"] = nodesInfo.TargetAddress
+		httpRequest.QueryParams["control-host"] = nodesInfo.TargetControlAddress
+		httpRequest.QueryParams["broadcast"] = nodesInfo.TargetControlBroadcast
+
+		if op.useHTTPPassword {
+			httpRequest.Password = op.httpsPassword
+			httpRequest.Username = op.userName
+		}
+		op.clusterHTTPRequest.RequestCollection[op.upHost] = httpRequest
+	}
+
+	return nil
+}
+
+func (op *httpsReIPOp) prepare(execContext *OpEngineExecContext) error {
+	op.reIPList = make(map[string]ReIPInfo)
+	// update reIPList from input nodes name and execContext.networkProfiles
+	for i := 0; i < len(op.nodeNamesList); i++ {
+		nodeNameToRestart := op.nodeNamesList[i]
+		targetAddress := op.hostToReIP[i]
+		info := ReIPInfo{}
+		// update node name if not given
+		if info.NodeName == "" {
+			info.NodeName = nodeNameToRestart
+		}
+		// update target address if not given
+		if info.TargetAddress == "" {
+			info.TargetAddress = targetAddress
+		}
+		// update control address if not given
+		if info.TargetControlAddress == "" {
+			profile, ok := execContext.networkProfiles[targetAddress]
+			if !ok {
+				return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, targetAddress)
+			}
+			info.TargetControlAddress = profile.Address
+		}
+		// update control broadcast if not given
+		if info.TargetControlBroadcast == "" {
+			profile, ok := execContext.networkProfiles[targetAddress]
+			if !ok {
+				return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, targetAddress)
+			}
+			info.TargetControlBroadcast = profile.Broadcast
+		}
+		op.reIPList[nodeNameToRestart] = info
+	}
+
+	op.upHost = execContext.upHosts[0]
+	execContext.dispatcher.Setup(op.nodeNamesList)
+	return op.setupClusterHTTPRequest(op.nodeNamesList)
+}
+
+func (op *httpsReIPOp) execute(execContext *OpEngineExecContext) error {
+	if err := op.runExecute(execContext); err != nil {
+		return err
+	}
+
+	return op.processResult(execContext)
+}
+
+func (op *httpsReIPOp) processResult(_ *OpEngineExecContext) error {
+	var allErrs error
+	for host, result := range op.clusterHTTPRequest.ResultCollection {
+		op.logResponse(host, result)
+
+		if result.IsUnauthorizedRequest() {
+			return fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
+				op.name, host)
+		}
+
+		if !result.isPassing() {
+			allErrs = errors.Join(allErrs, result.err)
+			continue
+		}
+
+		// decode the json-format response
+		// The successful response object will be a dictionary as below:
+		// {"detail": ""}
+		reIPRsp, err := op.parseAndCheckMapResponse(host, result.content)
+		if err != nil {
+			err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
+			continue
+		}
+
+		// verify if the response's content is correct
+		if reIPRsp["detail"] != "" {
+			err = fmt.Errorf(`[%s] response detail should be '' but got '%s'`, op.name, reIPRsp["detail"])
+			allErrs = errors.Join(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+func (op *httpsReIPOp) finalize(_ *OpEngineExecContext) error {
+	return nil
+}

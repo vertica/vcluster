@@ -141,6 +141,23 @@ func setupMapHostToCatalogPath(vdb *VCoordinationDatabase) map[string]string {
 	return mapHostToCatalogPath
 }
 
+// Retrieve the hostsToRestart from the input node names and vdb information
+func getHostsFromNodeNames(hostNodeMap map[string]VCoordinationNode, nodeNames []string) ([]string, error) {
+	hostNodeNameMap := make(map[string]string)
+	for host := range hostNodeMap {
+		hostNodeNameMap[hostNodeMap[host].Name] = hostNodeMap[host].Address
+	}
+	var hostsToRestart []string
+	for _, nodeName := range nodeNames {
+		host, ok := hostNodeNameMap[nodeName]
+		if !ok {
+			return hostsToRestart, fmt.Errorf("failed to get node name from host %s", host)
+		}
+		hostsToRestart = append(hostsToRestart, host)
+	}
+	return hostsToRestart, nil
+}
+
 // GetVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
 func GetVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
 	err := options.SetUsePassword()

@@ -57,6 +57,11 @@ func (op *nmaStartNodeOp) updateRequestBody(execContext *OpEngineExecContext) er
 				hostStartCommandMap[host] = hoststartCommand
 			}
 		}
+		hostsToRestart, err := getHostsFromNodeNames(op.vdb.HostNodeMap, op.hosts)
+		if err != nil {
+			return err
+		}
+		op.hosts = hostsToRestart
 		for _, host := range op.hosts {
 			err := op.updateHostRequestBodyMapFromNodeStartCommand(host, hostStartCommandMap[host])
 			if err != nil {

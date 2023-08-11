@@ -1,8 +1,6 @@
 package vclusterops
 
 import (
-	"fmt"
-
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -12,8 +10,11 @@ type VRestartNodesOptions struct {
 	// part 1: basic db info
 	DatabaseOptions
 	// part 2: hidden info
-	HostsToRestart    []string // the hosts that we want to restart
-	RawHostsToRestart []string // expected to be IP addresses or hostnames to restart
+	NodeNamesToRestart []string // the node names that we want to restart
+	HostsToRestart     []string // the hosts that we want to restart
+	RawHostsToRestart  []string // expected to be IP addresses or hostnames to restart
+	IPList             []string // the ip address that we want to re-ip
+	RawIPList          []string // expected to be IP addresses or hostnames to re-ip
 }
 
 func VRestartNodesOptionsFactory() VRestartNodesOptions {
@@ -34,9 +35,7 @@ func (options *VRestartNodesOptions) validateRequiredOptions() error {
 	if err != nil {
 		return err
 	}
-	if len(options.RawHostsToRestart) == 0 {
-		return fmt.Errorf("must specify a host or host list")
-	}
+
 	return nil
 }
 
@@ -47,6 +46,11 @@ func (options *VRestartNodesOptions) validateParseOptions() error {
 // analyzeOptions will modify some options based on what is chosen
 func (options *VRestartNodesOptions) analyzeOptions() (err error) {
 	options.HostsToRestart, err = util.ResolveRawHostsToAddresses(options.RawHostsToRestart, options.Ipv6.ToBool())
+	if err != nil {
+		return err
+	}
+
+	options.IPList, err = util.ResolveRawHostsToAddresses(options.RawIPList, options.Ipv6.ToBool())
 	if err != nil {
 		return err
 	}
@@ -62,6 +66,18 @@ func (options *VRestartNodesOptions) analyzeOptions() (err error) {
 	return nil
 }
 
+// ParseNodeNamesListToRestart converts the string list of node names, to restart, into a slice of strings.
+// The hosts should be separated by comma, and will be converted to lower case.
+func (options *VRestartNodesOptions) ParseNodeNamesListToRestart(nodeNames string) error {
+	nodeNamesToRestart, err := util.SplitHosts(nodeNames)
+	if err != nil {
+		return err
+	}
+
+	options.NodeNamesToRestart = nodeNamesToRestart
+	return nil
+}
+
 // ParseHostListToRestart converts the string list of hosts, to restart, into a slice of strings.
 // The hosts should be separated by comma, and will be converted to lower case.
 func (options *VRestartNodesOptions) ParseHostListToRestart(hosts string) error {
@@ -74,12 +90,52 @@ func (options *VRestartNodesOptions) ParseHostListToRestart(hosts string) error 
 	return nil
 }
 
+// ParseIpsToRestart converts the string list of Ips, to re-ip, into a slice of strings.
+// The ips should be separated by comma, and will be converted to lower case.
+func (options *VRestartNodesOptions) ParseIpsToRestart(ips string) error {
+	ipList, err := util.SplitHosts(ips)
+	if err != nil {
+		return err
+	}
+
+	options.RawIPList = ipList
+	return nil
+}
+
 func (options *VRestartNodesOptions) ValidateAnalyzeOptions() error {
 	if err := options.validateParseOptions(); err != nil {
 		return err
 	}
 	err := options.analyzeOptions()
 	return err
+}
+
+// GetNodeNames can choose the right node names from user input and config file
+func (options *VRestartNodesOptions) getNodeNames(config *ClusterConfig) []string {
+	var nodeNames []string
+	if config == nil {
+		// when config file is not available, we use node names option from the user input
+		if len(options.NodeNamesToRestart) > 0 && *options.HonorUserInput {
+			nodeNames = options.NodeNamesToRestart
+		}
+	} else {
+		// Use node names option in the config file
+		if len(options.NodeNamesToRestart) > 0 {
+			return options.NodeNamesToRestart
+		}
+		// otherwise, use vnodes option in the config file
+		nodeNamesHostMap := make(map[string]string)
+		for _, node := range config.Nodes {
+			nodeNamesHostMap[node.Address] = node.Name
+		}
+		for _, host := range options.HostsToRestart {
+			nodeName, ok := nodeNamesHostMap[host]
+			if ok {
+				nodeNames = append(nodeNames, nodeName)
+			}
+		}
+	}
+	return nodeNames
 }
 
 // VRestartNodes will restart the given nodes for a cluster that hasn't yet lost
@@ -110,6 +166,9 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	dbName, hosts := options.GetNameAndHosts(config)
 	options.Name = &dbName
 	options.Hosts = hosts
+	// get node name from config file and options
+	nodeNames := options.getNodeNames(config)
+	options.NodeNamesToRestart = nodeNames
 
 	// retrieve database information to execute the command so we do not always rely on some user input
 	vdb := MakeVCoordinationDatabase()
@@ -145,6 +204,9 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 // for a successful restart_node:
 //   - Check NMA connectivity
 //   - Check Vertica versions
+//   - Call network profile
+//   - Call https re-ip endpoint
+//   - Reload spread
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for starting nodes
 //   - Use any UP primary nodes as source host for syncing spread.conf and vertica.conf, source host can be picked
 //     by a HTTPS /v1/nodes call for finding UP primary nodes
@@ -176,29 +238,57 @@ func produceRestartNodesInstructions(options *VRestartNodesOptions, vdb *VCoordi
 		&httpsGetUpNodesOp,
 	)
 
+	if options.IPList != nil {
+		nmaNetworkProfileOp := makeNMANetworkProfileOp(options.IPList)
+		httpsReIPOp, e := makeHTTPSReIPOp(options.NodeNamesToRestart, options.IPList,
+			options.usePassword, *options.UserName, options.Password)
+		if e != nil {
+			return instructions, e
+		}
+		// host is set to nil value in the reload spread step
+		// we use information from node information to find the up host later
+		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOp(nil /*hosts*/, true, *options.UserName, options.Password)
+		if e != nil {
+			return instructions, e
+		}
+		// update new vdb information after re-ip
+		httpsGetNodesInfoOp, e := makeHTTPSGetNodesInfoOp(*options.Name, options.Hosts,
+			options.usePassword, *options.UserName, options.Password, vdb)
+		if err != nil {
+			return instructions, e
+		}
+		instructions = append(instructions,
+			&nmaNetworkProfileOp,
+			&httpsReIPOp,
+			&httpsReloadSpreadOp,
+			&httpsGetNodesInfoOp,
+		)
+	}
+
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value
 	// after we find any UP primary nodes as source host for syncing spread.conf and vertica.conf
+
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
 	produceTransferConfigOps(&instructions,
 		nil, /*source hosts for transferring configuration files*/
 		options.Hosts,
-		options.HostsToRestart,
+		options.NodeNamesToRestart,
 		vdb)
 
-	HTTPSRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(options.usePassword, *options.UserName, options.Password, vdb)
+	httpsRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		return instructions, err
 	}
-	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(options.HostsToRestart, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(options.HostsToRestart,
+	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(options.NodeNamesToRestart, vdb)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(options.Hosts,
 		options.usePassword, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
 
 	instructions = append(instructions,
-		&HTTPSRestartUpCommandOp,
+		&httpsRestartUpCommandOp,
 		&nmaRestartNewNodesOp,
 		&httpsPollNodeStateOp,
 	)

@@ -148,8 +148,12 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 			}
 		}
 	} else {
-		// use started nodes input provided by the user
-		op.hosts = op.destHosts
+		// op.destHosts will be the started nodenames input provided by the user
+		hostsToRestart, err := getHostsFromNodeNames(op.vdb.HostNodeMap, op.destHosts)
+		if err != nil {
+			return err
+		}
+		op.hosts = hostsToRestart
 		// Update the catalogPathMap for next upload operation's steps from node List information
 		for host := range op.vdb.HostNodeMap {
 			op.catalogPathMap[host] = path.Dir(op.vdb.HostNodeMap[host].CatalogPath)
