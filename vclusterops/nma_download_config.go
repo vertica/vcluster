@@ -29,6 +29,7 @@ type NMADownloadConfigOp struct {
 	catalogPathMap map[string]string
 	endpoint       string
 	fileContent    *string
+	vdb            *VCoordinationDatabase
 }
 
 func makeNMADownloadConfigOp(
@@ -36,12 +37,14 @@ func makeNMADownloadConfigOp(
 	sourceConfigHost []string,
 	endpoint string,
 	fileContent *string,
+	vdb *VCoordinationDatabase,
 ) NMADownloadConfigOp {
 	nmaDownloadConfigOp := NMADownloadConfigOp{}
 	nmaDownloadConfigOp.name = opName
 	nmaDownloadConfigOp.hosts = sourceConfigHost
 	nmaDownloadConfigOp.endpoint = endpoint
 	nmaDownloadConfigOp.fileContent = fileContent
+	nmaDownloadConfigOp.vdb = vdb
 
 	return nmaDownloadConfigOp
 }
@@ -70,20 +73,19 @@ func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 
 func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
 	op.catalogPathMap = make(map[string]string)
-	// If nodesInfo is available, we set catalogPathMap from nodeInfo state.
-	// This case is used for restarting nodes operation.
-	// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
-	if len(execContext.nodeStates) == 0 {
+	// vdb is built by calling /cluster and /nodes endpoints of a running db.
+	// If nodes' info is not available in vdb, we will get the host from execContext.nmaVDatabase which is build by reading the catalog editor
+	if op.vdb == nil || len(op.vdb.HostNodeMap) == 0 {
 		if op.hosts == nil {
-			// If the host input is a nil value, we find the host with the highest catalog version to update the host input.
+			// If the host input is a nil value, we find the host with the latest catalog version to update the host input.
 			// Otherwise, we use the host input.
 			hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
 			if len(hostsWithLatestCatalog) == 0 {
 				return fmt.Errorf("could not find at least one host with the latest catalog")
 			}
-			hostWithHighestCatalog := hostsWithLatestCatalog[:1]
-			// update the host with the highest catalog
-			op.hosts = hostWithHighestCatalog
+			hostWithLatestCatalog := hostsWithLatestCatalog[:1]
+			// update the host with the latest catalog
+			op.hosts = hostWithLatestCatalog
 		}
 		// For createDb and AddNodes, sourceConfigHost input is the bootstrap host.
 		// we update the catalogPathMap for next download operation's steps from information of catalog editor
@@ -92,15 +94,18 @@ func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
 		if err != nil {
 			return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
 		}
+		// If vdb contains nodes' info, we will check if there are any primary up nodes.
+		// If we found any primary up nodes, we set catalogPathMap based on their info in vdb.
 	} else {
+		// This case is used for restarting nodes operation.
+		// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
 		// For restartNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
 		// we update the catalogPathMap for next download operation's steps from node information by using HTTPS /v1/nodes
 		var primaryUpHosts []string
-		nodesList := execContext.nodeStates
-		for _, node := range nodesList {
-			if node.IsPrimary && node.State == util.NodeUpState {
-				primaryUpHosts = append(primaryUpHosts, node.Address)
-				op.catalogPathMap[node.Address] = path.Dir(node.CatalogPath)
+		for host := range op.vdb.HostNodeMap {
+			if op.vdb.HostNodeMap[host].IsPrimary && op.vdb.HostNodeMap[host].State == util.NodeUpState {
+				primaryUpHosts = append(primaryUpHosts, host)
+				op.catalogPathMap[host] = path.Dir(op.vdb.HostNodeMap[host].CatalogPath)
 				break
 			}
 		}
@@ -141,5 +146,5 @@ func (op *NMADownloadConfigOp) processResult(_ *OpEngineExecContext) error {
 		allErrs = errors.Join(allErrs, result.err)
 	}
 
-	return errors.Join(allErrs, fmt.Errorf("could not find a host with a passing result"))
+	return appendHTTPSFailureError(allErrs)
 }

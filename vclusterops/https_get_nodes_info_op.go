@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -26,15 +27,19 @@ import (
 type httpsGetNodesInfoOp struct {
 	OpBase
 	OpHTTPBase
+	dbName string
+	vdb    *VCoordinationDatabase
 }
 
-func makeHTTPSGetNodesInfoOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSGetNodesInfoOp(dbName string, hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string, vdb *VCoordinationDatabase,
 ) (httpsGetNodesInfoOp, error) {
 	op := httpsGetNodesInfoOp{}
 	op.name = "HTTPSGetNodeInfoOp"
+	op.dbName = dbName
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
+	op.vdb = vdb
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -82,7 +87,7 @@ func (op *httpsGetNodesInfoOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *httpsGetNodesInfoOp) processResult(execContext *OpEngineExecContext) error {
+func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -97,17 +102,41 @@ func (op *httpsGetNodesInfoOp) processResult(execContext *OpEngineExecContext) e
 			nodesStateInfo := NodesStateInfo{}
 			err := op.parseAndCheckResponse(host, result.content, &nodesStateInfo)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
-					op.name, host, err)
-				return err
+				allErrs = errors.Join(allErrs, err)
+				break
 			}
-			// save node list information to execContext
-			execContext.nodeStates = nodesStateInfo.NodeList
+			// save nodes info to vdb
+			op.vdb.HostNodeMap = make(map[string]VCoordinationNode)
+			for _, node := range nodesStateInfo.NodeList {
+				if node.Database != op.dbName {
+					err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.dbName)
+					allErrs = errors.Join(allErrs, err)
+					return appendHTTPSFailureError(allErrs)
+				}
+				op.vdb.HostList = append(op.vdb.HostList, node.Address)
+				vNode := MakeVCoordinationNode()
+				vNode.Name = node.Name
+				vNode.Address = node.Address
+				vNode.CatalogPath = node.CatalogPath
+				vNode.IsPrimary = node.IsPrimary
+				vNode.State = node.State
+				op.vdb.HostNodeMap[node.Address] = vNode
+				// extract catalog prefix from node's catalog path
+				// catalog prefix is preceding db name
+				dbPath := "/" + node.Database
+				index := strings.Index(node.CatalogPath, dbPath)
+				if index == -1 {
+					vlog.LogPrintWarning("[%s] failed to get catalog prefix because catalog path %s does not contain database name %s",
+						op.name, node.CatalogPath, node.Database)
+				}
+				op.vdb.CatalogPrefix = node.CatalogPath[:index]
+			}
+
 			return nil
 		}
 		allErrs = errors.Join(allErrs, result.err)
 	}
-	return errors.Join(allErrs, fmt.Errorf("could not find a host with a passing result"))
+	return appendHTTPSFailureError(allErrs)
 }
 
 func (op *httpsGetNodesInfoOp) finalize(_ *OpEngineExecContext) error {

@@ -33,6 +33,7 @@ type NMAUploadConfigOp struct {
 	hostRequestBodyMap map[string]string
 	sourceConfigHost   []string
 	destHosts          []string
+	vdb                *VCoordinationDatabase
 }
 
 type uploadConfigRequestData struct {
@@ -56,6 +57,7 @@ func makeNMAUploadConfigOp(
 	newNodeHosts []string, // list of new hosts is added to the database
 	endpoint string,
 	fileContent *string,
+	vdb *VCoordinationDatabase,
 ) NMAUploadConfigOp {
 	nmaUploadConfigOp := NMAUploadConfigOp{}
 	nmaUploadConfigOp.name = opName
@@ -65,6 +67,7 @@ func makeNMAUploadConfigOp(
 	nmaUploadConfigOp.hosts = hosts
 	nmaUploadConfigOp.sourceConfigHost = sourceConfigHost
 	nmaUploadConfigOp.destHosts = newNodeHosts
+	nmaUploadConfigOp.vdb = vdb
 
 	return nmaUploadConfigOp
 }
@@ -106,10 +109,10 @@ func (op *NMAUploadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 
 func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 	op.catalogPathMap = make(map[string]string)
-	// If nodesInfo is available, we set catalogPathMap from nodeInfo state.
+	// If any node's info is available, we set catalogPathMap from node's info.
 	// This case is used for restarting nodes operation.
 	// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
-	if len(execContext.nodeStates) == 0 {
+	if op.vdb == nil || len(op.vdb.HostNodeMap) == 0 {
 		if op.sourceConfigHost == nil {
 			//  if the host with the highest catalog version for starting a database or starting nodes is nil value
 			// 	we identify the hosts that need to be synchronized.
@@ -148,9 +151,8 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 		// use started nodes input provided by the user
 		op.hosts = op.destHosts
 		// Update the catalogPathMap for next upload operation's steps from node List information
-		nodesList := execContext.nodeStates
-		for _, node := range nodesList {
-			op.catalogPathMap[node.Address] = path.Dir(node.CatalogPath)
+		for host := range op.vdb.HostNodeMap {
+			op.catalogPathMap[host] = path.Dir(op.vdb.HostNodeMap[host].CatalogPath)
 		}
 	}
 

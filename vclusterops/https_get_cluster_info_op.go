@@ -20,20 +20,23 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsGetClusterInfoOp struct {
 	OpBase
 	OpHTTPBase
+	dbName string
+	vdb    *VCoordinationDatabase
 }
 
-func makeHTTPSGetClusterInfoOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSGetClusterInfoOp(dbName string, hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string, vdb *VCoordinationDatabase,
 ) (httpsGetClusterInfoOp, error) {
 	op := httpsGetClusterInfoOp{}
 	op.name = "HTTPSGetClusterInfoOp"
+	op.dbName = dbName
 	op.hosts = hosts
+	op.vdb = vdb
 	op.useHTTPPassword = useHTTPPassword
 
 	if useHTTPPassword {
@@ -83,10 +86,12 @@ func (op *httpsGetClusterInfoOp) execute(execContext *OpEngineExecContext) error
 }
 
 type ClusterStateInfo struct {
-	IsEon bool `json:"is_eon"`
+	IsEon                    bool     `json:"is_eon"`
+	DBName                   string   `json:"db_name"`
+	CommunalStorageLocations []string `json:"commnual_storage_locations"`
 }
 
-func (op *httpsGetClusterInfoOp) processResult(execContext *OpEngineExecContext) error {
+func (op *httpsGetClusterInfoOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -99,17 +104,29 @@ func (op *httpsGetClusterInfoOp) processResult(execContext *OpEngineExecContext)
 		if result.isPassing() {
 			// unmarshal the response content
 			clusterStateInfo := ClusterStateInfo{}
-			err := util.GetJSONLogErrors(result.content, &clusterStateInfo, op.name)
+			err := op.parseAndCheckResponse(host, result.content, &clusterStateInfo)
 			if err != nil {
-				vlog.LogError("[%s] fail to parse response, detail: %s", op.name, err)
-				return err
+				allErrs = errors.Join(allErrs, err)
+				return appendHTTPSFailureError(allErrs)
 			}
-			execContext.isEon = clusterStateInfo.IsEon
+
+			// save cluster info to vdb
+			op.vdb.IsEon = clusterStateInfo.IsEon
+			op.vdb.UseDepot = clusterStateInfo.IsEon
+			op.vdb.Name = clusterStateInfo.DBName
+			if op.vdb.Name != op.dbName {
+				err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, op.vdb.Name, host, op.dbName)
+				allErrs = errors.Join(allErrs, err)
+				break
+			}
+			if len(clusterStateInfo.CommunalStorageLocations) > 0 {
+				op.vdb.CommunalStorageLocation = clusterStateInfo.CommunalStorageLocations[0]
+			}
 			return nil
 		}
 		allErrs = errors.Join(allErrs, result.err)
 	}
-	return errors.Join(allErrs, fmt.Errorf("could not find a host with a passing result"))
+	return appendHTTPSFailureError(allErrs)
 }
 
 func (op *httpsGetClusterInfoOp) finalize(_ *OpEngineExecContext) error {

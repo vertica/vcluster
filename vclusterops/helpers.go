@@ -25,17 +25,17 @@ import (
 
 // produceTransferConfigOps generates instructions to transfert some config
 // files from a sourceConfig node to new nodes.
-func produceTransferConfigOps(instructions *[]ClusterOp, sourceConfigHost, hosts, newNodeHosts []string) {
+func produceTransferConfigOps(instructions *[]ClusterOp, sourceConfigHost, hosts, newNodeHosts []string, vdb *VCoordinationDatabase) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := makeNMADownloadConfigOp(
-		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent)
+		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb)
 	nmaUploadVerticaConfigOp := makeNMAUploadConfigOp(
-		"NMAUploadVerticaConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/vertica", &verticaConfContent)
+		"NMAUploadVerticaConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/vertica", &verticaConfContent, vdb)
 	var spreadConfContent string
 	nmaDownloadSpreadConfigOp := makeNMADownloadConfigOp(
-		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent)
+		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb)
 	nmaUploadSpreadConfigOp := makeNMAUploadConfigOp(
-		"NMAUploadSpreadConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/spread", &spreadConfContent)
+		"NMAUploadSpreadConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/spread", &spreadConfContent, vdb)
 	*instructions = append(*instructions,
 		&nmaDownloadVerticaConfigOp,
 		&nmaUploadVerticaConfigOp,
@@ -110,8 +110,8 @@ func WriteClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
 
 func mapHostToCatalogPath(hostNodeMap map[string]VCoordinationNode) map[string]string {
 	hostCatalogPathMap := make(map[string]string)
-	for host, vnode := range hostNodeMap {
-		hostCatalogPathMap[host] = vnode.CatalogPath
+	for host := range hostNodeMap {
+		hostCatalogPathMap[host] = hostNodeMap[host].CatalogPath
 	}
 
 	return hostCatalogPathMap
@@ -134,9 +134,50 @@ type NodesStateInfo struct {
 
 func setupMapHostToCatalogPath(vdb *VCoordinationDatabase) map[string]string {
 	mapHostToCatalogPath := make(map[string]string)
-	for h, vnode := range vdb.HostNodeMap {
-		mapHostToCatalogPath[h] = vnode.CatalogPath
+	for h := range vdb.HostNodeMap {
+		mapHostToCatalogPath[h] = vdb.HostNodeMap[h].CatalogPath
 	}
 
 	return mapHostToCatalogPath
+}
+
+// GetVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
+func GetVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+	err := options.SetUsePassword()
+	if err != nil {
+		vlog.LogPrintError("fail to set userPassword while retrieving database configurations, %v", err)
+		return err
+	}
+
+	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.Name, options.Hosts,
+		options.usePassword, *options.UserName, options.Password, vdb)
+	if err != nil {
+		vlog.LogPrintError("fail to produce httpsGetNodesInfo instructions while retrieving database configurations, %v", err)
+		return err
+	}
+
+	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.Name, options.Hosts,
+		options.usePassword, *options.UserName, options.Password, vdb)
+	if err != nil {
+		vlog.LogPrintError("fail to produce httpsGetClusterInfo instructions while retrieving database configurations, %v", err)
+		return err
+	}
+
+	var instructions []ClusterOp
+	instructions = append(instructions, &httpsGetNodesInfoOp, &httpsGetClusterInfoOp)
+
+	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.Run()
+	if err != nil {
+		vlog.LogPrintError("fail to retrieve database configurations, %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// appendHTTPSFailureError is internally used by https operations for appending an error message to the existing error
+func appendHTTPSFailureError(allErrs error) error {
+	return errors.Join(allErrs, fmt.Errorf("could not find a host with a passing result"))
 }

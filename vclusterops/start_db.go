@@ -176,7 +176,12 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	// sourceConfHost is set to nil value in upload and download step
 	// we use information from catalog editor operation to update the sourceConfHost value
 	// after we find host with the highest catalog and hosts that need to synchronize the catalog
-	produceTransferConfigOps(&instructions, nil, startDBInfo.Hosts, nil)
+	// we will remove the nil parameters in VER-88401 by adding them in execContext
+	produceTransferConfigOps(&instructions,
+		nil, /*source hosts for transferring configuration files*/
+		startDBInfo.Hosts,
+		nil, /*new hosts which will be added to the db*/
+		nil /*db configurations retrieved from a running db*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOp(startDBInfo.Hosts)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(startDBInfo.Hosts,

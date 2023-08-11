@@ -250,6 +250,8 @@ type VCoordinationNode struct {
 	Port int
 	// default should be ipv4
 	ControlAddressFamily string
+	IsPrimary            bool
+	State                string
 }
 
 func MakeVCoordinationNode() VCoordinationNode {

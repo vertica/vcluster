@@ -307,7 +307,12 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase,
 		&nmaReadCatalogEditorOp,
 	)
 
-	produceTransferConfigOps(&instructions, inputHost, nil, newNodeHosts)
+	// we will remove the nil parameters in VER-88401 by adding them in execContext
+	produceTransferConfigOps(&instructions,
+		inputHost,
+		nil, /*all existing nodes*/
+		newNodeHosts,
+		nil /*db configurations retrieved from a running db*/)
 	nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(allHosts, usePassword, username, options.Password)
 	if err != nil {

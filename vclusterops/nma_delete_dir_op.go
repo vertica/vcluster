@@ -41,15 +41,15 @@ func (op *NMADeleteDirectoriesOp) buildRequestBody(
 	forceDelete bool,
 ) error {
 	op.hostRequestBodyMap = make(map[string]string)
-	for h, vnode := range vdb.HostNodeMap {
+	for h := range vdb.HostNodeMap {
 		p := deleteDirParams{}
 		// directories
-		p.Directories = append(p.Directories, vnode.CatalogPath)
-		p.Directories = append(p.Directories, vnode.StorageLocations...)
+		p.Directories = append(p.Directories, vdb.HostNodeMap[h].CatalogPath)
+		p.Directories = append(p.Directories, vdb.HostNodeMap[h].StorageLocations...)
 
 		if vdb.UseDepot {
 			dbDepotPath := filepath.Join(vdb.DepotPrefix, vdb.Name)
-			p.Directories = append(p.Directories, vnode.DepotPath, dbDepotPath)
+			p.Directories = append(p.Directories, vdb.HostNodeMap[h].DepotPath, dbDepotPath)
 		}
 
 		dbCatalogPath := filepath.Join(vdb.CatalogPrefix, vdb.Name)

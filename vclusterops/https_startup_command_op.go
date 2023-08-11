@@ -25,13 +25,15 @@ import (
 type httpsStartUpCommandOp struct {
 	OpBase
 	OpHTTPBase
+	vdb *VCoordinationDatabase
 }
 
-func makeHTTPSRestartUpCommandOp(
-	useHTTPPassword bool, userName string, httpsPassword *string) (httpsStartUpCommandOp, error) {
+func makeHTTPSRestartUpCommandOp(useHTTPPassword bool, userName string, httpsPassword *string,
+	vdb *VCoordinationDatabase) (httpsStartUpCommandOp, error) {
 	op := httpsStartUpCommandOp{}
 	op.name = "HTTPSStartUpCommandOp"
 	op.useHTTPPassword = useHTTPPassword
+	op.vdb = vdb
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -71,10 +73,9 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 func (op *httpsStartUpCommandOp) prepare(execContext *OpEngineExecContext) error {
 	// Use the /v1/startup/command endpoint for a primary Up host to view every start command of existing nodes
 	var primaryUpHosts []string
-	nodesList := execContext.nodeStates
-	for _, node := range nodesList {
-		if node.IsPrimary && node.State == util.NodeUpState {
-			primaryUpHosts = append(primaryUpHosts, node.Address)
+	for host := range op.vdb.HostNodeMap {
+		if op.vdb.HostNodeMap[host].IsPrimary && op.vdb.HostNodeMap[host].State == util.NodeUpState {
+			primaryUpHosts = append(primaryUpHosts, host)
 			break
 		}
 	}

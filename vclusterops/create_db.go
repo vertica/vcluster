@@ -546,7 +546,12 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 
 	if len(hosts) > 1 {
 		instructions = append(instructions, &nmaReadCatalogEditorOp)
-		produceTransferConfigOps(&instructions, bootstrapHost, hosts, nil)
+		// we will remove the nil parameters in VER-88401 by adding them in execContext
+		produceTransferConfigOps(&instructions,
+			bootstrapHost,
+			hosts,
+			nil, /*new hosts which will be added to the db*/
+			nil /*db configurations retrieved from a running db*/)
 		nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts)
 		instructions = append(instructions, &nmaStartNewNodesOp)
 	}

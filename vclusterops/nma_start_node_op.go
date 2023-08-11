@@ -24,12 +24,19 @@ import (
 type nmaStartNodeOp struct {
 	OpBase
 	hostRequestBodyMap map[string]string
+	vdb                *VCoordinationDatabase
 }
 
 func makeNMAStartNodeOp(hosts []string) nmaStartNodeOp {
 	startNodeOp := nmaStartNodeOp{}
 	startNodeOp.name = "NMAStartNodeOp"
 	startNodeOp.hosts = hosts
+	return startNodeOp
+}
+
+func makeNMAStartNodeOpWithVDB(hosts []string, vdb *VCoordinationDatabase) nmaStartNodeOp {
+	startNodeOp := makeNMAStartNodeOp(hosts)
+	startNodeOp.vdb = vdb
 	return startNodeOp
 }
 
@@ -44,11 +51,10 @@ func (op *nmaStartNodeOp) updateRequestBody(execContext *OpEngineExecContext) er
 		// {ip1:[/opt/vertica/bin/vertica -D /data/practice_db/v_practice_db_node0001_catalog -C
 		// practice_db -n v_practice_db_node0001 -h 192.168.1.101 -p 5433 -P 4803 -Y ipv4]}
 		hostStartCommandMap := make(map[string][]string)
-		nodesList := execContext.nodeStates
-		for _, node := range nodesList {
-			hoststartCommand, ok := execContext.startupCommandMap[node.Name]
+		for host := range op.vdb.HostNodeMap {
+			hoststartCommand, ok := execContext.startupCommandMap[op.vdb.HostNodeMap[host].Name]
 			if ok {
-				hostStartCommandMap[node.Address] = hoststartCommand
+				hostStartCommandMap[host] = hoststartCommand
 			}
 		}
 		for _, host := range op.hosts {

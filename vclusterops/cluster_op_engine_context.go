@@ -19,13 +19,11 @@ type OpEngineExecContext struct {
 	dispatcher             HTTPRequestDispatcher
 	networkProfiles        map[string]NetworkProfile
 	nmaVDatabase           NmaVDatabase
-	upHosts                []string        // a sorted host list that contains all up nodes
-	nodeStates             []NodeStateInfo // store the primary up nodes of the database
+	upHosts                []string // a sorted host list that contains all up nodes
 	nodesInfo              []NodeInfo
 	defaultSCName          string // store the default subcluster name of the database
 	hostsWithLatestCatalog []string
 	startupCommandMap      map[string][]string // store start up command map to restart nodes
-	isEon                  bool
 }
 
 func MakeOpEngineExecContext() OpEngineExecContext {

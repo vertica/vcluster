@@ -82,59 +82,6 @@ func (options *VRestartNodesOptions) ValidateAnalyzeOptions() error {
 	return err
 }
 
-// PrepareRestartNodes invokes /cluster endpoint to determine whether this is an EON database
-func VPrepareRestartNodes(options *VRestartNodesOptions) (bool, error) {
-	config, err := options.GetDBConfig()
-	if err != nil {
-		return false, err
-	}
-
-	// get db name and hosts from config file and options
-	dbName, hosts := options.GetNameAndHosts(config)
-	options.Name = &dbName
-	options.Hosts = hosts
-
-	// validate and analyze options
-	err = options.ValidateAnalyzeOptions()
-	if err != nil {
-		return false, err
-	}
-
-	instructions, err := producePreRestartNodesInstructions(options)
-	if err != nil {
-		vlog.LogPrintError("fail to produce restart_node pre-instructions, %s", err)
-		return false, err
-	}
-
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run()
-	if err != nil {
-		vlog.LogPrintError("fail to pre-restart node, %s", err)
-		return false, err
-	}
-	if clusterOpEngine.execContext.isEon {
-		vlog.LogPrintInfo("The database is eon")
-	}
-	return clusterOpEngine.execContext.isEon, nil
-}
-
-func producePreRestartNodesInstructions(options *VRestartNodesOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
-	err := options.SetUsePassword()
-	if err != nil {
-		return instructions, err
-	}
-	// invoking the /cluster endpoint.
-	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(options.Hosts,
-		options.usePassword, *options.UserName, options.Password)
-	if err != nil {
-		return instructions, err
-	}
-	instructions = append(instructions, &httpsGetClusterInfoOp)
-	return instructions, nil
-}
-
 // VRestartNodes will restart the given nodes for a cluster that hasn't yet lost
 // cluster quorum. This will handle updating of the nodes IP in the vertica
 // catalog if necessary. Use VStartDatabase if cluster quorum is lost.
@@ -145,9 +92,16 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
+	// TODO: library users won't have vertica_cluster.yaml, remove GetDBConfig() when VER-88442 is closed.
 	// load vdb info from the YAML config file
 	// get config from vertica_cluster.yaml
 	config, err := options.GetDBConfig()
+	if err != nil {
+		return err
+	}
+
+	// validate and analyze options
+	err = options.ValidateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
@@ -157,14 +111,15 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	options.Name = &dbName
 	options.Hosts = hosts
 
-	// validate and analyze options
-	err = options.ValidateAnalyzeOptions()
+	// retrieve database information to execute the command so we do not always rely on some user input
+	vdb := MakeVCoordinationDatabase()
+	err = GetVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {
 		return err
 	}
 
 	// produce restart_node instructions
-	instructions, err := produceRestartNodesInstructions(options)
+	instructions, err := produceRestartNodesInstructions(options, &vdb)
 	if err != nil {
 		vlog.LogPrintError("fail to production instructions, %s", err)
 		return err
@@ -198,7 +153,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 //   - restart nodes
 //   - Poll node start up
 //   - sync catalog
-func produceRestartNodesInstructions(options *VRestartNodesOptions) ([]ClusterOp, error) {
+func produceRestartNodesInstructions(options *VRestartNodesOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
@@ -215,28 +170,27 @@ func produceRestartNodesInstructions(options *VRestartNodesOptions) ([]ClusterOp
 	if err != nil {
 		return instructions, err
 	}
-	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.Hosts,
-		options.usePassword, *options.UserName, options.Password)
-	if err != nil {
-		return instructions, err
-	}
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
 		&httpsGetUpNodesOp,
-		&httpsGetNodesInfoOp,
 	)
 
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value
 	// after we find any UP primary nodes as source host for syncing spread.conf and vertica.conf
-	produceTransferConfigOps(&instructions, nil, options.Hosts, options.HostsToRestart)
+	// we will remove the nil parameters in VER-88401 by adding them in execContext
+	produceTransferConfigOps(&instructions,
+		nil, /*source hosts for transferring configuration files*/
+		options.Hosts,
+		options.HostsToRestart,
+		vdb)
 
-	HTTPSRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(options.usePassword, *options.UserName, options.Password)
+	HTTPSRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		return instructions, err
 	}
-	nmaRestartNewNodesOp := makeNMAStartNodeOp(options.HostsToRestart)
+	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(options.HostsToRestart, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(options.HostsToRestart,
 		options.usePassword, *options.UserName, options.Password)
 	if err != nil {
@@ -249,7 +203,7 @@ func produceRestartNodesInstructions(options *VRestartNodesOptions) ([]ClusterOp
 		&httpsPollNodeStateOp,
 	)
 
-	if options.IsEon.ToBool() {
+	if vdb.IsEon {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password)
 		if err != nil {
 			return instructions, err

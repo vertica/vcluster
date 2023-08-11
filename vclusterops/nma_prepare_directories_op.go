@@ -56,11 +56,11 @@ func makeNMAPrepareDirectoriesOp(
 func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap map[string]VCoordinationNode) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
-	for host, vNode := range hostNodeMap {
+	for host := range hostNodeMap {
 		prepareDirData := prepareDirectoriesRequestData{}
-		prepareDirData.CatalogPath = vNode.CatalogPath
-		prepareDirData.DepotPath = vNode.DepotPath
-		prepareDirData.StorageLocations = vNode.StorageLocations
+		prepareDirData.CatalogPath = hostNodeMap[host].CatalogPath
+		prepareDirData.DepotPath = hostNodeMap[host].DepotPath
+		prepareDirData.StorageLocations = hostNodeMap[host].StorageLocations
 		prepareDirData.ForceCleanup = false
 		prepareDirData.ForRevive = false
 		prepareDirData.IgnoreParent = false

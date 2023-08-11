@@ -98,15 +98,9 @@ func (c *CmdRestartNodes) Analyze() error {
 
 func (c *CmdRestartNodes) Run() error {
 	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
-	// call VPrepareRestartNodes to determine whether this is an EON database
-	isEon, err := vclusterops.VPrepareRestartNodes(c.restartNodesOptions)
-	if err != nil {
-		return err
-	}
-	c.restartNodesOptions.IsEon.FromBoolPointer(&isEon)
 	vcc := vclusterops.VClusterCommands{}
 	// this is the instruction that will be used by both CLI and operator
-	err = vcc.VRestartNodes(c.restartNodesOptions)
+	err := vcc.VRestartNodes(c.restartNodesOptions)
 	if err != nil {
 		return err
 	}
