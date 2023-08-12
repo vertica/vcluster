@@ -26,28 +26,19 @@ import (
 
 type NMAReadCatalogEditorOp struct {
 	OpBase
+	initiator      []string
+	vdb            *VCoordinationDatabase
 	catalogPathMap map[string]string
 }
 
 func makeNMAReadCatalogEditorOp(
-	mapHostToCatalogPath map[string]string,
 	initiator []string,
+	vdb *VCoordinationDatabase,
 ) (NMAReadCatalogEditorOp, error) {
 	op := NMAReadCatalogEditorOp{}
 	op.name = "NMAReadCatalogEditorOp"
-
-	op.catalogPathMap = make(map[string]string)
-
-	if len(initiator) == 0 {
-		op.hosts = maps.Keys(mapHostToCatalogPath)
-		op.catalogPathMap = mapHostToCatalogPath
-	} else {
-		for _, host := range initiator {
-			op.hosts = append(op.hosts, host)
-			op.catalogPathMap[host] = mapHostToCatalogPath[host]
-		}
-	}
-
+	op.initiator = initiator
+	op.vdb = vdb
 	return op, nil
 }
 
@@ -74,6 +65,25 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) error {
+	op.catalogPathMap = make(map[string]string)
+	if len(op.initiator) == 0 {
+		op.hosts = maps.Keys(op.vdb.HostNodeMap)
+		// VER-88453 will put vnode back in the loop
+		for host := range op.vdb.HostNodeMap {
+			op.catalogPathMap[host] = op.vdb.HostNodeMap[host].CatalogPath
+		}
+	} else {
+		for _, host := range op.initiator {
+			op.hosts = append(op.hosts, host)
+			vnode, ok := op.vdb.HostNodeMap[host]
+			if !ok {
+				return fmt.Errorf("[%s] cannot find the initiator host %s from vdb.HostNodeMap %+v",
+					op.name, host, op.vdb.HostNodeMap)
+			}
+			op.catalogPathMap[host] = vnode.CatalogPath
+		}
+	}
+
 	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)

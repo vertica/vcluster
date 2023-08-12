@@ -240,10 +240,10 @@ func (vdb *VCoordinationDatabase) GetAwsCredentialsFromEnv() error {
  *
  */
 type VCoordinationNode struct {
-	Name    string
+	Name    string `json:"name"`
 	Address string
 	// complete paths, not just prefix
-	CatalogPath      string
+	CatalogPath      string `json:"catalog_path"`
 	StorageLocations []string
 	DepotPath        string
 	// DB client port, should be 5433 by default

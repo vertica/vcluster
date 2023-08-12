@@ -101,11 +101,6 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	startDBInfo.HostCatalogPath = make(map[string]string)
 	startDBInfo.CatalogPath = options.GetCatalogPrefix(config)
 
-	// TODO: call getCatalogPath endpoint (VER-88084)
-	// we build up the catalog paths for the hosts temporarily
-	// After having getCatalogPath endpoint, we will remove it
-	startDBInfo.HostCatalogPath = util.GetHostCatalogPath(startDBInfo.Hosts, *options.Name, startDBInfo.CatalogPath)
-
 	// produce start_db instructions
 	instructions, err := produceStartDBInstructions(startDBInfo, options)
 	if err != nil {
@@ -162,7 +157,10 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 		return instructions, err
 	}
 
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(startDBInfo.HostCatalogPath, []string{})
+	vdb := VCoordinationDatabase{}
+	nmaNodesOp := makeNMAGetNodesInfoOp(startDBInfo.Hosts, *options.Name, startDBInfo.CatalogPath, &vdb)
+
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp([]string{}, &vdb)
 	if err != nil {
 		return instructions, err
 	}
@@ -170,6 +168,7 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
 		&checkDBRunningOp,
+		&nmaNodesOp,
 		&nmaReadCatalogEditorOp,
 	)
 

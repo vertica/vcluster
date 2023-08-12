@@ -25,24 +25,20 @@ import (
 
 type NMAReIPOp struct {
 	OpBase
-	catalogPathMap     map[string]string
-	reIPList           []ReIPInfo
-	quorumCount        int // quorumCount = (1/2 * number of primary nodes) + 1
-	primaryNodeCount   int
-	hostRequestBodyMap map[string]string
-	mapHostToNodeName  map[string]string
+	reIPList             []ReIPInfo
+	vdb                  *VCoordinationDatabase
+	quorumCount          int // quorumCount = (1/2 * number of primary nodes) + 1
+	primaryNodeCount     int
+	hostRequestBodyMap   map[string]string
+	mapHostToNodeName    map[string]string
+	mapHostToCatalogPath map[string]string
 }
 
-func makeNMAReIPOp(
-	catalogPathMap map[string]string,
-	reIPList []ReIPInfo,
-	mapHostToNodeName map[string]string) NMAReIPOp {
+func makeNMAReIPOp(reIPList []ReIPInfo, vdb *VCoordinationDatabase) NMAReIPOp {
 	op := NMAReIPOp{}
 	op.name = "NMAReIPOp"
-	op.catalogPathMap = catalogPathMap
 	op.reIPList = reIPList
-	op.mapHostToNodeName = mapHostToNodeName
-
+	op.vdb = vdb
 	return op
 }
 
@@ -59,12 +55,12 @@ type reIPParams struct {
 	ReIPInfoList []ReIPInfo `json:"re_ip_list"`
 }
 
-func (op *NMAReIPOp) updateRequestBody(hosts []string, _ *OpEngineExecContext) error {
+func (op *NMAReIPOp) updateRequestBody(_ *OpEngineExecContext) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
-	for _, host := range hosts {
+	for _, host := range op.hosts {
 		var p reIPParams
-		p.CatalogPath = op.catalogPathMap[host]
+		p.CatalogPath = op.mapHostToCatalogPath[host]
 		p.ReIPInfoList = op.reIPList
 		dataBytes, err := json.Marshal(p)
 		if err != nil {
@@ -130,6 +126,15 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 }
 
 func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
+	// build mapHostToNodeName and catalogPathMap from vdb
+	op.mapHostToNodeName = make(map[string]string)
+	op.mapHostToCatalogPath = make(map[string]string)
+	// VER-88453 will put vnode back in the loop
+	for h := range op.vdb.HostNodeMap {
+		op.mapHostToNodeName[h] = op.vdb.HostNodeMap[h].Name
+		op.mapHostToCatalogPath[h] = op.vdb.HostNodeMap[h].CatalogPath
+	}
+
 	// get the primary node names
 	// this step is needed as the new host addresses
 	// are not in the catalog
@@ -161,11 +166,11 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 	// update re-ip list
 	err := op.updateReIPList(execContext)
 	if err != nil {
-		return fmt.Errorf("[%s] error udating reIP list: %w", op.name, err)
+		return fmt.Errorf("[%s] error updating reIP list: %w", op.name, err)
 	}
 
 	// build request body for hosts
-	err = op.updateRequestBody(op.hosts, execContext)
+	err = op.updateRequestBody(execContext)
 	if err != nil {
 		return err
 	}

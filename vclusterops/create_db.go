@@ -498,8 +498,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 		return instructions, err
 	}
 
-	hostCatalogPath := mapHostToCatalogPath(vdb.HostNodeMap)
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(hostCatalogPath, bootstrapHost)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(bootstrapHost, vdb)
 	if err != nil {
 		return instructions, err
 	}

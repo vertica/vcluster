@@ -294,8 +294,7 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase,
 		return instructions, err
 	}
 
-	mapHostToCatalogPath := setupMapHostToCatalogPath(vdb)
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(mapHostToCatalogPath, inputHost)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(inputHost, vdb)
 	if err != nil {
 		return instructions, err
 	}

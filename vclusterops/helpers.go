@@ -108,15 +108,6 @@ func WriteClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
 	return nil
 }
 
-func mapHostToCatalogPath(hostNodeMap map[string]VCoordinationNode) map[string]string {
-	hostCatalogPathMap := make(map[string]string)
-	for host := range hostNodeMap {
-		hostCatalogPathMap[host] = hostNodeMap[host].CatalogPath
-	}
-
-	return hostCatalogPathMap
-}
-
 // The following structs will store hosts' necessary information for https_get_up_nodes_op,
 // https_get_nodes_information_from_running_db, and incoming operations.
 type NodeStateInfo struct {
@@ -130,15 +121,6 @@ type NodeStateInfo struct {
 
 type NodesStateInfo struct {
 	NodeList []NodeStateInfo `json:"node_list"`
-}
-
-func setupMapHostToCatalogPath(vdb *VCoordinationDatabase) map[string]string {
-	mapHostToCatalogPath := make(map[string]string)
-	for h := range vdb.HostNodeMap {
-		mapHostToCatalogPath[h] = vdb.HostNodeMap[h].CatalogPath
-	}
-
-	return mapHostToCatalogPath
 }
 
 // GetVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
