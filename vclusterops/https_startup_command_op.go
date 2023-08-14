@@ -24,7 +24,7 @@ import (
 
 type httpsStartUpCommandOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	vdb *VCoordinationDatabase
 }
 

@@ -37,7 +37,7 @@ type CmdAddNode struct {
 	CmdBase
 }
 
-func MakeCmdAddNode() *CmdAddNode {
+func makeCmdAddNode() *CmdAddNode {
 	// CmdAddNode
 	newCmd := &CmdAddNode{}
 

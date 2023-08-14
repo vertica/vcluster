@@ -36,7 +36,7 @@ type CmdHelp struct {
 	CmdBase
 }
 
-func MakeCmdHelp() *CmdHelp {
+func makeCmdHelp() *CmdHelp {
 	newCmd := &CmdHelp{}
 	newCmd.parser = flag.NewFlagSet("help", flag.ExitOnError)
 	newCmd.topic = newCmd.parser.String("topic", "", "The topic for more help")

@@ -28,7 +28,7 @@ import (
 
 func TestInitCmd(t *testing.T) {
 	// no hosts provided, the case should fail
-	c := MakeCmdInit()
+	c := makeCmdInit()
 	err := c.Parse([]string{})
 	assert.ErrorContains(t, err, "must provide the host list with --hosts")
 
@@ -42,7 +42,7 @@ func TestInitCmd(t *testing.T) {
 
 	// directory provided, the given directory will be used
 	const configDir = "/opt/vertica/config"
-	c = MakeCmdInit()
+	c = makeCmdInit()
 	err = c.Parse([]string{
 		"--hosts", "vnode1,vnode2,vnode3",
 		"--directory", configDir})
@@ -62,7 +62,7 @@ func TestConfigCmd(t *testing.T) {
 	defer os.Remove(yamlPath)
 
 	// if `--show` is not specified, the config content should not show
-	c := MakeCmdConfig()
+	c := makeCmdConfig()
 	err := c.Parse([]string{})
 	assert.Nil(t, err)
 
@@ -71,7 +71,7 @@ func TestConfigCmd(t *testing.T) {
 	assert.NotContains(t, logStr.String(), yamlStr)
 
 	// if `--show` is specified, the config content should show
-	c = MakeCmdConfig()
+	c = makeCmdConfig()
 	err = c.Parse([]string{"--show"})
 	assert.Nil(t, err)
 
@@ -81,7 +81,7 @@ func TestConfigCmd(t *testing.T) {
 
 	// now run `init`, the command should fail
 	// because the config file under the current directory already exists
-	cmdInit := MakeCmdInit()
+	cmdInit := makeCmdInit()
 	err = cmdInit.Parse([]string{"--hosts", "vnode1,vnode2,vnode3"})
 	assert.Nil(t, err)
 

@@ -20,7 +20,14 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+)
+
+const (
+	ksafetyThreshold = 3
+	ksafeValueZero   = 0
+	ksafeValueOne    = 1
 )
 
 // produceTransferConfigOps generates instructions to transfert some config
@@ -115,6 +122,7 @@ type NodeStateInfo struct {
 	State       string `json:"state"`
 	Database    string `json:"database"`
 	CatalogPath string `json:"catalog_path"`
+	Subcluster  string `json:"subcluster_name"`
 	IsPrimary   bool   `json:"is_primary"`
 	Name        string `json:"name"`
 }
@@ -123,8 +131,18 @@ type NodesStateInfo struct {
 	NodeList []NodeStateInfo `json:"node_list"`
 }
 
-// GetVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
-func GetVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+// getInitiatorHost returns as initiator the first primary up node that is not
+// in the list of hosts to skip.
+func getInitiatorHost(primaryUpNodes, hostsToSkip []string) string {
+	initiatorHosts := util.SliceDiff(primaryUpNodes, hostsToSkip)
+	if len(initiatorHosts) == 0 {
+		return ""
+	}
+	return initiatorHosts[0]
+}
+
+// getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
+func getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
 	err := options.SetUsePassword()
 	if err != nil {
 		vlog.LogPrintError("fail to set userPassword while retrieving database configurations, %v", err)

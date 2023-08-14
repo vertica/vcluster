@@ -20,7 +20,7 @@ type CmdListAllNodes struct {
 	CmdBase
 }
 
-func MakeListAllNodes() *CmdListAllNodes {
+func makeListAllNodes() *CmdListAllNodes {
 	newCmd := &CmdListAllNodes{}
 	newCmd.parser = flag.NewFlagSet("list_allnodes", flag.ExitOnError)
 

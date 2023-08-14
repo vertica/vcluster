@@ -25,7 +25,7 @@ import (
 
 type HTTPSAddSubclusterOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	hostRequestBodyMap map[string]string
 	scName             string
 	isSecondary        bool

@@ -26,7 +26,7 @@ import (
 
 type httpsGetNodesInfoOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	dbName string
 	vdb    *VCoordinationDatabase
 }
@@ -120,6 +120,10 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 				vNode.CatalogPath = node.CatalogPath
 				vNode.IsPrimary = node.IsPrimary
 				vNode.State = node.State
+				vNode.Subcluster = node.Subcluster
+				if node.IsPrimary && node.State == util.NodeUpState {
+					op.vdb.PrimaryUpNodes = append(op.vdb.PrimaryUpNodes, node.Address)
+				}
 				op.vdb.HostNodeMap[node.Address] = vNode
 				// extract catalog prefix from node's catalog path
 				// catalog prefix is preceding db name

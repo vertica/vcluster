@@ -25,7 +25,7 @@ import (
 
 type HTTPCheckNodeStateOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 }
 
 func makeHTTPCheckNodeStateOp(hosts []string,

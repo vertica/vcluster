@@ -301,6 +301,26 @@ func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPref
 	return catalogPrefix
 }
 
+// getDepotAndDataPrefix chooses the right depot/data prefix from user input and config file.
+func (opt *DatabaseOptions) getDepotAndDataPrefix(config *ClusterConfig) (depotPrefix, dataPrefix string) {
+	if config == nil {
+		return *opt.DepotPrefix, *opt.DataPrefix
+	}
+	depotPrefix = config.DepotPath
+	dataPrefix = config.DataPath
+	// if HonorUserInput is set, we choose the user input
+	if !*opt.HonorUserInput {
+		return depotPrefix, dataPrefix
+	}
+	if *opt.DepotPrefix != "" {
+		depotPrefix = *opt.DepotPrefix
+	}
+	if *opt.DataPrefix != "" {
+		dataPrefix = *opt.DataPrefix
+	}
+	return depotPrefix, dataPrefix
+}
+
 // GetDBConfig can read database configurations from vertica_cluster.yaml to the struct ClusterConfig
 func (opt *DatabaseOptions) GetDBConfig() (config *ClusterConfig, e error) {
 	var configDir string
@@ -335,4 +355,13 @@ func (opt *DatabaseOptions) GetDBConfig() (config *ClusterConfig, e error) {
 	}
 
 	return config, nil
+}
+
+// normalizePaths replaces all '//' to be '/', and trim
+// catalog, data and depot prefixes.
+func (opt *DatabaseOptions) normalizePaths() {
+	// process correct catalog path, data path and depot path prefixes
+	*opt.CatalogPrefix = util.GetCleanPath(*opt.CatalogPrefix)
+	*opt.DataPrefix = util.GetCleanPath(*opt.DataPrefix)
+	*opt.DepotPrefix = util.GetCleanPath(*opt.DepotPrefix)
 }

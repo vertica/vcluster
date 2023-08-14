@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // HTTPCheckNodesExistOp defines an operation to get the
@@ -28,12 +27,14 @@ import (
 // of the database.
 type HTTPCheckNodesExistOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	// The IP addresses of the hosts whose existence we want to check
 	targetHosts []string
 }
 
-// makeHTTPCheckNodesExistOp will make a https op that check if new nodes exists in current database
+// makeHTTPCheckNodesExistOp will make a https op that check if new nodes exists in current database.
+// It is used only by add_node and will be removed in VER-88414 as we are now able to get
+// nodes info from http endpoints.
 func makeHTTPCheckNodesExistOp(
 	hosts []string,
 	targetHosts []string,
@@ -117,12 +118,14 @@ func (op *HTTPCheckNodesExistOp) processResult(_ *OpEngineExecContext) error {
 			allErrs = errors.Join(allErrs, err)
 			continue
 		}
+
 		// We check if any of the new nodes already exist in the database
 		if op.checkNodesExist(nodesInfo.NodeList) {
-			return errors.New("new node already exists in the database")
+			return errors.New("some of the nodes to add already exist in the database")
 		}
 		return nil
 	}
+
 	return allErrs
 }
 
@@ -130,7 +133,7 @@ func (op *HTTPCheckNodesExistOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-// checkNodesExist return true if at least one of the new hosts
+// checkNodesExist return true if at least one of the target hosts
 // already exists in the database.
 func (op *HTTPCheckNodesExistOp) checkNodesExist(nodes []NodeInfo) bool {
 	// verify the new nodes do not exist in current database
@@ -144,9 +147,6 @@ func (op *HTTPCheckNodesExistOp) checkNodesExist(nodes []NodeInfo) bool {
 			dupHosts = append(dupHosts, host.Address)
 		}
 	}
-	if len(dupHosts) == 0 {
-		return false
-	}
-	vlog.LogPrintError("[%s] new nodes %v already exist in the database", op.name, dupHosts)
-	return true
+
+	return len(dupHosts) != 0
 }

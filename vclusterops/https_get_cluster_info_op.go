@@ -24,7 +24,7 @@ import (
 
 type httpsGetClusterInfoOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	dbName string
 	vdb    *VCoordinationDatabase
 }

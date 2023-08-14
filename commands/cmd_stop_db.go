@@ -37,7 +37,7 @@ type CmdStopDB struct {
 	stopDBOptions *vclusterops.VStopDatabaseOptions
 }
 
-func MakeCmdStopDB() *CmdStopDB {
+func makeCmdStopDB() *CmdStopDB {
 	// CmdStopDB
 	newCmd := &CmdStopDB{}
 

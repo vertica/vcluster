@@ -22,35 +22,32 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-const HTTPSSuccMsg = "REBALANCED SHARDS"
+const RebalanceClusterSuccMsg = "REBALANCED"
+const RebalanceShardsSuccMsg = "REBALANCED SHARDS"
 
-type HTTPSRebalanceSubclusterShardsOp struct {
+type HTTPSRebalanceClusterOp struct {
 	OpBase
 	OpHTTPSBase
-	scName string
 }
 
-// makeHTTPSRebalanceSubclusterShardsOp creates an op that calls vertica-http service to rebalance shards of a subcluster
-func makeHTTPSRebalanceSubclusterShardsOp(bootstrapHost []string, useHTTPPassword bool, userName string,
-	httpsPassword *string, scName string) (HTTPSRebalanceSubclusterShardsOp, error) {
-	httpsRBSCShardsOp := HTTPSRebalanceSubclusterShardsOp{}
-	httpsRBSCShardsOp.name = "HTTPSRebalanceSubclusterShardsOp"
-	httpsRBSCShardsOp.hosts = bootstrapHost
-	httpsRBSCShardsOp.scName = scName
+// makeHTTPSRebalanceClusterOp will make an op that call vertica-http service to rebalance the cluster
+func makeHTTPSRebalanceClusterOp(initiatorHost []string, useHTTPPassword bool, userName string,
+	httpsPassword *string) (HTTPSRebalanceClusterOp, error) {
+	httpsRBCOp := HTTPSRebalanceClusterOp{}
+	httpsRBCOp.name = "HTTPSRebalanceClusterOp"
+	httpsRBCOp.hosts = initiatorHost
 
-	httpsRBSCShardsOp.useHTTPPassword = useHTTPPassword
-	if useHTTPPassword {
-		err := util.ValidateUsernameAndPassword(httpsRBSCShardsOp.name, useHTTPPassword, userName)
-		if err != nil {
-			return httpsRBSCShardsOp, err
-		}
-		httpsRBSCShardsOp.userName = userName
-		httpsRBSCShardsOp.httpsPassword = httpsPassword
+	httpsRBCOp.useHTTPPassword = useHTTPPassword
+	err := util.ValidateUsernameAndPassword(httpsRBCOp.name, useHTTPPassword, userName)
+	if err != nil {
+		return httpsRBCOp, err
 	}
-	return httpsRBSCShardsOp, nil
+	httpsRBCOp.userName = userName
+	httpsRBCOp.httpsPassword = httpsPassword
+	return httpsRBCOp, nil
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *HTTPSRebalanceClusterOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -58,32 +55,22 @@ func (op *HTTPSRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []stri
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildHTTPSEndpoint("subclusters/" + op.scName + "/rebalance")
+		httpRequest.BuildHTTPSEndpoint("cluster/rebalance")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-
 	return nil
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) prepare(execContext *OpEngineExecContext) error {
-	// rebalance shards on the default subcluster if scName isn't provided
-	if op.scName == "" {
-		if execContext.defaultSCName == "" {
-			return errors.New("default subcluster is not set")
-		}
-		op.scName = execContext.defaultSCName
-	}
-
+func (op *HTTPSRebalanceClusterOp) prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
-
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) execute(execContext *OpEngineExecContext) error {
+func (op *HTTPSRebalanceClusterOp) execute(execContext *OpEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -91,7 +78,7 @@ func (op *HTTPSRebalanceSubclusterShardsOp) execute(execContext *OpEngineExecCon
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) processResult(_ *OpEngineExecContext) error {
+func (op *HTTPSRebalanceClusterOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -101,7 +88,7 @@ func (op *HTTPSRebalanceSubclusterShardsOp) processResult(_ *OpEngineExecContext
 			// skip checking response from other nodes because we will get the same error there
 			return result.err
 		}
-		if !result.isPassing() {
+		if !result.IsSuccess() {
 			allErrs = errors.Join(allErrs, result.err)
 			// try processing other hosts' responses when the current host has some server errors
 			continue
@@ -111,8 +98,13 @@ func (op *HTTPSRebalanceSubclusterShardsOp) processResult(_ *OpEngineExecContext
 		// The successful response object will be a dictionary:
 		/*
 			{
+			  "detail": "REBALANCED"
+			}
+			or
+			{
 			  "detail": "REBALANCED SHARDS"
 			}
+			if eon
 		*/
 		resp, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
@@ -121,18 +113,19 @@ func (op *HTTPSRebalanceSubclusterShardsOp) processResult(_ *OpEngineExecContext
 			return allErrs
 		}
 		// verify if the response's content is correct
-		if resp["detail"] != HTTPSSuccMsg {
-			err = fmt.Errorf(`[%s] response detail should be '%s' but got '%s'`, op.name, HTTPSSuccMsg, resp["detail"])
+		if resp["detail"] != RebalanceClusterSuccMsg &&
+			resp["detail"] != RebalanceShardsSuccMsg {
+			err = fmt.Errorf(`[%s] response detail should be '%s' but got '%s'`, op.name, RebalanceClusterSuccMsg, resp["detail"])
 			allErrs = errors.Join(allErrs, err)
 			return allErrs
 		}
 
-		return nil
+		break
 	}
 
 	return allErrs
 }
 
-func (op *HTTPSRebalanceSubclusterShardsOp) finalize(_ *OpEngineExecContext) error {
+func (op *HTTPSRebalanceClusterOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

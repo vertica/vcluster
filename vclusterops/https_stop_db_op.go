@@ -26,7 +26,7 @@ import (
 
 type HTTPSStopDBOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	RequestParams map[string]string
 }
 

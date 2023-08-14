@@ -26,7 +26,7 @@ import (
 
 type HTTPSGetUpNodesOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	DBName string
 }
 

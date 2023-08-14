@@ -39,7 +39,7 @@ type CmdCreateDB struct {
 	CmdBase
 }
 
-func MakeCmdCreateDB() *CmdCreateDB {
+func makeCmdCreateDB() *CmdCreateDB {
 	// CmdCreateDB
 	newCmd := &CmdCreateDB{}
 

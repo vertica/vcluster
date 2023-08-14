@@ -25,11 +25,6 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-const (
-	ksafetyThreshold = 3
-	ksafeValue       = 1
-)
-
 // A good rule of thumb is to use normal strings unless you need nil.
 // Normal strings are easier and safer to use in Go.
 type VCreateDatabaseOptions struct {
@@ -584,7 +579,7 @@ func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *
 
 	if len(hosts) >= ksafetyThreshold {
 		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(bootstrapHost, true, username,
-			options.Password, ksafeValue)
+			options.Password, ksafeValueOne)
 		if err != nil {
 			return instructions, err
 		}

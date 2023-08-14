@@ -22,28 +22,35 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-type HTTPSReloadSpreadOp struct {
+type HTTPSSpreadRemoveNodeOp struct {
 	OpBase
 	OpHTTPSBase
+	RequestParams map[string]string
 }
 
-func makeHTTPSReloadSpreadOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
-	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
-	httpsReloadSpreadOp.name = "HTTPSReloadSpreadOp"
-	httpsReloadSpreadOp.hosts = hosts
-	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
+func makeHTTPSSpreadRemoveNodeOp(hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
+	userName string, httpsPassword *string, hostNodeMap map[string]VCoordinationNode) (HTTPSSpreadRemoveNodeOp, error) {
+	op := HTTPSSpreadRemoveNodeOp{}
+	op.name = "HTTPSSpreadRemoveNodeOp"
+	op.hosts = initiatorHost
+	op.useHTTPPassword = useHTTPPassword
 
-	err := util.ValidateUsernameAndPassword(httpsReloadSpreadOp.name, useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
-		return httpsReloadSpreadOp, err
+		return op, err
 	}
-	httpsReloadSpreadOp.userName = userName
-	httpsReloadSpreadOp.httpsPassword = httpsPassword
-	return httpsReloadSpreadOp, nil
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	op.RequestParams = make(map[string]string)
+	var nodeNames []string
+	for _, host := range hostsToRemove {
+		nodeNames = append(nodeNames, hostNodeMap[host].Name)
+	}
+	op.RequestParams["remove-target"] = util.ArrayToString(nodeNames, ",")
+	return op, nil
 }
 
-func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *HTTPSSpreadRemoveNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -51,24 +58,23 @@ func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildHTTPSEndpoint("config/spread/reload")
+		httpRequest.BuildHTTPSEndpoint("config/spread/remove")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
 		}
+		httpRequest.QueryParams = op.RequestParams
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-
 	return nil
 }
 
-func (op *HTTPSReloadSpreadOp) prepare(execContext *OpEngineExecContext) error {
+func (op *HTTPSSpreadRemoveNodeOp) prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
-
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSReloadSpreadOp) execute(execContext *OpEngineExecContext) error {
+func (op *HTTPSSpreadRemoveNodeOp) execute(execContext *OpEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -76,7 +82,7 @@ func (op *HTTPSReloadSpreadOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSReloadSpreadOp) processResult(_ *OpEngineExecContext) error {
+func (op *HTTPSSpreadRemoveNodeOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -89,8 +95,8 @@ func (op *HTTPSReloadSpreadOp) processResult(_ *OpEngineExecContext) error {
 
 		// decode the json-format response
 		// The successful response object will be a dictionary as below:
-		// {"detail": "Reloaded"}
-		reloadSpreadRsp, err := op.parseAndCheckMapResponse(host, result.content)
+		// {"detail": "Wrote a new spread.conf and reloaded Spread"}
+		removeSpreadRsp, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
 			err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
 			allErrs = errors.Join(allErrs, err)
@@ -98,8 +104,9 @@ func (op *HTTPSReloadSpreadOp) processResult(_ *OpEngineExecContext) error {
 		}
 
 		// verify if the response's content is correct
-		if reloadSpreadRsp["detail"] != "Reloaded" {
-			err = fmt.Errorf(`[%s] response detail should be 'Reloaded' but got '%s'`, op.name, reloadSpreadRsp["detail"])
+		const removeSpreadOpSuccMsg = "Wrote a new spread.conf and reloaded Spread"
+		if removeSpreadRsp["detail"] != removeSpreadOpSuccMsg {
+			err = fmt.Errorf(`[%s] response detail should be '%s' but got '%s'`, op.name, removeSpreadOpSuccMsg, removeSpreadRsp["detail"])
 			allErrs = errors.Join(allErrs, err)
 		}
 	}
@@ -107,6 +114,6 @@ func (op *HTTPSReloadSpreadOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSReloadSpreadOp) finalize(_ *OpEngineExecContext) error {
+func (op *HTTPSSpreadRemoveNodeOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

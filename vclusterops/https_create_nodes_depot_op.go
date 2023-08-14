@@ -24,7 +24,7 @@ import (
 
 type HTTPSCreateNodesDepotOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	HostNodeMap map[string]VCoordinationNode
 	DepotSize   string
 }

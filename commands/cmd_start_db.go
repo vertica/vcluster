@@ -25,7 +25,7 @@ type CmdStartDB struct {
 	Timeout             *int  // Timeout for starting the database
 }
 
-func MakeCmdStartDB() *CmdStartDB {
+func makeCmdStartDB() *CmdStartDB {
 	// CmdStartDB
 	newCmd := &CmdStartDB{}
 

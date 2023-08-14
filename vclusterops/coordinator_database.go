@@ -56,6 +56,8 @@ type VCoordinationDatabase struct {
 
 	// more to add when useful
 	Ipv6 bool
+
+	PrimaryUpNodes []string
 }
 
 func MakeVCoordinationDatabase() VCoordinationDatabase {
@@ -172,6 +174,39 @@ func (vdb *VCoordinationDatabase) SetFromClusterConfig(clusterConfig *ClusterCon
 	}
 }
 
+// Copy copies the receiver's fields into a new VCoordinationDatabase struct and
+// returns that struct. You can choose to copy only a subset of the receiver's hosts
+// by passing a slice of hosts to keep.
+func (vdb *VCoordinationDatabase) Copy(targetHosts []string) VCoordinationDatabase {
+	v := VCoordinationDatabase{
+		Name:                    vdb.Name,
+		CatalogPrefix:           vdb.CatalogPrefix,
+		DataPrefix:              vdb.DataPrefix,
+		IsEon:                   vdb.IsEon,
+		CommunalStorageLocation: vdb.CommunalStorageLocation,
+		UseDepot:                vdb.UseDepot,
+		DepotPrefix:             vdb.DepotPrefix,
+		DepotSize:               vdb.DepotSize,
+		AwsIDKey:                vdb.AwsIDKey,
+		AwsSecretKey:            vdb.AwsSecretKey,
+		NumShards:               vdb.NumShards,
+		LicensePathOnNode:       vdb.LicensePathOnNode,
+		Ipv6:                    vdb.Ipv6,
+		PrimaryUpNodes:          util.CopySlice(vdb.PrimaryUpNodes),
+	}
+
+	if len(targetHosts) == 0 {
+		v.HostNodeMap = util.CopyMap(vdb.HostNodeMap)
+		v.HostList = util.CopySlice(vdb.HostList)
+		return v
+	}
+
+	v.HostNodeMap = util.FilterMapByKey(vdb.HostNodeMap, targetHosts)
+	v.HostList = targetHosts
+
+	return v
+}
+
 // setHostNodeMap gets a map of nodes(set of {name - address}), builds a VCoordinationNode
 // struct, for each of them, and adds it to HostNodeMap.
 func (vdb *VCoordinationDatabase) setHostNodeMap(vnodes map[string]string) {
@@ -219,6 +254,51 @@ func (vdb *VCoordinationDatabase) SetDBInfoFromAddNodeOptions(options *VAddNodeO
 	}
 }
 
+// getSCNames returns a slice of subcluster names which the nodes
+// in the current VCoordinationDatabase instance belong to.
+func (vdb *VCoordinationDatabase) getSCNames() []string {
+	allKeys := make(map[string]bool)
+	scNames := []string{}
+	for h := range vdb.HostNodeMap {
+		sc := vdb.HostNodeMap[h].Subcluster
+		if _, value := allKeys[sc]; !value {
+			allKeys[sc] = true
+			scNames = append(scNames, sc)
+		}
+	}
+	return scNames
+}
+
+// doNodesExist returns true if all of the given nodes exist in
+// database.
+func (vdb *VCoordinationDatabase) doNodesExist(nodes []string) bool {
+	hostSet := make(map[string]struct{})
+	for _, n := range nodes {
+		hostSet[n] = struct{}{}
+	}
+	dupHosts := []string{}
+	for h := range vdb.HostNodeMap {
+		address := vdb.HostNodeMap[h].Address
+		if _, exist := hostSet[address]; exist {
+			dupHosts = append(dupHosts, address)
+		}
+	}
+
+	return len(dupHosts) == len(nodes)
+}
+
+// hasAtLeastOneDownNode returns true if the current VCoordinationDatabase instance
+// has at least one down node.
+func (vdb *VCoordinationDatabase) hasAtLeastOneDownNode() bool {
+	for host := range vdb.HostNodeMap {
+		if vdb.HostNodeMap[host].State == util.NodeDownState {
+			return true
+		}
+	}
+
+	return false
+}
+
 // set aws id key and aws secret key
 func (vdb *VCoordinationDatabase) GetAwsCredentialsFromEnv() error {
 	awsIDKey := os.Getenv("AWS_ACCESS_KEY_ID")
@@ -252,6 +332,8 @@ type VCoordinationNode struct {
 	ControlAddressFamily string
 	IsPrimary            bool
 	State                string
+	// empty string if it is not an eon db
+	Subcluster string
 }
 
 func MakeVCoordinationNode() VCoordinationNode {

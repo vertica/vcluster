@@ -37,7 +37,7 @@ type CmdAddSubcluster struct {
 	scHostListStr        *string
 }
 
-func MakeCmdAddSubcluster() *CmdAddSubcluster {
+func makeCmdAddSubcluster() *CmdAddSubcluster {
 	// CmdAddSubcluster
 	newCmd := &CmdAddSubcluster{}
 

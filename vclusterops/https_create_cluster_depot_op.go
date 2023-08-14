@@ -26,7 +26,7 @@ import (
 
 type HTTPSCreateDepotOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	NodeDepotPaths map[string]string
 	RequestParams  map[string]string
 }

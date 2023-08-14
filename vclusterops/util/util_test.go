@@ -177,6 +177,14 @@ func TestMapKeyDiff(t *testing.T) {
 	assert.Equal(t, expected, actual)
 }
 
+func TestFilterMapByKey(t *testing.T) {
+	a := map[string]int{"1": 1, "2": 2}
+	b := map[string]int{"1": 1, "3": 3, "4": 4, "2": 2}
+	keys := []string{"1", "2"}
+	c := FilterMapByKey(b, keys)
+	assert.EqualValues(t, a, c)
+}
+
 func TestGetEnv(t *testing.T) {
 	key := "NO_SUCH_ENV"
 	fallback := "test"
@@ -281,4 +289,27 @@ func TestGenVNodeName(t *testing.T) {
 	vnode, ok = GenVNodeName(vnodes, dbName, totalCount)
 	assert.Equal(t, false, ok)
 	assert.Equal(t, "", vnode)
+}
+
+func TestCopySlice(t *testing.T) {
+	s1 := []string{"one", "two"}
+	s2 := CopySlice(s1)
+	assert.Equal(t, len(s2), len(s1))
+	assert.Equal(t, s1[0], s2[0])
+	assert.Equal(t, s1[1], s2[1])
+	s2 = append(s2, "three")
+	assert.NotEqual(t, len(s2), len(s1))
+}
+
+func TestCopyMap(t *testing.T) {
+	s1 := map[string]string{
+		"1": "one",
+		"2": "two",
+	}
+	s2 := CopyMap(s1)
+	assert.Equal(t, len(s2), len(s1))
+	assert.Equal(t, s1["1"], s2["1"])
+	assert.Equal(t, s1["2"], s2["2"])
+	s2["3"] = "three"
+	assert.NotEqual(t, len(s2), len(s1))
 }

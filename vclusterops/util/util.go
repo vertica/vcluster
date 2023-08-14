@@ -85,6 +85,19 @@ func MapKeyDiff[M ~map[K]V, K comparable, V any](m, n M) []K {
 	return diff
 }
 
+// FilterMapByKey, given a map and a slice of keys, returns a map,
+// which is a subset of the original, that contains only keys in
+// from the given slice.
+func FilterMapByKey[M ~map[K]V, K comparable, V any](m M, n []K) M {
+	result := make(M)
+	for _, k := range n {
+		if v, found := m[k]; found {
+			result[k] = v
+		}
+	}
+	return result
+}
+
 func CheckPathExist(filePath string) bool {
 	_, err := os.Stat(filePath)
 	return !os.IsNotExist(err)
@@ -463,4 +476,31 @@ func GenVNodeName(vnodes map[string]string, dbName string, hostCount int) (strin
 		}
 	}
 	return "", false
+}
+
+// CopySlice returns a copy of a slice.
+func CopySlice[T any](original []T) []T {
+	if original == nil {
+		return nil
+	}
+
+	var copyOfList = make([]T, len(original))
+	copy(copyOfList, original)
+
+	return copyOfList
+}
+
+// CopyMap returns a copy of a map.
+func CopyMap[K comparable, V any](original map[K]V) map[K]V {
+	if original == nil {
+		return nil
+	}
+
+	copyOfMap := make(map[K]V)
+
+	for key, value := range original {
+		copyOfMap[key] = value
+	}
+
+	return copyOfMap
 }

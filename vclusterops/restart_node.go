@@ -113,7 +113,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 
 	// retrieve database information to execute the command so we do not always rely on some user input
 	vdb := MakeVCoordinationDatabase()
-	err = GetVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	err = getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {
 		return err
 	}

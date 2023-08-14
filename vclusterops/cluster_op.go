@@ -91,6 +91,11 @@ func (hostResult *HostHTTPResult) IsUnauthorizedRequest() bool {
 	return hostResult.statusCode == UnauthorizedCode
 }
 
+// IsSuccess returns true if status code is 200
+func (hostResult *HostHTTPResult) IsSuccess() bool {
+	return hostResult.statusCode == SuccessCode
+}
+
 // check only password and certificate for start_db
 func (hostResult *HostHTTPResult) IsPasswordandCertificateError() bool {
 	if !hostResult.IsUnauthorizedRequest() {
@@ -281,13 +286,13 @@ func (maskedData *SensitiveFields) maskSensitiveInfo() {
  * for the case where users do not specify a password, e.g., create db
  * we need the empty password "" string
  */
-type OpHTTPBase struct {
+type OpHTTPSBase struct {
 	useHTTPPassword bool
 	httpsPassword   *string
 	userName        string
 }
 
-// we may add some common functions for OpHTTPBase here
+// we may add some common functions for OpHTTPSBase here
 
 // VClusterCommands is for vcluster-ops library user to do mocking test in their program
 // The user can mock VCreateDatabase, VStopDatabase ... in their unit tests

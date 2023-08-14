@@ -25,7 +25,7 @@ import (
 
 type HTTPSFindSubclusterOrDefaultOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	scName string
 }
 

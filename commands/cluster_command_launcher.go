@@ -86,21 +86,22 @@ func MakeClusterCommandLauncher() ClusterCommandLauncher {
 func constructCmds() []ClusterCommand {
 	return []ClusterCommand{
 		// db-scope cmds
-		MakeCmdCreateDB(),
-		MakeCmdStartDB(),
-		MakeCmdStopDB(),
-		MakeCmdDropDB(),
-		MakeListAllNodes(),
-		MakeCmdReIP(),
+		makeCmdCreateDB(),
+		makeCmdStartDB(),
+		makeCmdStopDB(),
+		makeCmdDropDB(),
+		makeListAllNodes(),
+		makeCmdReIP(),
 		// sc-scope cmds
-		MakeCmdAddSubcluster(),
+		makeCmdAddSubcluster(),
 		// node-scope cmds
-		MakeCmdAddNode(),
-		MakeCmdRestartNodes(),
+		makeCmdAddNode(),
+		makeCmdRemoveNode(),
+		makeCmdRestartNodes(),
 		// others
-		MakeCmdHelp(),
-		MakeCmdInit(),
-		MakeCmdConfig(),
+		makeCmdHelp(),
+		makeCmdInit(),
+		makeCmdConfig(),
 	}
 }
 

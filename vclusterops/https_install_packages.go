@@ -25,7 +25,7 @@ import (
 
 type HTTPSInstallPackagesOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 }
 
 func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,

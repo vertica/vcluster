@@ -24,7 +24,7 @@ import (
 
 type HTTPSCreateNodeOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	RequestParams map[string]string
 }
 

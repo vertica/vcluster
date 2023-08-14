@@ -21,7 +21,7 @@ type CmdRestartNodes struct {
 	HostsToRestartStr *string
 }
 
-func MakeCmdRestartNodes() *CmdRestartNodes {
+func makeCmdRestartNodes() *CmdRestartNodes {
 	// CmdStartNodes
 	newCmd := &CmdRestartNodes{}
 

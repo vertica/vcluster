@@ -23,7 +23,7 @@ import (
 
 type HTTPSCheckSubclusterOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	scName      string
 	isSecondary bool
 	ctlSetSize  int

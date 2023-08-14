@@ -18,7 +18,7 @@ type CmdDropDB struct {
 	CmdBase
 }
 
-func MakeCmdDropDB() *CmdDropDB {
+func makeCmdDropDB() *CmdDropDB {
 	newCmd := &CmdDropDB{}
 	newCmd.parser = flag.NewFlagSet("create_db", flag.ExitOnError)
 

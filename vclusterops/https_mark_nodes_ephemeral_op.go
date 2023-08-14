@@ -17,36 +17,36 @@ package vclusterops
 
 import (
 	"errors"
-	"fmt"
-	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSSyncCatalogOp struct {
+type HTTPSMarkEphemeralNodeOp struct {
 	OpBase
 	OpHTTPSBase
+	targetNodeName string
 }
 
-func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string) (HTTPSSyncCatalogOp, error) {
-	op := HTTPSSyncCatalogOp{}
-	op.name = "HTTPSSyncCatalogOp"
-	op.hosts = hosts
+func makeHTTPSMarkEphemeralNodeOp(nodeName string,
+	initiatorHost []string,
+	useHTTPPassword bool,
+	userName string,
+	httpsPassword *string) (HTTPSMarkEphemeralNodeOp, error) {
+	op := HTTPSMarkEphemeralNodeOp{}
+	op.name = "HTTPSMarkEphemeralNodeOp"
+	op.hosts = initiatorHost
+	op.targetNodeName = nodeName
 	op.useHTTPPassword = useHTTPPassword
-
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
 		return op, err
 	}
-
 	op.userName = userName
 	op.httpsPassword = httpsPassword
 	return op, nil
 }
 
-func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *HTTPSMarkEphemeralNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -54,26 +54,22 @@ func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildHTTPSEndpoint("cluster/catalog/sync")
-		httpRequest.QueryParams = make(map[string]string)
-		httpRequest.QueryParams["retry-count"] = strconv.Itoa(util.DefaultRetryCount)
+		httpRequest.BuildHTTPSEndpoint("nodes/" + op.targetNodeName + "/ephemeral")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
-
 	return nil
 }
 
-func (op *HTTPSSyncCatalogOp) prepare(execContext *OpEngineExecContext) error {
+func (op *HTTPSMarkEphemeralNodeOp) prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
-
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSSyncCatalogOp) execute(execContext *OpEngineExecContext) error {
+func (op *HTTPSMarkEphemeralNodeOp) execute(execContext *OpEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -81,34 +77,20 @@ func (op *HTTPSSyncCatalogOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSSyncCatalogOp) processResult(_ *OpEngineExecContext) error {
+func (op *HTTPSMarkEphemeralNodeOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isPassing() {
-			// decode the json-format response
-			// The response object will be a dictionary, an example:
-			// {"new_truncation_version": "18"}
-			syncCatalogRsp, err := op.parseAndCheckMapResponse(host, result.content)
-			if err != nil {
-				allErrs = errors.Join(allErrs, err)
-				continue
-			}
-			version, ok := syncCatalogRsp["new_truncation_version"]
-			if !ok {
-				err = fmt.Errorf(`[%s] response does not contain field "new_truncation_version"`, op.name)
-				allErrs = errors.Join(allErrs, err)
-			}
-			vlog.LogPrintInfo(`[%s] the_latest_truncation_catalog_version: %s"`, op.name, version)
-		} else {
+		if !result.IsSuccess() {
 			allErrs = errors.Join(allErrs, result.err)
+			continue
 		}
 	}
 	return allErrs
 }
 
-func (op *HTTPSSyncCatalogOp) finalize(_ *OpEngineExecContext) error {
+func (op *HTTPSMarkEphemeralNodeOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

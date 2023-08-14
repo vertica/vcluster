@@ -156,10 +156,7 @@ func (o *VAddNodeOptions) analyzeOptions() (err error) {
 		}
 	}
 
-	// process correct catalog path, data path and depot path prefixes
-	*o.CatalogPrefix = util.GetCleanPath(*o.CatalogPrefix)
-	*o.DataPrefix = util.GetCleanPath(*o.DataPrefix)
-	*o.DepotPrefix = util.GetCleanPath(*o.DepotPrefix)
+	o.normalizePaths()
 	return nil
 }
 

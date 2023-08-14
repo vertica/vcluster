@@ -55,7 +55,7 @@ func (op OpType) String() string {
 
 type HTTPCheckRunningDBOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	opType OpType
 }
 

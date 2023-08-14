@@ -35,6 +35,7 @@ const (
 	MaxDepotSize                = 100
 	DefaultDrainSeconds         = 60
 	NodeUpState                 = "UP"
+	NodeDownState               = "DOWN"
 	SuppressHelp                = "SUPPRESS_HELP"
 )
 

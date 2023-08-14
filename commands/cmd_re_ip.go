@@ -20,7 +20,7 @@ type CmdReIP struct {
 	CmdBase
 }
 
-func MakeCmdReIP() *CmdReIP {
+func makeCmdReIP() *CmdReIP {
 	newCmd := &CmdReIP{}
 	newCmd.parser = flag.NewFlagSet("re_ip", flag.ExitOnError)
 

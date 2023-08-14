@@ -29,12 +29,13 @@ const oneSafeRspStr = "Marked design 1-safe"
 
 type HTTPSMarkDesignKSafeOp struct {
 	OpBase
-	OpHTTPBase
+	OpHTTPSBase
 	RequestParams map[string]string
 	ksafeValue    int
 }
 
-func makeHTTPSMarkDesignKSafeOp(hosts []string,
+func makeHTTPSMarkDesignKSafeOp(
+	hosts []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,

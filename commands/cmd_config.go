@@ -37,7 +37,7 @@ type CmdConfig struct {
 	ConfigHandler
 }
 
-func MakeCmdConfig() *CmdConfig {
+func makeCmdConfig() *CmdConfig {
 	newCmd := &CmdConfig{}
 	newCmd.parser = flag.NewFlagSet("config", flag.ExitOnError)
 	newCmd.show = newCmd.parser.Bool("show", false, "show the content of the config file")
