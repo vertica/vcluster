@@ -216,7 +216,7 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 			return fmt.Errorf("[%s] error happened during checking DB running on host %s, details: %w",
 				op.name, host, err)
 		}
-		vlog.LogInfo("[%s] DB running on host %s: %s, detail: %s", op.name, host, dbRunning, checkMsg)
+		vlog.LogInfo("[%s] DB running on host %s: %t, detail: %s", op.name, host, dbRunning, checkMsg)
 		// return at least one check msg to user
 		msg = checkMsg
 	}

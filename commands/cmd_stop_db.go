@@ -19,6 +19,7 @@ import (
 	"flag"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -125,12 +126,15 @@ func (c *CmdStopDB) Analyze() error {
 	return nil
 }
 
-func (c *CmdStopDB) Run() error {
-	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
-	vcc := vclusterops.VClusterCommands{}
-	stopError := vcc.VStopDatabase(c.stopDBOptions)
-	if stopError != nil {
-		return stopError
+func (c *CmdStopDB) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.Info("Called method Run()")
+	err := vcc.VStopDatabase(c.stopDBOptions)
+	if err != nil {
+		vcc.Log.Error(err, "failed to stop the database")
+		return err
 	}
 	vlog.LogPrintInfo("Stopped a database with name %s", *c.stopDBOptions.Name)
 	return nil

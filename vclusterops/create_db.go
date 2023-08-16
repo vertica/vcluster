@@ -386,6 +386,8 @@ func (opt *VCreateDatabaseOptions) ValidateAnalyzeOptions() error {
 }
 
 func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error) {
+	vcc.Log.Info("starting VCreateDatabase")
+
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
@@ -400,7 +402,7 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 	// produce instructions
 	instructions, err := produceCreateDBInstructions(&vdb, options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, s", err)
+		vcc.Log.Error(err, "fail to produce create db instructions")
 		return vdb, err
 	}
 
@@ -409,10 +411,10 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run()
-	if runError != nil {
-		vlog.LogPrintError("fail to create database, %s", runError)
-		return vdb, runError
+	err = clusterOpEngine.Run()
+	if err != nil {
+		vcc.Log.Error(err, "fail to create database, %s")
+		return vdb, err
 	}
 	return vdb, nil
 }

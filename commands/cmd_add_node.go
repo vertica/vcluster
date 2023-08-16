@@ -18,6 +18,7 @@ package commands
 import (
 	"flag"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -136,9 +137,11 @@ func (c *CmdAddNode) Analyze() error {
 	return nil
 }
 
-func (c *CmdAddNode) Run() error {
-	vlog.LogInfoln("[add_node] Called method Run()")
-	vcc := vclusterops.VClusterCommands{}
+func (c *CmdAddNode) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 	vdb, addNodeError := vcc.VAddNode(c.addNodeOptions)
 	if addNodeError != nil {
 		return addNodeError

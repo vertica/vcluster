@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -79,13 +80,14 @@ func (c *CmdReIP) Analyze() error {
 	return c.reIPOptions.ReadReIPFile(*c.reIPFilePath)
 }
 
-func (c *CmdReIP) Run() error {
-	vlog.LogInfo("[%s] Called method Run()\n", c.CommandType())
-
-	vcc := vclusterops.VClusterCommands{}
+func (c *CmdReIP) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 	err := vcc.VReIP(c.reIPOptions)
 	if err != nil {
-		vlog.LogPrintError("fail to re-ip: %w", err)
+		vcc.Log.Error(err, "fail to re-ip")
 		return err
 	}
 

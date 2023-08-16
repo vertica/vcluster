@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -72,6 +73,6 @@ func (c *CmdHelp) Analyze() error {
 	return nil
 }
 
-func (c *CmdHelp) Run() error {
+func (c *CmdHelp) Run(_ logr.Logger) error {
 	return nil
 }

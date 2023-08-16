@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -117,11 +118,14 @@ func (c *CmdStartDB) Analyze() error {
 	return nil
 }
 
-func (c *CmdStartDB) Run() error {
-	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
-	vcc := vclusterops.VClusterCommands{}
+func (c *CmdStartDB) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 	err := vcc.VStartDatabase(c.startDBOptions)
 	if err != nil {
+		vcc.Log.Error(err, "failed to start the database")
 		return err
 	}
 

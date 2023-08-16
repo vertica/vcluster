@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -96,9 +97,11 @@ func (c *CmdRestartNodes) Analyze() error {
 	return nil
 }
 
-func (c *CmdRestartNodes) Run() error {
-	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
-	vcc := vclusterops.VClusterCommands{}
+func (c *CmdRestartNodes) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 	// this is the instruction that will be used by both CLI and operator
 	err := vcc.VRestartNodes(c.restartNodesOptions)
 	if err != nil {

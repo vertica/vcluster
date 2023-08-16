@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -75,16 +76,18 @@ func (c *CmdListAllNodes) Analyze() error {
 	return nil
 }
 
-func (c *CmdListAllNodes) Run() error {
-	vlog.LogInfoln("Called method Run()")
+func (c *CmdListAllNodes) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 
-	vcc := vclusterops.VClusterCommands{}
 	nodeStates, err := vcc.VFetchNodeState(c.fetchNodeStateOptions)
 	if err != nil {
 		// if all nodes are down, the nodeStates list is not empty
 		// for this case, we don't want to show errors but show DOWN for the nodes
 		if len(nodeStates) == 0 {
-			vlog.LogPrintError("fail to list all nodes: %w", err)
+			vlog.LogPrintError("fail to list all nodes: %s", err)
 			return err
 		}
 	}

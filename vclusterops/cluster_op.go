@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -294,7 +295,9 @@ type OpHTTPSBase struct {
 
 // we may add some common functions for OpHTTPSBase here
 
-// VClusterCommands is for vcluster-ops library user to do mocking test in their program
-// The user can mock VCreateDatabase, VStopDatabase ... in their unit tests
+// VClusterCommands is struct for all top-level admin commands (e.g. create db,
+// add node, etc.). This is used to pass state around for the various APIs. We
+// also use it for mocking in our unit test.
 type VClusterCommands struct {
+	Log logr.Logger
 }

@@ -18,6 +18,7 @@ package commands
 import (
 	"flag"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -173,9 +174,11 @@ func (c *CmdCreateDB) Analyze() error {
 	return nil
 }
 
-func (c *CmdCreateDB) Run() error {
-	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
-	vcc := vclusterops.VClusterCommands{}
+func (c *CmdCreateDB) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
 		return createError

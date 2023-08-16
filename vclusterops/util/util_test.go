@@ -19,10 +19,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tonglil/buflogr"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NMAHealthOpResponse map[string]string
@@ -30,7 +31,9 @@ type NMAHealthOpResponse map[string]string
 func redirectLog() *bytes.Buffer {
 	// redirect log to a local bytes.Buffer
 	var logBuffer bytes.Buffer
-	log.SetOutput(&logBuffer)
+	log := buflogr.NewWithBuffer(&logBuffer)
+	vlogger := vlog.GetGlobalLogger()
+	vlogger.Log = log
 
 	return &logBuffer
 }
@@ -55,11 +58,11 @@ func TestGetJSONLogErrors(t *testing.T) {
 	err = GetJSONLogErrors(resultContent, &responseObj, "")
 
 	assert.NotNil(t, err)
-	assert.Contains(t, logBuffer.String(), "[ERROR] fail to unmarshal the response content")
+	assert.Contains(t, logBuffer.String(), "ERROR <nil> fail to unmarshal the response content")
 
 	err = GetJSONLogErrors(resultContent, &responseObj, "NMAHealthOp")
 	assert.NotNil(t, err)
-	assert.Contains(t, logBuffer.String(), "[ERROR] [NMAHealthOp] fail to unmarshal the response content")
+	assert.Contains(t, logBuffer.String(), "ERROR <nil> [NMAHealthOp] fail to unmarshal the response content")
 }
 
 func TestStringInArray(t *testing.T) {

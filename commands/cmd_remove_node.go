@@ -18,6 +18,7 @@ package commands
 import (
 	"flag"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -106,10 +107,12 @@ func (c *CmdRemoveNode) Analyze() error {
 	return nil
 }
 
-func (c *CmdRemoveNode) Run() error {
-	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
+func (c *CmdRemoveNode) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 
-	vcc := vclusterops.VClusterCommands{}
 	vdb, err := vcc.VRemoveNode(c.removeNodeOptions)
 	if err != nil {
 		return err

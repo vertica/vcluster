@@ -22,6 +22,10 @@ import (
 	"sync"
 
 	"runtime/debug"
+
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
+	"go.uber.org/zap"
 )
 
 const (
@@ -36,6 +40,7 @@ const (
 
 type Vlogger struct {
 	LogPath string
+	Log     logr.Logger // Logging API to use for all logging calls
 }
 
 var (
@@ -44,7 +49,7 @@ var (
 )
 
 // return a singleton instance of the GlobalLogger
-func GetGlobalLogger() Vlogger {
+func GetGlobalLogger() *Vlogger {
 	/* if once.Do(f) is called multiple times,
 	 * only the first call will invoke f,
 	 * even if f has a different value in each invocation.
@@ -54,7 +59,7 @@ func GetGlobalLogger() Vlogger {
 		logInstance = makeGlobalLogger()
 	})
 
-	return logInstance
+	return &logInstance
 }
 
 func makeGlobalLogger() Vlogger {
@@ -85,20 +90,37 @@ func SetupOrDie(logFile string) {
 	logger.setupOrDie(logFile)
 }
 
-// expected to be used by both client lib and vcluster CLI
-// so have logFile string to allow different log files for the two use cases
+// setupOrDie will setup the logging for vcluster CLI. On exit, logger.Log will
+// be set.
 func (logger *Vlogger) setupOrDie(logFile string) {
-	logFileObj, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.FileMode(LogPermission))
-	if err != nil {
-		fmt.Println(err)
+	// The vcluster library uses logr as the logging API. We use Uber's zap
+	// package to implement the logging API.
+	cfg := zap.Config{
+		Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
+		Development: false,
+		// Sampling is enabled at 100:100, meaning that after the first 100 log
+		// entries with the same level and message in the same second, it will
+		// log every 100th entry with the same level and message in the same second.
+		Sampling: &zap.SamplingConfig{
+			Initial:    100,
+			Thereafter: 100,
+		},
+		Encoding:         "console",
+		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
+		OutputPaths:      []string{"stderr"},
+		ErrorOutputPaths: []string{"stderr"},
 	}
-	logger.logFatal(err)
-	log.Printf("Successfully opened file %s. Setting log output to that file.\n", logFileObj.Name())
-
-	// start to setup log and log start up msg
-	log.SetOutput(logFileObj)
-	startupErr := logger.logStartupMessage()
-	logger.logFatal(startupErr)
+	// If no log file is given, we just log to standard output
+	if logFile != "" {
+		cfg.OutputPaths = []string{logFile}
+	}
+	var err error
+	zapLg, err := cfg.Build()
+	if err != nil {
+		logger.logFatal(err)
+	}
+	logger.Log = zapr.NewLogger(zapLg)
+	logger.Log.Info("Successfully started logger", "logFile", logFile)
 }
 
 func LogStartupMessage() error {
@@ -141,7 +163,7 @@ func LogInfoln(info string) {
 // basic log functions starts here: log plain string
 // following log.Println naming convention
 func (logger *Vlogger) logInfoln(info string) {
-	log.Println(InfoLog + info)
+	logger.Log.V(0).Info(info)
 }
 
 func LogWarningln(info string) {
@@ -151,7 +173,7 @@ func LogWarningln(info string) {
 
 // log Warning
 func (logger *Vlogger) logWarningln(info string) {
-	log.Println(WarningLog + info)
+	logger.Log.V(0).Info(info)
 }
 
 func LogErrorln(info string) {
@@ -161,7 +183,7 @@ func LogErrorln(info string) {
 
 // log error
 func (logger *Vlogger) logErrorln(info string) {
-	log.Println(ErrorLog + info)
+	logger.Log.Error(nil, info)
 }
 
 func LogInfo(info string, v ...any) {
@@ -171,7 +193,8 @@ func LogInfo(info string, v ...any) {
 
 // log info with formatting
 func (logger *Vlogger) logInfo(info string, v ...any) {
-	log.Printf(InfoLog+info, v...)
+	msg := fmt.Sprintf(info, v...)
+	logger.Log.V(0).Info(msg)
 }
 
 func LogWarning(info string, v ...any) {
@@ -179,7 +202,8 @@ func LogWarning(info string, v ...any) {
 	logger.logWarning(info, v...)
 }
 func (logger *Vlogger) logWarning(info string, v ...any) {
-	log.Printf(WarningLog+info, v...)
+	msg := fmt.Sprintf(info, v...)
+	logger.Log.V(0).Info(msg)
 }
 
 func LogError(info string, v ...any) {
@@ -187,7 +211,8 @@ func LogError(info string, v ...any) {
 	logger.logError(info, v...)
 }
 func (logger *Vlogger) logError(info string, v ...any) {
-	log.Printf(ErrorLog+info, v...)
+	msg := fmt.Sprintf(info, v...)
+	logger.Log.Error(nil, msg)
 }
 
 func LogDebug(info string, v ...any) {
@@ -195,79 +220,83 @@ func LogDebug(info string, v ...any) {
 	logger.logDebug(info, v...)
 }
 func (logger *Vlogger) logDebug(info string, v ...any) {
-	log.Printf(DebugLog+info, v...)
+	msg := fmt.Sprintf(info, v...)
+	logger.Log.V(1).Info(msg)
 }
 
-// output to both log and console
-// another possible way is to use io.MultiWriter, but that needs set a different output:
-// mw := io.MultiWriter(os.Stdout, logFile)
-// log.SetOutput(mw)
-// so to avoid setting output back and forth, we just do a log and fmt
-// log and print msg of the format "levelPrefix msg"
-// e.g., [Info] this is a sample log info
-func (logger *Vlogger) logPrintInternal(msg string) {
-	log.Println(msg)
-	fmt.Println(msg)
-}
-
+// LogPrintInfo will write an info message to stdout and the logger. The
+// message can contain format specifiers.
 func LogPrintInfo(msg string, v ...any) {
 	logger := GetGlobalLogger()
 	logger.logPrintInfo(msg, v...)
 }
 func (logger *Vlogger) logPrintInfo(msg string, v ...any) {
 	completeMsg := fmt.Sprintf(InfoLog+msg, v...)
-	logger.logPrintInternal(completeMsg)
+	logger.logPrintInfoln(completeMsg)
 }
 
+// LogPrintError will write an error message to stdout and the logger. The
+// message can contain format specifiers.
 func LogPrintError(msg string, v ...any) {
 	logger := GetGlobalLogger()
 	logger.logPrintError(msg, v...)
 }
 func (logger *Vlogger) logPrintError(msg string, v ...any) {
-	completeMsg := fmt.Errorf(ErrorLog+msg, v...)
-	logger.logPrintInternal(completeMsg.Error())
+	completeMsg := fmt.Sprintf(msg, v...)
+	logger.logPrintErrorln(completeMsg)
 }
 
+// LogPrintDebug will write a debug message to stdout and the logger. The
+// message can contain format specifiers.
 func LogPrintDebug(msg string, v ...any) {
 	logger := GetGlobalLogger()
 	logger.logPrintDebug(msg, v...)
 }
 func (logger *Vlogger) logPrintDebug(msg string, v ...any) {
 	completeMsg := fmt.Sprintf(DebugLog+msg, v...)
-	logger.logPrintInternal(completeMsg)
+	fmt.Println(completeMsg)
+	logger.Log.V(1).Info(completeMsg)
 }
 
+// LogPrintWarning will write a warning message to stdout and the logger. The
+// message can contain format specifiers.
 func LogPrintWarning(msg string, v ...any) {
 	logger := GetGlobalLogger()
 	logger.logPrintWarning(msg, v...)
 }
 func (logger *Vlogger) logPrintWarning(msg string, v ...any) {
 	completeMsg := fmt.Sprintf(WarningLog+msg, v...)
-	logger.logPrintInternal(completeMsg)
+	logger.logPrintWarningln(completeMsg)
 }
 
+// LogPrintInfoln will write an info message to stdout and the logger
 func LogPrintInfoln(msg string) {
 	logger := GetGlobalLogger()
 	logger.logPrintInfoln(msg)
 }
 func (logger *Vlogger) logPrintInfoln(msg string) {
-	logger.logPrintInternal(InfoLog + msg)
+	fmt.Println(msg)
+	logger.Log.V(0).Info(msg)
 }
 
+// LogPrintWarningln will write a warning message to stdout and the logger
 func LogPrintWarningln(msg string) {
 	logger := GetGlobalLogger()
 	logger.logPrintWarningln(msg)
 }
 func (logger *Vlogger) logPrintWarningln(msg string) {
-	logger.logPrintInternal(WarningLog + msg)
+	fmt.Println(msg)
+	logger.Log.V(0).Info(msg)
 }
 
+// LogPrintErrorln will write an error message to stdout and the logger
 func LogPrintErrorln(msg string) {
 	logger := GetGlobalLogger()
 	logger.logPrintErrorln(msg)
 }
 func (logger *Vlogger) logPrintErrorln(msg string) {
-	logger.logPrintInternal(ErrorLog + msg)
+	fmt.Println(msg)
+	logger.Log.Error(nil, msg)
 }
 
 func LogArgParse(inputArgv *[]string) {

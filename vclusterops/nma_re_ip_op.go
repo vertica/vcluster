@@ -64,7 +64,7 @@ func (op *NMAReIPOp) updateRequestBody(_ *OpEngineExecContext) error {
 		p.ReIPInfoList = op.reIPList
 		dataBytes, err := json.Marshal(p)
 		if err != nil {
-			vlog.LogError(`[%s] fail to marshal request data to JSON string, detail %s, detail: %v`, op.name, err)
+			vlog.LogError(`[%s] fail to marshal request data to JSON string, detail %s`, op.name, err)
 			return err
 		}
 		op.hostRequestBodyMap[host] = string(dataBytes)

@@ -17,13 +17,14 @@ package commands
 
 import (
 	"bytes"
-	"log"
 	"os"
 	"testing"
 
 	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tonglil/buflogr"
 )
 
 func TestInitCmd(t *testing.T) {
@@ -53,7 +54,9 @@ func TestInitCmd(t *testing.T) {
 func TestConfigCmd(t *testing.T) {
 	// redirect log to a local bytes.Buffer
 	var logStr bytes.Buffer
-	log.SetOutput(&logStr)
+	log := buflogr.NewWithBuffer(&logStr)
+	vlogger := vlog.GetGlobalLogger()
+	vlogger.Log = log
 
 	// create a stub YAML file
 	const yamlPath = vclusterops.ConfigFileName
@@ -66,7 +69,7 @@ func TestConfigCmd(t *testing.T) {
 	err := c.Parse([]string{})
 	assert.Nil(t, err)
 
-	err = c.Run()
+	err = c.Run(log)
 	assert.Nil(t, err)
 	assert.NotContains(t, logStr.String(), yamlStr)
 
@@ -75,7 +78,7 @@ func TestConfigCmd(t *testing.T) {
 	err = c.Parse([]string{"--show"})
 	assert.Nil(t, err)
 
-	err = c.Run()
+	err = c.Run(log)
 	assert.Nil(t, err)
 	assert.Contains(t, logStr.String(), yamlStr)
 
@@ -85,6 +88,6 @@ func TestConfigCmd(t *testing.T) {
 	err = cmdInit.Parse([]string{"--hosts", "vnode1,vnode2,vnode3"})
 	assert.Nil(t, err)
 
-	err = cmdInit.Run()
+	err = cmdInit.Run(log)
 	assert.ErrorContains(t, err, vclusterops.ConfigFileName+" already exists")
 }

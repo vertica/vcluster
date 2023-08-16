@@ -49,7 +49,7 @@ $(LOCALBIN):
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 # Make sure that whenever changing this, you also change
 # vertica/make/build-container/*Dockerfile
-GOLANGCI_LINT_VER ?= 1.51.2
+GOLANGCI_LINT_VER ?= 1.53.3
 
 .PHONY: golangci-lint $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint

@@ -15,6 +15,8 @@
 
 package commands
 
+import "github.com/go-logr/logr"
+
 type ClusterCommand interface {
 	CommandType() string
 	Parse(argv []string) error
@@ -25,6 +27,6 @@ type ClusterCommand interface {
 	 * cluster discovery.
 	 */
 	Analyze() error
-	Run() error
+	Run(log logr.Logger) error
 	PrintUsage(string)
 }

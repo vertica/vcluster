@@ -3,6 +3,7 @@ package commands
 import (
 	"flag"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -79,11 +80,15 @@ func (c *CmdDropDB) Analyze() error {
 	return nil
 }
 
-func (c *CmdDropDB) Run() error {
-	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
+func (c *CmdDropDB) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 
 	err := vclusterops.VDropDatabase(c.dropDBOptions)
 	if err != nil {
+		vcc.Log.Error(err, "failed do drop the database")
 		return err
 	}
 

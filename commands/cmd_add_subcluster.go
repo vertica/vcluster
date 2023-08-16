@@ -18,6 +18,7 @@ package commands
 import (
 	"flag"
 
+	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -124,11 +125,14 @@ func (c *CmdAddSubcluster) Analyze() error {
 	return nil
 }
 
-func (c *CmdAddSubcluster) Run() error {
-	vlog.LogInfoln("Called method Run()")
-	vcc := vclusterops.VClusterCommands{}
+func (c *CmdAddSubcluster) Run(log logr.Logger) error {
+	vcc := vclusterops.VClusterCommands{
+		Log: log.WithName(c.CommandType()),
+	}
+	vcc.Log.V(1).Info("Called method Run()")
 	err := vcc.VAddSubcluster(c.addSubclusterOptions)
 	if err != nil {
+		vcc.Log.Error(err, "failed to add subcluster")
 		return err
 	}
 	vlog.LogPrintInfo("Added subcluster %s to database %s", *c.addSubclusterOptions.SCName, *c.addSubclusterOptions.Name)
