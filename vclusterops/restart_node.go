@@ -1,19 +1,27 @@
 package vclusterops
 
 import (
-	"fmt"
-
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // Normal strings are easier and safer to use in Go.
 type VRestartNodesOptions struct {
-	// part 1: basic db info
+	// basic db info
 	DatabaseOptions
-	// part 2: hidden info
-	HostsToRestart    []string // the hosts that we want to restart
-	RawHostsToRestart []string // expected to be IP addresses or hostnames to restart
+	// A set of nodes(nodename - host) that we want to restart in the database
+	Nodes map[string]string
+}
+
+type VRestartNodesInfo struct {
+	// The IP address that we intend to re-IP can be obtained from a set of nodes provided as input
+	// within VRestartNodesOptions struct
+	ReIPList []string
+	// The node names that we intend to restart can be acquired from a set of nodes provided as input
+	// within the VRestartNodesOptions struct
+	NodeNamesToRestart []string
+	// the hosts that we want to restart
+	HostsToRestart []string
 }
 
 func VRestartNodesOptionsFactory() VRestartNodesOptions {
@@ -34,9 +42,7 @@ func (options *VRestartNodesOptions) validateRequiredOptions() error {
 	if err != nil {
 		return err
 	}
-	if len(options.RawHostsToRestart) == 0 {
-		return fmt.Errorf("must specify a host or host list")
-	}
+
 	return nil
 }
 
@@ -46,11 +52,6 @@ func (options *VRestartNodesOptions) validateParseOptions() error {
 
 // analyzeOptions will modify some options based on what is chosen
 func (options *VRestartNodesOptions) analyzeOptions() (err error) {
-	options.HostsToRestart, err = util.ResolveRawHostsToAddresses(options.RawHostsToRestart, options.Ipv6.ToBool())
-	if err != nil {
-		return err
-	}
-
 	// we analyze host names when HonorUserInput is set, otherwise we use hosts in yaml config
 	if *options.HonorUserInput {
 		// resolve RawHosts to be IP addresses
@@ -62,15 +63,21 @@ func (options *VRestartNodesOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-// ParseHostListToRestart converts the string list of hosts, to restart, into a slice of strings.
-// The hosts should be separated by comma, and will be converted to lower case.
-func (options *VRestartNodesOptions) ParseHostListToRestart(hosts string) error {
-	hostsToRestart, err := util.SplitHosts(hosts)
+// ParseNodesList builds and returns a map from a comma-separated list of nodes.
+// Ex: vnodeName1=host1,vnodeName2=host2 ---> map[string]string{vnodeName1: host1, vnodeName2: host2}
+func (options *VRestartNodesOptions) ParseNodesList(nodeListStr string) error {
+	nodes, err := util.ParseKeyValueListStr(nodeListStr, "restart")
 	if err != nil {
 		return err
 	}
-
-	options.RawHostsToRestart = hostsToRestart
+	options.Nodes = make(map[string]string)
+	for k, v := range nodes {
+		ip, err := util.ResolveToOneIP(v, options.Ipv6.ToBool())
+		if err != nil {
+			return err
+		}
+		options.Nodes[k] = ip
+	}
 	return nil
 }
 
@@ -118,8 +125,43 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 		return err
 	}
 
+	var hostsNoNeedToReIP []string
+	hostNodeNameMap := make(map[string]string)
+	restartNodeInfo := new(VRestartNodesInfo)
+	for host := range vdb.HostNodeMap {
+		hostNodeNameMap[vdb.HostNodeMap[host].Name] = vdb.HostNodeMap[host].Address
+	}
+	for nodename, newIP := range options.Nodes {
+		oldIP, ok := hostNodeNameMap[nodename]
+		if !ok {
+			vlog.LogPrintError("node name %s does not exist", nodename)
+			return err
+		}
+		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
+		if oldIP != newIP {
+			restartNodeInfo.ReIPList = append(restartNodeInfo.ReIPList, newIP)
+			restartNodeInfo.NodeNamesToRestart = append(restartNodeInfo.NodeNamesToRestart, nodename)
+		} else {
+			// otherwise, we don't need to re-ip
+			hostsNoNeedToReIP = append(hostsNoNeedToReIP, newIP)
+		}
+	}
+
+	// VER-88552 will improve this corner case
+	if len(restartNodeInfo.ReIPList) != 0 {
+		if len(hostsNoNeedToReIP) != 0 {
+			vlog.LogInfo("The following requested hosts will not be restarted since their catalog IP is not changing: %s", hostsNoNeedToReIP)
+		}
+		// if we find any nodes that need to re-ip, we should restart these nodes
+		restartNodeInfo.HostsToRestart = restartNodeInfo.ReIPList
+	} else {
+		// otherwise, we restart nodes that do not require re-IP, this scenario arises
+		// when a user restarts all nodes with accurate IPs as recorded in the catalog
+		restartNodeInfo.HostsToRestart = hostsNoNeedToReIP
+	}
+
 	// produce restart_node instructions
-	instructions, err := produceRestartNodesInstructions(options, &vdb)
+	instructions, err := produceRestartNodesInstructions(restartNodeInfo, options, &vdb)
 	if err != nil {
 		vlog.LogPrintError("fail to production instructions, %s", err)
 		return err
@@ -145,6 +187,9 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 // for a successful restart_node:
 //   - Check NMA connectivity
 //   - Check Vertica versions
+//   - Call network profile
+//   - Call https re-ip endpoint
+//   - Reload spread
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for starting nodes
 //   - Use any UP primary nodes as source host for syncing spread.conf and vertica.conf, source host can be picked
 //     by a HTTPS /v1/nodes call for finding UP primary nodes
@@ -153,7 +198,8 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 //   - restart nodes
 //   - Poll node start up
 //   - sync catalog
-func produceRestartNodesInstructions(options *VRestartNodesOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
+func produceRestartNodesInstructions(restartNodeInfo *VRestartNodesInfo, options *VRestartNodesOptions,
+	vdb *VCoordinationDatabase) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
@@ -176,6 +222,35 @@ func produceRestartNodesInstructions(options *VRestartNodesOptions, vdb *VCoordi
 		&httpsGetUpNodesOp,
 	)
 
+	// If we identify any nodes that need re-IP, HostsToRestart will contain the nodes that need re-IP.
+	// Otherwise, HostsToRestart will consist of all hosts with IPs recorded in the catalog, which are provided by user input.
+	if len(restartNodeInfo.ReIPList) != 0 {
+		nmaNetworkProfileOp := makeNMANetworkProfileOp(restartNodeInfo.HostsToRestart)
+		httpsReIPOp, e := makeHTTPSReIPOp(restartNodeInfo.NodeNamesToRestart, restartNodeInfo.HostsToRestart,
+			options.usePassword, *options.UserName, options.Password)
+		if e != nil {
+			return instructions, e
+		}
+		// host is set to nil value in the reload spread step
+		// we use information from node information to find the up host later
+		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOp(nil /*hosts*/, true, *options.UserName, options.Password)
+		if e != nil {
+			return instructions, e
+		}
+		// update new vdb information after re-ip
+		httpsGetNodesInfoOp, e := makeHTTPSGetNodesInfoOp(*options.Name, options.Hosts,
+			options.usePassword, *options.UserName, options.Password, vdb)
+		if err != nil {
+			return instructions, e
+		}
+		instructions = append(instructions,
+			&nmaNetworkProfileOp,
+			&httpsReIPOp,
+			&httpsReloadSpreadOp,
+			&httpsGetNodesInfoOp,
+		)
+	}
+
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value
 	// after we find any UP primary nodes as source host for syncing spread.conf and vertica.conf
@@ -183,22 +258,22 @@ func produceRestartNodesInstructions(options *VRestartNodesOptions, vdb *VCoordi
 	produceTransferConfigOps(&instructions,
 		nil, /*source hosts for transferring configuration files*/
 		options.Hosts,
-		options.HostsToRestart,
+		restartNodeInfo.HostsToRestart,
 		vdb)
 
-	HTTPSRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(options.usePassword, *options.UserName, options.Password, vdb)
+	httpsRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		return instructions, err
 	}
-	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(options.HostsToRestart, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(options.HostsToRestart,
+	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(restartNodeInfo.HostsToRestart, vdb)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(restartNodeInfo.HostsToRestart,
 		options.usePassword, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
 
 	instructions = append(instructions,
-		&HTTPSRestartUpCommandOp,
+		&httpsRestartUpCommandOp,
 		&nmaRestartNewNodesOp,
 		&httpsPollNodeStateOp,
 	)
