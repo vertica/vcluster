@@ -50,7 +50,7 @@ var (
 		"Internal error while checking license file",
 	)
 	WrongRequestMethod = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/wrong-reqeust-method",
+		"https://integrators.vertica.com/vcluster/errors/wrong-request-method",
 		"Wrong request method used",
 	)
 	BadRequest = newProblemID(
@@ -60,5 +60,9 @@ var (
 	GenericGetNodeInfoFailure = newProblemID(
 		"https://integrators.vertica.com/vcluster/errors/internal-get-node-info-failure",
 		"Internal error while getting node information",
+	)
+	GenericLoadRemoteCatalogFailure = newProblemID(
+		"https://integrators.vertica.com/vcluster/errors/internal-load-remote-catalog-failure",
+		"Internal error while loading remote catalog",
 	)
 )
