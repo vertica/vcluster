@@ -168,8 +168,7 @@ func (options *VAddSubclusterOptions) ValidateAnalyzeOptions(config *ClusterConf
 	if err := options.validateParseOptions(config); err != nil {
 		return err
 	}
-	err := options.analyzeOptions()
-	return err
+	return options.analyzeOptions()
 }
 
 // VAddSubcluster can add a new subcluster to a running database

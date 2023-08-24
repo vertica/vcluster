@@ -25,9 +25,11 @@ import (
 )
 
 const (
-	ksafetyThreshold = 3
-	ksafeValueZero   = 0
-	ksafeValueOne    = 1
+	ksafetyThreshold        = 3
+	ksafeValueZero          = 0
+	ksafeValueOne           = 1
+	numOfAWSAuthComponents  = 2
+	nmaSuccessfulReturnCode = 0
 )
 
 // produceTransferConfigOps generates instructions to transfert some config
@@ -180,4 +182,10 @@ func getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) e
 // appendHTTPSFailureError is internally used by https operations for appending an error message to the existing error
 func appendHTTPSFailureError(allErrs error) error {
 	return errors.Join(allErrs, fmt.Errorf("could not find a host with a passing result"))
+}
+
+// getInitiator will pick an initiator from a host list to execute https calls
+func getInitiator(hosts []string) string {
+	// simply use the first one in user input
+	return hosts[0]
 }

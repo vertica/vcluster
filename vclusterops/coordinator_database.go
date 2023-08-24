@@ -323,9 +323,10 @@ type VCoordinationNode struct {
 	Name    string `json:"name"`
 	Address string
 	// complete paths, not just prefix
-	CatalogPath      string `json:"catalog_path"`
-	StorageLocations []string
-	DepotPath        string
+	CatalogPath          string `json:"catalog_path"`
+	StorageLocations     []string
+	UserStorageLocations []string
+	DepotPath            string
 	// DB client port, should be 5433 by default
 	Port int
 	// default should be ipv4

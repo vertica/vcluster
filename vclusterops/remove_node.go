@@ -33,7 +33,6 @@ type VRemoveNodeOptions struct {
 	// remove_node operations.
 	Initiator   string
 	ForceDelete *bool
-	NodeStates  []NodeStateInfo
 }
 
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
@@ -88,8 +87,7 @@ func (o *VRemoveNodeOptions) validateParseOptions() error {
 		return err
 	}
 	// batch 2: validate all other params
-	err = o.validateExtraOptions()
-	return err
+	return o.validateExtraOptions()
 }
 
 func (o *VRemoveNodeOptions) analyzeOptions() (err error) {

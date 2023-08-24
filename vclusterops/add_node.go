@@ -269,14 +269,16 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase,
 		&nmaVerticaVersionOp,
 		&httpCheckNodesExistOp)
 	if vdb.IsEon {
-		httpsFindSubclusterOrDefaultOp, e := makeHTTPSFindSubclusterOrDefaultOp(
-			inputHost, usePassword, username, options.Password, *options.SCName)
+		httpsFindSubclusterOp, e := makeHTTPSFindSubclusterOp(
+			inputHost, usePassword, username, options.Password, *options.SCName,
+			true /*ignore not found*/)
 		if e != nil {
 			return instructions, e
 		}
-		instructions = append(instructions, &httpsFindSubclusterOrDefaultOp)
+		instructions = append(instructions, &httpsFindSubclusterOp)
 	}
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(options.NewHostNodeMap)
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(options.NewHostNodeMap,
+		false /*force cleanup*/, false /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}

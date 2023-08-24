@@ -69,7 +69,7 @@ func makeCmdCreateDB() *CmdCreateDB {
 	createDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
 		util.GetEonFlagMsg("Location of communal storage"))
 	createDBOptions.ShardCount = newCmd.parser.Int("shard-count", 0, util.GetEonFlagMsg("Number of shards in the database"))
-	createDBOptions.CommunalStorageParamsPath = newCmd.parser.String("communal_storage-params", "",
+	createDBOptions.CommunalStorageParamsPath = newCmd.parser.String("communal-storage-params", "",
 		util.GetEonFlagMsg("Location of communal storage parameter file"))
 	createDBOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
 	createDBOptions.DepotSize = newCmd.parser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
@@ -77,7 +77,7 @@ func makeCmdCreateDB() *CmdCreateDB {
 		util.GetEonFlagMsg("Read AWS credentials from environment variables"))
 
 	newCmd.configParamListStr = newCmd.parser.String("config-param", "", util.GetOptionalFlagMsg(
-		"Comma-separated list of NAME=VALUE pairs for setting database configuration parametesr immediately on database creation"))
+		"Comma-separated list of NAME=VALUE pairs for setting database configuration parameters immediately on database creation"))
 
 	// new flags comparing to adminTools create_db
 	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Create database with IPv6 hosts"))

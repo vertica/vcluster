@@ -27,21 +27,26 @@ import (
 type NMAPrepareDirectoriesOp struct {
 	OpBase
 	hostRequestBodyMap map[string]string
+	forceCleanup       bool
+	forRevive          bool
 }
 
 type prepareDirectoriesRequestData struct {
-	CatalogPath      string   `json:"catalog_path"`
-	DepotPath        string   `json:"depot_path,omitempty"`
-	StorageLocations []string `json:"storage_locations"`
-	ForceCleanup     bool     `json:"force_cleanup"`
-	ForRevive        bool     `json:"for_revive"`
-	IgnoreParent     bool     `json:"ignore_parent"`
+	CatalogPath          string   `json:"catalog_path"`
+	DepotPath            string   `json:"depot_path,omitempty"`
+	StorageLocations     []string `json:"storage_locations,omitempty"`
+	UserStorageLocations []string `json:"user_storage_locations,omitempty"`
+	ForceCleanup         bool     `json:"force_cleanup"`
+	ForRevive            bool     `json:"for_revive"`
+	IgnoreParent         bool     `json:"ignore_parent"`
 }
 
-func makeNMAPrepareDirectoriesOp(
-	hostNodeMap map[string]VCoordinationNode) (NMAPrepareDirectoriesOp, error) {
+func makeNMAPrepareDirectoriesOp(hostNodeMap map[string]VCoordinationNode,
+	forceCleanup, forRevive bool) (NMAPrepareDirectoriesOp, error) {
 	nmaPrepareDirectoriesOp := NMAPrepareDirectoriesOp{}
 	nmaPrepareDirectoriesOp.name = "NMAPrepareDirectoriesOp"
+	nmaPrepareDirectoriesOp.forceCleanup = forceCleanup
+	nmaPrepareDirectoriesOp.forRevive = forRevive
 
 	err := nmaPrepareDirectoriesOp.setupRequestBody(hostNodeMap)
 	if err != nil {
@@ -61,8 +66,9 @@ func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap map[string]VCoor
 		prepareDirData.CatalogPath = hostNodeMap[host].CatalogPath
 		prepareDirData.DepotPath = hostNodeMap[host].DepotPath
 		prepareDirData.StorageLocations = hostNodeMap[host].StorageLocations
-		prepareDirData.ForceCleanup = false
-		prepareDirData.ForRevive = false
+		prepareDirData.UserStorageLocations = hostNodeMap[host].UserStorageLocations
+		prepareDirData.ForceCleanup = op.forceCleanup
+		prepareDirData.ForRevive = op.forRevive
 		prepareDirData.IgnoreParent = false
 
 		dataBytes, err := json.Marshal(prepareDirData)

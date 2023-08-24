@@ -45,8 +45,7 @@ func (options *VFetchNodeStateOptions) ValidateAnalyzeOptions() error {
 	if err := options.validateParseOptions(); err != nil {
 		return err
 	}
-	err := options.analyzeOptions()
-	return err
+	return options.analyzeOptions()
 }
 
 // VFetchNodeState fetches node states (e.g., up or down) in the cluster

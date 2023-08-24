@@ -82,6 +82,12 @@ type HostHTTPResult struct {
 	err        error // This is set if the http response ends in a failure scenario
 }
 
+type httpsResponseStatus struct {
+	StatusCode int `json:"status"`
+}
+
+const respSuccStatusCode = 0
+
 // The HTTP response with a 401 status code can have several scenarios:
 // 1. Wrong password
 // 2. Wrong certificate
@@ -263,6 +269,31 @@ func (op *OpBase) loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) 
 // latest catalog information, there is nothing to be done during execution.
 func (op *OpBase) isSkipExecute() bool {
 	return op.skipExecute
+}
+
+// hasQuorum checks if we have enough working primary nodes to maintain data integrity
+// quorumCount = (1/2 * number of primary nodes) + 1
+func (op *OpBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
+	quorumCount := (primaryNodeCount + 1) / 2
+	if hostCount < quorumCount {
+		vlog.LogPrintError("[%s] Quorum check failed: "+
+			"number of hosts with latest catalog (%d) is not "+
+			"greater than or equal to 1/2 of number of the primary nodes (%d)\n",
+			op.name, hostCount, primaryNodeCount)
+		return false
+	}
+
+	return true
+}
+
+// checkResponseStatusCode will verify if the status code in https response is a successful code
+func (op *OpBase) checkResponseStatusCode(resp httpsResponseStatus, host string) (err error) {
+	if resp.StatusCode != respSuccStatusCode {
+		err = fmt.Errorf(`[%s] fail to execute HTTPS request on host %s, status code in HTTPS response is %d`, op.name, host, resp.StatusCode)
+		vlog.LogError(err.Error())
+		return err
+	}
+	return nil
 }
 
 /* Sensitive fields in request body

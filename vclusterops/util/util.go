@@ -39,6 +39,7 @@ const (
 	keyValueArrayLen = 2
 	ipv4Str          = "IPv4"
 	ipv6Str          = "IPv6"
+	AWSAuthKey       = "awsauth"
 )
 
 func GetJSONLogErrors(responseContent string, responseObj any, opName string) error {
@@ -456,6 +457,11 @@ func ParseKeyValueListStr(listStr, opt string) (map[string]string, error) {
 			return nil, fmt.Errorf("--%s option must take NAME=VALUE as argument with NAME being non-empty: %s is invalid", opt, param)
 		}
 		key := strings.TrimSpace(keyValue[0])
+		// the user is possible to set aws auth key to different strings like "awsauth" and "AWSAuth"
+		// we convert aws auth key to lowercase for easy retrieval in vclusterops
+		if strings.EqualFold(key, AWSAuthKey) {
+			key = strings.ToLower(key)
+		}
 		// we allow empty string value
 		value := strings.TrimSpace(keyValue[1])
 		listMap[key] = value

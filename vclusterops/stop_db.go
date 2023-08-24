@@ -119,8 +119,7 @@ func (options *VStopDatabaseOptions) ValidateAnalyzeOptions(config *ClusterConfi
 	if err := options.validateParseOptions(config); err != nil {
 		return err
 	}
-	err := options.analyzeOptions()
-	return err
+	return options.analyzeOptions()
 }
 
 func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {

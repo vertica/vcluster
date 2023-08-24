@@ -26,11 +26,13 @@ import (
 
 type NMAReadCatalogEditorOp struct {
 	OpBase
-	initiator      []string
+	initiator      []string // used when creating new nodes
 	vdb            *VCoordinationDatabase
 	catalogPathMap map[string]string
 }
 
+// makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
+// initiator is needed when creating new nodes, otherwise set it as []string.
 func makeNMAReadCatalogEditorOp(
 	initiator []string,
 	vdb *VCoordinationDatabase,
@@ -65,6 +67,8 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) error {
+	// build a map from host to catalog path
+	// if the initiator host(s) are given, only build map for these hosts
 	op.catalogPathMap = make(map[string]string)
 	if len(op.initiator) == 0 {
 		op.hosts = maps.Keys(op.vdb.HostNodeMap)
@@ -148,9 +152,8 @@ type NmaVDatabase struct {
 	WillUpgrade             bool                `json:"will_upgrade"`
 	SpreadEncryption        string              `json:"spread_encryption"`
 	CommunalStorageLocation string              `json:"communal_storage_location"`
-	// the quorum count will not be unmarshaled but will be used in NMAReIPOp
-	// quorumCount = (1/2 * number of primary nodes) + 1
-	QuorumCount int `json:",omitempty"`
+	// primary node count will not be unmarshaled but will be used in NMAReIPOp
+	PrimaryNodeCount uint `json:",omitempty"`
 }
 
 func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext) error {
@@ -171,7 +174,7 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 				continue
 			}
 
-			var primaryNodeCount int
+			var primaryNodeCount uint
 			// build host to node map for NMAStartNodeOp
 			hostNodeMap := make(map[string]NmaVNode)
 			for i := 0; i < len(nmaVDB.Nodes); i++ {
@@ -182,7 +185,7 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 				}
 			}
 			nmaVDB.HostNodeMap = hostNodeMap
-			nmaVDB.QuorumCount = primaryNodeCount/2 + 1
+			nmaVDB.PrimaryNodeCount = primaryNodeCount
 
 			// find hosts with latest catalog version
 			spreadVersion, err := nmaVDB.Versions.Spread.Int64()

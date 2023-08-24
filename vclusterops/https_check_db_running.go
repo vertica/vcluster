@@ -39,6 +39,7 @@ const (
 	CreateDB OpType = iota
 	StopDB
 	StartDB
+	ReviveDB
 )
 
 func (op OpType) String() string {
@@ -49,6 +50,8 @@ func (op OpType) String() string {
 		return "Stop DB"
 	case StartDB:
 		return "Start DB"
+	case ReviveDB:
+		return "Revive DB"
 	}
 	return "unknown operation"
 }
@@ -141,7 +144,7 @@ func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
 		case CreateDB:
 			msg = fmt.Sprintf("[%s] Detected HTTPS service running on host %s, please stop the HTTPS service before creating a new database",
 				op.name, host)
-		case StopDB, StartDB:
+		case StopDB, StartDB, ReviveDB:
 			msg = fmt.Sprintf("[%s] Detected HTTPS service running on host %s", op.name, host)
 		}
 		return false, msg, nil
@@ -236,16 +239,22 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 		vlog.LogPrintInfoln("Aborting database creation")
 	case StopDB, StartDB:
 		vlog.LogPrintInfoln("The database has not been down yet")
+	case ReviveDB:
+		vlog.LogPrintInfoln("Aborting database revival")
 	}
 	return allErrs
 }
 
 func (op *HTTPCheckRunningDBOp) execute(execContext *OpEngineExecContext) error {
-	if op.opType == CreateDB {
-		vlog.LogInfo("[%s] Execute() for operation %s", op.name, op.opType)
+	vlog.LogInfo("[%s] Execute() for operation %s", op.name, op.opType)
+	switch op.opType {
+	case CreateDB, ReviveDB:
 		return op.checkDBConnection(execContext)
+	case StopDB, StartDB:
+		return op.pollForDBDown(execContext)
 	}
-	return op.pollForDBDown(execContext)
+
+	return fmt.Errorf("unknown operation found in HTTPCheckRunningDBOp")
 }
 
 func (op *HTTPCheckRunningDBOp) pollForDBDown(execContext *OpEngineExecContext) error {

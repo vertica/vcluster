@@ -23,19 +23,26 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSFindSubclusterOrDefaultOp struct {
+type HTTPSFindSubclusterOp struct {
 	OpBase
 	OpHTTPSBase
-	scName string
+	scName         string
+	ignoreNotFound bool
 }
 
-func makeHTTPSFindSubclusterOrDefaultOp(hosts []string, useHTTPPassword bool,
+// makeHTTPSFindSubclusterOp initializes an op to find
+// a subcluster by name and find the default subcluster.
+// When ignoreNotFound is true, the op will not error out if
+// the given cluster name is not found.
+func makeHTTPSFindSubclusterOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, scName string,
-) (HTTPSFindSubclusterOrDefaultOp, error) {
-	op := HTTPSFindSubclusterOrDefaultOp{}
-	op.name = "HTTPSFindSubclusterOrDefaultOp"
+	ignoreNotFound bool,
+) (HTTPSFindSubclusterOp, error) {
+	op := HTTPSFindSubclusterOp{}
+	op.name = "HTTPSFindSubclusterOp"
 	op.hosts = hosts
 	op.scName = scName
+	op.ignoreNotFound = ignoreNotFound
 
 	op.useHTTPPassword = useHTTPPassword
 	if useHTTPPassword {
@@ -49,7 +56,7 @@ func makeHTTPSFindSubclusterOrDefaultOp(hosts []string, useHTTPPassword bool,
 	return op, nil
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *HTTPSFindSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
 	op.setVersionToSemVar()
@@ -68,13 +75,13 @@ func (op *HTTPSFindSubclusterOrDefaultOp) setupClusterHTTPRequest(hosts []string
 	return nil
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) prepare(execContext *OpEngineExecContext) error {
+func (op *HTTPSFindSubclusterOp) prepare(execContext *OpEngineExecContext) error {
 	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) execute(execContext *OpEngineExecContext) error {
+func (op *HTTPSFindSubclusterOp) execute(execContext *OpEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -92,7 +99,7 @@ type SCResp struct {
 	SCInfoList []SubclusterInfo `json:"subcluster_list"`
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) processResult(execContext *OpEngineExecContext) error {
+func (op *HTTPSFindSubclusterOp) processResult(execContext *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -138,34 +145,39 @@ func (op *HTTPSFindSubclusterOrDefaultOp) processResult(execContext *OpEngineExe
 			return allErrs
 		}
 
-		// find if subcluster exists if scName is provided
-		// otherwise, get the default subcluster name
-		if op.scName != "" {
-			exists := false
-			for _, scInfo := range scResp.SCInfoList {
-				if scInfo.SCName == op.scName {
-					exists = true
-					vlog.LogInfo(`[%s] subcluster '%s' exists in the database`, op.name, scInfo.SCName)
-					break
-				}
+		// 1. when subcluster name is given, look for the name in the database
+		//    error out if not found
+		// 2. look for the default subcluster, error out if not found
+		foundNamedSc := false
+		foundDefaultSc := false
+		for _, scInfo := range scResp.SCInfoList {
+			if scInfo.SCName == op.scName {
+				foundNamedSc = true
+				vlog.LogInfo(`[%s] subcluster '%s' exists in the database`, op.name, scInfo.SCName)
 			}
-			if !exists {
-				return fmt.Errorf(`[%s] subcluster '%s' does not exist in the database`, op.name, op.scName)
+			if scInfo.IsDefault {
+				// store the default sc name into execContext
+				foundDefaultSc = true
+				execContext.defaultSCName = scInfo.SCName
+				vlog.LogInfo(`[%s] found default subcluster '%s' in the database`, op.name, scInfo.SCName)
 			}
-		} else {
-			foundDefault := false
-			for _, scInfo := range scResp.SCInfoList {
-				if scInfo.IsDefault {
-					// store the default sc name for later rebalance-shards use
-					execContext.defaultSCName = scInfo.SCName
-					foundDefault = true
-					vlog.LogInfo(`[%s] found default subcluster '%s' in the database`, op.name, scInfo.SCName)
-					break
-				}
+			if foundNamedSc && foundDefaultSc {
+				break
 			}
-			if !foundDefault {
-				return fmt.Errorf(`[%s] cannot find a default subcluster in the database`, op.name)
+		}
+
+		if op.scName != "" && !op.ignoreNotFound {
+			if !foundNamedSc {
+				err = fmt.Errorf(`[%s] subcluster '%s' does not exist in the database`, op.name, op.scName)
+				allErrs = errors.Join(allErrs, err)
+				return allErrs
 			}
+		}
+
+		if !foundDefaultSc {
+			err = fmt.Errorf(`[%s] cannot find a default subcluster in the database`, op.name)
+			allErrs = errors.Join(allErrs, err)
+			return allErrs
 		}
 
 		return nil
@@ -173,6 +185,6 @@ func (op *HTTPSFindSubclusterOrDefaultOp) processResult(execContext *OpEngineExe
 	return allErrs
 }
 
-func (op *HTTPSFindSubclusterOrDefaultOp) finalize(_ *OpEngineExecContext) error {
+func (op *HTTPSFindSubclusterOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }

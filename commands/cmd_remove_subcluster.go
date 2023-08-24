@@ -24,56 +24,51 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-/* CmdRemoveNode
+/* CmdRemoveSubcluster
  *
  * Implements ClusterCommand interface
  */
-type CmdRemoveNode struct {
-	removeNodeOptions *vclusterops.VRemoveNodeOptions
-	// Comma-separated list of hosts to add
-	hostToRemoveListStr *string
+type CmdRemoveSubcluster struct {
+	removeScOptions *vclusterops.VRemoveScOptions
 
 	CmdBase
 }
 
-func makeCmdRemoveNode() *CmdRemoveNode {
-	// CmdRemoveNode
-	newCmd := &CmdRemoveNode{}
+func makeCmdRemoveSubcluster() *CmdRemoveSubcluster {
+	newCmd := &CmdRemoveSubcluster{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("db_remove_node", flag.ExitOnError)
-	removeNodeOptions := vclusterops.VRemoveNodeOptionsFactory()
+	newCmd.parser = flag.NewFlagSet("db_remove_subcluster", flag.ExitOnError)
+	removeScOptions := vclusterops.VRemoveScOptionsFactory()
 
 	// required flags
-	removeNodeOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to remove node(s) from")
-	newCmd.hostToRemoveListStr = newCmd.parser.String("remove", "", "Comma-separated list of hosts to remove from the database")
+	removeScOptions.Name = newCmd.parser.String("db-name", "", "Name of the database to remove subcluster")
+	removeScOptions.SubclusterToRemove = newCmd.parser.String("remove", "", "Name of subcluster to be removed")
+	// VER-88096: get all nodes information from the database and remove this option
+	removeScOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
 
 	// optional flags
-	removeNodeOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	removeScOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	removeNodeOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	removeScOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
 		" to get cluster info from the db. Use it when you do not trust "+vclusterops.ConfigFileName))
-	removeNodeOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
+	removeScOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	removeNodeOptions.ForceDelete = newCmd.parser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
+	removeScOptions.ForceDelete = newCmd.parser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
 		" if they are not empty"))
-	removeNodeOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
+	removeScOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
 	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Whether the hosts use IPv6 addresses"))
 
-	// Eon flags
-	// VER-88096: get all nodes information from the database and remove this option
-	removeNodeOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
-
-	newCmd.removeNodeOptions = &removeNodeOptions
+	newCmd.removeScOptions = &removeScOptions
 	return newCmd
 }
 
-func (c *CmdRemoveNode) CommandType() string {
-	return "db_remove_node"
+func (c *CmdRemoveSubcluster) CommandType() string {
+	return "db_remove_subcluster"
 }
 
-func (c *CmdRemoveNode) Parse(inputArgv []string) error {
+func (c *CmdRemoveSubcluster) Parse(inputArgv []string) error {
 	c.argv = inputArgv
 	err := c.ValidateParseArgv(c.CommandType())
 	if err != nil {
@@ -84,46 +79,45 @@ func (c *CmdRemoveNode) Parse(inputArgv []string) error {
 	// if they are not provided in cli,
 	// reset the value of those options to nil
 	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.removeNodeOptions.ConfigDirectory = nil
+		c.removeScOptions.ConfigDirectory = nil
 	}
 
 	if !util.IsOptionSet(c.parser, "password") {
-		c.removeNodeOptions.Password = nil
+		c.removeScOptions.Password = nil
 	}
 	return c.validateParse()
 }
 
-func (c *CmdRemoveNode) validateParse() error {
+func (c *CmdRemoveSubcluster) validateParse() error {
 	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
 
-	err := c.removeNodeOptions.ParseHostToRemoveList(*c.hostToRemoveListStr)
-	if err != nil {
-		return err
-	}
-	return c.ValidateParseBaseOptions(&c.removeNodeOptions.DatabaseOptions)
+	return c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
 }
 
-func (c *CmdRemoveNode) Analyze() error {
+func (c *CmdRemoveSubcluster) Analyze() error {
 	return nil
 }
 
-func (c *CmdRemoveNode) Run(log logr.Logger) error {
+func (c *CmdRemoveSubcluster) Run(log logr.Logger) error {
+	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
+
 	vcc := vclusterops.VClusterCommands{
 		Log: log.WithName(c.CommandType()),
 	}
 	vcc.Log.V(1).Info("Called method Run()")
-
-	vdb, err := vcc.VRemoveNode(c.removeNodeOptions)
+	vdb, err := vcc.VRemoveSubcluster(c.removeScOptions)
 	if err != nil {
 		return err
 	}
-	vlog.LogPrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *c.removeNodeOptions.Name)
+	vlog.LogPrintInfo("Successfully removed subcluster %s from database %s",
+		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.Name)
 
 	// write cluster information to the YAML config file.
-	err = vclusterops.WriteClusterConfig(&vdb, c.removeNodeOptions.ConfigDirectory)
+	err = vclusterops.WriteClusterConfig(&vdb, c.removeScOptions.ConfigDirectory)
 	if err != nil {
 		vlog.LogPrintWarning("failed to write config file, details: %s", err)
 	}
 	vlog.LogPrintInfo("Successfully updated config file")
+
 	return nil
 }

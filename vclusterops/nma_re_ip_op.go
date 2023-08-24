@@ -27,8 +27,7 @@ type NMAReIPOp struct {
 	OpBase
 	reIPList             []ReIPInfo
 	vdb                  *VCoordinationDatabase
-	quorumCount          int // quorumCount = (1/2 * number of primary nodes) + 1
-	primaryNodeCount     int
+	primaryNodeCount     uint
 	hostRequestBodyMap   map[string]string
 	mapHostToNodeName    map[string]string
 	mapHostToCatalogPath map[string]string
@@ -147,7 +146,7 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 		}
 	}
 
-	// calculate quorum and update the hosts
+	// update the hosts
 	for _, host := range execContext.hostsWithLatestCatalog {
 		nodeName := op.mapHostToNodeName[host]
 		if _, ok := primaryNodes[nodeName]; ok {
@@ -155,11 +154,11 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 		}
 	}
 
-	// get the quorum count
-	op.quorumCount = execContext.nmaVDatabase.QuorumCount
+	// get primary node count
+	op.primaryNodeCount = execContext.nmaVDatabase.PrimaryNodeCount
 
 	// quorum check
-	if !op.hasQuorum(len(op.hosts)) {
+	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) {
 		return fmt.Errorf("failed quorum check, not enough primaries exist with: %d", len(op.hosts))
 	}
 
@@ -193,7 +192,7 @@ func (op *NMAReIPOp) finalize(_ *OpEngineExecContext) error {
 
 func (op *NMAReIPOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
-	var successCount int
+	var successCount uint
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
@@ -215,23 +214,11 @@ func (op *NMAReIPOp) processResult(_ *OpEngineExecContext) error {
 	}
 
 	// quorum check
-	if !op.hasQuorum(successCount) {
+	if !op.hasQuorum(successCount, op.primaryNodeCount) {
 		// VER-88054 rollback the commits
 		err := fmt.Errorf("failed quroum check for re-ip update. Success count: %d", successCount)
 		allErrs = errors.Join(allErrs, err)
 	}
 
 	return allErrs
-}
-
-func (op *NMAReIPOp) hasQuorum(hostCount int) bool {
-	if hostCount < op.quorumCount {
-		vlog.LogPrintError("[%s] Quorum check failed: "+
-			"number of hosts with latest catalog (%d) is not "+
-			"greater than or equal to 1/2 of number of the primary nodes (%d)\n",
-			op.name, len(op.hosts), op.primaryNodeCount)
-		return false
-	}
-
-	return true
 }
