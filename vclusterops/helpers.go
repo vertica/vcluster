@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -33,18 +34,18 @@ const (
 )
 
 // produceTransferConfigOps generates instructions to transfert some config
-// files from a sourceConfig node to new nodes.
-func produceTransferConfigOps(instructions *[]ClusterOp, sourceConfigHost, hosts, newNodeHosts []string, vdb *VCoordinationDatabase) {
+// files from a sourceConfig node to target nodes.
+func produceTransferConfigOps(instructions *[]ClusterOp, sourceConfigHost, targetHosts []string, vdb *VCoordinationDatabase) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := makeNMADownloadConfigOp(
 		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb)
 	nmaUploadVerticaConfigOp := makeNMAUploadConfigOp(
-		"NMAUploadVerticaConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/vertica", &verticaConfContent, vdb)
+		"NMAUploadVerticaConfigOp", sourceConfigHost, targetHosts, "config/vertica", &verticaConfContent, vdb)
 	var spreadConfContent string
 	nmaDownloadSpreadConfigOp := makeNMADownloadConfigOp(
 		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb)
 	nmaUploadSpreadConfigOp := makeNMAUploadConfigOp(
-		"NMAUploadSpreadConfigOp", sourceConfigHost, hosts, newNodeHosts, "config/spread", &spreadConfContent, vdb)
+		"NMAUploadSpreadConfigOp", sourceConfigHost, targetHosts, "config/spread", &spreadConfContent, vdb)
 	*instructions = append(*instructions,
 		&nmaDownloadVerticaConfigOp,
 		&nmaUploadVerticaConfigOp,
@@ -135,12 +136,13 @@ type NodesStateInfo struct {
 
 // getInitiatorHost returns as initiator the first primary up node that is not
 // in the list of hosts to skip.
-func getInitiatorHost(primaryUpNodes, hostsToSkip []string) string {
+func getInitiatorHost(primaryUpNodes, hostsToSkip []string) (string, error) {
 	initiatorHosts := util.SliceDiff(primaryUpNodes, hostsToSkip)
 	if len(initiatorHosts) == 0 {
-		return ""
+		return "", fmt.Errorf("could not find any primary up nodes")
 	}
-	return initiatorHosts[0]
+
+	return initiatorHosts[0], nil
 }
 
 // getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
@@ -177,6 +179,19 @@ func getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) e
 	}
 
 	return nil
+}
+
+// getCatalogPath returns the catalog path after
+// removing `/Catalog` suffix (if present).
+// It is useful when we get /data/{db_name}/v_{db_name}_node0001_catalog/Catalog
+// and we want the parent dir of the full catalog path which is
+// /data/{db_name}/v_{db_name}_node0001_catalog/
+func getCatalogPath(fullPath string) string {
+	if !strings.HasSuffix(fullPath, "/Catalog") {
+		return fullPath
+	}
+
+	return path.Dir(fullPath)
 }
 
 // appendHTTPSFailureError is internally used by https operations for appending an error message to the existing error

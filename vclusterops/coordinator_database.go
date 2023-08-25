@@ -115,31 +115,18 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 	return nil
 }
 
-// SetVCDatabaseForAddNode set a VCoordinationDatabase from either the config file
-// or the user's input.
-func (vdb *VCoordinationDatabase) SetVCDatabaseForAddNode(
-	options *VAddNodeOptions,
-	clusterConfig *ClusterConfig,
-) error {
-	var vNodeMap map[string]string
-	if *options.HonorUserInput {
-		vdb.SetDBInfoFromAddNodeOptions(options)
-		vNodeMap = options.Nodes
-	} else {
-		vdb.SetDBInfoFromClusterConfig(clusterConfig)
-		vNodeMap = clusterConfig.genVnodeMap()
-	}
-
-	vdb.setHostNodeMap(vNodeMap)
-
-	totalHostCount := len(options.NewHosts) + len(vNodeMap)
-	for _, host := range options.NewHosts {
+// addHosts adds a given list of hosts to the VDB's HostList
+// and HostNodeMap.
+func (vdb *VCoordinationDatabase) addHosts(hosts []string) error {
+	totalHostCount := len(hosts) + len(vdb.HostList)
+	nodeNameToHost := vdb.genNodeNameToHostMap()
+	for _, host := range hosts {
 		vNode := MakeVCoordinationNode()
-		name, ok := util.GenVNodeName(vNodeMap, *options.Name, totalHostCount)
+		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount)
 		if !ok {
 			return fmt.Errorf("could not generate a vnode name for %s", host)
 		}
-		vNodeMap[name] = host
+		nodeNameToHost[name] = host
 		nodeConfig := NodeConfig{
 			Address: host,
 			Name:    name,
@@ -147,8 +134,8 @@ func (vdb *VCoordinationDatabase) SetVCDatabaseForAddNode(
 		vNode.SetFromNodeConfig(nodeConfig, vdb)
 		vdb.HostList = append(vdb.HostList, host)
 		vdb.HostNodeMap[host] = vNode
-		options.NewHostNodeMap[host] = vNode
 	}
+
 	return nil
 }
 
@@ -207,19 +194,24 @@ func (vdb *VCoordinationDatabase) Copy(targetHosts []string) VCoordinationDataba
 	return v
 }
 
-// setHostNodeMap gets a map of nodes(set of {name - address}), builds a VCoordinationNode
-// struct, for each of them, and adds it to HostNodeMap.
-func (vdb *VCoordinationDatabase) setHostNodeMap(vnodes map[string]string) {
-	vdb.HostNodeMap = make(map[string]VCoordinationNode, len(vnodes))
-	for k, v := range vnodes {
-		vnode := VCoordinationNode{}
-		nodeConfig := NodeConfig{
-			Address: v,
-			Name:    k,
-		}
-		vnode.SetFromNodeConfig(nodeConfig, vdb)
-		vdb.HostNodeMap[vnode.Address] = vnode
+// copyHostNodeMap copies the receiver's HostNodeMap. You can choose to copy
+// only a subset of the receiver's hosts by passing a slice of hosts to keep.
+func (vdb *VCoordinationDatabase) copyHostNodeMap(targetHosts []string) map[string]VCoordinationNode {
+	if len(targetHosts) == 0 {
+		return util.CopyMap(vdb.HostNodeMap)
 	}
+
+	return util.FilterMapByKey(vdb.HostNodeMap, targetHosts)
+}
+
+// genNodeNameToHostMap generates a map, with node name as key and
+// host ip as value, from HostNodeMap.
+func (vdb *VCoordinationDatabase) genNodeNameToHostMap() map[string]string {
+	vnodes := make(map[string]string)
+	for h := range vdb.HostNodeMap {
+		vnodes[vdb.HostNodeMap[h].Name] = h
+	}
+	return vnodes
 }
 
 // SetDBInfoFromClusterConfig will set various fields with values
@@ -232,23 +224,6 @@ func (vdb *VCoordinationDatabase) SetDBInfoFromClusterConfig(clusterConfig *Clus
 	vdb.HostList = clusterConfig.Hosts
 	vdb.IsEon = clusterConfig.IsEon
 	vdb.Ipv6 = clusterConfig.Ipv6
-	if vdb.DepotPrefix != "" {
-		vdb.UseDepot = true
-	}
-}
-
-func (vdb *VCoordinationDatabase) SetDBInfoFromAddNodeOptions(options *VAddNodeOptions) {
-	vdb.Name = *options.Name
-	vdb.CatalogPrefix = *options.CatalogPrefix
-	vdb.DataPrefix = *options.DataPrefix
-	vdb.HostList = options.Hosts
-	vdb.Ipv6 = options.Ipv6.ToBool()
-	if options.IsEon.ToBool() {
-		vdb.IsEon = true
-		vdb.DepotPrefix = *options.DepotPrefix
-		vdb.DepotSize = *options.DepotSize
-	}
-
 	if vdb.DepotPrefix != "" {
 		vdb.UseDepot = true
 	}
@@ -269,9 +244,8 @@ func (vdb *VCoordinationDatabase) getSCNames() []string {
 	return scNames
 }
 
-// doNodesExist returns true if all of the given nodes exist in
-// database.
-func (vdb *VCoordinationDatabase) doNodesExist(nodes []string) bool {
+// containNodes returns the number of input nodes contained in the vdb.
+func (vdb *VCoordinationDatabase) containNodes(nodes []string) []string {
 	hostSet := make(map[string]struct{})
 	for _, n := range nodes {
 		hostSet[n] = struct{}{}
@@ -284,7 +258,7 @@ func (vdb *VCoordinationDatabase) doNodesExist(nodes []string) bool {
 		}
 	}
 
-	return len(dupHosts) == len(nodes)
+	return dupHosts
 }
 
 // hasAtLeastOneDownNode returns true if the current VCoordinationDatabase instance
@@ -297,6 +271,24 @@ func (vdb *VCoordinationDatabase) hasAtLeastOneDownNode() bool {
 	}
 
 	return false
+}
+
+// genDataPath builds and returns the data path
+func (vdb *VCoordinationDatabase) genDataPath(nodeName string) string {
+	dataSuffix := fmt.Sprintf("%s_data", nodeName)
+	return filepath.Join(vdb.DataPrefix, vdb.Name, dataSuffix)
+}
+
+// genDepotPath builds and returns the depot path
+func (vdb *VCoordinationDatabase) genDepotPath(nodeName string) string {
+	depotSuffix := fmt.Sprintf("%s_depot", nodeName)
+	return filepath.Join(vdb.DepotPrefix, vdb.Name, depotSuffix)
+}
+
+// genCatalogPath builds and returns the catalog path
+func (vdb *VCoordinationDatabase) genCatalogPath(nodeName string) string {
+	catalogSuffix := fmt.Sprintf("%s_catalog", nodeName)
+	return filepath.Join(vdb.CatalogPrefix, vdb.Name, catalogSuffix)
 }
 
 // set aws id key and aws secret key
@@ -382,14 +374,11 @@ func (vnode *VCoordinationNode) SetFromNodeConfig(nodeConfig NodeConfig, vdb *VC
 	// so we do not perform validation here
 	vnode.Address = nodeConfig.Address
 	vnode.Name = nodeConfig.Name
-	catalogSuffix := fmt.Sprintf("%s_catalog", vnode.Name)
-	vnode.CatalogPath = filepath.Join(vdb.CatalogPrefix, vdb.Name, catalogSuffix)
-	dataSuffix := fmt.Sprintf("%s_data", vnode.Name)
-	dataPath := filepath.Join(vdb.DataPrefix, vdb.Name, dataSuffix)
+	vnode.CatalogPath = vdb.genCatalogPath(vnode.Name)
+	dataPath := vdb.genDataPath(vnode.Name)
 	vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
 	if vdb.DepotPrefix != "" {
-		depotSuffix := fmt.Sprintf("%s_depot", vnode.Name)
-		vnode.DepotPath = filepath.Join(vdb.DepotPrefix, vdb.Name, depotSuffix)
+		vnode.DepotPath = vdb.genDepotPath(vnode.Name)
 	}
 	if vdb.Ipv6 {
 		vnode.ControlAddressFamily = util.IPv6ControlAddressFamily

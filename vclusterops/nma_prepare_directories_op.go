@@ -63,7 +63,7 @@ func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap map[string]VCoor
 
 	for host := range hostNodeMap {
 		prepareDirData := prepareDirectoriesRequestData{}
-		prepareDirData.CatalogPath = hostNodeMap[host].CatalogPath
+		prepareDirData.CatalogPath = getCatalogPath(hostNodeMap[host].CatalogPath)
 		prepareDirData.DepotPath = hostNodeMap[host].DepotPath
 		prepareDirData.StorageLocations = hostNodeMap[host].StorageLocations
 		prepareDirData.UserStorageLocations = hostNodeMap[host].UserStorageLocations

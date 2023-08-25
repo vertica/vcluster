@@ -193,7 +193,6 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	produceTransferConfigOps(&instructions,
 		nil, /*source hosts for transferring configuration files*/
 		startDBInfo.Hosts,
-		nil, /*new hosts which will be added to the db*/
 		nil /*db configurations retrieved from a running db*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOp(startDBInfo.Hosts)

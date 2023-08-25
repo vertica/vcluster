@@ -28,7 +28,7 @@ type httpsReIPOp struct {
 	hostToReIP    []string
 	reIPList      map[string]ReIPInfo
 	nodeNamesList []string
-	upHost        []string
+	upHosts       []string
 }
 
 func makeHTTPSReIPOp(nodeNamesList, hostToReIP []string,
@@ -74,7 +74,7 @@ func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
 		}
-		op.clusterHTTPRequest.RequestCollection[op.upHost[i]] = httpRequest
+		op.clusterHTTPRequest.RequestCollection[op.upHosts[i]] = httpRequest
 	}
 
 	return nil
@@ -100,8 +100,8 @@ func (op *httpsReIPOp) prepare(execContext *OpEngineExecContext) error {
 	}
 
 	// use up hosts to execute the HTTP re-IP endpoint
-	op.upHost = execContext.upHosts
-	execContext.dispatcher.Setup(op.nodeNamesList)
+	op.upHosts = execContext.upHosts
+	execContext.dispatcher.Setup(op.upHosts)
 	return op.setupClusterHTTPRequest(op.nodeNamesList)
 }
 
@@ -135,7 +135,7 @@ func (op *httpsReIPOp) processResult(_ *OpEngineExecContext) error {
 		if err != nil {
 			err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
 			allErrs = errors.Join(allErrs, err)
-			continue
+			break
 		}
 
 		// verify if the response content is correct
@@ -143,10 +143,12 @@ func (op *httpsReIPOp) processResult(_ *OpEngineExecContext) error {
 		if !ok {
 			err = fmt.Errorf(`[%s] response does not contain field "detail"`, op.name)
 			allErrs = errors.Join(allErrs, err)
+			break
 		}
 		if v != "" {
 			err = fmt.Errorf(`[%s] response detail should be '' but got '%s'`, op.name, reIPRsp["detail"])
 			allErrs = errors.Join(allErrs, err)
+			break
 		}
 	}
 	return allErrs

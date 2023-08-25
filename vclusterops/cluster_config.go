@@ -53,14 +53,6 @@ func MakeClusterConfig() ClusterConfig {
 	return ClusterConfig{}
 }
 
-func (c *ClusterConfig) genVnodeMap() map[string]string {
-	vnodes := make(map[string]string)
-	for _, node := range c.Nodes {
-		vnodes[node.Name] = node.Address
-	}
-	return vnodes
-}
-
 // read config information from the YAML file
 func ReadConfig(configDirectory string) (ClusterConfig, error) {
 	clusterConfig := ClusterConfig{}

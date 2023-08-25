@@ -326,6 +326,21 @@ type OpHTTPSBase struct {
 
 // we may add some common functions for OpHTTPSBase here
 
+func (opb *OpHTTPSBase) validateAndSetUsernameAndPassword(opName string, useHTTPPassword bool,
+	userName string, httpsPassword *string) error {
+	opb.useHTTPPassword = useHTTPPassword
+	if opb.useHTTPPassword {
+		err := util.ValidateUsernameAndPassword(opName, opb.useHTTPPassword, userName)
+		if err != nil {
+			return err
+		}
+		opb.userName = userName
+		opb.httpsPassword = httpsPassword
+	}
+
+	return nil
+}
+
 // VClusterCommands is struct for all top-level admin commands (e.g. create db,
 // add node, etc.). This is used to pass state around for the various APIs. We
 // also use it for mocking in our unit test.

@@ -246,7 +246,10 @@ func dropSubcluster(vdb *VCoordinationDatabase, options *VRemoveScOptions) error
 	// the initiator is a list of one primary up host
 	// that will call the https /v1/subclusters/{scName}/drop endpoint
 	// as the endpoint will drop a subcluster, we only need one host to do so
-	initiator := getInitiatorHost(vdb.PrimaryUpNodes, []string{})
+	initiator, err := getInitiatorHost(vdb.PrimaryUpNodes, []string{})
+	if err != nil {
+		return err
+	}
 
 	httpsDropScOp, err := makeHTTPSDropSubclusterOp([]string{initiator},
 		*options.SubclusterToRemove,

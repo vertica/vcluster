@@ -18,7 +18,6 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
-	"path"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -105,7 +104,7 @@ func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
 		for host := range op.vdb.HostNodeMap {
 			if op.vdb.HostNodeMap[host].IsPrimary && op.vdb.HostNodeMap[host].State == util.NodeUpState {
 				primaryUpHosts = append(primaryUpHosts, host)
-				op.catalogPathMap[host] = path.Dir(op.vdb.HostNodeMap[host].CatalogPath)
+				op.catalogPathMap[host] = getCatalogPath(op.vdb.HostNodeMap[host].CatalogPath)
 				break
 			}
 		}

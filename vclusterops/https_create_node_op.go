@@ -42,16 +42,10 @@ func makeHTTPSCreateNodeOp(hosts []string, bootstrapHost []string,
 	if scName != "" {
 		createNodeOp.RequestParams["subcluster"] = scName
 	}
-	createNodeOp.useHTTPPassword = useHTTPPassword
+	err := createNodeOp.validateAndSetUsernameAndPassword(createNodeOp.name,
+		useHTTPPassword, userName, httpsPassword)
 
-	err := util.ValidateUsernameAndPassword(createNodeOp.name, useHTTPPassword, userName)
-	if err != nil {
-		return createNodeOp, err
-	}
-
-	createNodeOp.userName = userName
-	createNodeOp.httpsPassword = httpsPassword
-	return createNodeOp, nil
+	return createNodeOp, err
 }
 
 func (op *HTTPSCreateNodeOp) setupClusterHTTPRequest(hosts []string) error {

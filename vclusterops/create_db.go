@@ -546,7 +546,6 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 		produceTransferConfigOps(&instructions,
 			bootstrapHost,
 			hosts,
-			nil, /*new hosts which will be added to the db*/
 			nil /*db configurations retrieved from a running db*/)
 		nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts)
 		instructions = append(instructions, &nmaStartNewNodesOp)

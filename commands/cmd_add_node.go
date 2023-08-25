@@ -17,6 +17,7 @@ package commands
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
@@ -32,8 +33,6 @@ type CmdAddNode struct {
 	addNodeOptions *vclusterops.VAddNodeOptions
 	// Comma-separated list of hosts to add
 	newHostListStr *string
-	// Comma-separated list of vnode=host
-	vnodeListStr *string
 
 	CmdBase
 }
@@ -47,31 +46,25 @@ func makeCmdAddNode() *CmdAddNode {
 	addNodeOptions := vclusterops.VAddNodeOptionsFactory()
 
 	// required flags
-	addNodeOptions.Name = newCmd.parser.String("name", "", "The name of the database to be modified")
+	addNodeOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to be modified")
 	newCmd.newHostListStr = newCmd.parser.String("add", "", "Comma-separated list of hosts to add to the database")
 
 	// optional flags
 	addNodeOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	// VER-88096: get all nodes information from the database and remove this option
-	newCmd.vnodeListStr = newCmd.parser.String("vnodes", "", util.GetOptionalFlagMsg(
-		"Comma-separated list of VNODE=HOST pairs part of the database nodes."+
-			" Use it when you do not trust "+vclusterops.ConfigFileName))
 	addNodeOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	addNodeOptions.InputHost = *newCmd.parser.String("host", "", util.GetOptionalFlagMsg(
-		"The name or ip address of an up node that will be used to execute operations"))
+	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
+		" to get cluster info from the database. Use it when you do not trust "+vclusterops.ConfigFileName))
 	addNodeOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	addNodeOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", util.GetOptionalFlagMsg("Path of catalog directory"))
 	addNodeOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
 	addNodeOptions.SkipRebalanceShards = newCmd.parser.Bool("skip-rebalance-shards", false,
 		util.GetOptionalFlagMsg("Skip the subcluster shards rebalancing"))
 
 	// Eon flags
 	// VER-88096: get all nodes information from the database and remove this option
-	newCmd.isEon = newCmd.parser.Bool("eon-mode", false, util.GetEonFlagMsg("indicate if the database is an Eon db."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	addNodeOptions.SCName = newCmd.parser.String("subcluster", "", util.GetEonFlagMsg("The Name of subcluster for the new node"))
+	addNodeOptions.SCName = newCmd.parser.String("subcluster", "", util.GetEonFlagMsg("The Name of subcluster"+
+		" to which the nodes must be added. If empty default subcluster is considered"))
 	addNodeOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
 	addNodeOptions.DepotSize = newCmd.parser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
 
@@ -109,28 +102,24 @@ func (c *CmdAddNode) Parse(inputArgv []string) error {
 func (c *CmdAddNode) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
-	err := c.addNodeOptions.ParseNewHostList(*c.newHostListStr)
-	if err != nil {
-		return err
-	}
-	err = c.validateAddNodeParseBaseOptions(&c.addNodeOptions.DatabaseOptions)
+	err := c.parseNewHostList()
 	if err != nil {
 		return err
 	}
 
-	return err
+	return c.ValidateParseBaseOptions(&c.addNodeOptions.DatabaseOptions)
 }
 
-func (c *CmdAddNode) validateAddNodeParseBaseOptions(opt *vclusterops.DatabaseOptions) error {
-	if !*opt.HonorUserInput {
-		return nil
+// ParseNewHostList converts the string list of hosts, to add, into a slice of strings.
+// The hosts should be separated by comma, and will be converted to lower case.
+func (c *CmdAddNode) parseNewHostList() error {
+	inputHostList, err := util.SplitHosts(*c.newHostListStr)
+	if err != nil {
+		return fmt.Errorf("must specify at least one host to add: %w", err)
 	}
-	// parse IsEon
-	opt.IsEon.FromBoolPointer(c.isEon)
-	// parse Ipv6
-	opt.Ipv6.FromBoolPointer(c.ipv6)
-	err := c.addNodeOptions.ParseNodeList(*c.vnodeListStr)
-	return err
+
+	c.addNodeOptions.NewHosts = inputHostList
+	return nil
 }
 
 func (c *CmdAddNode) Analyze() error {

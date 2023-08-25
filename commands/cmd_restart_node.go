@@ -32,7 +32,8 @@ func makeCmdRestartNodes() *CmdRestartNodes {
 
 	// require flags
 	restartNodesOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to restart nodes")
-	newCmd.vnodeListStr = newCmd.parser.String("restart", "", "Comma-separated list of NODENAME=REIPHOST pairs part of the database nodes")
+	newCmd.vnodeListStr = newCmd.parser.String("restart", "",
+		"Comma-separated list of NODENAME=REIPHOST pairs part of the database nodes that need to be restarted")
 
 	// optional flags
 	restartNodesOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))

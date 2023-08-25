@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -53,8 +52,7 @@ func makeNMAUploadConfigOp(
 	sourceConfigHost []string, // source host for transferring configuration files, specifically, it is
 	// 1. the bootstrap host when creating the database
 	// 2. the host with the highest catalog version for starting a database or starting nodes
-	hosts []string, // list of hosts of database to participate in database
-	newNodeHosts []string, // list of new hosts is added to the database
+	targetHosts []string, // list of hosts that need to be synchronized
 	endpoint string,
 	fileContent *string,
 	vdb *VCoordinationDatabase,
@@ -64,9 +62,8 @@ func makeNMAUploadConfigOp(
 	nmaUploadConfigOp.endpoint = endpoint
 	nmaUploadConfigOp.fileContent = fileContent
 	nmaUploadConfigOp.catalogPathMap = make(map[string]string)
-	nmaUploadConfigOp.hosts = hosts
 	nmaUploadConfigOp.sourceConfigHost = sourceConfigHost
-	nmaUploadConfigOp.destHosts = newNodeHosts
+	nmaUploadConfigOp.destHosts = targetHosts
 	nmaUploadConfigOp.vdb = vdb
 
 	return nmaUploadConfigOp
@@ -120,7 +117,7 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 			if len(hostsWithLatestCatalog) == 0 {
 				return fmt.Errorf("could not find at least one host with the latest catalog")
 			}
-			hostsNeedCatalogSync := util.SliceDiff(op.hosts, hostsWithLatestCatalog)
+			hostsNeedCatalogSync := util.SliceDiff(op.destHosts, hostsWithLatestCatalog)
 			// Update the hosts that need to synchronize the catalog
 			op.hosts = hostsNeedCatalogSync
 			// If no hosts to upload, skip this operation. This can happen if all
@@ -131,15 +128,7 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 				return nil
 			}
 		} else {
-			if op.destHosts == nil {
-				// If the list of newly added hosts is null, the sourceConfigHost host will be the bootstrapHost input
-				// when creating the database
-				// we identify the hosts that need to be synchronized from bootstrapHost and list of hosts input
-				op.hosts = util.SliceDiff(op.hosts, op.sourceConfigHost)
-			} else {
-				// The hosts that need to be synchronized are the list of newly added hosts.
-				op.hosts = op.destHosts
-			}
+			op.hosts = util.SliceDiff(op.destHosts, op.sourceConfigHost)
 			// Update the catalogPathMap for next upload operation's steps from information of catalog editor
 			nmaVDB := execContext.nmaVDatabase
 			err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
@@ -152,7 +141,7 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 		op.hosts = op.destHosts
 		// Update the catalogPathMap for next upload operation's steps from node List information
 		for host := range op.vdb.HostNodeMap {
-			op.catalogPathMap[host] = path.Dir(op.vdb.HostNodeMap[host].CatalogPath)
+			op.catalogPathMap[host] = getCatalogPath(op.vdb.HostNodeMap[host].CatalogPath)
 		}
 	}
 

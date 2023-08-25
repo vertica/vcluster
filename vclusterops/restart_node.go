@@ -16,6 +16,8 @@
 package vclusterops
 
 import (
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -56,6 +58,9 @@ func (options *VRestartNodesOptions) validateRequiredOptions() error {
 	err := options.ValidateBaseOptions("restart_node")
 	if err != nil {
 		return err
+	}
+	if len(options.Nodes) == 0 {
+		return fmt.Errorf("must specify a list of NODENAME=REIPHOST pairs")
 	}
 
 	return nil
@@ -271,7 +276,6 @@ func produceRestartNodesInstructions(restartNodeInfo *VRestartNodesInfo, options
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
 	produceTransferConfigOps(&instructions,
 		nil, /*source hosts for transferring configuration files*/
-		options.Hosts,
 		restartNodeInfo.HostsToRestart,
 		vdb)
 

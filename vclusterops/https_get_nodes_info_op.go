@@ -38,19 +38,12 @@ func makeHTTPSGetNodesInfoOp(dbName string, hosts []string,
 	op.name = "HTTPSGetNodeInfoOp"
 	op.dbName = dbName
 	op.hosts = hosts
-	op.useHTTPPassword = useHTTPPassword
 	op.vdb = vdb
 
-	if useHTTPPassword {
-		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
-		if err != nil {
-			return op, err
-		}
-		op.userName = userName
-		op.httpsPassword = httpsPassword
-	}
+	err := op.validateAndSetUsernameAndPassword(op.name, useHTTPPassword, userName,
+		httpsPassword)
 
-	return op, nil
+	return op, err
 }
 
 func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {

@@ -286,6 +286,22 @@ func (opt *DatabaseOptions) GetNameAndHosts(config *ClusterConfig) (dbName strin
 	return dbName, hosts
 }
 
+// GetHosts chooses the right hosts from user input and config file
+func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string) {
+	// when config file is not available, we use user input
+	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
+	if config == nil {
+		return opt.Hosts
+	}
+
+	hosts = config.Hosts
+	// if HonorUserInput is set, we choose the user input
+	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
+		hosts = opt.Hosts
+	}
+	return hosts
+}
+
 // GetCatalogPrefix can choose the right catalog prefix from user input and config file
 func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPrefix string) {
 	// when config file is not available, we use user input
