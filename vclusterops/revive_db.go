@@ -19,16 +19,15 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const (
-	sourceFileName           = "cluster_config.json"
-	sourceFileMetadataFolder = "metadata"
-	destinationFilePath      = "/tmp/desc.json"
-	// catalogPath is not used for now
+	destinationFilePath = "/tmp/desc.json"
+	// catalogPath is not used for now, will implement it in VER-88884
 	catalogPath = ""
 )
 
@@ -78,11 +77,7 @@ func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 	}
 
 	// communal storage
-	if *options.CommunalStorageLocation == "" {
-		return fmt.Errorf("must specify a communal storage location")
-	}
-
-	return nil
+	return util.ValidateCommunalStorageLocation(*options.CommunalStorageLocation)
 }
 
 func (options *VReviveDatabaseOptions) validateParseOptions() error {
@@ -126,7 +121,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) er
 	// part 1: produce instructions for getting terminated database info, and save the info to vdb
 	preReviveDBInstructions, err := producePreReviveDBInstructions(options, &vdb)
 	if err != nil {
-		vlog.LogPrintError("fail to production pre-revive database instructions %v", err)
+		vlog.LogPrintError("fail to produce pre-revive database instructions %v", err)
 		return err
 	}
 
@@ -143,7 +138,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) er
 	// part 2: produce instructions for reviving database using terminated database info
 	reviveDBInstructions, err := produceReviveDBInstructions(options, &vdb)
 	if err != nil {
-		vlog.LogPrintError("fail to production revive database instructions %v", err)
+		vlog.LogPrintError("fail to produce revive database instructions %v", err)
 		return err
 	}
 
@@ -184,8 +179,8 @@ func producePreReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoord
 	initiator := getInitiator(options.Hosts)
 	bootstrapHost := []string{initiator}
 
-	// description file directory will be in the location like: s3://tfminio/test_db/metadata/test_db/cluster_config.json
-	sourceFilePath := filepath.Join(*options.CommunalStorageLocation, sourceFileMetadataFolder, *options.Name, sourceFileName)
+	// use description file path as source file path
+	sourceFilePath := options.getDescriptionFilePath()
 	nmaDownLoadFileOp, err := makeNMADownloadFileOp(bootstrapHost, options.Hosts, sourceFilePath, destinationFilePath, catalogPath,
 		options.CommunalStorageParameters, vdb)
 	if err != nil {
@@ -301,4 +296,20 @@ func (options *VReviveDatabaseOptions) generateReviveVDB(vdb *VCoordinationDatab
 	}
 
 	return newVDB, oldHosts, nil
+}
+
+// getDescriptionFilePath can make the description file path using db name and communal storage location in the options
+func (options *VReviveDatabaseOptions) getDescriptionFilePath() string {
+	const (
+		descriptionFileName           = "cluster_config.json"
+		descriptionFileMetadataFolder = "metadata"
+	)
+	// description file will be in the location: {communalStorageLocation}/metadata/{db_name}/cluster_config.json
+	// an example: s3://tfminio/test_loc/metadata/test_db/cluster_config.json
+	descriptionFilePath := filepath.Join(*options.CommunalStorageLocation, descriptionFileMetadataFolder, *options.Name, descriptionFileName)
+	// filepath.Join() will change "://" of the remote communal storage path to ":/"
+	// as a result, we need to change the separator back to url format
+	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)
+
+	return descriptionFilePath
 }

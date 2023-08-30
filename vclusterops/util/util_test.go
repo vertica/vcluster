@@ -316,3 +316,25 @@ func TestCopyMap(t *testing.T) {
 	s2["3"] = "three"
 	assert.NotEqual(t, len(s2), len(s1))
 }
+
+func TestValidateCommunalStorageLocation(t *testing.T) {
+	// return error for an empty location
+	err := ValidateCommunalStorageLocation("")
+	assert.Error(t, err)
+
+	// return error for an invalid s3 location with ":"
+	err = ValidateCommunalStorageLocation("s3:vertica-fleeting/k8s/revive_eon_5")
+	assert.Error(t, err)
+
+	// return error for an invalid s3 location with ":/"
+	err = ValidateCommunalStorageLocation("s3:/vertica-fleeting/k8s/revive_eon_5")
+	assert.Error(t, err)
+
+	// no error for an valid s3 location
+	err = ValidateCommunalStorageLocation("s3://vertica-fleeting/k8s/revive_eon_5")
+	assert.NoError(t, err)
+
+	// no error for an valid local location
+	err = ValidateCommunalStorageLocation("/communal/vert/k8s/revive_eon_5")
+	assert.NoError(t, err)
+}

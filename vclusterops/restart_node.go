@@ -153,36 +153,28 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	for nodename, newIP := range options.Nodes {
 		oldIP, ok := hostNodeNameMap[nodename]
 		if !ok {
-			vlog.LogPrintError("node name %s does not exist", nodename)
-			return err
+			vlog.LogPrintError("fail to provide a non-existent node name %s", nodename)
+			return fmt.Errorf("the node with the provided name %s does not exist", nodename)
 		}
 		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
 		if oldIP != newIP {
 			restartNodeInfo.ReIPList = append(restartNodeInfo.ReIPList, newIP)
 			restartNodeInfo.NodeNamesToRestart = append(restartNodeInfo.NodeNamesToRestart, nodename)
+			vlog.LogInfo("the node with the name %s needs to be re-IP %s", restartNodeInfo.NodeNamesToRestart, restartNodeInfo.ReIPList)
 		} else {
 			// otherwise, we don't need to re-ip
 			hostsNoNeedToReIP = append(hostsNoNeedToReIP, newIP)
 		}
 	}
 
-	// VER-88552 will improve this corner case
-	if len(restartNodeInfo.ReIPList) != 0 {
-		if len(hostsNoNeedToReIP) != 0 {
-			vlog.LogInfo("The following requested hosts will not be restarted since their catalog IP is not changing: %s", hostsNoNeedToReIP)
-		}
-		// if we find any nodes that need to re-ip, we should restart these nodes
-		restartNodeInfo.HostsToRestart = restartNodeInfo.ReIPList
-	} else {
-		// otherwise, we restart nodes that do not require re-IP, this scenario arises
-		// when a user restarts all nodes with accurate IPs as recorded in the catalog
-		restartNodeInfo.HostsToRestart = hostsNoNeedToReIP
-	}
+	// we can proceed to restart both nodes with and without IP changes
+	restartNodeInfo.HostsToRestart = append(restartNodeInfo.HostsToRestart, restartNodeInfo.ReIPList...)
+	restartNodeInfo.HostsToRestart = append(restartNodeInfo.HostsToRestart, hostsNoNeedToReIP...)
 
 	// produce restart_node instructions
 	instructions, err := produceRestartNodesInstructions(restartNodeInfo, options, &vdb)
 	if err != nil {
-		vlog.LogPrintError("fail to production instructions, %s", err)
+		vlog.LogPrintError("fail to produce instructions, %s", err)
 		return err
 	}
 
@@ -212,7 +204,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for starting nodes
 //   - Use any UP primary nodes as source host for syncing spread.conf and vertica.conf, source host can be picked
 //     by a HTTPS /v1/nodes call for finding UP primary nodes
-//   - Sync the confs to the to the nodes to be restarted
+//   - Sync the confs to the nodes to be restarted
 //   - Call https /v1/startup/command to get restart command of the nodes to be restarted
 //   - restart nodes
 //   - Poll node start up
@@ -244,8 +236,8 @@ func produceRestartNodesInstructions(restartNodeInfo *VRestartNodesInfo, options
 	// If we identify any nodes that need re-IP, HostsToRestart will contain the nodes that need re-IP.
 	// Otherwise, HostsToRestart will consist of all hosts with IPs recorded in the catalog, which are provided by user input.
 	if len(restartNodeInfo.ReIPList) != 0 {
-		nmaNetworkProfileOp := makeNMANetworkProfileOp(restartNodeInfo.HostsToRestart)
-		httpsReIPOp, e := makeHTTPSReIPOp(restartNodeInfo.NodeNamesToRestart, restartNodeInfo.HostsToRestart,
+		nmaNetworkProfileOp := makeNMANetworkProfileOp(restartNodeInfo.ReIPList)
+		httpsReIPOp, e := makeHTTPSReIPOp(restartNodeInfo.NodeNamesToRestart, restartNodeInfo.ReIPList,
 			options.usePassword, *options.UserName, options.Password)
 		if e != nil {
 			return instructions, e

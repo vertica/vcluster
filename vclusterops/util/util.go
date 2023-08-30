@@ -27,6 +27,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"golang.org/x/exp/slices"
@@ -509,4 +510,20 @@ func CopyMap[K comparable, V any](original map[K]V) map[K]V {
 	}
 
 	return copyOfMap
+}
+
+// ValidateCommunalStorageLocation can identify some invalid communal storage locations
+func ValidateCommunalStorageLocation(location string) error {
+	// reject empty communal storage location
+	if location == "" {
+		return fmt.Errorf("must specify a communal storage location")
+	}
+
+	// reject communal storage location with ":/"
+	re := regexp.MustCompile(":/?[^/]")
+	if re.MatchString(location) {
+		return fmt.Errorf("invalid separator found in communal storage location, use :// instead of : or :/")
+	}
+
+	return nil
 }
