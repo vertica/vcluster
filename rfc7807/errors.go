@@ -68,5 +68,9 @@ var (
 	SubclusterNotFound = newProblemID(
 		"https://integrators.vertica.com/vcluster/errors/subcluster-not-found",
 		"Subcluster is not found",
+    )    
+	GenericCatalogEditorFailure = newProblemID(
+		"https://integrators.vertica.com/vcluster/errors/internal-catalog-editor-failure",
+		"Internal error while running catalog editor",
 	)
 )
