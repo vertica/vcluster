@@ -24,6 +24,7 @@ type OpEngineExecContext struct {
 	defaultSCName          string // store the default subcluster name of the database
 	hostsWithLatestCatalog []string
 	startupCommandMap      map[string][]string // store start up command map to restart nodes
+	dbInfo                 string              // store the db info that retrieved from communal storage
 }
 
 func MakeOpEngineExecContext() OpEngineExecContext {

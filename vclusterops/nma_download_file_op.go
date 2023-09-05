@@ -21,15 +21,17 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const (
-	respSuccResult   = "Download successful"
-	userStorageType  = 4
-	depotStorageType = 5
-	catalogSuffix    = "Catalog"
+	respSuccResult         = "Download successful"
+	userStorageType        = 4
+	depotStorageType       = 5
+	catalogSuffix          = "Catalog"
+	expirationStringLayout = "2006-01-02 15:04:05.999999"
 )
 
 type NMADownloadFileOp struct {
@@ -38,7 +40,9 @@ type NMADownloadFileOp struct {
 	// vdb will be used to save downloaded file info for revive_db
 	vdb *VCoordinationDatabase
 	// newNodes is used to verify node number in http response for revive_db
-	newNodes []string
+	newNodes           []string
+	displayOnly        bool
+	ignoreClusterLease bool
 }
 
 type downloadFileRequestData struct {
@@ -50,17 +54,20 @@ type downloadFileRequestData struct {
 	Parameters          map[string]string `json:"parameters,omitempty"`
 }
 
-func makeNMADownloadFileOp(hosts, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
-	communalStorageParameters map[string]string, vdb *VCoordinationDatabase) (NMADownloadFileOp, error) {
+func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+	communalStorageParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
 	op := NMADownloadFileOp{}
 	op.name = "NMADownloadFileOp"
-	op.hosts = hosts
+	initiator := getInitiator(newNodes)
+	op.hosts = []string{initiator}
 	op.vdb = vdb
 	op.newNodes = newNodes
+	op.displayOnly = displayOnly
+	op.ignoreClusterLease = ignoreClusterLease
 
 	// make https json data
 	op.hostRequestBodyMap = make(map[string]string)
-	for _, host := range hosts {
+	for _, host := range op.hosts {
 		requestData := downloadFileRequestData{}
 		requestData.SourceFilePath = sourceFilePath
 		requestData.DestinationFilePath = destinationFilePath
@@ -118,7 +125,8 @@ type downloadResponse struct {
 }
 
 type fileContent struct {
-	NodeList []struct {
+	ClusterLeaseExpiration string `json:"ClusterLeaseExpiration"`
+	NodeList               []struct {
 		Name        string `json:"name"`
 		Address     string `json:"address"`
 		CatalogPath string `json:"catalogPath"`
@@ -131,7 +139,7 @@ type fileContent struct {
 	} `json:"StorageLocation"`
 }
 
-func (op *NMADownloadFileOp) processResult(_ *OpEngineExecContext) error {
+func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -153,9 +161,21 @@ func (op *NMADownloadFileOp) processResult(_ *OpEngineExecContext) error {
 				break
 			}
 
+			// for --display-only, we only need the file content
+			if op.displayOnly {
+				execContext.dbInfo = response.FileContent
+				return nil
+			}
+
 			// file content in the response is a string, we need to unmarshal it again
 			descFileContent := fileContent{}
 			err = op.parseAndCheckResponse(host, response.FileContent, &descFileContent)
+			if err != nil {
+				allErrs = errors.Join(allErrs, err)
+				break
+			}
+
+			err = op.clusterLeaseCheck(descFileContent.ClusterLeaseExpiration)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 				break
@@ -165,7 +185,6 @@ func (op *NMADownloadFileOp) processResult(_ *OpEngineExecContext) error {
 				err := fmt.Errorf(`[%s] nodes mismatch found on host %s: the number of the new nodes in --hosts is %d,`+
 					` but the number of the old nodes in description file is %d`,
 					op.name, host, len(op.newNodes), len(descFileContent.NodeList))
-				vlog.LogError(err.Error())
 				allErrs = errors.Join(allErrs, err)
 				break
 			}
@@ -215,4 +234,29 @@ func (op *NMADownloadFileOp) processResult(_ *OpEngineExecContext) error {
 	}
 
 	return appendHTTPSFailureError(allErrs)
+}
+
+func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) error {
+	if op.ignoreClusterLease {
+		vlog.LogPrintWarningln("Skipping cluster lease check")
+		return nil
+	}
+
+	utcExpiration, err := time.Parse(expirationStringLayout, clusterLeaseExpiration)
+	if err != nil {
+		wrappedErr := fmt.Errorf("fail to convert cluster-lease-expiration string to a time: %w", err)
+		return wrappedErr
+	}
+	utcNow := time.Now().UTC()
+
+	// current time < expire time, it means that the cluster lease is not expired
+	if utcNow.Before(utcExpiration) {
+		return fmt.Errorf("revive database cannot continue because the communal storage location might still be in use."+
+			" The cluster lease will expire at %s(UTC)."+
+			" Please ensure that the other cluster has stopped and try revive_db after the cluster lease expiration",
+			clusterLeaseExpiration)
+	}
+
+	vlog.LogPrintInfoln("Cluster lease check has passed. We proceed to revive the database")
+	return nil
 }
