@@ -23,19 +23,10 @@ import (
 
 // Normal strings are easier and safer to use in Go.
 type VStartDatabaseOptions struct {
-	// part 1: basic db info
+	// basic db info
 	DatabaseOptions
-	// part 2: hidden info
-	UsePassword bool
-}
-
-type VStartDatabaseInfo struct {
-	DBName          string
-	Hosts           []string
-	UserName        string
-	Password        *string
-	CatalogPath     string
-	HostCatalogPath map[string]string
+	// Timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
+	StatePollingTimeout int
 }
 
 func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
@@ -43,7 +34,7 @@ func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
 
 	// set default values to the params
 	opt.SetDefaultValues()
-
+	opt.StatePollingTimeout = util.DefaultTimeoutSeconds
 	return opt
 }
 
@@ -109,14 +100,14 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 		return err
 	}
 
-	// build startDBInfo from config file and options
-	startDBInfo := new(VStartDatabaseInfo)
-	startDBInfo.DBName, startDBInfo.Hosts = options.GetNameAndHosts(config)
-	startDBInfo.HostCatalogPath = make(map[string]string)
-	startDBInfo.CatalogPath = options.GetCatalogPrefix(config)
+	// get db name and hosts from config file and options
+	dbName, hosts := options.GetNameAndHosts(config)
+	options.Name = &dbName
+	options.Hosts = hosts
+	options.CatalogPrefix = options.GetCatalogPrefix(config)
 
 	// produce start_db instructions
-	instructions, err := produceStartDBInstructions(startDBInfo, options)
+	instructions, err := produceStartDBInstructions(options)
 	if err != nil {
 		err = fmt.Errorf("fail to production instructions: %w", err)
 		return err
@@ -142,37 +133,33 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 // The generated instructions will later perform the following operations necessary
 // for a successful start_db:
 //   - Check NMA connectivity
-//   - Check to see if any dbs running
 //   - Check Vertica versions
+//   - Check to see if any dbs running
 //   - Use NMA /catalog/database to get the best source node for spread.conf and vertica.conf
 //   - Sync the confs to the rest of nodes who have lower catalog version (results from the previous step)
 //   - Start all nodes of the database
 //   - Poll node startup
 //   - Sync catalog (Eon mode only)
-func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStartDatabaseOptions) ([]ClusterOp, error) {
+func produceStartDBInstructions(options *VStartDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
-	nmaHealthOp := makeNMAHealthOp(startDBInfo.Hosts)
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(startDBInfo.Hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(options.Hosts, true)
 	// need username for https operations
-	usePassword := false
-	if options.Password != nil {
-		usePassword = true
-		err := options.ValidateUserName()
-		if err != nil {
-			return instructions, err
-		}
+	err := options.SetUsePassword()
+	if err != nil {
+		return instructions, err
 	}
 
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(startDBInfo.Hosts,
-		usePassword, *options.UserName, options.Password, StartDB)
+	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(options.Hosts,
+		options.usePassword, *options.UserName, options.Password, StartDB)
 	if err != nil {
 		return instructions, err
 	}
 
 	vdb := VCoordinationDatabase{}
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(startDBInfo.Hosts, *options.Name, startDBInfo.CatalogPath, &vdb)
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.Name, *options.CatalogPrefix, &vdb)
 
 	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp([]string{}, &vdb)
 	if err != nil {
@@ -192,12 +179,12 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
 	produceTransferConfigOps(&instructions,
 		nil, /*source hosts for transferring configuration files*/
-		startDBInfo.Hosts,
+		options.Hosts,
 		nil /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOp(startDBInfo.Hosts)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(startDBInfo.Hosts,
-		usePassword, *options.UserName, options.Password)
+	nmaStartNewNodesOp := makeNMAStartNodeOp(options.Hosts)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeout(options.Hosts,
+		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout)
 	if err != nil {
 		return instructions, err
 	}
@@ -208,7 +195,7 @@ func produceStartDBInstructions(startDBInfo *VStartDatabaseInfo, options *VStart
 	)
 
 	if options.IsEon.ToBool() {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(startDBInfo.Hosts, true, *options.UserName, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password)
 		if err != nil {
 			return instructions, err
 		}

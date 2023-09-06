@@ -3,6 +3,7 @@ package commands
 import (
 	"flag"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
@@ -45,6 +46,9 @@ func makeCmdRestartNodes() *CmdRestartNodes {
 		util.GetOptionalFlagMsg("Forcefully use the user input instead of reading the options from "+vclusterops.ConfigFileName))
 	restartNodesOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
+	restartNodesOptions.StatePollingTimeout = *newCmd.parser.Int("timeout", util.DefaultTimeoutSeconds,
+		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
+			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
 
 	newCmd.restartNodesOptions = &restartNodesOptions
 	newCmd.parser.Usage = func() {

@@ -32,11 +32,23 @@ type HTTPSPollNodeStateOp struct {
 	allHosts   map[string]interface{}
 	upHosts    map[string]interface{}
 	notUpHosts []string
+	timeout    int
+}
+
+func makeHTTPSPollNodeStateOpWithTimeout(hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+	timeout int) (HTTPSPollNodeStateOp, error) {
+	op, err := makeHTTPSPollNodeStateOp(hosts, useHTTPPassword, userName, httpsPassword)
+	if err != nil {
+		return op, err
+	}
+	op.timeout = timeout
+	return op, nil
 }
 
 func makeHTTPSPollNodeStateOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string,
-) (HTTPSPollNodeStateOp, error) {
+	useHTTPPassword bool, userName string,
+	httpsPassword *string) (HTTPSPollNodeStateOp, error) {
 	httpsPollNodeStateOp := HTTPSPollNodeStateOp{}
 	httpsPollNodeStateOp.name = "HTTPSPollNodeStateOp"
 	httpsPollNodeStateOp.hosts = hosts
@@ -54,7 +66,12 @@ func makeHTTPSPollNodeStateOp(hosts []string,
 	for _, h := range hosts {
 		httpsPollNodeStateOp.allHosts[h] = struct{}{}
 	}
-
+	timeoutSecondStr := util.GetEnv("NODE_STATE_POLLING_TIMEOUT", strconv.Itoa(StartupPollingTimeout))
+	timeoutSecond, err := strconv.Atoi(timeoutSecondStr)
+	if err != nil {
+		return HTTPSPollNodeStateOp{}, err
+	}
+	httpsPollNodeStateOp.timeout = timeoutSecond
 	return httpsPollNodeStateOp, nil
 }
 
@@ -98,13 +115,7 @@ func (op *HTTPSPollNodeStateOp) finalize(_ *OpEngineExecContext) error {
 
 func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) error {
 	startTime := time.Now()
-	timeoutSecondStr := util.GetEnv("NODE_STATE_POLLING_TIMEOUT", strconv.Itoa(StartupPollingTimeout))
-	timeoutSecond, err := strconv.Atoi(timeoutSecondStr)
-	if err != nil {
-		return fmt.Errorf("invalid timeout value %s: %w", timeoutSecondStr, err)
-	}
-
-	duration := time.Duration(timeoutSecond) * time.Second
+	duration := time.Duration(op.timeout) * time.Second
 	count := 0
 	for endTime := startTime.Add(duration); ; {
 		if time.Now().After(endTime) {
@@ -134,7 +145,7 @@ func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) 
 	// show the hosts that are not UP
 	sort.Strings(op.notUpHosts)
 	msg := fmt.Sprintf("The following hosts are not up after %d seconds: %v",
-		timeoutSecond, op.notUpHosts)
+		op.timeout, op.notUpHosts)
 	vlog.LogPrintError(msg)
 	return errors.New(msg)
 }
@@ -159,7 +170,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 		// We don't need to wait until timeout to determine if all nodes are up or not.
 		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately."
 		if result.IsPasswordandCertificateError() {
-			vlog.LogPrintError("[%s] Database is UP, but user has provided wrong credentials so unable to perform further operations",
+			vlog.LogPrintError("[%s] All nodes are UP, but the credentials are incorrect. Catalog sync failed.",
 				op.name)
 			return false, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)

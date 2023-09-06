@@ -237,8 +237,10 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 	switch op.opType {
 	case CreateDB:
 		vlog.LogPrintInfoln("Aborting database creation")
-	case StopDB, StartDB:
+	case StopDB:
 		vlog.LogPrintInfoln("The database has not been down yet")
+	case StartDB:
+		vlog.LogPrintInfoln("Aborting database start")
 	case ReviveDB:
 		vlog.LogPrintInfoln("Aborting database revival")
 	}
@@ -248,9 +250,9 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 func (op *HTTPCheckRunningDBOp) execute(execContext *OpEngineExecContext) error {
 	vlog.LogInfo("[%s] Execute() for operation %s", op.name, op.opType)
 	switch op.opType {
-	case CreateDB, ReviveDB:
+	case CreateDB, StartDB, ReviveDB:
 		return op.checkDBConnection(execContext)
-	case StopDB, StartDB:
+	case StopDB:
 		return op.pollForDBDown(execContext)
 	}
 

@@ -28,6 +28,8 @@ type VRestartNodesOptions struct {
 	DatabaseOptions
 	// A set of nodes(nodename - host) that we want to restart in the database
 	Nodes map[string]string
+	// timeout for polling nodes that we want to restart in HTTPSPollNodeStateOp
+	StatePollingTimeout int
 }
 
 type VRestartNodesInfo struct {
@@ -46,7 +48,7 @@ func VRestartNodesOptionsFactory() VRestartNodesOptions {
 
 	// set default values to the params
 	opt.setDefaultValues()
-
+	opt.StatePollingTimeout = util.DefaultTimeoutSeconds
 	return opt
 }
 
@@ -60,7 +62,7 @@ func (options *VRestartNodesOptions) validateRequiredOptions() error {
 		return err
 	}
 	if len(options.Nodes) == 0 {
-		return fmt.Errorf("must specify a list of NODENAME=REIPHOST pairs")
+		return fmt.Errorf("--restart option is required")
 	}
 
 	return nil
@@ -276,8 +278,8 @@ func produceRestartNodesInstructions(restartNodeInfo *VRestartNodesInfo, options
 		return instructions, err
 	}
 	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(restartNodeInfo.HostsToRestart, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(restartNodeInfo.HostsToRestart,
-		options.usePassword, *options.UserName, options.Password)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeout(restartNodeInfo.HostsToRestart,
+		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout)
 	if err != nil {
 		return instructions, err
 	}

@@ -303,16 +303,16 @@ func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string) {
 }
 
 // GetCatalogPrefix can choose the right catalog prefix from user input and config file
-func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPrefix string) {
+func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPrefix *string) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if config == nil {
-		return *opt.CatalogPrefix
+		return opt.CatalogPrefix
 	}
-	catalogPrefix = config.CatalogPath
+	catalogPrefix = &config.CatalogPath
 	// if HonorUserInput is set, we choose the user input
 	if *opt.CatalogPrefix != "" && *opt.HonorUserInput {
-		catalogPrefix = *opt.CatalogPrefix
+		catalogPrefix = opt.CatalogPrefix
 	}
 	return catalogPrefix
 }

@@ -3,6 +3,7 @@ package commands
 import (
 	"flag"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
@@ -23,7 +24,6 @@ type CmdStartDB struct {
 	IgnoreClusterLease  *bool // ignore the cluster lease in communal storage
 	Unsafe              *bool // Start database unsafely, skipping recovery.
 	Fast                *bool // Attempt fast startup database
-	Timeout             *int  // Timeout for starting the database
 }
 
 func makeCmdStartDB() *CmdStartDB {
@@ -49,7 +49,9 @@ func makeCmdStartDB() *CmdStartDB {
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
 	startDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-
+	startDBOptions.StatePollingTimeout = *newCmd.parser.Int("timeout", util.DefaultTimeoutSeconds,
+		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
+			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
 	// eon flags
 	newCmd.isEon = newCmd.parser.Bool("eon-mode", false, util.GetEonFlagMsg("Indicate if the database is an Eon database."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
@@ -61,7 +63,6 @@ func makeCmdStartDB() *CmdStartDB {
 	newCmd.AllowFallbackKeygen = newCmd.parser.Bool("allow_fallback_keygen", false, util.SuppressHelp)
 	newCmd.IgnoreClusterLease = newCmd.parser.Bool("ignore_cluster_lease", false, util.SuppressHelp)
 	newCmd.Fast = newCmd.parser.Bool("fast", false, util.SuppressHelp)
-	newCmd.Timeout = newCmd.parser.Int("timeout", util.DefaultDrainSeconds, util.SuppressHelp)
 
 	newCmd.startDBOptions = &startDBOptions
 	newCmd.parser.Usage = func() {
@@ -94,10 +95,6 @@ func (c *CmdStartDB) Parse(inputArgv []string) error {
 
 	if !util.IsOptionSet(c.parser, "ipv6") {
 		c.CmdBase.ipv6 = nil
-	}
-
-	if util.IsOptionSet(c.parser, "password") {
-		c.startDBOptions.UsePassword = true
 	}
 
 	if !util.IsOptionSet(c.parser, "config-directory") {
