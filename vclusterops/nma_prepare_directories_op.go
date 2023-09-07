@@ -41,7 +41,7 @@ type prepareDirectoriesRequestData struct {
 	IgnoreParent         bool     `json:"ignore_parent"`
 }
 
-func makeNMAPrepareDirectoriesOp(hostNodeMap map[string]VCoordinationNode,
+func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
 	forceCleanup, forRevive bool) (NMAPrepareDirectoriesOp, error) {
 	nmaPrepareDirectoriesOp := NMAPrepareDirectoriesOp{}
 	nmaPrepareDirectoriesOp.name = "NMAPrepareDirectoriesOp"
@@ -58,7 +58,7 @@ func makeNMAPrepareDirectoriesOp(hostNodeMap map[string]VCoordinationNode,
 	return nmaPrepareDirectoriesOp, nil
 }
 
-func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap map[string]VCoordinationNode) error {
+func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for host := range hostNodeMap {

@@ -34,7 +34,6 @@ func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
 
 	// set default values to the params
 	opt.SetDefaultValues()
-	opt.StatePollingTimeout = util.DefaultTimeoutSeconds
 	return opt
 }
 
@@ -105,6 +104,11 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	options.Name = &dbName
 	options.Hosts = hosts
 	options.CatalogPrefix = options.GetCatalogPrefix(config)
+
+	// set default value to StatePollingTimeout
+	if options.StatePollingTimeout == 0 {
+		options.StatePollingTimeout = util.DefaultStatePollingTimeout
+	}
 
 	// produce start_db instructions
 	instructions, err := produceStartDBInstructions(options)

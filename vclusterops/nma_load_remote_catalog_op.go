@@ -57,8 +57,8 @@ func makeNMALoadRemoteCatalogOp(oldHosts []string, communalStorageParameters map
 	op.timeout = timeout
 
 	op.primaryNodeCount = 0
-	for host := range vdb.HostNodeMap {
-		if vdb.HostNodeMap[host].IsPrimary {
+	for _, vnode := range vdb.HostNodeMap {
+		if vnode.IsPrimary {
 			op.primaryNodeCount++
 		}
 	}

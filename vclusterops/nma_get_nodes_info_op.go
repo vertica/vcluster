@@ -37,7 +37,7 @@ func makeNMAGetNodesInfoOp(hosts []string,
 	op.dbName = dbName
 	op.catalogPrefix = catalogPrefix
 	op.vdb = vdb
-	op.vdb.HostNodeMap = make(map[string]VCoordinationNode)
+	op.vdb.HostNodeMap = makeVHostNodeMap()
 	return op
 }
 
@@ -87,7 +87,7 @@ func (op *nmaGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 				return errors.Join(allErrs, err)
 			}
 			vnode.Address = host
-			op.vdb.HostNodeMap[host] = vnode
+			op.vdb.HostNodeMap[host] = &vnode
 		} else {
 			allErrs = errors.Join(allErrs, result.err)
 		}

@@ -40,8 +40,8 @@ func makeHTTPSCreateClusterDepotOp(vdb *VCoordinationDatabase, hosts []string,
 
 	// store nodeName-depotPath values for later http response verification
 	httpsCreateDepotOp.NodeDepotPaths = make(map[string]string)
-	for host := range vdb.HostNodeMap {
-		httpsCreateDepotOp.NodeDepotPaths[vdb.HostNodeMap[host].Name] = vdb.HostNodeMap[host].DepotPath
+	for _, vnode := range vdb.HostNodeMap {
+		httpsCreateDepotOp.NodeDepotPaths[vnode.Name] = vnode.DepotPath
 	}
 
 	// set the query params, "path" is required, "size" is optional

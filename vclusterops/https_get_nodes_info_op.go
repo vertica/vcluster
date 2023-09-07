@@ -99,7 +99,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 				break
 			}
 			// save nodes info to vdb
-			op.vdb.HostNodeMap = make(map[string]VCoordinationNode)
+			op.vdb.HostNodeMap = makeVHostNodeMap()
 			for _, node := range nodesStateInfo.NodeList {
 				if node.Database != op.dbName {
 					err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.dbName)
@@ -117,7 +117,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 				if node.IsPrimary && node.State == util.NodeUpState {
 					op.vdb.PrimaryUpNodes = append(op.vdb.PrimaryUpNodes, node.Address)
 				}
-				op.vdb.HostNodeMap[node.Address] = vNode
+				op.vdb.HostNodeMap[node.Address] = &vNode
 				// extract catalog prefix from node's catalog path
 				// catalog prefix is preceding db name
 				dbPath := "/" + node.Database

@@ -48,7 +48,6 @@ func VRestartNodesOptionsFactory() VRestartNodesOptions {
 
 	// set default values to the params
 	opt.setDefaultValues()
-	opt.StatePollingTimeout = util.DefaultTimeoutSeconds
 	return opt
 }
 
@@ -139,6 +138,11 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	options.Name = &dbName
 	options.Hosts = hosts
 
+	// set default value to StatePollingTimeout
+	if options.StatePollingTimeout == 0 {
+		options.StatePollingTimeout = util.DefaultStatePollingTimeout
+	}
+
 	// retrieve database information to execute the command so we do not always rely on some user input
 	vdb := MakeVCoordinationDatabase()
 	err = getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
@@ -149,8 +153,8 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	var hostsNoNeedToReIP []string
 	hostNodeNameMap := make(map[string]string)
 	restartNodeInfo := new(VRestartNodesInfo)
-	for host := range vdb.HostNodeMap {
-		hostNodeNameMap[vdb.HostNodeMap[host].Name] = vdb.HostNodeMap[host].Address
+	for _, vnode := range vdb.HostNodeMap {
+		hostNodeNameMap[vnode.Name] = vnode.Address
 	}
 	for nodename, newIP := range options.Nodes {
 		oldIP, ok := hostNodeNameMap[nodename]
@@ -246,7 +250,7 @@ func produceRestartNodesInstructions(restartNodeInfo *VRestartNodesInfo, options
 		}
 		// host is set to nil value in the reload spread step
 		// we use information from node information to find the up host later
-		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOp(nil /*hosts*/, true, *options.UserName, options.Password)
+		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOp(true, *options.UserName, options.Password)
 		if e != nil {
 			return instructions, e
 		}

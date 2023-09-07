@@ -223,7 +223,7 @@ func produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordina
 	}
 
 	// create a new HostNodeMap to prepare directories
-	hostNodeMap := make(map[string]VCoordinationNode)
+	hostNodeMap := makeVHostNodeMap()
 	// remove user storage locations from storage locations in every node
 	// user storage location will not be force deleted,
 	// and fail to create user storage location will not cause a failure of NMA /directories/prepare call.
@@ -288,15 +288,15 @@ func (options *VReviveDatabaseOptions) generateReviveVDB(vdb *VCoordinationDatab
 	["192.168.1.102", "192.168.1.101", "192.168.1.103"]
 	*/
 	// sort nodes by their names, and then assign new hosts to them
-	var vNodes []VCoordinationNode
-	for host := range vdb.HostNodeMap {
-		vNodes = append(vNodes, vdb.HostNodeMap[host])
+	var vNodes []*VCoordinationNode
+	for _, vnode := range vdb.HostNodeMap {
+		vNodes = append(vNodes, vnode)
 	}
 	sort.Slice(vNodes, func(i, j int) bool {
 		return vNodes[i].Name < vNodes[j].Name
 	})
 
-	newVDB.HostNodeMap = make(map[string]VCoordinationNode)
+	newVDB.HostNodeMap = makeVHostNodeMap()
 	if len(newVDB.HostList) != len(vNodes) {
 		return newVDB, oldHosts, fmt.Errorf("the number of new hosts does not match the number of nodes in original database")
 	}

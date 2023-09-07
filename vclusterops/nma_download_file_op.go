@@ -190,7 +190,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 			}
 
 			// save descFileContent in vdb
-			op.vdb.HostNodeMap = make(map[string]VCoordinationNode)
+			op.vdb.HostNodeMap = makeVHostNodeMap()
 			for _, node := range descFileContent.NodeList {
 				op.vdb.HostList = append(op.vdb.HostList, node.Address)
 				vNode := MakeVCoordinationNode()
@@ -224,7 +224,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 					}
 				}
 
-				op.vdb.HostNodeMap[node.Address] = vNode
+				op.vdb.HostNodeMap[node.Address] = &vNode
 			}
 			return nil
 		}

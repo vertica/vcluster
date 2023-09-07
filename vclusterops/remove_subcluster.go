@@ -230,8 +230,7 @@ func removeScPreCheck(vdb *VCoordinationDatabase, options *VRemoveScOptions) ([]
 	}
 
 	// get nodes of the to-be-removed subcluster
-	for h := range vdb.HostNodeMap {
-		vnode := vdb.HostNodeMap[h]
+	for h, vnode := range vdb.HostNodeMap {
 		if vnode.Subcluster == *options.SubclusterToRemove {
 			hostsToRemove = append(hostsToRemove, h)
 		}

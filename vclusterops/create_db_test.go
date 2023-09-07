@@ -67,11 +67,11 @@ func TestWriteClusterConfig(t *testing.T) {
 	vdb.DataPrefix = defaultPath
 	vdb.DepotPrefix = defaultPath
 	vdb.HostList = []string{"ip_1", "ip_2", "ip_3"}
-	vdb.HostNodeMap = make(map[string]VCoordinationNode)
+	vdb.HostNodeMap = makeVHostNodeMap()
 	for i, h := range vdb.HostList {
 		n := VCoordinationNode{}
 		n.Name = fmt.Sprintf("node_name_%d", i+1)
-		vdb.HostNodeMap[h] = n
+		vdb.HostNodeMap[h] = &n
 	}
 	vdb.IsEon = true
 

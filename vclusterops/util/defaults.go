@@ -30,6 +30,7 @@ const (
 	DefaultRetryCount                = 3
 	DefaultTimeoutSeconds            = 300
 	DefaultLoadCatalogTimeoutSeconds = 3600
+	DefaultStatePollingTimeout       = 1200
 	DefaultLargeCluster              = -1
 	MaxLargeCluster                  = 120
 	MinDepotSize                     = 0

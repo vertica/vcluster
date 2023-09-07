@@ -217,11 +217,10 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 		}
 	}
 	vdb.DepotPrefix = *o.DepotPrefix
-	hostNodeMap := make(map[string]VCoordinationNode)
+	hostNodeMap := makeVHostNodeMap()
 	// we set the depot path manually because there is not yet an https endpoint for
 	// that(VER-88122). This is useful for NMADeleteDirectoriesOp.
-	for h := range vdb.HostNodeMap {
-		vnode := vdb.HostNodeMap[h]
+	for h, vnode := range vdb.HostNodeMap {
 		vnode.DepotPath = vdb.genDepotPath(vnode.Name)
 		hostNodeMap[h] = vnode
 	}
@@ -304,7 +303,7 @@ func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveN
 	if err != nil {
 		return instructions, err
 	}
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(initiatorHost, true, username, password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, true, username, password)
 	if err != nil {
 		return instructions, err
 	}
@@ -343,7 +342,7 @@ func produceRebalanceSubclusterShardsOps(instructions *[]ClusterOp, initiatorHos
 // produces an HTTPSMarkEphemeralNodeOp.
 func produceMarkEphemeralNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-	hostNodeMap map[string]VCoordinationNode) error {
+	hostNodeMap vHostNodeMap) error {
 	for _, host := range targetHosts {
 		httpsMarkEphemeralNodeOp, err := makeHTTPSMarkEphemeralNodeOp(hostNodeMap[host].Name, hosts,
 			useHTTPPassword, userName, httpsPassword)
@@ -359,7 +358,7 @@ func produceMarkEphemeralNodeOps(instructions *[]ClusterOp, targetHosts, hosts [
 // This is because we must drop node one by one to avoid losing quorum.
 func produceDropNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-	hostNodeMap map[string]VCoordinationNode, isEon bool) error {
+	hostNodeMap vHostNodeMap, isEon bool) error {
 	for _, host := range targetHosts {
 		httpsDropNodeOp, err := makeHTTPSDropNodeOp(hostNodeMap[host].Name, hosts,
 			useHTTPPassword, userName, httpsPassword, isEon)

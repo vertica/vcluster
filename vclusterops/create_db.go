@@ -529,7 +529,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 		instructions = append(instructions, &httpsCreateNodeOp)
 	}
 
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(bootstrapHost, true, *options.UserName, options.Password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(bootstrapHost, true, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}

@@ -37,7 +37,7 @@ type VCoordinationDatabase struct {
 	// processed path prefixes
 	CatalogPrefix string
 	DataPrefix    string
-	HostNodeMap   map[string]VCoordinationNode
+	HostNodeMap   vHostNodeMap
 	// for convenience
 	HostList []string // expected to be resolved IP addresses
 
@@ -60,6 +60,12 @@ type VCoordinationDatabase struct {
 	PrimaryUpNodes []string
 }
 
+type vHostNodeMap map[string]*VCoordinationNode
+
+func makeVHostNodeMap() vHostNodeMap {
+	return make(vHostNodeMap)
+}
+
 func MakeVCoordinationDatabase() VCoordinationDatabase {
 	return VCoordinationDatabase{}
 }
@@ -78,7 +84,7 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 	vdb.DataPrefix = *options.DataPrefix
 	vdb.HostList = make([]string, len(options.Hosts))
 	vdb.HostList = options.Hosts
-	vdb.HostNodeMap = make(map[string]VCoordinationNode)
+	vdb.HostNodeMap = makeVHostNodeMap()
 	vdb.LicensePathOnNode = *options.LicensePathOnNode
 	vdb.Ipv6 = options.Ipv6.ToBool()
 
@@ -109,7 +115,7 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 		if err != nil {
 			return err
 		}
-		vdb.HostNodeMap[host] = vNode
+		vdb.HostNodeMap[host] = &vNode
 	}
 
 	return nil
@@ -133,7 +139,7 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string) error {
 		}
 		vNode.SetFromNodeConfig(nodeConfig, vdb)
 		vdb.HostList = append(vdb.HostList, host)
-		vdb.HostNodeMap[host] = vNode
+		vdb.HostNodeMap[host] = &vNode
 	}
 
 	return nil
@@ -153,11 +159,11 @@ func (vdb *VCoordinationDatabase) SetFromClusterConfig(clusterConfig *ClusterCon
 		vdb.UseDepot = true
 	}
 
-	vdb.HostNodeMap = make(map[string]VCoordinationNode)
+	vdb.HostNodeMap = makeVHostNodeMap()
 	for _, nodeConfig := range clusterConfig.Nodes {
 		vnode := VCoordinationNode{}
 		vnode.SetFromNodeConfig(nodeConfig, vdb)
-		vdb.HostNodeMap[vnode.Address] = vnode
+		vdb.HostNodeMap[vnode.Address] = &vnode
 	}
 }
 
@@ -196,7 +202,7 @@ func (vdb *VCoordinationDatabase) Copy(targetHosts []string) VCoordinationDataba
 
 // copyHostNodeMap copies the receiver's HostNodeMap. You can choose to copy
 // only a subset of the receiver's hosts by passing a slice of hosts to keep.
-func (vdb *VCoordinationDatabase) copyHostNodeMap(targetHosts []string) map[string]VCoordinationNode {
+func (vdb *VCoordinationDatabase) copyHostNodeMap(targetHosts []string) vHostNodeMap {
 	if len(targetHosts) == 0 {
 		return util.CopyMap(vdb.HostNodeMap)
 	}
@@ -208,8 +214,8 @@ func (vdb *VCoordinationDatabase) copyHostNodeMap(targetHosts []string) map[stri
 // host ip as value, from HostNodeMap.
 func (vdb *VCoordinationDatabase) genNodeNameToHostMap() map[string]string {
 	vnodes := make(map[string]string)
-	for h := range vdb.HostNodeMap {
-		vnodes[vdb.HostNodeMap[h].Name] = h
+	for h, vnode := range vdb.HostNodeMap {
+		vnodes[vnode.Name] = h
 	}
 	return vnodes
 }
@@ -234,8 +240,8 @@ func (vdb *VCoordinationDatabase) SetDBInfoFromClusterConfig(clusterConfig *Clus
 func (vdb *VCoordinationDatabase) getSCNames() []string {
 	allKeys := make(map[string]bool)
 	scNames := []string{}
-	for h := range vdb.HostNodeMap {
-		sc := vdb.HostNodeMap[h].Subcluster
+	for _, vnode := range vdb.HostNodeMap {
+		sc := vnode.Subcluster
 		if _, value := allKeys[sc]; !value {
 			allKeys[sc] = true
 			scNames = append(scNames, sc)
@@ -251,8 +257,8 @@ func (vdb *VCoordinationDatabase) containNodes(nodes []string) []string {
 		hostSet[n] = struct{}{}
 	}
 	dupHosts := []string{}
-	for h := range vdb.HostNodeMap {
-		address := vdb.HostNodeMap[h].Address
+	for _, vnode := range vdb.HostNodeMap {
+		address := vnode.Address
 		if _, exist := hostSet[address]; exist {
 			dupHosts = append(dupHosts, address)
 		}
@@ -264,8 +270,8 @@ func (vdb *VCoordinationDatabase) containNodes(nodes []string) []string {
 // hasAtLeastOneDownNode returns true if the current VCoordinationDatabase instance
 // has at least one down node.
 func (vdb *VCoordinationDatabase) hasAtLeastOneDownNode() bool {
-	for host := range vdb.HostNodeMap {
-		if vdb.HostNodeMap[host].State == util.NodeDownState {
+	for _, vnode := range vdb.HostNodeMap {
+		if vnode.State == util.NodeDownState {
 			return true
 		}
 	}

@@ -29,7 +29,7 @@ type HTTPSSpreadRemoveNodeOp struct {
 }
 
 func makeHTTPSSpreadRemoveNodeOp(hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, hostNodeMap map[string]VCoordinationNode) (HTTPSSpreadRemoveNodeOp, error) {
+	userName string, httpsPassword *string, hostNodeMap vHostNodeMap) (HTTPSSpreadRemoveNodeOp, error) {
 	op := HTTPSSpreadRemoveNodeOp{}
 	op.name = "HTTPSSpreadRemoveNodeOp"
 	op.hosts = initiatorHost

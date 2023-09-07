@@ -27,11 +27,12 @@ type HTTPSReloadSpreadOp struct {
 	OpHTTPSBase
 }
 
-func makeHTTPSReloadSpreadOp(hosts []string, useHTTPPassword bool,
+func makeHTTPSReloadSpreadOpWithInitiator(initHosts []string,
+	useHTTPPassword bool,
 	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
 	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
 	httpsReloadSpreadOp.name = "HTTPSReloadSpreadOp"
-	httpsReloadSpreadOp.hosts = hosts
+	httpsReloadSpreadOp.hosts = initHosts
 	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
 
 	err := util.ValidateUsernameAndPassword(httpsReloadSpreadOp.name, useHTTPPassword, userName)
@@ -41,6 +42,11 @@ func makeHTTPSReloadSpreadOp(hosts []string, useHTTPPassword bool,
 	httpsReloadSpreadOp.userName = userName
 	httpsReloadSpreadOp.httpsPassword = httpsPassword
 	return httpsReloadSpreadOp, nil
+}
+
+func makeHTTPSReloadSpreadOp(useHTTPPassword bool,
+	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
+	return makeHTTPSReloadSpreadOpWithInitiator(nil, useHTTPPassword, userName, httpsPassword)
 }
 
 func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {

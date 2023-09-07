@@ -203,11 +203,10 @@ func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
 	vdb.DataPrefix = *o.DataPrefix
 	vdb.DepotPrefix = *o.DepotPrefix
 
-	hostNodeMap := make(map[string]VCoordinationNode)
+	hostNodeMap := makeVHostNodeMap()
 	// we set depot/data paths manually because there is not yet an https endpoint for
 	// that(VER-88122). This is useful for NMAPrepareDirectoriesOp.
-	for h := range vdb.HostNodeMap {
-		vnode := vdb.HostNodeMap[h]
+	for h, vnode := range vdb.HostNodeMap {
 		dataPath := vdb.genDataPath(vnode.Name)
 		vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
 		if vdb.DepotPrefix != "" {
@@ -280,7 +279,7 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase,
 	if err != nil {
 		return instructions, err
 	}
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(initiatorHost, usePassword, username, password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, usePassword, username, password)
 	if err != nil {
 		return instructions, err
 	}
