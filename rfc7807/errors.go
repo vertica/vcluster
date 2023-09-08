@@ -74,3 +74,19 @@ var (
 		"Internal error while running catalog editor",
 	)
 )
+
+// List of all known RFC 7807 problems that scrutinize may see.
+var (
+	ScrutinizeWrongRequestMethod = newProblemID(
+		"https://integrators.vertica.com/scrutinize/errors/wrong-request-method",
+		"Wrong request method used",
+	)
+	ScrutinizeBadRequest = newProblemID(
+		"https://integrators.vertica.com/scrutinize/errors/bad-request",
+		"Bad request sent",
+	)
+	ScrutinizeGenericError = newProblemID(
+		"https://integrators.vertica.com/scrutinize/errors/generic-error",
+		"Error while executing scrutinize operation",
+	)
+)

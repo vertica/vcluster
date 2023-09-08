@@ -4,7 +4,6 @@ import (
 	"flag"
 	"strconv"
 
-	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -106,7 +105,7 @@ func (c *CmdReviveDB) Analyze() error {
 	return nil
 }
 
-func (c *CmdReviveDB) Run(log logr.Logger) error {
+func (c *CmdReviveDB) Run(log vlog.Printer) error {
 	vcc := vclusterops.VClusterCommands{
 		Log: log.WithName(c.CommandType()),
 	}
@@ -118,11 +117,11 @@ func (c *CmdReviveDB) Run(log logr.Logger) error {
 	}
 
 	if *c.reviveDBOptions.DisplayOnly {
-		vlog.LogPrintInfo("database details:\n%s", dbInfo)
+		vcc.Log.PrintInfo("database details:\n%s", dbInfo)
 		return nil
 	}
 
-	vlog.LogPrintInfo("Successfully revived database %s", *c.reviveDBOptions.Name)
+	vcc.Log.PrintInfo("Successfully revived database %s", *c.reviveDBOptions.Name)
 
 	return nil
 }

@@ -399,7 +399,7 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 		return vdb, err
 	}
 	// produce instructions
-	instructions, err := produceCreateDBInstructions(&vdb, options)
+	instructions, err := vcc.produceCreateDBInstructions(&vdb, options)
 	if err != nil {
 		vcc.Log.Error(err, "fail to produce create db instructions")
 		return vdb, err
@@ -441,12 +441,12 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 //   - Mark design ksafe
 //   - Install packages
 //   - Sync catalog
-func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
-	instructions, err := produceBasicCreateDBInstructions(vdb, options)
+func (vcc *VClusterCommands) produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+	instructions, err := vcc.produceBasicCreateDBInstructions(vdb, options)
 	if err != nil {
 		return instructions, err
 	}
-	additionalInstructions, err := produceAdditionalCreateDBInstructions(vdb, options)
+	additionalInstructions, err := vcc.produceAdditionalCreateDBInstructions(vdb, options)
 	if err != nil {
 		return instructions, err
 	}
@@ -455,7 +455,8 @@ func produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDat
 }
 
 // produceBasicCreateDBInstructions returns the first set of instructions for create_db.
-func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceBasicCreateDBInstructions(vdb *VCoordinationDatabase,
+	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	hosts := vdb.HostList
@@ -464,7 +465,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 	nmaHealthOp := makeNMAHealthOp(hosts)
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
 
 	// need username for https operations
 	err := options.ValidateUserName()
@@ -472,7 +473,7 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 		return instructions, err
 	}
 
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(hosts, true, /* use password auth */
+	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, hosts, true, /* use password auth */
 		*options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err
@@ -555,7 +556,8 @@ func produceBasicCreateDBInstructions(vdb *VCoordinationDatabase, options *VCrea
 }
 
 // produceAdditionalCreateDBInstructions returns additional instruction necessary for create_db.
-func produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase,
+	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	hosts := vdb.HostList

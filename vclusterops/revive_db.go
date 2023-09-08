@@ -129,7 +129,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	vdb := MakeVCoordinationDatabase()
 
 	// part 1: produce instructions for getting terminated database info, and save the info to vdb
-	preReviveDBInstructions, err := producePreReviveDBInstructions(options, &vdb)
+	preReviveDBInstructions, err := vcc.producePreReviveDBInstructions(options, &vdb)
 	if err != nil {
 		vlog.LogPrintError("fail to produce pre-revive database instructions %v", err)
 		return dbInfo, err
@@ -179,13 +179,14 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 //   - Check NMA version
 //   - Check any DB running on the hosts
 //   - Download and read the description file from communal storage on the initiator
-func producePreReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveDatabaseOptions,
+	vdb *VCoordinationDatabase) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(options.Hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(options.Hosts, false, /*use password auth*/
+	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, options.Hosts, false, /*use password auth*/
 		"" /*username for https call*/, nil /*password for https call*/, ReviveDB)
 	if err != nil {
 		return instructions, err

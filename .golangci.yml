@@ -11,6 +11,10 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
+  gofmt:
+    rewrite-rules:
+    - pattern: 'interface{}'
+      replacement: 'any'
   gci:
     local-prefixes: github.com/golangci/golangci-lint
   goconst:

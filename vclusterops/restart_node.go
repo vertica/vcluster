@@ -178,7 +178,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	restartNodeInfo.HostsToRestart = append(restartNodeInfo.HostsToRestart, hostsNoNeedToReIP...)
 
 	// produce restart_node instructions
-	instructions, err := produceRestartNodesInstructions(restartNodeInfo, options, &vdb)
+	instructions, err := vcc.produceRestartNodesInstructions(restartNodeInfo, options, &vdb)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %s", err)
 		return err
@@ -215,13 +215,13 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 //   - restart nodes
 //   - Poll node start up
 //   - sync catalog
-func produceRestartNodesInstructions(restartNodeInfo *VRestartNodesInfo, options *VRestartNodesOptions,
+func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VRestartNodesInfo, options *VRestartNodesOptions,
 	vdb *VCoordinationDatabase) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(options.Hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
 	err := options.SetUsePassword()
 	if err != nil {

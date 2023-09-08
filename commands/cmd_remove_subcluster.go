@@ -18,7 +18,6 @@ package commands
 import (
 	"flag"
 
-	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -98,26 +97,25 @@ func (c *CmdRemoveSubcluster) Analyze() error {
 	return nil
 }
 
-func (c *CmdRemoveSubcluster) Run(log logr.Logger) error {
-	vlog.LogInfo("[%s] Called method Run()", c.CommandType())
-
+func (c *CmdRemoveSubcluster) Run(log vlog.Printer) error {
 	vcc := vclusterops.VClusterCommands{
 		Log: log.WithName(c.CommandType()),
 	}
+
 	vcc.Log.V(1).Info("Called method Run()")
 	vdb, err := vcc.VRemoveSubcluster(c.removeScOptions)
 	if err != nil {
 		return err
 	}
-	vlog.LogPrintInfo("Successfully removed subcluster %s from database %s",
+	vcc.Log.PrintInfo("Successfully removed subcluster %s from database %s",
 		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.Name)
 
 	// write cluster information to the YAML config file.
 	err = vclusterops.WriteClusterConfig(&vdb, c.removeScOptions.ConfigDirectory)
 	if err != nil {
-		vlog.LogPrintWarning("failed to write config file, details: %s", err)
+		vcc.Log.PrintWarning("failed to write config file, details: %s", err)
 	}
-	vlog.LogPrintInfo("Successfully updated config file")
+	vcc.Log.PrintInfo("Successfully updated config file")
 
 	return nil
 }

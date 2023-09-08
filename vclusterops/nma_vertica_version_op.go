@@ -31,9 +31,10 @@ type NMAVerticaVersionOp struct {
 	HostVersionMap     map[string]string
 }
 
-func makeNMAVerticaVersionOp(hosts []string, sameVersion bool) NMAVerticaVersionOp {
+func makeNMAVerticaVersionOp(log vlog.Printer, hosts []string, sameVersion bool) NMAVerticaVersionOp {
 	nmaVerticaVersionOp := NMAVerticaVersionOp{}
 	nmaVerticaVersionOp.name = "NMAVerticaVersionOp"
+	nmaVerticaVersionOp.log = log.WithName(nmaVerticaVersionOp.name)
 	nmaVerticaVersionOp.hosts = hosts
 	nmaVerticaVersionOp.RequireSameVersion = sameVersion
 	nmaVerticaVersionOp.HostVersionMap = map[string]string{}
@@ -91,7 +92,7 @@ func (op *NMAVerticaVersionOp) parseAndCheckResponse(host, resultContent string)
 		return errors.New("Unable to get vertica version from host " + host)
 	}
 
-	vlog.LogInfo("[%s] JSON response from %s is %v\n", op.name, host, responseObj)
+	op.log.Info("JSON response", "host", host, "responseObj", responseObj)
 	op.HostVersionMap[host] = version
 	return nil
 }
@@ -106,12 +107,11 @@ func (op *NMAVerticaVersionOp) logResponseCollectVersions() error {
 
 		err := op.parseAndCheckResponse(host, result.content)
 		if err != nil {
-			vlog.LogInfo("[%s] result from host %s summary %s, details: %+v, parsing failure details: %s\n",
-				op.name, host, FailureResult, result, err.Error())
+			op.log.Info("failure response", "host", host, "result", result, "err", err)
 			return err
 		}
 
-		vlog.LogPrintInfo("[%s] result from host %s summary %s, details: %+v",
+		op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v",
 			op.name, host, SuccessResult, result)
 	}
 	return nil
@@ -120,7 +120,7 @@ func (op *NMAVerticaVersionOp) logResponseCollectVersions() error {
 func (op *NMAVerticaVersionOp) logCheckVersionMatch() error {
 	versionStr := NoVersion
 	for host, version := range op.HostVersionMap {
-		vlog.LogInfo("[%s] Host {%s}: version {%s}", op.name, host, version)
+		op.log.Info("version check", "host", host, "version", version)
 		if version == "" {
 			return fmt.Errorf("[%s] No version collected for host: [%s]", op.name, host)
 		} else if versionStr == NoVersion {

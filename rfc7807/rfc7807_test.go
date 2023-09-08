@@ -32,9 +32,9 @@ func TestVProblemImplementsError(t *testing.T) {
 		WithDetail("Path /communal needs to be empty").
 		WithStatus(510).
 		WithHost("pod-0")
+	var err1 error
 	var ExpectedErrorStr = fmt.Sprintf("%s on host pod-0", CommunalStorageNotEmpty.Title)
-	var err1 error //nolint:gosimple
-	err1 = p       // Make sure we can assign p to an error type
+	err1 = p // Make sure we can assign p to an error type
 	err2 := fmt.Errorf("hit error and wrapping %w", p)
 	assert.Contains(t, err1.Error(), ExpectedErrorStr)
 	assert.Contains(t, err2.Error(), ExpectedErrorStr)

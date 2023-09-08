@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -178,6 +177,7 @@ type ClusterOp interface {
 // OpBase defines base fields and implements basic functions
 // for all ops
 type OpBase struct {
+	log                vlog.Printer
 	name               string
 	hosts              []string
 	clusterHTTPRequest ClusterHTTPRequest
@@ -345,5 +345,5 @@ func (opb *OpHTTPSBase) validateAndSetUsernameAndPassword(opName string, useHTTP
 // add node, etc.). This is used to pass state around for the various APIs. We
 // also use it for mocking in our unit test.
 type VClusterCommands struct {
-	Log logr.Logger
+	Log vlog.Printer
 }

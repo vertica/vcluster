@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -80,7 +79,7 @@ func (c *CmdReIP) Analyze() error {
 	return c.reIPOptions.ReadReIPFile(*c.reIPFilePath)
 }
 
-func (c *CmdReIP) Run(log logr.Logger) error {
+func (c *CmdReIP) Run(log vlog.Printer) error {
 	vcc := vclusterops.VClusterCommands{
 		Log: log.WithName(c.CommandType()),
 	}
@@ -91,6 +90,6 @@ func (c *CmdReIP) Run(log logr.Logger) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Re-ip is successfully completed")
+	vcc.Log.PrintInfo("Re-ip is successfully completed")
 	return nil
 }

@@ -153,7 +153,8 @@ func (c ClusterCommandLauncher) Run(inputArgv []string) error {
 	if analyzeError != nil {
 		return analyzeError
 	}
-	return subCommand.Run(vlog.GetGlobalLogger().Log)
+	log := vlog.GetGlobalLogger().Printer
+	return subCommand.Run(log)
 }
 
 func identifySubcommand(commands map[string]ClusterCommand) (ClusterCommand, error) {

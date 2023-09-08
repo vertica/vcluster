@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -101,7 +100,7 @@ func (c *CmdRestartNodes) Analyze() error {
 	return nil
 }
 
-func (c *CmdRestartNodes) Run(log logr.Logger) error {
+func (c *CmdRestartNodes) Run(log vlog.Printer) error {
 	vcc := vclusterops.VClusterCommands{
 		Log: log.WithName(c.CommandType()),
 	}

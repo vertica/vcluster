@@ -54,9 +54,11 @@ func TestInitCmd(t *testing.T) {
 func TestConfigCmd(t *testing.T) {
 	// redirect log to a local bytes.Buffer
 	var logStr bytes.Buffer
-	log := buflogr.NewWithBuffer(&logStr)
+	log := vlog.Printer{
+		Log: buflogr.NewWithBuffer(&logStr),
+	}
 	vlogger := vlog.GetGlobalLogger()
-	vlogger.Log = log
+	vlogger.Log = log.Log
 
 	// create a stub YAML file
 	const yamlPath = vclusterops.ConfigFileName

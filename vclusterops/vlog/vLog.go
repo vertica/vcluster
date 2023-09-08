@@ -23,7 +23,6 @@ import (
 
 	"runtime/debug"
 
-	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 )
@@ -40,7 +39,7 @@ const (
 
 type Vlogger struct {
 	LogPath string
-	Log     logr.Logger // Logging API to use for all logging calls
+	Printer // Logging API to use for all logging calls
 }
 
 var (
@@ -112,6 +111,7 @@ func (logger *Vlogger) setupOrDie(logFile string) {
 	}
 	// If no log file is given, we just log to standard output
 	if logFile != "" {
+		logger.LogToFileOnly = true
 		cfg.OutputPaths = []string{logFile}
 	}
 	var err error

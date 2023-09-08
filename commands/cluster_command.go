@@ -15,7 +15,7 @@
 
 package commands
 
-import "github.com/go-logr/logr"
+import "github.com/vertica/vcluster/vclusterops/vlog"
 
 type ClusterCommand interface {
 	CommandType() string
@@ -27,6 +27,6 @@ type ClusterCommand interface {
 	 * cluster discovery.
 	 */
 	Analyze() error
-	Run(log logr.Logger) error
+	Run(log vlog.Printer) error
 	PrintUsage(string)
 }

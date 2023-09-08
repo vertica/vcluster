@@ -147,7 +147,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	stopDBInfo.DrainSeconds = options.DrainSeconds
 	stopDBInfo.DBName, stopDBInfo.Hosts = options.GetNameAndHosts(config)
 
-	instructions, err := produceStopDBInstructions(stopDBInfo, options)
+	instructions, err := vcc.produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %s", err)
 		return err
@@ -175,7 +175,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 //   - Get up nodes through https call
 //   - Stop db on the first up node
 //   - Check there is not any database running
-func produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo,
+func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo,
 	options *VStopDatabaseOptions,
 ) ([]ClusterOp, error) {
 	var instructions []ClusterOp
@@ -201,7 +201,7 @@ func produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo,
 		return instructions, err
 	}
 
-	httpsCheckDBRunningOp, err := makeHTTPCheckRunningDBOp(stopDBInfo.Hosts,
+	httpsCheckDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, stopDBInfo.Hosts,
 		usePassword, *options.UserName, stopDBInfo.Password, StopDB)
 	if err != nil {
 		return instructions, err

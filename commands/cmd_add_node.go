@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -126,7 +125,7 @@ func (c *CmdAddNode) Analyze() error {
 	return nil
 }
 
-func (c *CmdAddNode) Run(log logr.Logger) error {
+func (c *CmdAddNode) Run(log vlog.Printer) error {
 	vcc := vclusterops.VClusterCommands{
 		Log: log.WithName(c.CommandType()),
 	}
@@ -140,6 +139,6 @@ func (c *CmdAddNode) Run(log logr.Logger) error {
 	if err != nil {
 		vlog.LogPrintWarning("fail to write config file, details: %s", err)
 	}
-	vlog.LogPrintInfo("Added nodes %s to database %s", *c.newHostListStr, *c.addNodeOptions.Name)
+	vcc.Log.PrintInfo("Added nodes %s to database %s", *c.newHostListStr, *c.addNodeOptions.Name)
 	return nil
 }

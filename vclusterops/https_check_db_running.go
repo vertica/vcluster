@@ -62,12 +62,13 @@ type HTTPCheckRunningDBOp struct {
 	opType OpType
 }
 
-func makeHTTPCheckRunningDBOp(hosts []string,
+func makeHTTPCheckRunningDBOp(log vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string, opType OpType,
 ) (HTTPCheckRunningDBOp, error) {
 	runningDBChecker := HTTPCheckRunningDBOp{}
 	runningDBChecker.name = "HTTPCheckDBRunningOp"
+	runningDBChecker.log = log.WithName(runningDBChecker.name)
 	runningDBChecker.hosts = hosts
 	runningDBChecker.useHTTPPassword = useHTTPPassword
 
@@ -102,7 +103,7 @@ func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPCheckRunningDBOp) logPrepare() {
-	vlog.LogInfo("[%s] Prepare() called for operation %s \n", op.name, op.opType)
+	op.log.Info("prepare() called", "opType", op.opType)
 }
 
 func (op *HTTPCheckRunningDBOp) prepare(execContext *OpEngineExecContext) error {
@@ -187,7 +188,7 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 		if !result.IsHTTPRunning() {
 			resSummaryStr = FailureResult
 		}
-		vlog.LogPrintInfo("[%s] result from host %s summary %s, details: %+v.",
+		op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v.",
 			op.name, host, resSummaryStr, result)
 
 		if !result.isPassing() {
@@ -219,36 +220,35 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 			return fmt.Errorf("[%s] error happened during checking DB running on host %s, details: %w",
 				op.name, host, err)
 		}
-		vlog.LogInfo("[%s] DB running on host %s: %t, detail: %s", op.name, host, dbRunning, checkMsg)
+		op.log.Info("DB running", "host", host, "dbRunning", dbRunning, "checkMsg", checkMsg)
 		// return at least one check msg to user
 		msg = checkMsg
 	}
 
 	// log info
-	vlog.LogInfo("[%s] check db running results: up hosts %v; down hosts %v; hosts with status unknown %v",
-		op.name, upHosts, downHosts, exceptionHosts)
+	op.log.Info("check db running results", "up hosts", upHosts, "down hosts", downHosts, "hosts with status unknown", exceptionHosts)
 	// no DB is running on hosts, return a passed result
 	if len(upHosts) == 0 {
 		return nil
 	}
 
-	vlog.LogPrintInfoln(msg)
+	op.log.PrintInfo("%s\n", msg)
 
 	switch op.opType {
 	case CreateDB:
-		vlog.LogPrintInfoln("Aborting database creation")
+		op.log.PrintInfo("Aborting database creation\n")
 	case StopDB:
-		vlog.LogPrintInfoln("The database has not been down yet")
+		op.log.PrintInfo("The database has not been down yet\n")
 	case StartDB:
-		vlog.LogPrintInfoln("Aborting database start")
+		op.log.PrintInfo("Aborting database start\n")
 	case ReviveDB:
-		vlog.LogPrintInfoln("Aborting database revival")
+		op.log.PrintInfo("Aborting database revival\n")
 	}
 	return allErrs
 }
 
 func (op *HTTPCheckRunningDBOp) execute(execContext *OpEngineExecContext) error {
-	vlog.LogInfo("[%s] Execute() for operation %s", op.name, op.opType)
+	op.log.Info("Execute() called", "opType", op.opType)
 	switch op.opType {
 	case CreateDB, StartDB, ReviveDB:
 		return op.checkDBConnection(execContext)
@@ -291,7 +291,7 @@ func (op *HTTPCheckRunningDBOp) pollForDBDown(execContext *OpEngineExecContext) 
 		// request again. We are waiting for all nodes to be down, which is a
 		// success result from processContext.
 		if err != nil {
-			vlog.LogInfo("[%s] failure when checking node status: %s", op.name, err)
+			op.log.Info("failure when checking node status", "err", err)
 		} else {
 			return nil
 		}
@@ -299,7 +299,7 @@ func (op *HTTPCheckRunningDBOp) pollForDBDown(execContext *OpEngineExecContext) 
 	}
 	// timeout
 	msg := fmt.Sprintf("the DB is still up after %s seconds", timeoutSecondStr)
-	vlog.LogPrintWarning(msg)
+	op.log.PrintWarning(msg)
 	return errors.New(msg)
 }
 

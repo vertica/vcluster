@@ -20,7 +20,6 @@ import (
 	"os"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // A good rule of thumb is to use normal strings unless you need nil.
@@ -49,7 +48,7 @@ func (options *VDropDatabaseOptions) AnalyzeOptions() error {
 	return nil
 }
 
-func VDropDatabase(options *VDropDatabaseOptions) error {
+func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
@@ -81,9 +80,9 @@ func VDropDatabase(options *VDropDatabaseOptions) error {
 	vdb.SetFromClusterConfig(&clusterConfig)
 
 	// produce drop_db instructions
-	instructions, err := produceDropDBInstructions(&vdb, options)
+	instructions, err := vcc.produceDropDBInstructions(&vdb, options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, %s", err)
+		vcc.Log.PrintError("fail to produce instructions, %s", err)
 		return err
 	}
 
@@ -94,7 +93,7 @@ func VDropDatabase(options *VDropDatabaseOptions) error {
 	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
 	if runError != nil {
-		vlog.LogPrintError("fail to drop database: %s", runError)
+		vcc.Log.PrintError("fail to drop database: %s", runError)
 		return runError
 	}
 
@@ -102,7 +101,7 @@ func VDropDatabase(options *VDropDatabaseOptions) error {
 	// if failed to remove it, we will ask users to manually do it
 	err = RemoveConfigFile(configDir)
 	if err != nil {
-		vlog.LogPrintWarning("Fail to remove the config file(s), please manually clean up under directory %s", configDir)
+		vcc.Log.PrintWarning("Fail to remove the config file(s), please manually clean up under directory %s", configDir)
 	}
 
 	return nil
@@ -117,7 +116,7 @@ func VDropDatabase(options *VDropDatabaseOptions) error {
 //   - Check Vertica versions
 //   - Check to see if any dbs running
 //   - Delete directories
-func produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	hosts := vdb.HostList
@@ -133,11 +132,11 @@ func produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabas
 	nmaHealthOp := makeNMAHealthOp(hosts)
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
 
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(hosts, usePassword,
+	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, hosts, usePassword,
 		*options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err

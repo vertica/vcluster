@@ -171,7 +171,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 		return vdb, err
 	}
 
-	instructions, err := produceAddNodeInstructions(&vdb, options)
+	instructions, err := vcc.produceAddNodeInstructions(&vdb, options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce add node instructions, %s", err)
 		return vdb, err
@@ -238,7 +238,7 @@ func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
 //   - Create depot on the new node (Eon mode only)
 //   - Sync catalog
 //   - Rebalance shards on subcluster (Eon mode only)
-func produceAddNodeInstructions(vdb *VCoordinationDatabase,
+func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 	initiatorHost := []string{options.Initiator}
@@ -250,7 +250,7 @@ func produceAddNodeInstructions(vdb *VCoordinationDatabase,
 
 	nmaHealthOp := makeNMAHealthOp(vdb.HostList)
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vdb.HostList, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, vdb.HostList, true)
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&nmaVerticaVersionOp)

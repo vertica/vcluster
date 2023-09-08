@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -83,7 +82,7 @@ func (c *CmdConfig) Analyze() error {
 	return nil
 }
 
-func (c *CmdConfig) Run(_ logr.Logger) error {
+func (c *CmdConfig) Run(_ vlog.Printer) error {
 	if *c.show {
 		configFilePath := filepath.Join(*c.directory, vclusterops.ConfigFileName)
 		fileBytes, err := os.ReadFile(configFilePath)

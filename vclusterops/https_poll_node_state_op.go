@@ -29,8 +29,8 @@ import (
 type HTTPSPollNodeStateOp struct {
 	OpBase
 	OpHTTPSBase
-	allHosts   map[string]interface{}
-	upHosts    map[string]interface{}
+	allHosts   map[string]any
+	upHosts    map[string]any
 	notUpHosts []string
 	timeout    int
 }
@@ -61,8 +61,8 @@ func makeHTTPSPollNodeStateOp(hosts []string,
 	httpsPollNodeStateOp.userName = userName
 	httpsPollNodeStateOp.httpsPassword = httpsPassword
 
-	httpsPollNodeStateOp.upHosts = make(map[string]interface{})
-	httpsPollNodeStateOp.allHosts = make(map[string]interface{})
+	httpsPollNodeStateOp.upHosts = make(map[string]any)
+	httpsPollNodeStateOp.allHosts = make(map[string]any)
 	for _, h := range hosts {
 		httpsPollNodeStateOp.allHosts[h] = struct{}{}
 	}

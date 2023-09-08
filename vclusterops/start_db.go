@@ -111,7 +111,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	}
 
 	// produce start_db instructions
-	instructions, err := produceStartDBInstructions(options)
+	instructions, err := vcc.produceStartDBInstructions(options)
 	if err != nil {
 		err = fmt.Errorf("fail to production instructions: %w", err)
 		return err
@@ -144,19 +144,19 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 //   - Start all nodes of the database
 //   - Poll node startup
 //   - Sync catalog (Eon mode only)
-func produceStartDBInstructions(options *VStartDatabaseOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(options.Hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
 	err := options.SetUsePassword()
 	if err != nil {
 		return instructions, err
 	}
 
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(options.Hosts,
+	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, StartDB)
 	if err != nil {
 		return instructions, err

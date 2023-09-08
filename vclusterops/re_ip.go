@@ -117,7 +117,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	}
 
 	// produce re-ip instructions
-	instructions, err := produceReIPInstructions(options)
+	instructions, err := vcc.produceReIPInstructions(options)
 	if err != nil {
 		vlog.LogPrintError("fail to produce instructions, %v", err)
 		return err
@@ -144,7 +144,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 //   - Read database info from catalog editor
 //     (now we should know which hosts have the latest catalog)
 //   - Run re-ip on the target nodes
-func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	if len(options.ReIPList) == 0 {
@@ -154,7 +154,7 @@ func produceReIPInstructions(options *VReIPOptions) ([]ClusterOp, error) {
 	hosts := options.Hosts
 
 	nmaHealthOp := makeNMAHealthOp(hosts)
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
 
 	// get network profiles of the new addresses
 	var newAddresses []string
