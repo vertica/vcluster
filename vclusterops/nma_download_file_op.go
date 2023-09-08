@@ -54,6 +54,19 @@ type downloadFileRequestData struct {
 	Parameters          map[string]string `json:"parameters,omitempty"`
 }
 
+// ClusterLeaseNotExpiredFailure is returned when an attempt is made to use a
+// communal storage before the lease for it has expired.
+type ClusterLeaseNotExpiredError struct {
+	Expiration string
+}
+
+func (e *ClusterLeaseNotExpiredError) Error() string {
+	return fmt.Sprintf("revive database cannot continue because the communal storage location might still be in use."+
+		" The cluster lease will expire at %s(UTC)."+
+		" Please ensure that the other cluster has stopped and try revive_db after the cluster lease expiration",
+		e.Expiration)
+}
+
 func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
 	communalStorageParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
 	op := NMADownloadFileOp{}
@@ -251,10 +264,7 @@ func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) er
 
 	// current time < expire time, it means that the cluster lease is not expired
 	if utcNow.Before(utcExpiration) {
-		return fmt.Errorf("revive database cannot continue because the communal storage location might still be in use."+
-			" The cluster lease will expire at %s(UTC)."+
-			" Please ensure that the other cluster has stopped and try revive_db after the cluster lease expiration",
-			clusterLeaseExpiration)
+		return &ClusterLeaseNotExpiredError{Expiration: clusterLeaseExpiration}
 	}
 
 	vlog.LogPrintInfoln("Cluster lease check has passed. We proceed to revive the database")
