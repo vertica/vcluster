@@ -165,7 +165,7 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions) ([]C
 
 	// build a VCoordinationDatabase (vdb) object by reading the nodes' information from /v1/nodes
 	vdb := VCoordinationDatabase{}
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(hosts, *options.Name, *options.CatalogPrefix, &vdb)
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(hosts, *options.DBName, *options.CatalogPrefix, &vdb)
 
 	// read catalog editor to get hosts with latest catalog
 	nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp([]string{}, &vdb)

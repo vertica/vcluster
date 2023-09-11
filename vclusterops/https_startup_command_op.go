@@ -73,8 +73,8 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 func (op *httpsStartUpCommandOp) prepare(execContext *OpEngineExecContext) error {
 	// Use the /v1/startup/command endpoint for a primary Up host to view every start command of existing nodes
 	var primaryUpHosts []string
-	for host := range op.vdb.HostNodeMap {
-		if op.vdb.HostNodeMap[host].IsPrimary && op.vdb.HostNodeMap[host].State == util.NodeUpState {
+	for host, vnode := range op.vdb.HostNodeMap {
+		if vnode.IsPrimary && vnode.State == util.NodeUpState {
 			primaryUpHosts = append(primaryUpHosts, host)
 			break
 		}

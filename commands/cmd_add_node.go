@@ -45,7 +45,7 @@ func makeCmdAddNode() *CmdAddNode {
 	addNodeOptions := vclusterops.VAddNodeOptionsFactory()
 
 	// required flags
-	addNodeOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to be modified")
+	addNodeOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be modified")
 	newCmd.newHostListStr = newCmd.parser.String("add", "", "Comma-separated list of hosts to add to the database")
 
 	// optional flags
@@ -139,6 +139,6 @@ func (c *CmdAddNode) Run(log vlog.Printer) error {
 	if err != nil {
 		vlog.LogPrintWarning("fail to write config file, details: %s", err)
 	}
-	vcc.Log.PrintInfo("Added nodes %s to database %s", *c.newHostListStr, *c.addNodeOptions.Name)
+	vcc.Log.PrintInfo("Added nodes %s to database %s", *c.newHostListStr, *c.addNodeOptions.DBName)
 	return nil
 }

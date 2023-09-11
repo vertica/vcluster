@@ -46,7 +46,7 @@ func makeCmdAddSubcluster() *CmdAddSubcluster {
 	addSubclusterOptions := vclusterops.VAddSubclusterOptionsFactory()
 
 	// required flags
-	addSubclusterOptions.Name = newCmd.parser.String("name", "", "The name of the database to be modified")
+	addSubclusterOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be modified")
 	addSubclusterOptions.SCName = newCmd.parser.String("subcluster", "", "The name of the new subcluster")
 
 	// optional flags
@@ -134,6 +134,6 @@ func (c *CmdAddSubcluster) Run(log vlog.Printer) error {
 		vcc.Log.Error(err, "failed to add subcluster")
 		return err
 	}
-	vlog.LogPrintInfo("Added subcluster %s to database %s", *c.addSubclusterOptions.SCName, *c.addSubclusterOptions.Name)
+	vlog.LogPrintInfo("Added subcluster %s to database %s", *c.addSubclusterOptions.SCName, *c.addSubclusterOptions.DBName)
 	return nil
 }

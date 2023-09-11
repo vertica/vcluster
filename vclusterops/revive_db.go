@@ -67,10 +67,10 @@ func (options *VReviveDatabaseOptions) setDefaultValues() {
 
 func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 	// database name
-	if *options.Name == "" {
+	if *options.DBName == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	err := util.ValidateName(*options.Name, "database")
+	err := util.ValidateName(*options.DBName, "database")
 	if err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordina
 func (options *VReviveDatabaseOptions) generateReviveVDB(vdb *VCoordinationDatabase) (newVDB VCoordinationDatabase,
 	oldHosts []string, err error) {
 	newVDB = MakeVCoordinationDatabase()
-	newVDB.Name = *options.Name
+	newVDB.Name = *options.DBName
 	newVDB.CommunalStorageLocation = *options.CommunalStorageLocation
 	// use new cluster hosts
 	newVDB.HostList = options.Hosts
@@ -319,7 +319,7 @@ func (options *VReviveDatabaseOptions) getDescriptionFilePath() string {
 	)
 	// description file will be in the location: {communalStorageLocation}/metadata/{db_name}/cluster_config.json
 	// an example: s3://tfminio/test_loc/metadata/test_db/cluster_config.json
-	descriptionFilePath := filepath.Join(*options.CommunalStorageLocation, descriptionFileMetadataFolder, *options.Name, descriptionFileName)
+	descriptionFilePath := filepath.Join(*options.CommunalStorageLocation, descriptionFileMetadataFolder, *options.DBName, descriptionFileName)
 	// filepath.Join() will change "://" of the remote communal storage path to ":/"
 	// as a result, we need to change the separator back to url format
 	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)

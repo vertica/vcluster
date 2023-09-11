@@ -41,7 +41,7 @@ func makeCmdRemoveSubcluster() *CmdRemoveSubcluster {
 	removeScOptions := vclusterops.VRemoveScOptionsFactory()
 
 	// required flags
-	removeScOptions.Name = newCmd.parser.String("db-name", "", "Name of the database to remove subcluster")
+	removeScOptions.DBName = newCmd.parser.String("db-name", "", "Name of the database to remove subcluster")
 	removeScOptions.SubclusterToRemove = newCmd.parser.String("remove", "", "Name of subcluster to be removed")
 	// VER-88096: get all nodes information from the database and remove this option
 	removeScOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
@@ -108,7 +108,7 @@ func (c *CmdRemoveSubcluster) Run(log vlog.Printer) error {
 		return err
 	}
 	vcc.Log.PrintInfo("Successfully removed subcluster %s from database %s",
-		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.Name)
+		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.DBName)
 
 	// write cluster information to the YAML config file.
 	err = vclusterops.WriteClusterConfig(&vdb, c.removeScOptions.ConfigDirectory)

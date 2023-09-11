@@ -31,7 +31,7 @@ func makeCmdRestartNodes() *CmdRestartNodes {
 	restartNodesOptions := vclusterops.VRestartNodesOptionsFactory()
 
 	// require flags
-	restartNodesOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to restart nodes")
+	restartNodesOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to restart nodes")
 	newCmd.vnodeListStr = newCmd.parser.String("restart", "",
 		"Comma-separated list of NODENAME=REIPHOST pairs part of the database nodes that need to be restarted")
 
@@ -115,7 +115,7 @@ func (c *CmdRestartNodes) Run(log vlog.Printer) error {
 	for _, ip := range c.restartNodesOptions.Nodes {
 		hostToRestart = append(hostToRestart, ip)
 	}
-	vlog.LogPrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *c.restartNodesOptions.Name)
+	vlog.LogPrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *c.restartNodesOptions.DBName)
 
 	return nil
 }

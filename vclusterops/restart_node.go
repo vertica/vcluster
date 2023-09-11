@@ -135,7 +135,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 
 	// get db name and hosts from config file and options
 	dbName, hosts := options.GetNameAndHosts(config)
-	options.Name = &dbName
+	options.DBName = &dbName
 	options.Hosts = hosts
 
 	// set default value to StatePollingTimeout
@@ -228,7 +228,7 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 		return instructions, err
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.Name, options.Hosts,
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
@@ -255,7 +255,7 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 			return instructions, e
 		}
 		// update new vdb information after re-ip
-		httpsGetNodesInfoOp, e := makeHTTPSGetNodesInfoOp(*options.Name, options.Hosts,
+		httpsGetNodesInfoOp, e := makeHTTPSGetNodesInfoOp(*options.DBName, options.Hosts,
 			options.usePassword, *options.UserName, options.Password, vdb)
 		if err != nil {
 			return instructions, e

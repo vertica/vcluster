@@ -48,7 +48,7 @@ func makeCmdCreateDB() *CmdCreateDB {
 	createDBOptions := vclusterops.VCreateDatabaseOptionsFactory()
 
 	// required flags
-	createDBOptions.Name = newCmd.parser.String("name", "", "The name of the database to be created")
+	createDBOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be created")
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
 	createDBOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", "Path of catalog directory")
 	createDBOptions.DataPrefix = newCmd.parser.String("data-path", "", "Path of data directory")

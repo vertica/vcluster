@@ -35,20 +35,8 @@ type HTTPSPollNodeStateOp struct {
 	timeout    int
 }
 
-func makeHTTPSPollNodeStateOpWithTimeout(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string,
-	timeout int) (HTTPSPollNodeStateOp, error) {
-	op, err := makeHTTPSPollNodeStateOp(hosts, useHTTPPassword, userName, httpsPassword)
-	if err != nil {
-		return op, err
-	}
-	op.timeout = timeout
-	return op, nil
-}
-
-func makeHTTPSPollNodeStateOp(hosts []string,
-	useHTTPPassword bool, userName string,
-	httpsPassword *string) (HTTPSPollNodeStateOp, error) {
+func makeHTTPSPollNodeStateOpHelper(hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string) (HTTPSPollNodeStateOp, error) {
 	httpsPollNodeStateOp := HTTPSPollNodeStateOp{}
 	httpsPollNodeStateOp.name = "HTTPSPollNodeStateOp"
 	httpsPollNodeStateOp.hosts = hosts
@@ -65,6 +53,27 @@ func makeHTTPSPollNodeStateOp(hosts []string,
 	httpsPollNodeStateOp.allHosts = make(map[string]any)
 	for _, h := range hosts {
 		httpsPollNodeStateOp.allHosts[h] = struct{}{}
+	}
+	return httpsPollNodeStateOp, nil
+}
+
+func makeHTTPSPollNodeStateOpWithTimeout(hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+	timeout int) (HTTPSPollNodeStateOp, error) {
+	op, err := makeHTTPSPollNodeStateOpHelper(hosts, useHTTPPassword, userName, httpsPassword)
+	if err != nil {
+		return op, err
+	}
+	op.timeout = timeout
+	return op, nil
+}
+
+func makeHTTPSPollNodeStateOp(hosts []string,
+	useHTTPPassword bool, userName string,
+	httpsPassword *string) (HTTPSPollNodeStateOp, error) {
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpHelper(hosts, useHTTPPassword, userName, httpsPassword)
+	if err != nil {
+		return httpsPollNodeStateOp, err
 	}
 	timeoutSecondStr := util.GetEnv("NODE_STATE_POLLING_TIMEOUT", strconv.Itoa(StartupPollingTimeout))
 	timeoutSecond, err := strconv.Atoi(timeoutSecondStr)

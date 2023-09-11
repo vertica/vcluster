@@ -72,9 +72,8 @@ func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) erro
 	op.catalogPathMap = make(map[string]string)
 	if len(op.initiator) == 0 {
 		op.hosts = maps.Keys(op.vdb.HostNodeMap)
-		// VER-88453 will put vnode back in the loop
-		for host := range op.vdb.HostNodeMap {
-			op.catalogPathMap[host] = op.vdb.HostNodeMap[host].CatalogPath
+		for host, vnode := range op.vdb.HostNodeMap {
+			op.catalogPathMap[host] = vnode.CatalogPath
 		}
 	} else {
 		for _, host := range op.initiator {

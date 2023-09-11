@@ -51,8 +51,8 @@ func (op *nmaStartNodeOp) updateRequestBody(execContext *OpEngineExecContext) er
 		// {ip1:[/opt/vertica/bin/vertica -D /data/practice_db/v_practice_db_node0001_catalog -C
 		// practice_db -n v_practice_db_node0001 -h 192.168.1.101 -p 5433 -P 4803 -Y ipv4]}
 		hostStartCommandMap := make(map[string][]string)
-		for host := range op.vdb.HostNodeMap {
-			hoststartCommand, ok := execContext.startupCommandMap[op.vdb.HostNodeMap[host].Name]
+		for host, vnode := range op.vdb.HostNodeMap {
+			hoststartCommand, ok := execContext.startupCommandMap[vnode.Name]
 			if ok {
 				hostStartCommandMap[host] = hoststartCommand
 			}

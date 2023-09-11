@@ -128,10 +128,9 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 	// build mapHostToNodeName and catalogPathMap from vdb
 	op.mapHostToNodeName = make(map[string]string)
 	op.mapHostToCatalogPath = make(map[string]string)
-	// VER-88453 will put vnode back in the loop
-	for h := range op.vdb.HostNodeMap {
-		op.mapHostToNodeName[h] = op.vdb.HostNodeMap[h].Name
-		op.mapHostToCatalogPath[h] = op.vdb.HostNodeMap[h].CatalogPath
+	for host, vnode := range op.vdb.HostNodeMap {
+		op.mapHostToNodeName[host] = vnode.Name
+		op.mapHostToCatalogPath[host] = vnode.CatalogPath
 	}
 
 	// get the primary node names

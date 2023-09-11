@@ -140,8 +140,8 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 		// use started nodes input provided by the user
 		op.hosts = op.destHosts
 		// Update the catalogPathMap for next upload operation's steps from node List information
-		for host := range op.vdb.HostNodeMap {
-			op.catalogPathMap[host] = getCatalogPath(op.vdb.HostNodeMap[host].CatalogPath)
+		for host, vnode := range op.vdb.HostNodeMap {
+			op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
 		}
 	}
 

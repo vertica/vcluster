@@ -23,7 +23,7 @@ import (
 
 func TestGetDescriptionFilePath(t *testing.T) {
 	opt := VReviveDBOptionsFactory()
-	*opt.Name = "test_eon_db"
+	*opt.DBName = "test_eon_db"
 
 	// local communal storage:
 	targetPath := "/communal/metadata/test_eon_db/cluster_config.json"

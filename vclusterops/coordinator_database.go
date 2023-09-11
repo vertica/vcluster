@@ -79,7 +79,7 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 
 	// build coordinate db object from the create db options
 	// section 1: set db info
-	vdb.Name = *options.Name
+	vdb.Name = *options.DBName
 	vdb.CatalogPrefix = *options.CatalogPrefix
 	vdb.DataPrefix = *options.DataPrefix
 	vdb.HostList = make([]string, len(options.Hosts))
@@ -343,7 +343,7 @@ func (vnode *VCoordinationNode) SetFromCreateDBOptions(
 	options *VCreateDatabaseOptions,
 	host string,
 ) error {
-	dbName := *options.Name
+	dbName := *options.DBName
 	dbNameInNode := strings.ToLower(dbName)
 	// compute node name and complete paths for each node
 	for i, h := range options.Hosts {

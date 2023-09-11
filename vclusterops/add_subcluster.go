@@ -115,7 +115,7 @@ func (options *VAddSubclusterOptions) validateExtraOptions() error {
 			}
 		}
 		if len(dupHosts) > 0 {
-			return fmt.Errorf("new subcluster has hosts %v which already exist in database %s", dupHosts, *options.Name)
+			return fmt.Errorf("new subcluster has hosts %v which already exist in database %s", dupHosts, *options.DBName)
 		}
 
 		// TODO remove this log after we supported adding subcluster with nodes

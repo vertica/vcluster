@@ -34,7 +34,7 @@ func makeCmdStartDB() *CmdStartDB {
 	startDBOptions := vclusterops.VStartDatabaseOptionsFactory()
 
 	// require flags
-	startDBOptions.Name = newCmd.parser.String("name", "", util.GetOptionalFlagMsg("The name of the database to be started."+
+	startDBOptions.DBName = newCmd.parser.String("db-name", "", util.GetOptionalFlagMsg("The name of the database to be started."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
 
 	// optional flags
@@ -125,6 +125,6 @@ func (c *CmdStartDB) Run(log vlog.Printer) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Successfully start the database %s\n", *c.startDBOptions.Name)
+	vlog.LogPrintInfo("Successfully start the database %s\n", *c.startDBOptions.DBName)
 	return nil
 }

@@ -29,7 +29,7 @@ func makeCmdReIP() *CmdReIP {
 	newCmd.reIPFilePath = newCmd.parser.String("re-ip-file", "", "Absolute path of the re-ip file")
 
 	reIPOpt := vclusterops.VReIPFactory()
-	reIPOpt.Name = newCmd.parser.String("name", "", "The name of the database")
+	reIPOpt.DBName = newCmd.parser.String("db-name", "", "The name of the database")
 	reIPOpt.CatalogPrefix = newCmd.parser.String("catalog-path", "", "The catalog path of the database")
 	newCmd.reIPOptions = &reIPOpt
 

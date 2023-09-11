@@ -34,7 +34,7 @@ func TestRemoveSubcluster(t *testing.T) {
 	assert.ErrorContains(t, err, "must specify a database name")
 
 	// input db name
-	*options.Name = dbName
+	*options.DBName = dbName
 	err = options.validateParseOptions()
 	assert.ErrorContains(t, err, "must specify a subcluster name")
 

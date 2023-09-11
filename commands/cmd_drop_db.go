@@ -33,7 +33,7 @@ func makeCmdDropDB() *CmdDropDB {
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
 
 	// TODO: the following options will be processed later
-	dropDBOptions.Name = newCmd.parser.String("name", "", "The name of the database to be dropped")
+	dropDBOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be dropped")
 	dropDBOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", "The catalog path of the database")
 	dropDBOptions.DataPrefix = newCmd.parser.String("data-path", "", "The data path of the database")
 	dropDBOptions.DepotPrefix = newCmd.parser.String("depot-path", "", "The depot path of the database")
@@ -91,6 +91,6 @@ func (c *CmdDropDB) Run(log vlog.Printer) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Successfully dropped database %s\n", *c.dropDBOptions.Name)
+	vlog.LogPrintInfo("Successfully dropped database %s\n", *c.dropDBOptions.DBName)
 	return nil
 }

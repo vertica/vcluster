@@ -101,7 +101,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 	// get db name and hosts from config file and options
 	dbName, hosts := options.GetNameAndHosts(config)
-	options.Name = &dbName
+	options.DBName = &dbName
 	options.Hosts = hosts
 	options.CatalogPrefix = options.GetCatalogPrefix(config)
 
@@ -163,7 +163,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	}
 
 	vdb := VCoordinationDatabase{}
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.Name, *options.CatalogPrefix, &vdb)
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix, &vdb)
 
 	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp([]string{}, &vdb)
 	if err != nil {

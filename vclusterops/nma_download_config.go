@@ -101,10 +101,10 @@ func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
 		// For restartNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
 		// we update the catalogPathMap for next download operation's steps from node information by using HTTPS /v1/nodes
 		var primaryUpHosts []string
-		for host := range op.vdb.HostNodeMap {
-			if op.vdb.HostNodeMap[host].IsPrimary && op.vdb.HostNodeMap[host].State == util.NodeUpState {
+		for host, vnode := range op.vdb.HostNodeMap {
+			if vnode.IsPrimary && vnode.State == util.NodeUpState {
 				primaryUpHosts = append(primaryUpHosts, host)
-				op.catalogPathMap[host] = getCatalogPath(op.vdb.HostNodeMap[host].CatalogPath)
+				op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
 				break
 			}
 		}

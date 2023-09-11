@@ -28,7 +28,7 @@ func TestReIPOptions(t *testing.T) {
 	err := opt.ValidateAnalyzeOptions()
 	assert.Error(t, err)
 
-	*opt.Name = "test_db"
+	*opt.DBName = "test_db"
 	opt.RawHosts = []string{"192.168.1.101", "192.168.1.102"}
 	err = opt.ValidateAnalyzeOptions()
 	assert.ErrorContains(t, err, "must specify an absolute catalog path")

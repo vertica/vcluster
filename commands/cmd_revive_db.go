@@ -28,7 +28,7 @@ func makeCmdReviveDB() *CmdReviveDB {
 	reviveDBOptions := vclusterops.VReviveDBOptionsFactory()
 
 	// require flags
-	reviveDBOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to revive")
+	reviveDBOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to revive")
 	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated hosts that participate in the database")
 	reviveDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
 		util.GetEonFlagMsg("Location of communal storage"))
@@ -112,7 +112,7 @@ func (c *CmdReviveDB) Run(log vlog.Printer) error {
 	vcc.Log.V(1).Info("Called method Run()")
 	dbInfo, err := vcc.VReviveDatabase(c.reviveDBOptions)
 	if err != nil {
-		vcc.Log.Error(err, "fail to revive database %s", *c.reviveDBOptions.Name)
+		vcc.Log.Error(err, "fail to revive database %s", *c.reviveDBOptions.DBName)
 		return err
 	}
 
@@ -121,7 +121,7 @@ func (c *CmdReviveDB) Run(log vlog.Printer) error {
 		return nil
 	}
 
-	vcc.Log.PrintInfo("Successfully revived database %s", *c.reviveDBOptions.Name)
+	vcc.Log.PrintInfo("Successfully revived database %s", *c.reviveDBOptions.DBName)
 
 	return nil
 }

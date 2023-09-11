@@ -44,7 +44,7 @@ func makeCmdRemoveNode() *CmdRemoveNode {
 	removeNodeOptions := vclusterops.VRemoveNodeOptionsFactory()
 
 	// required flags
-	removeNodeOptions.Name = newCmd.parser.String("db-name", "", "The name of the database to remove node(s) from")
+	removeNodeOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to remove node(s) from")
 	newCmd.hostToRemoveListStr = newCmd.parser.String("remove", "", "Comma-separated list of hosts to remove from the database")
 
 	// optional flags
@@ -116,7 +116,7 @@ func (c *CmdRemoveNode) Run(log vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	vlog.LogPrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *c.removeNodeOptions.Name)
+	vlog.LogPrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *c.removeNodeOptions.DBName)
 
 	// write cluster information to the YAML config file.
 	err = vclusterops.WriteClusterConfig(&vdb, c.removeNodeOptions.ConfigDirectory)

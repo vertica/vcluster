@@ -153,14 +153,14 @@ func getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) e
 		return err
 	}
 
-	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.Name, options.Hosts,
+	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		vlog.LogPrintError("fail to produce httpsGetNodesInfo instructions while retrieving database configurations, %v", err)
 		return err
 	}
 
-	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.Name, options.Hosts,
+	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		vlog.LogPrintError("fail to produce httpsGetClusterInfo instructions while retrieving database configurations, %v", err)

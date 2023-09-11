@@ -193,7 +193,7 @@ func removeScPreCheck(vdb *VCoordinationDatabase, options *VRemoveScOptions) ([]
 	// db_remove_subcluster only works with Eon database
 	if !vdb.IsEon {
 		return hostsToRemove, fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
-			*options.Name)
+			*options.DBName)
 	}
 
 	// get default subcluster

@@ -46,7 +46,7 @@ func makeCmdStopDB() *CmdStopDB {
 	stopDBOptions := vclusterops.VStopDatabaseOptionsFactory()
 
 	// required flags
-	stopDBOptions.Name = newCmd.parser.String("name", "", "The name of the database to be stopped")
+	stopDBOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be stopped")
 
 	// optional flags
 	stopDBOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
@@ -135,6 +135,6 @@ func (c *CmdStopDB) Run(log vlog.Printer) error {
 		vcc.Log.Error(err, "failed to stop the database")
 		return err
 	}
-	vlog.LogPrintInfo("Stopped a database with name %s", *c.stopDBOptions.Name)
+	vlog.LogPrintInfo("Stopped a database with name %s", *c.stopDBOptions.DBName)
 	return nil
 }

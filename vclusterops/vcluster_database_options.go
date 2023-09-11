@@ -28,7 +28,7 @@ import (
 
 type DatabaseOptions struct {
 	// part 1: basic database info
-	Name            *string
+	DBName          *string
 	RawHosts        []string // expected to be IP addresses or hostnames
 	Hosts           []string // expected to be IP addresses resolved from RawHosts
 	Ipv6            vstruct.NullableBool
@@ -62,7 +62,7 @@ const (
 )
 
 func (opt *DatabaseOptions) SetDefaultValues() {
-	opt.Name = new(string)
+	opt.DBName = new(string)
 	opt.CatalogPrefix = new(string)
 	opt.DataPrefix = new(string)
 	opt.DepotPrefix = new(string)
@@ -74,7 +74,7 @@ func (opt *DatabaseOptions) SetDefaultValues() {
 
 func (opt *DatabaseOptions) CheckNilPointerParams() error {
 	// basic params
-	if opt.Name == nil {
+	if opt.DBName == nil {
 		return util.ParamNotSetErrorMsg("name")
 	}
 	if opt.CatalogPrefix == nil {
@@ -92,10 +92,10 @@ func (opt *DatabaseOptions) CheckNilPointerParams() error {
 
 func (opt *DatabaseOptions) ValidateBaseOptions(commandName string) error {
 	// database name
-	if *opt.Name == "" {
+	if *opt.DBName == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	err := util.ValidateName(*opt.Name, "database")
+	err := util.ValidateName(*opt.DBName, "database")
 	if err != nil {
 		return err
 	}
@@ -271,14 +271,14 @@ func (opt *DatabaseOptions) GetNameAndHosts(config *ClusterConfig) (dbName strin
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if config == nil {
-		return *opt.Name, opt.Hosts
+		return *opt.DBName, opt.Hosts
 	}
 
 	dbName = config.DBName
 	hosts = config.Hosts
 	// if HonorUserInput is set, we choose the user input
-	if *opt.Name != "" && *opt.HonorUserInput {
-		dbName = *opt.Name
+	if *opt.DBName != "" && *opt.HonorUserInput {
+		dbName = *opt.DBName
 	}
 	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
 		hosts = opt.Hosts

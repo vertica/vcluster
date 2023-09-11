@@ -138,7 +138,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 	// will be moved to cmd_remove_node.go after VER-88122,
 	// as the operator does not support config file.
 	dbName, hosts := options.GetNameAndHosts(config)
-	options.Name = &dbName
+	options.DBName = &dbName
 	options.Hosts = hosts
 	// get depot and data prefix from config file or options
 	*options.DepotPrefix, *options.DataPrefix = options.getDepotAndDataPrefix(config)

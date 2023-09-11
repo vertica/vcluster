@@ -46,7 +46,7 @@ type ClusterCommandLauncher struct {
  *
  * Examples:
  * vcluster help
- * vcluster create_db --name db1
+ * vcluster create_db --db-name db1
  *
  *
  */
