@@ -31,9 +31,9 @@ type NMAReadCatalogEditorOp struct {
 	catalogPathMap map[string]string
 }
 
-// makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
-// initiator is needed when creating new nodes, otherwise set it as []string.
-func makeNMAReadCatalogEditorOp(
+// makeNMAReadCatalogEditorOpWithInitiator creates an op to read catalog editor info.
+// Initiator is needed when creating new nodes
+func makeNMAReadCatalogEditorOpWithInitiator(
 	initiator []string,
 	vdb *VCoordinationDatabase,
 ) (NMAReadCatalogEditorOp, error) {
@@ -42,6 +42,11 @@ func makeNMAReadCatalogEditorOp(
 	op.initiator = initiator
 	op.vdb = vdb
 	return op, nil
+}
+
+// makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
+func makeNMAReadCatalogEditorOp(vdb *VCoordinationDatabase) (NMAReadCatalogEditorOp, error) {
+	return makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
 }
 
 func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error {

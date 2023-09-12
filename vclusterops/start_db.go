@@ -165,7 +165,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	vdb := VCoordinationDatabase{}
 	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix, &vdb)
 
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp([]string{}, &vdb)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(&vdb)
 	if err != nil {
 		return instructions, err
 	}

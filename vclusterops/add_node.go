@@ -283,7 +283,7 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	if err != nil {
 		return instructions, err
 	}
-	httpsRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(usePassword, username, password, vdb)
+	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(usePassword, username, password, vdb)
 	if err != nil {
 		return instructions, err
 	}

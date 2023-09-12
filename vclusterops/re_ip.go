@@ -168,7 +168,7 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions) ([]C
 	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(hosts, *options.DBName, *options.CatalogPrefix, &vdb)
 
 	// read catalog editor to get hosts with latest catalog
-	nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp([]string{}, &vdb)
+	nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(&vdb)
 	if err != nil {
 		return instructions, err
 	}

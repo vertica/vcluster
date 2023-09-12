@@ -229,20 +229,19 @@ func produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordina
 	// user storage location will not be force deleted,
 	// and fail to create user storage location will not cause a failure of NMA /directories/prepare call.
 	// as a result, we separate user storage locations with other storage locations
-	for host := range newVDB.HostNodeMap {
-		vNode := newVDB.HostNodeMap[host]
+	for host, vnode := range newVDB.HostNodeMap {
 		userLocationSet := make(map[string]struct{})
-		for _, userLocation := range vNode.UserStorageLocations {
+		for _, userLocation := range vnode.UserStorageLocations {
 			userLocationSet[userLocation] = struct{}{}
 		}
 		var newLocations []string
-		for _, location := range vNode.StorageLocations {
+		for _, location := range vnode.StorageLocations {
 			if _, exist := userLocationSet[location]; !exist {
 				newLocations = append(newLocations, location)
 			}
 		}
-		vNode.StorageLocations = newLocations
-		hostNodeMap[host] = vNode
+		vnode.StorageLocations = newLocations
+		hostNodeMap[host] = vnode
 	}
 	// prepare all directories
 	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(hostNodeMap, *options.ForceRemoval, true /*for db revive*/)

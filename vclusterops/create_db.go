@@ -441,21 +441,33 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 //   - Mark design ksafe
 //   - Install packages
 //   - Sync catalog
-func (vcc *VClusterCommands) produceCreateDBInstructions(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) ([]ClusterOp, error) {
-	instructions, err := vcc.produceBasicCreateDBInstructions(vdb, options)
+func (vcc *VClusterCommands) produceCreateDBInstructions(
+	vdb *VCoordinationDatabase,
+	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+	instructions, err := vcc.produceCreateDBBootstrapInstructions(vdb, options)
 	if err != nil {
 		return instructions, err
 	}
+
+	workerNodesInstructions, err := vcc.produceCreateDBWorkerNodesInstructions(vdb, options)
+	if err != nil {
+		return instructions, err
+	}
+
 	additionalInstructions, err := vcc.produceAdditionalCreateDBInstructions(vdb, options)
 	if err != nil {
 		return instructions, err
 	}
+
+	instructions = append(instructions, workerNodesInstructions...)
 	instructions = append(instructions, additionalInstructions...)
+
 	return instructions, nil
 }
 
-// produceBasicCreateDBInstructions returns the first set of instructions for create_db.
-func (vcc *VClusterCommands) produceBasicCreateDBInstructions(vdb *VCoordinationDatabase,
+// produceCreateDBBootstrapInstructions returns the bootstrap instructions for create_db.
+func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
+	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
@@ -496,7 +508,7 @@ func (vcc *VClusterCommands) produceBasicCreateDBInstructions(vdb *VCoordination
 		return instructions, err
 	}
 
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(bootstrapHost, vdb)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOpWithInitiator(bootstrapHost, vdb)
 	if err != nil {
 		return instructions, err
 	}
@@ -520,17 +532,30 @@ func (vcc *VClusterCommands) produceBasicCreateDBInstructions(vdb *VCoordination
 		&httpsPollBootstrapNodeStateOp,
 	)
 
+	return instructions, nil
+}
+
+// produceCreateDBWorkerNodesInstructions returns the workder nodes' instructions for create_db.
+func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
+	vdb *VCoordinationDatabase,
+	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+	var instructions []ClusterOp
+
+	hosts := vdb.HostList
+	bootstrapHost := options.bootstrapHost
+
 	newNodeHosts := util.SliceDiff(hosts, bootstrapHost)
 	if len(hosts) > 1 {
-		httpsCreateNodeOp, e := makeHTTPSCreateNodeOp(newNodeHosts, bootstrapHost,
+		httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newNodeHosts, bootstrapHost,
 			true /* use password auth */, *options.UserName, options.Password, vdb, "")
 		if err != nil {
-			return instructions, e
+			return instructions, err
 		}
 		instructions = append(instructions, &httpsCreateNodeOp)
 	}
 
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(bootstrapHost, true, *options.UserName, options.Password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(bootstrapHost,
+		true /* use password auth */, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
@@ -542,13 +567,25 @@ func (vcc *VClusterCommands) produceBasicCreateDBInstructions(vdb *VCoordination
 	}
 
 	if len(hosts) > 1 {
-		instructions = append(instructions, &nmaReadCatalogEditorOp)
-		// we will remove the nil parameters in VER-88401 by adding them in execContext
+		httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, bootstrapHost,
+			true /* use password auth */, *options.UserName, options.Password, vdb)
+		if err != nil {
+			return instructions, err
+		}
+
+		httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOp(true, /*use https password*/
+			*options.UserName, options.Password, vdb)
+		if err != nil {
+			return instructions, err
+		}
+
+		instructions = append(instructions, &httpsGetNodesInfoOp, &httpsStartUpCommandOp)
+
 		produceTransferConfigOps(&instructions,
 			bootstrapHost,
-			hosts,
-			nil /*db configurations retrieved from a running db*/)
-		nmaStartNewNodesOp := makeNMAStartNodeOp(newNodeHosts)
+			vdb.HostList,
+			vdb /*db configurations retrieved from a running db*/)
+		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newNodeHosts, vdb)
 		instructions = append(instructions, &nmaStartNewNodesOp)
 	}
 

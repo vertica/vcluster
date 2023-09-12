@@ -28,7 +28,7 @@ type httpsStartUpCommandOp struct {
 	vdb *VCoordinationDatabase
 }
 
-func makeHTTPSRestartUpCommandOp(useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSStartUpCommandOp(useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase) (httpsStartUpCommandOp, error) {
 	op := httpsStartUpCommandOp{}
 	op.name = "HTTPSStartUpCommandOp"

@@ -277,7 +277,7 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 		restartNodeInfo.HostsToRestart,
 		vdb)
 
-	httpsRestartUpCommandOp, err := makeHTTPSRestartUpCommandOp(options.usePassword, *options.UserName, options.Password, vdb)
+	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		return instructions, err
 	}
