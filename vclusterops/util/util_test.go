@@ -118,6 +118,22 @@ func TestGetCleanPath(t *testing.T) {
 	res = GetCleanPath(path)
 	assert.Equal(t, res, "/data")
 
+	path = "///data"
+	res = GetCleanPath(path)
+	assert.Equal(t, res, "/data")
+
+	path = "////data"
+	res = GetCleanPath(path)
+	assert.Equal(t, res, "/data")
+
+	path = "///data/"
+	res = GetCleanPath(path)
+	assert.Equal(t, res, "/data")
+
+	path = "//scratch_b/qa/data/"
+	res = GetCleanPath(path)
+	assert.Equal(t, res, "/scratch_b/qa/data")
+
 	path = "//data "
 	res = GetCleanPath(path)
 	assert.Equal(t, res, "/data")

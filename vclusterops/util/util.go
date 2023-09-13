@@ -253,7 +253,8 @@ func GetCleanPath(path string) string {
 		return path
 	}
 	cleanPath := strings.TrimSpace(path)
-	cleanPath = strings.ReplaceAll(cleanPath, "//", "/")
+	// clean and normalize the path
+	cleanPath = filepath.Clean(cleanPath)
 	return cleanPath
 }
 
