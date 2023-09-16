@@ -286,12 +286,13 @@ func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveN
 		instructions = append(instructions, &httpsRebalanceClusterOp)
 	}
 
-	httpsSpreadRemoveNodeOp, err := makeHTTPSSpreadRemoveNodeOp(options.HostsToRemove, initiatorHost, usePassword,
-		username, password, vdb.HostNodeMap)
+	// only call HTTPSSpreadRemoveNodeOp when there are secondary nodes to remove
+	err = produceSpreadRemoveNodeOp(&instructions, options.HostsToRemove,
+		usePassword, username, password,
+		initiatorHost, vdb.HostNodeMap)
 	if err != nil {
 		return instructions, err
 	}
-	instructions = append(instructions, &httpsSpreadRemoveNodeOp)
 
 	err = produceDropNodeOps(&instructions, options.HostsToRemove, initiatorHost,
 		usePassword, username, password, vdb.HostNodeMap, vdb.IsEon)
@@ -366,6 +367,37 @@ func produceDropNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
 			return err
 		}
 		*instructions = append(*instructions, &httpsDropNodeOp)
+	}
+
+	return nil
+}
+
+// produceSpreadRemoveNodeOp calls HTTPSSpreadRemoveNodeOp
+// when there is at least one secondary node to remove
+func produceSpreadRemoveNodeOp(instructions *[]ClusterOp, hostsToRemove []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+	initiatorHost []string, hostNodeMap vHostNodeMap) error {
+	// find secondary nodes from HostsToRemove
+	hasSecondaryNodesToRemove := false
+	for _, h := range hostsToRemove {
+		vnode, ok := hostNodeMap[h]
+		if !ok {
+			return fmt.Errorf("cannot find host %s from vdb.HostNodeMap", h)
+		}
+		if !vnode.IsPrimary {
+			hasSecondaryNodesToRemove = true
+			break
+		}
+	}
+
+	// only call HTTPSSpreadRemoveNodeOp when there are secondary nodes to remove
+	if hasSecondaryNodesToRemove {
+		httpsSpreadRemoveNodeOp, err := makeHTTPSSpreadRemoveNodeOp(hostsToRemove, initiatorHost,
+			useHTTPPassword, userName, httpsPassword, hostNodeMap)
+		if err != nil {
+			return err
+		}
+		*instructions = append(*instructions, &httpsSpreadRemoveNodeOp)
 	}
 
 	return nil
