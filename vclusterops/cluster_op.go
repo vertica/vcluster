@@ -21,7 +21,9 @@
 package vclusterops
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -103,7 +105,7 @@ func (hostResult *HostHTTPResult) IsSuccess() bool {
 }
 
 // check only password and certificate for start_db
-func (hostResult *HostHTTPResult) IsPasswordandCertificateError() bool {
+func (hostResult *HostHTTPResult) IsPasswordAndCertificateError() bool {
 	if !hostResult.IsUnauthorizedRequest() {
 		return false
 	}
@@ -138,6 +140,16 @@ func (hostResult *HostHTTPResult) isFailing() bool {
 
 func (hostResult *HostHTTPResult) isException() bool {
 	return hostResult.status == EXCEPTION
+}
+
+func (hostResult *HostHTTPResult) isTimeout() bool {
+	if hostResult.err != nil {
+		var netErr net.Error
+		if errors.As(hostResult.err, &netErr) && netErr.Timeout() {
+			return true
+		}
+	}
+	return false
 }
 
 // getStatusString converts ResultStatus to string

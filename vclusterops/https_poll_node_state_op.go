@@ -26,6 +26,11 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+// Timeout set to 30 seconds for each GET /v1/nodes/{node} call.
+// 30 seconds is long enough for normal http request.
+// If this timeout is reached, it might imply that the target IP is unreachable
+const httpRequestTimeoutSeconds = 30
+
 type HTTPSPollNodeStateOp struct {
 	OpBase
 	OpHTTPSBase
@@ -92,7 +97,8 @@ func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildHTTPSEndpoint("nodes")
+		httpRequest.Timeout = httpRequestTimeoutSeconds
+		httpRequest.BuildHTTPSEndpoint("nodes/" + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -175,43 +181,51 @@ type NodesInfo struct {
 func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
+
+		// when we get timeout error, we know that the host is unreachable/dead
+		if result.isTimeout() {
+			return true, fmt.Errorf("[%s] cannot connect to host %s, please check if the host is still alive", op.name, host)
+		}
+
 		// VER-88185 vcluster start_db - password related issues
 		// We don't need to wait until timeout to determine if all nodes are up or not.
 		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately."
-		if result.IsPasswordandCertificateError() {
-			vlog.LogPrintError("[%s] All nodes are UP, but the credentials are incorrect. Catalog sync failed.",
+		if result.IsPasswordAndCertificateError() {
+			vlog.LogPrintError("[%s] The credentials are incorrect. The following steps like 'Catalog Sync' will not be executed.",
 				op.name)
-			return false, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
+			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}
 		if result.isPassing() {
-			// parse the /nodes endpoint response
+			// parse the /nodes/{node} endpoint response
 			nodesInfo := NodesInfo{}
 			err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
 			if err != nil {
 				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
-				return false, err
+				return true, err
 			}
 
-			// check whether all nodes are up
-			for _, n := range nodesInfo.NodeList {
-				if n.State == util.NodeUpState {
-					op.upHosts[n.Address] = struct{}{}
+			// check whether the node is up
+			// the node list should only have one node info
+			if len(nodesInfo.NodeList) == 1 {
+				nodeInfo := nodesInfo.NodeList[0]
+				if nodeInfo.State == util.NodeUpState {
+					continue
 				}
+			} else {
+				// if NMA endpoint cannot function well on any of the hosts, we do not want to retry polling
+				return true, fmt.Errorf("[%s] expect one node's information, but got %d nodes' information"+
+					" from NMA /v1/nodes/{node} endpoint on host %s",
+					op.name, len(nodesInfo.NodeList), host)
 			}
-
-			// the HTTPS /nodes endpoint will return the states of all nodes
-			// we only need to read info from one responding node
-			break
 		}
+
+		// if we cannot get correct response in current node, we assume the node is not up and wait for the next poll.
+		// if the node is busy and cannot return correct response in this poll, the following polls should get correct response from it.
+		return false, nil
 	}
 
-	op.notUpHosts = util.MapKeyDiff(op.allHosts, op.upHosts)
-	if len(op.notUpHosts) == 0 {
-		vlog.LogPrintInfoln("All nodes are up")
-		return true, nil
-	}
-
-	return false, nil
+	vlog.LogPrintInfoln("All nodes are up")
+	return true, nil
 }
