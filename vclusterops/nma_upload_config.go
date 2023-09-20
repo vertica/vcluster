@@ -129,12 +129,12 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 			}
 		} else {
 			op.hosts = util.SliceDiff(op.destHosts, op.sourceConfigHost)
-			// Update the catalogPathMap for next upload operation's steps from information of catalog editor
-			nmaVDB := execContext.nmaVDatabase
-			err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
-			if err != nil {
-				return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
-			}
+		}
+		// Update the catalogPathMap for next upload operation's steps from information of catalog editor
+		nmaVDB := execContext.nmaVDatabase
+		err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
+		if err != nil {
+			return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)
 		}
 	} else {
 		// use started nodes input provided by the user
