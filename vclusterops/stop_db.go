@@ -36,6 +36,7 @@ type VStopDatabaseInfo struct {
 	UserName     string
 	Password     *string
 	DrainSeconds *int
+	IsEon        bool
 }
 
 func VStopDatabaseOptionsFactory() VStopDatabaseOptions {
@@ -146,6 +147,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	stopDBInfo.Password = options.Password
 	stopDBInfo.DrainSeconds = options.DrainSeconds
 	stopDBInfo.DBName, stopDBInfo.Hosts = options.GetNameAndHosts(config)
+	stopDBInfo.IsEon = options.IsEonMode(config)
 
 	instructions, err := vcc.produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {
@@ -173,7 +175,8 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 // The generated instructions will later perform the following operations necessary
 // for a successful stop_db:
 //   - Get up nodes through https call
-//   - Stop db on the first up node
+//   - Sync catalog through the first up node
+//   - Stop db through the first up node
 //   - Check there is not any database running
 func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo,
 	options *VStopDatabaseOptions,
@@ -195,6 +198,17 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	if err != nil {
 		return instructions, err
 	}
+	instructions = append(instructions, &httpsGetUpNodesOp)
+
+	if stopDBInfo.IsEon {
+		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, *options.UserName, stopDBInfo.Password)
+		if e != nil {
+			return instructions, e
+		}
+		instructions = append(instructions, &httpsSyncCatalogOp)
+	} else {
+		vlog.LogPrintInfoln("Skipping sync catalog for an enterprise database")
+	}
 
 	httpsStopDBOp, err := makeHTTPSStopDBOp(usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds)
 	if err != nil {
@@ -208,7 +222,6 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	}
 
 	instructions = append(instructions,
-		&httpsGetUpNodesOp,
 		&httpsStopDBOp,
 		&httpsCheckDBRunningOp,
 	)

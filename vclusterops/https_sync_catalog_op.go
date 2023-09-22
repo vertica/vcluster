@@ -46,6 +46,11 @@ func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
 	return op, nil
 }
 
+func makeHTTPSSyncCatalogOpWithoutHosts(useHTTPPassword bool,
+	userName string, httpsPassword *string) (HTTPSSyncCatalogOp, error) {
+	return makeHTTPSSyncCatalogOp(nil, useHTTPPassword, userName, httpsPassword)
+}
+
 func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
@@ -68,6 +73,14 @@ func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPSSyncCatalogOp) prepare(execContext *OpEngineExecContext) error {
+	// If no hosts passed in, we will find the hosts from execute-context
+	if len(op.hosts) == 0 {
+		if len(execContext.upHosts) == 0 {
+			return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+		}
+		// use first up host to execute https post request
+		op.hosts = []string{execContext.upHosts[0]}
+	}
 	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
