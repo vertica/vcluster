@@ -36,6 +36,10 @@ type VAddNodeOptions struct {
 	DepotSize *string // like 10G
 	// Skip rebalance shards if true
 	SkipRebalanceShards *bool
+
+	// Names of the existing nodes in the cluster.
+	// This options can be used to remove partially added nodes from catalog.
+	ExpectedNodeNames []string
 }
 
 func VAddNodeOptionsFactory() VAddNodeOptions {
@@ -166,6 +170,13 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 		return vdb, err
 	}
 
+	// trim stale node information from catalog
+	// if NodeNames is provided
+	err = trimNodesInCatalog(&vdb, options)
+	if err != nil {
+		return vdb, err
+	}
+
 	err = vdb.addHosts(options.NewHosts)
 	if err != nil {
 		return vdb, err
@@ -215,6 +226,89 @@ func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
 		hostNodeMap[h] = vnode
 	}
 	vdb.HostNodeMap = hostNodeMap
+
+	return nil
+}
+
+// trimNodesInCatalog removes failed node info from catalog
+// which can be used to remove partially added nodes
+func trimNodesInCatalog(vdb *VCoordinationDatabase,
+	options *VAddNodeOptions) error {
+	if len(options.ExpectedNodeNames) == 0 {
+		vlog.LogInfoln("ExpectedNodeNames is not set, skip trimming nodes")
+		return nil
+	}
+
+	// find out nodes to be trimmed
+	// trimmed nodes are the ones in catalog but not expected
+	expectedNodeNames := make(map[string]any)
+	for _, nodeName := range options.ExpectedNodeNames {
+		expectedNodeNames[nodeName] = struct{}{}
+	}
+
+	var aliveHosts []string
+	var nodesToTrim []string
+	nodeNamesInCatalog := make(map[string]any)
+	for h, vnode := range vdb.HostNodeMap {
+		nodeNamesInCatalog[vnode.Name] = struct{}{}
+		if _, ok := expectedNodeNames[vnode.Name]; ok { // catalog node is expected
+			aliveHosts = append(aliveHosts, h)
+		} else { // catalog node is not expected, trim it
+			// cannot trim UP nodes
+			if vnode.State == util.NodeUpState {
+				return fmt.Errorf("cannot trim the UP node %s (address %s)",
+					vnode.Name, h)
+			}
+			nodesToTrim = append(nodesToTrim, vnode.Name)
+		}
+	}
+
+	// sanity check: all provided node names should be found in catalog
+	invalidNodeNames := util.MapKeyDiff(expectedNodeNames, nodeNamesInCatalog)
+	if len(invalidNodeNames) > 0 {
+		return fmt.Errorf("node names %v are not found in database %s",
+			invalidNodeNames, vdb.Name)
+	}
+
+	vlog.LogPrintInfo("Trim nodes %+v from catalog", nodesToTrim)
+
+	// pick any up host as intiator
+	initiator := aliveHosts[:1]
+
+	var instructions []ClusterOp
+
+	// mark k-safety
+	if len(aliveHosts) < ksafetyThreshold {
+		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(initiator,
+			options.usePassword, *options.UserName, options.Password,
+			ksafeValueZero)
+		if err != nil {
+			return err
+		}
+		instructions = append(instructions, &httpsMarkDesignKSafeOp)
+	}
+
+	// remove down nodes from catalog
+	for _, nodeName := range nodesToTrim {
+		httpsDropNodeOp, err := makeHTTPSDropNodeOp(nodeName, initiator,
+			options.usePassword, *options.UserName, options.Password, vdb.IsEon)
+		if err != nil {
+			return err
+		}
+		instructions = append(instructions, &httpsDropNodeOp)
+	}
+
+	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	err := clusterOpEngine.Run()
+	if err != nil {
+		vlog.LogPrintError("fail to trim nodes from catalog, %v", err)
+		return err
+	}
+
+	// update vdb info
+	vdb.HostNodeMap = util.FilterMapByKey(vdb.HostNodeMap, aliveHosts)
+	vdb.HostList = aliveHosts
 
 	return nil
 }

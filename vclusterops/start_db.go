@@ -187,8 +187,8 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 		nil /*db configurations retrieved from a running db*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOp(options.Hosts)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeout(options.Hosts,
-		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(options.Hosts,
+		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout, StartDBCmd)
 	if err != nil {
 		return instructions, err
 	}

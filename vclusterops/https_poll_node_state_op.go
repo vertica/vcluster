@@ -30,6 +30,22 @@ import (
 // 30 seconds is long enough for normal http request.
 // If this timeout is reached, it might imply that the target IP is unreachable
 const httpRequestTimeoutSeconds = 30
+const (
+	StartDBCmd CmdType = iota
+	RestartNodeCmd
+)
+
+type CmdType int
+
+func (cmd CmdType) String() string {
+	switch cmd {
+	case StartDBCmd:
+		return "start_db"
+	case RestartNodeCmd:
+		return "restart_node"
+	}
+	return "unknown_operation"
+}
 
 type HTTPSPollNodeStateOp struct {
 	OpBase
@@ -38,6 +54,7 @@ type HTTPSPollNodeStateOp struct {
 	upHosts    map[string]any
 	notUpHosts []string
 	timeout    int
+	cmdType    CmdType
 }
 
 func makeHTTPSPollNodeStateOpHelper(hosts []string,
@@ -62,14 +79,15 @@ func makeHTTPSPollNodeStateOpHelper(hosts []string,
 	return httpsPollNodeStateOp, nil
 }
 
-func makeHTTPSPollNodeStateOpWithTimeout(hosts []string,
+func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-	timeout int) (HTTPSPollNodeStateOp, error) {
+	timeout int, cmdType CmdType) (HTTPSPollNodeStateOp, error) {
 	op, err := makeHTTPSPollNodeStateOpHelper(hosts, useHTTPPassword, userName, httpsPassword)
 	if err != nil {
 		return op, err
 	}
 	op.timeout = timeout
+	op.cmdType = cmdType
 	return op, nil
 }
 
@@ -189,10 +207,16 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 
 		// VER-88185 vcluster start_db - password related issues
 		// We don't need to wait until timeout to determine if all nodes are up or not.
-		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately."
+		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately.
+		// We also need to let user know to wait until all nodes are up
 		if result.IsPasswordAndCertificateError() {
-			vlog.LogPrintError("[%s] The credentials are incorrect. The following steps like 'Catalog Sync' will not be executed.",
-				op.name)
+			switch op.cmdType {
+			case StartDBCmd, RestartNodeCmd:
+				vlog.LogPrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",
+					op.name)
+				return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s, but the nodes' startup have been in progress."+
+					"Please use vsql to check the nodes' status and manually run sync_catalog vsql command 'select sync_catalog()'", op.name, host)
+			}
 			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}

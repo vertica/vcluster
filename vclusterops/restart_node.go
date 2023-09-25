@@ -282,8 +282,8 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 		return instructions, err
 	}
 	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(restartNodeInfo.HostsToRestart, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeout(restartNodeInfo.HostsToRestart,
-		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(restartNodeInfo.HostsToRestart,
+		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout, RestartNodeCmd)
 	if err != nil {
 		return instructions, err
 	}

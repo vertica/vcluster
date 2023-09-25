@@ -18,6 +18,7 @@ package commands
 import (
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -32,6 +33,8 @@ type CmdAddNode struct {
 	addNodeOptions *vclusterops.VAddNodeOptions
 	// Comma-separated list of hosts to add
 	newHostListStr *string
+	// Comma-separated list of node names, which exist in the cluster
+	nodeNameListStr *string
 
 	CmdBase
 }
@@ -66,6 +69,11 @@ func makeCmdAddNode() *CmdAddNode {
 		" to which the nodes must be added. If empty default subcluster is considered"))
 	addNodeOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
 	addNodeOptions.DepotSize = newCmd.parser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
+
+	// Optional flags
+	newCmd.nodeNameListStr = newCmd.parser.String("node-names", "",
+		util.GetOptionalFlagMsg("Comma-separated list of node names that exist in the cluster. "+
+			"Use with caution: not mentioned nodes will be trimmed from catalog."))
 
 	newCmd.addNodeOptions = &addNodeOptions
 	return newCmd
@@ -106,6 +114,11 @@ func (c *CmdAddNode) validateParse() error {
 		return err
 	}
 
+	err = c.parseNodeNameList()
+	if err != nil {
+		return err
+	}
+
 	return c.ValidateParseBaseOptions(&c.addNodeOptions.DatabaseOptions)
 }
 
@@ -118,6 +131,20 @@ func (c *CmdAddNode) parseNewHostList() error {
 	}
 
 	c.addNodeOptions.NewHosts = inputHostList
+	return nil
+}
+
+func (c *CmdAddNode) parseNodeNameList() error {
+	// if --node-names is set, there must be at least one node name
+	if util.IsOptionSet(c.parser, "node-names") {
+		if *c.nodeNameListStr == "" {
+			return fmt.Errorf("when --node-names is specified, "+
+				"must provide all existing node names in %s", *c.addNodeOptions.DBName)
+		}
+
+		c.addNodeOptions.ExpectedNodeNames = strings.Split(*c.nodeNameListStr, ",")
+	}
+
 	return nil
 }
 
