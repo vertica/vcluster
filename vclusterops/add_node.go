@@ -162,12 +162,6 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 		}
 	}
 
-	// add_node is aborted if requirements are not met
-	err = checkAddNodeRequirements(&vdb, options.NewHosts)
-	if err != nil {
-		return vdb, err
-	}
-
 	err = options.setInitiator(vdb.PrimaryUpNodes)
 	if err != nil {
 		return vdb, err
@@ -176,6 +170,13 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 	// trim stale node information from catalog
 	// if NodeNames is provided
 	err = trimNodesInCatalog(&vdb, options)
+	if err != nil {
+		return vdb, err
+	}
+
+	// add_node is aborted if requirements are not met.
+	// Here we check whether the nodes being added already exist
+	err = checkAddNodeRequirements(&vdb, options.NewHosts)
 	if err != nil {
 		return vdb, err
 	}
