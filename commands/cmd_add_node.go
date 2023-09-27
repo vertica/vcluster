@@ -60,6 +60,8 @@ func makeCmdAddNode() *CmdAddNode {
 	addNodeOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
 	addNodeOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
+	addNodeOptions.ForceRemoval = newCmd.parser.Bool("force-removal", false,
+		util.GetOptionalFlagMsg("Force removal of existing directories before adding nodes"))
 	addNodeOptions.SkipRebalanceShards = newCmd.parser.Bool("skip-rebalance-shards", false,
 		util.GetOptionalFlagMsg("Skip the subcluster shards rebalancing"))
 

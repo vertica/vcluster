@@ -36,6 +36,8 @@ type VAddNodeOptions struct {
 	DepotSize *string // like 10G
 	// Skip rebalance shards if true
 	SkipRebalanceShards *bool
+	// Use force remove if true
+	ForceRemoval *bool
 
 	// Names of the existing nodes in the cluster.
 	// This options can be used to remove partially added nodes from catalog.
@@ -56,6 +58,7 @@ func (o *VAddNodeOptions) SetDefaultValues() {
 	o.SCName = new(string)
 	o.SkipRebalanceShards = new(bool)
 	o.DepotSize = new(string)
+	o.ForceRemoval = new(bool)
 }
 
 func (o *VAddNodeOptions) validateEonOptions() error {
@@ -363,7 +366,7 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	// contains the hosts to add.
 	newHostNodeMap := vdb.copyHostNodeMap(options.NewHosts)
 	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(newHostNodeMap,
-		false /*force cleanup*/, false /*for db revive*/)
+		*options.ForceRemoval /*force cleanup*/, false /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
