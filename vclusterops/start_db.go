@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // Normal strings are easier and safer to use in Go.
@@ -57,8 +58,22 @@ func (options *VStartDatabaseOptions) validateRequiredOptions() error {
 	return nil
 }
 
+func (options *VStartDatabaseOptions) validateEonOptions() error {
+	if *options.CommunalStorageLocation != "" {
+		return util.ValidateCommunalStorageLocation(*options.CommunalStorageLocation)
+	}
+
+	return nil
+}
+
 func (options *VStartDatabaseOptions) validateParseOptions() error {
-	return options.validateRequiredOptions()
+	// batch 1: validate required parameters
+	err := options.validateRequiredOptions()
+	if err != nil {
+		return err
+	}
+	// batch 2: validate eon params
+	return options.validateEonOptions()
 }
 
 func (options *VStartDatabaseOptions) analyzeOptions() (err error) {
@@ -110,8 +125,27 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 		options.StatePollingTimeout = util.DefaultStatePollingTimeout
 	}
 
+	var pVDB *VCoordinationDatabase
+	// retrieve database information from cluster_config.json for EON databases
+	if options.IsEonMode(config) {
+		if *options.CommunalStorageLocation != "" {
+			vdb, e := options.getVDBWhenDBIsDown()
+			if e != nil {
+				return e
+			}
+			// we want to read catalog info only from primary nodes later
+			vdb.filterPrimaryNodes()
+			pVDB = &vdb
+		} else {
+			// When communal storage location is missing, we only log a warning message
+			// because fail to read cluster_config.json will not affect start_db in most of the cases.
+			vlog.LogPrintWarningln("communal storage location is not specified for an eon database," +
+				" first start_db after revive_db could fail because we cannot retrieve the correct database information")
+		}
+	}
+
 	// produce start_db instructions
-	instructions, err := vcc.produceStartDBInstructions(options)
+	instructions, err := vcc.produceStartDBInstructions(options, pVDB)
 	if err != nil {
 		err = fmt.Errorf("fail to production instructions: %w", err)
 		return err
@@ -144,7 +178,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 //   - Start all nodes of the database
 //   - Poll node startup
 //   - Sync catalog (Eon mode only)
-func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
@@ -161,21 +195,25 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	if err != nil {
 		return instructions, err
 	}
-
-	vdb := VCoordinationDatabase{}
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix, &vdb)
-
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(&vdb)
-	if err != nil {
-		return instructions, err
-	}
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
 		&checkDBRunningOp,
-		&nmaGetNodesInfoOp,
-		&nmaReadCatalogEditorOp,
 	)
+
+	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
+	if vdb == nil {
+		vdb = new(VCoordinationDatabase)
+		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix, vdb)
+		instructions = append(instructions, &nmaGetNodesInfoOp)
+	}
+
+	// vdb here should contains only primary nodes
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions, &nmaReadCatalogEditorOp)
 
 	// sourceConfHost is set to nil value in upload and download step
 	// we use information from catalog editor operation to update the sourceConfHost value

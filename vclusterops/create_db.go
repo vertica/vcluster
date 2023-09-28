@@ -35,7 +35,6 @@ type VCreateDatabaseOptions struct {
 	LicensePathOnNode *string // required to be a fully qualified path
 	// part 2: eon db info
 	ShardCount                *int
-	CommunalStorageLocation   *string
 	CommunalStorageParamsPath *string
 	DepotSize                 *string // like 10G
 	GetAwsCredentialsFromEnv  *bool
@@ -81,7 +80,6 @@ func (opt *VCreateDatabaseOptions) SetDefaultValues() {
 
 	// eon db Info
 	opt.ShardCount = new(int)
-	opt.CommunalStorageLocation = new(string)
 	opt.CommunalStorageParamsPath = new(string)
 	opt.DepotSize = new(string)
 	opt.GetAwsCredentialsFromEnv = new(bool)

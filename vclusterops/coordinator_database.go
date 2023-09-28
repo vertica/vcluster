@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"golang.org/x/exp/maps"
 )
 
 /* VCoordinationDatabase contains a copy of some of the CAT::Database
@@ -310,6 +311,20 @@ func (vdb *VCoordinationDatabase) GetAwsCredentialsFromEnv() error {
 	vdb.AwsIDKey = awsIDKey
 	vdb.AwsSecretKey = awsSecretKey
 	return nil
+}
+
+// filterPrimaryNodes will remove secondary nodes from vdb
+func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
+	primaryHostNodeMap := makeVHostNodeMap()
+
+	for h, vnode := range vdb.HostNodeMap {
+		if vnode.IsPrimary {
+			primaryHostNodeMap[h] = vnode
+		}
+	}
+	vdb.HostNodeMap = primaryHostNodeMap
+
+	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 
 /* VCoordinationNode contains a copy of the some of CAT::Node information

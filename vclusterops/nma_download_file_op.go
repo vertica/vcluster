@@ -43,6 +43,7 @@ type NMADownloadFileOp struct {
 	newNodes           []string
 	displayOnly        bool
 	ignoreClusterLease bool
+	forRevive          bool
 }
 
 type downloadFileRequestData struct {
@@ -83,15 +84,13 @@ func (e *ReviveDBNodeCountMismatchError) Error() string {
 }
 
 func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
-	communalStorageParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
+	communalStorageParameters map[string]string, vdb *VCoordinationDatabase) (NMADownloadFileOp, error) {
 	op := NMADownloadFileOp{}
 	op.name = "NMADownloadFileOp"
 	initiator := getInitiator(newNodes)
 	op.hosts = []string{initiator}
 	op.vdb = vdb
 	op.newNodes = newNodes
-	op.displayOnly = displayOnly
-	op.ignoreClusterLease = ignoreClusterLease
 
 	// make https json data
 	op.hostRequestBodyMap = make(map[string]string)
@@ -109,6 +108,20 @@ func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePat
 
 		op.hostRequestBodyMap[host] = string(dataBytes)
 	}
+
+	return op, nil
+}
+
+func makeNMADownloadFileOpForRevive(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+	communalStorageParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
+	op, err := makeNMADownloadFileOp(newNodes, sourceFilePath, destinationFilePath,
+		catalogPath, communalStorageParameters, vdb)
+	if err != nil {
+		return op, err
+	}
+	op.displayOnly = displayOnly
+	op.ignoreClusterLease = ignoreClusterLease
+	op.forRevive = true
 
 	return op, nil
 }
@@ -190,7 +203,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 			}
 
 			// for --display-only, we only need the file content
-			if op.displayOnly {
+			if op.displayOnly && op.forRevive {
 				execContext.dbInfo = response.FileContent
 				return nil
 			}
@@ -203,60 +216,27 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 				break
 			}
 
-			err = op.clusterLeaseCheck(descFileContent.ClusterLeaseExpiration)
-			if err != nil {
-				allErrs = errors.Join(allErrs, err)
-				break
-			}
-
-			if len(descFileContent.NodeList) != len(op.newNodes) {
-				err := &ReviveDBNodeCountMismatchError{
-					ReviveDBStep:  op.name,
-					FailureHost:   host,
-					NumOfNewNodes: len(op.newNodes),
-					NumOfOldNodes: len(descFileContent.NodeList),
+			if op.forRevive {
+				err = op.clusterLeaseCheck(descFileContent.ClusterLeaseExpiration)
+				if err != nil {
+					allErrs = errors.Join(allErrs, err)
+					break
 				}
-				allErrs = errors.Join(allErrs, err)
-				break
+
+				if len(descFileContent.NodeList) != len(op.newNodes) {
+					err := &ReviveDBNodeCountMismatchError{
+						ReviveDBStep:  op.name,
+						FailureHost:   host,
+						NumOfNewNodes: len(op.newNodes),
+						NumOfOldNodes: len(descFileContent.NodeList),
+					}
+					allErrs = errors.Join(allErrs, err)
+					break
+				}
 			}
 
 			// save descFileContent in vdb
-			op.vdb.HostNodeMap = makeVHostNodeMap()
-			for _, node := range descFileContent.NodeList {
-				op.vdb.HostList = append(op.vdb.HostList, node.Address)
-				vNode := MakeVCoordinationNode()
-				vNode.Name = node.Name
-				vNode.Address = node.Address
-				vNode.IsPrimary = node.IsPrimary
-
-				// remove suffix "/Catalog" from node catalog path
-				// e.g. /data/test_db/v_test_db_node0002_catalog/Catalog -> /data/test_db/v_test_db_node0002_catalog
-				if filepath.Base(node.CatalogPath) == catalogSuffix {
-					vNode.CatalogPath = filepath.Dir(node.CatalogPath)
-				} else {
-					vNode.CatalogPath = node.CatalogPath
-				}
-
-				for _, storage := range descFileContent.StorageLocations {
-					// when storage name contains the node name, we know this storage is for that node
-					// an example of storage name: "__location_1_v_test_db_node0001"
-					// this will filter out communal storage location
-					if strings.Contains(storage.Name, node.Name) {
-						// we separate depot path and other storage locations
-						if storage.Usage == depotStorageType {
-							vNode.DepotPath = storage.Path
-						} else {
-							vNode.StorageLocations = append(vNode.StorageLocations, storage.Path)
-							// we store the user storage location for later prepare directory use
-							if storage.Usage == userStorageType {
-								vNode.UserStorageLocations = append(vNode.UserStorageLocations, storage.Path)
-							}
-						}
-					}
-				}
-
-				op.vdb.HostNodeMap[node.Address] = &vNode
-			}
+			op.buildVDBFromClusterConfig(descFileContent)
 			return nil
 		}
 
@@ -265,6 +245,46 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 	}
 
 	return appendHTTPSFailureError(allErrs)
+}
+
+// buildVDBFromClusterConfig can build a vdb using cluster_config.json
+func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileContent) {
+	op.vdb.HostNodeMap = makeVHostNodeMap()
+	for _, node := range descFileContent.NodeList {
+		op.vdb.HostList = append(op.vdb.HostList, node.Address)
+		vNode := MakeVCoordinationNode()
+		vNode.Name = node.Name
+		vNode.Address = node.Address
+		vNode.IsPrimary = node.IsPrimary
+
+		// remove suffix "/Catalog" from node catalog path
+		// e.g. /data/test_db/v_test_db_node0002_catalog/Catalog -> /data/test_db/v_test_db_node0002_catalog
+		if filepath.Base(node.CatalogPath) == catalogSuffix {
+			vNode.CatalogPath = filepath.Dir(node.CatalogPath)
+		} else {
+			vNode.CatalogPath = node.CatalogPath
+		}
+
+		for _, storage := range descFileContent.StorageLocations {
+			// when storage name contains the node name, we know this storage is for that node
+			// an example of storage name: "__location_1_v_test_db_node0001"
+			// this will filter out communal storage location
+			if strings.Contains(storage.Name, node.Name) {
+				// we separate depot path and other storage locations
+				if storage.Usage == depotStorageType {
+					vNode.DepotPath = storage.Path
+				} else {
+					vNode.StorageLocations = append(vNode.StorageLocations, storage.Path)
+					// we store the user storage location for later prepare directory use
+					if storage.Usage == userStorageType {
+						vNode.UserStorageLocations = append(vNode.UserStorageLocations, storage.Path)
+					}
+				}
+			}
+		}
+
+		op.vdb.HostNodeMap[node.Address] = &vNode
+	}
 }
 
 func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) error {

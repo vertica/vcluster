@@ -17,30 +17,20 @@ package vclusterops
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
-)
-
-const (
-	destinationFilePath = "/tmp/desc.json"
-	// catalogPath is not used for now, will implement it in VER-88884
-	catalogPath = ""
 )
 
 type VReviveDatabaseOptions struct {
 	// part 1: basic db info
 	DatabaseOptions
 	// part 2: revive db info
-	CommunalStorageLocation   *string
-	CommunalStorageParameters map[string]string
-	LoadCatalogTimeout        *uint
-	ForceRemoval              *bool
-	DisplayOnly               *bool
-	IgnoreClusterLease        *bool
+	LoadCatalogTimeout *uint
+	ForceRemoval       *bool
+	DisplayOnly        *bool
+	IgnoreClusterLease *bool
 }
 
 func VReviveDBOptionsFactory() VReviveDatabaseOptions {
@@ -56,8 +46,6 @@ func (options *VReviveDatabaseOptions) setDefaultValues() {
 	options.DatabaseOptions.SetDefaultValues()
 
 	// set default values for revive db options
-	options.CommunalStorageLocation = new(string)
-	options.CommunalStorageParameters = make(map[string]string)
 	options.LoadCatalogTimeout = new(uint)
 	*options.LoadCatalogTimeout = util.DefaultLoadCatalogTimeoutSeconds
 	options.ForceRemoval = new(bool)
@@ -194,7 +182,7 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 
 	// use description file path as source file path
 	sourceFilePath := options.getDescriptionFilePath()
-	nmaDownLoadFileOp, err := makeNMADownloadFileOp(options.Hosts, sourceFilePath, destinationFilePath, catalogPath,
+	nmaDownLoadFileOp, err := makeNMADownloadFileOpForRevive(options.Hosts, sourceFilePath, destinationFilePath, catalogPath,
 		options.CommunalStorageParameters, vdb, *options.DisplayOnly, *options.IgnoreClusterLease)
 	if err != nil {
 		return instructions, err
@@ -308,20 +296,4 @@ func (options *VReviveDatabaseOptions) generateReviveVDB(vdb *VCoordinationDatab
 	}
 
 	return newVDB, oldHosts, nil
-}
-
-// getDescriptionFilePath can make the description file path using db name and communal storage location in the options
-func (options *VReviveDatabaseOptions) getDescriptionFilePath() string {
-	const (
-		descriptionFileName           = "cluster_config.json"
-		descriptionFileMetadataFolder = "metadata"
-	)
-	// description file will be in the location: {communalStorageLocation}/metadata/{db_name}/cluster_config.json
-	// an example: s3://tfminio/test_loc/metadata/test_db/cluster_config.json
-	descriptionFilePath := filepath.Join(*options.CommunalStorageLocation, descriptionFileMetadataFolder, *options.DBName, descriptionFileName)
-	// filepath.Join() will change "://" of the remote communal storage path to ":/"
-	// as a result, we need to change the separator back to url format
-	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)
-
-	return descriptionFilePath
 }
