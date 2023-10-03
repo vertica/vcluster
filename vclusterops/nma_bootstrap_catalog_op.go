@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -30,24 +31,23 @@ type NMABootstrapCatalogOp struct {
 }
 
 type bootstrapCatalogRequestData struct {
-	DBName             string            `json:"db_name"`
-	Host               string            `json:"host"`
-	NodeName           string            `json:"node_name"`
-	CatalogPath        string            `json:"catalog_path"`
-	StorageLocation    string            `json:"storage_location"`
-	PortNumber         int               `json:"port_number"`
-	Parameters         map[string]string `json:"parameters"`
-	ControlAddr        string            `json:"control_addr"`
-	BroadcastAddr      string            `json:"broadcast_addr"`
-	LicenseKey         string            `json:"license_key"`
-	ControlPort        string            `json:"spread_port"`
-	LargeCluster       int               `json:"large_cluster"`
-	NetworkingMode     string            `json:"networking_mode"`
-	SpreadLogging      bool              `json:"spread_logging"`
-	SpreadLoggingLevel int               `json:"spread_logging_level"`
-	Ipv6               bool              `json:"ipv6"`
-	NumShards          int               `json:"num_shards"`
-	CommunalStorageURL string            `json:"communal_storage"`
+	DBName             string `json:"db_name"`
+	Host               string `json:"host"`
+	NodeName           string `json:"node_name"`
+	CatalogPath        string `json:"catalog_path"`
+	StorageLocation    string `json:"storage_location"`
+	PortNumber         int    `json:"port_number"`
+	ControlAddr        string `json:"control_addr"`
+	BroadcastAddr      string `json:"broadcast_addr"`
+	LicenseKey         string `json:"license_key"`
+	ControlPort        string `json:"spread_port"`
+	LargeCluster       int    `json:"large_cluster"`
+	NetworkingMode     string `json:"networking_mode"`
+	SpreadLogging      bool   `json:"spread_logging"`
+	SpreadLoggingLevel int    `json:"spread_logging_level"`
+	Ipv6               bool   `json:"ipv6"`
+	NumShards          int    `json:"num_shards"`
+	CommunalStorageURL string `json:"communal_storage"`
 	SensitiveFields
 }
 
@@ -70,6 +70,8 @@ func makeNMABootstrapCatalogOp(
 
 func (op *NMABootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) error {
 	op.hostRequestBodyMap = make(map[string]bootstrapCatalogRequestData)
+	// Add configuration and communal storage params to bootstrap params
+	bootstrapParams := util.MapCombine(options.ConfigurationParameters, options.CommunalStorageParameters)
 
 	for _, host := range op.hosts {
 		bootstrapData := bootstrapCatalogRequestData{}
@@ -86,7 +88,7 @@ func (op *NMABootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 
 		// client port: spread port will be computed based on client port
 		bootstrapData.PortNumber = vnode.Port
-		bootstrapData.Parameters = options.ConfigurationParameters
+		bootstrapData.Parameters = bootstrapParams
 
 		// need to read network_profile info in execContext
 		// see execContext in NMABootstrapCatalogOp:prepare()

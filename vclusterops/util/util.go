@@ -513,6 +513,14 @@ func CopyMap[K comparable, V any](original map[K]V) map[K]V {
 	return copyOfMap
 }
 
+// Combine two maps into one map
+func MapCombine[M map[K]V, K comparable, V any](m, n M) map[K]V {
+	for key, value := range n {
+		m[key] = value
+	}
+	return m
+}
+
 // ValidateCommunalStorageLocation can identify some invalid communal storage locations
 func ValidateCommunalStorageLocation(location string) error {
 	// reject empty communal storage location

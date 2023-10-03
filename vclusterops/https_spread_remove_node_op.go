@@ -28,6 +28,7 @@ type HTTPSSpreadRemoveNodeOp struct {
 	RequestParams map[string]string
 }
 
+//lint:ignore U1000 Ignore unused function temporarily
 func makeHTTPSSpreadRemoveNodeOp(hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, hostNodeMap vHostNodeMap) (HTTPSSpreadRemoveNodeOp, error) {
 	op := HTTPSSpreadRemoveNodeOp{}

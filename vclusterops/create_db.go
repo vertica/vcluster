@@ -34,10 +34,9 @@ type VCreateDatabaseOptions struct {
 	SQLFile           *string
 	LicensePathOnNode *string // required to be a fully qualified path
 	// part 2: eon db info
-	ShardCount                *int
-	CommunalStorageParamsPath *string
-	DepotSize                 *string // like 10G
-	GetAwsCredentialsFromEnv  *bool
+	ShardCount               *int
+	DepotSize                *string // like 10G
+	GetAwsCredentialsFromEnv *bool
 	// part 3: optional info
 	ConfigurationParameters   map[string]string
 	ForceCleanupOnFailure     *bool
@@ -61,11 +60,8 @@ type VCreateDatabaseOptions struct {
 
 func VCreateDatabaseOptionsFactory() VCreateDatabaseOptions {
 	opt := VCreateDatabaseOptions{}
-	// without initialization it will panic
-	opt.ConfigurationParameters = make(map[string]string)
 	// set default values to the params
 	opt.SetDefaultValues()
-
 	return opt
 }
 
@@ -80,11 +76,11 @@ func (opt *VCreateDatabaseOptions) SetDefaultValues() {
 
 	// eon db Info
 	opt.ShardCount = new(int)
-	opt.CommunalStorageParamsPath = new(string)
 	opt.DepotSize = new(string)
 	opt.GetAwsCredentialsFromEnv = new(bool)
 
 	// optional info
+	opt.ConfigurationParameters = make(map[string]string)
 	opt.ForceCleanupOnFailure = new(bool)
 	opt.ForceRemovalAtCreation = new(bool)
 	opt.SkipPackageInstall = new(bool)
@@ -135,7 +131,7 @@ func (opt *VCreateDatabaseOptions) CheckNilPointerParams() error {
 	if opt.CommunalStorageLocation == nil {
 		return util.ParamNotSetErrorMsg("communal-storage-location")
 	}
-	if opt.CommunalStorageParamsPath == nil {
+	if opt.CommunalStorageParameters == nil {
 		return util.ParamNotSetErrorMsg("communal-storage-params")
 	}
 	if opt.DepotSize == nil {

@@ -311,17 +311,30 @@ func (op *OpBase) checkResponseStatusCode(resp httpsResponseStatus, host string)
 /* Sensitive fields in request body
  */
 type SensitiveFields struct {
-	DBPassword         string `json:"db_password"`
-	AWSAccessKeyID     string `json:"aws_access_key_id"`
-	AWSSecretAccessKey string `json:"aws_secret_access_key"`
+	DBPassword         string            `json:"db_password"`
+	AWSAccessKeyID     string            `json:"aws_access_key_id"`
+	AWSSecretAccessKey string            `json:"aws_secret_access_key"`
+	Parameters         map[string]string `json:"parameters"`
 }
 
 func (maskedData *SensitiveFields) maskSensitiveInfo() {
 	const maskedValue = "******"
-
+	sensitiveKeyParams := map[string]bool{
+		"awsauth":                 true,
+		"awssessiontoken":         true,
+		"gcsauth":                 true,
+		"azurestoragecredentials": true,
+	}
 	maskedData.DBPassword = maskedValue
 	maskedData.AWSAccessKeyID = maskedValue
 	maskedData.AWSSecretAccessKey = maskedValue
+	for key := range maskedData.Parameters {
+		// Mask the value if the keys are credentials
+		keyLowerCase := strings.ToLower(key)
+		if sensitiveKeyParams[keyLowerCase] {
+			maskedData.Parameters[key] = maskedValue
+		}
+	}
 }
 
 /* Cluster HTTPS ops basic fields

@@ -57,6 +57,17 @@ func (c *CmdBase) ParseArgv() error {
 // validate and parse argv
 func (c *CmdBase) ValidateParseArgv(commandType string) error {
 	vlog.LogArgParse(&c.argv)
+	return c.ValidateParseArgvHelper(commandType)
+}
+
+// validate and parse masked argv
+// Some database actions, such as createDB and reviveDB, need to mask sensitive parameters in the log
+func (c *CmdBase) ValidateParseMaskedArgv(commandType string) error {
+	vlog.LogMaskedArgParse(c.argv)
+	return c.ValidateParseArgvHelper(commandType)
+}
+
+func (c *CmdBase) ValidateParseArgvHelper(commandType string) error {
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
@@ -64,7 +75,6 @@ func (c *CmdBase) ValidateParseArgv(commandType string) error {
 		c.PrintUsage(commandType)
 		return fmt.Errorf("zero args found, at least one argument expected")
 	}
-
 	return c.ParseArgv()
 }
 

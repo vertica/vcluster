@@ -98,8 +98,14 @@ func (op *HTTPSGetUpNodesOp) execute(execContext *OpEngineExecContext) error {
 		           'down_since' : null
 		           'build_info' : "v12.0.4-7142c8b01f373cc1aa60b1a8feff6c40bfb7afe8"
 	}]}
-	or a message if the endpoint does not return a well-structured JSON, an example:
-	{'message': 'Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n'}
+     or an rfc error if the endpoint does not return a well-structured JSON, an example:
+    {
+    "type": "https:\/\/integrators.vertica.com\/rest\/errors\/unauthorized-request",
+    "title": "Unauthorized-request",
+    "detail": "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n",
+    "host": "0.0.0.0",
+    "status": 401
+    }
 */
 
 func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) error {

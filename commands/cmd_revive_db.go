@@ -62,7 +62,7 @@ func (c *CmdReviveDB) CommandType() string {
 
 func (c *CmdReviveDB) Parse(inputArgv []string) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseMaskedArgv(c.CommandType())
 	if err != nil {
 		return err
 	}

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"runtime/debug"
@@ -307,5 +308,50 @@ func LogArgParse(inputArgv *[]string) {
 // log functions for specific cases
 func (logger *Vlogger) logArgParse(inputArgv *[]string) {
 	inputArgMsg := fmt.Sprintf("Called method Parse with args: %q.", *inputArgv)
+	logger.logInfoln(inputArgMsg)
+}
+
+func LogMaskedArgParse(inputArgv []string) {
+	logger := GetGlobalLogger()
+	logger.logMaskedArgParse(inputArgv)
+}
+
+// log functions with masked params
+func (logger *Vlogger) logMaskedArgParse(inputArgv []string) {
+	var maskedPairs []string
+	sensitiveKeyParams := map[string]bool{
+		"awsauth":                 true,
+		"awssessiontoken":         true,
+		"gcsauth":                 true,
+		"azurestoragecredentials": true,
+	}
+	const expectedParts = 2
+	const maskedValue = "******"
+	const targetMaskedArg = "--communal-storage-params" // target param
+	for i := 0; i < len(inputArgv); i++ {
+		if inputArgv[i] == targetMaskedArg && i+1 < len(inputArgv) {
+			pairs := strings.Split(inputArgv[i+1], ",")
+			maskedPairs = append(maskedPairs, targetMaskedArg)
+			for _, pair := range pairs {
+				keyValue := strings.Split(pair, "=")
+				if len(keyValue) == expectedParts {
+					key := keyValue[0]
+					value := keyValue[1]
+					keyLowerCase := strings.ToLower(key)
+					if sensitiveKeyParams[keyLowerCase] {
+						value = maskedValue
+					}
+					maskedPairs = append(maskedPairs, key+"="+value)
+				} else {
+					// Handle invalid  format
+					maskedPairs = append(maskedPairs, pair)
+				}
+			}
+			i++ // Skip the next arg since it has been masked
+		} else {
+			maskedPairs = append(maskedPairs, inputArgv[i])
+		}
+	}
+	inputArgMsg := fmt.Sprintf("Called method Parse with args: %q.", maskedPairs)
 	logger.logInfoln(inputArgMsg)
 }

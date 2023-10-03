@@ -236,10 +236,9 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 //   - Update ksafety if needed
 //   - Mark nodes to remove as ephemeral
 //   - Rebalance cluster for Enterprise mode, rebalance shards for Eon mode
-//   - Remove nodes from Spread
 //   - Drop Nodes
-//   - Delete catalog and data directories
 //   - Reload spread
+//   - Delete catalog and data directories
 //   - Sync catalog (eon only)
 func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
@@ -286,13 +285,7 @@ func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveN
 		instructions = append(instructions, &httpsRebalanceClusterOp)
 	}
 
-	// only call HTTPSSpreadRemoveNodeOp when there are secondary nodes to remove
-	err = produceSpreadRemoveNodeOp(&instructions, options.HostsToRemove,
-		usePassword, username, password,
-		initiatorHost, vdb.HostNodeMap)
-	if err != nil {
-		return instructions, err
-	}
+	// VER-89478: only remove secondary nodes from spread
 
 	err = produceDropNodeOps(&instructions, options.HostsToRemove, initiatorHost,
 		usePassword, username, password, vdb.HostNodeMap, vdb.IsEon)
@@ -300,17 +293,17 @@ func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveN
 		return instructions, err
 	}
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, *options.ForceDelete)
-	if err != nil {
-		return instructions, err
-	}
 	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, true, username, password)
 	if err != nil {
 		return instructions, err
 	}
-	instructions = append(instructions,
-		&nmaDeleteDirectoriesOp,
-		&httpsReloadSpreadOp)
+	instructions = append(instructions, &httpsReloadSpreadOp)
+
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, *options.ForceDelete)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions, &nmaDeleteDirectoriesOp)
 
 	if vdb.IsEon {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, true, username, password)
@@ -374,6 +367,8 @@ func produceDropNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
 
 // produceSpreadRemoveNodeOp calls HTTPSSpreadRemoveNodeOp
 // when there is at least one secondary node to remove
+//
+//lint:ignore U1000 Ignore unused function temporarily
 func produceSpreadRemoveNodeOp(instructions *[]ClusterOp, hostsToRemove []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	initiatorHost []string, hostNodeMap vHostNodeMap) error {

@@ -101,6 +101,7 @@ func constructCmds() []ClusterCommand {
 		makeCmdRemoveNode(),
 		makeCmdRestartNodes(),
 		// others
+		makeCmdScrutinize(),
 		makeCmdHelp(),
 		makeCmdInit(),
 		makeCmdConfig(),
@@ -115,23 +116,26 @@ func constructCmds() []ClusterCommand {
  *     + Asks the sub-command to analyze the command line given the
  *       context from the config file.
  *     + Calls Run() for the sub-command
- *     + Returns any errors to the caller
+ *     + Returns any errors to the caller after writing the error to the log
  */
 func (c ClusterCommandLauncher) Run(inputArgv []string) error {
 	c.argv = inputArgv
 	minArgsError := checkMinimumInput(c.argv)
 
 	if minArgsError != nil {
+		vlog.LogError(minArgsError.Error())
 		return minArgsError
 	}
 
 	subCommand, idError := identifySubcommand(c.commands)
 	if idError != nil {
+		vlog.LogError(idError.Error())
 		return idError
 	}
 
 	parseError := subCommand.Parse(inputArgv[2:])
 	if parseError != nil {
+		vlog.LogError(parseError.Error())
 		return parseError
 	}
 
@@ -151,10 +155,16 @@ func (c ClusterCommandLauncher) Run(inputArgv []string) error {
 	analyzeError := subCommand.Analyze()
 
 	if analyzeError != nil {
+		vlog.LogError(analyzeError.Error())
 		return analyzeError
 	}
 	log := vlog.GetGlobalLogger().Printer
-	return subCommand.Run(log)
+
+	runError := subCommand.Run(log)
+	if runError != nil {
+		vlog.LogError(runError.Error())
+	}
+	return runError
 }
 
 func identifySubcommand(commands map[string]ClusterCommand) (ClusterCommand, error) {
