@@ -236,6 +236,7 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 //   - Update ksafety if needed
 //   - Mark nodes to remove as ephemeral
 //   - Rebalance cluster for Enterprise mode, rebalance shards for Eon mode
+//   - Remove secondary nodes from spread
 //   - Drop Nodes
 //   - Reload spread
 //   - Delete catalog and data directories
@@ -285,7 +286,13 @@ func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveN
 		instructions = append(instructions, &httpsRebalanceClusterOp)
 	}
 
-	// VER-89478: only remove secondary nodes from spread
+	// only remove secondary nodes from spread
+	err = produceSpreadRemoveNodeOp(&instructions, options.HostsToRemove,
+		usePassword, username, password,
+		initiatorHost, vdb.HostNodeMap)
+	if err != nil {
+		return instructions, err
+	}
 
 	err = produceDropNodeOps(&instructions, options.HostsToRemove, initiatorHost,
 		usePassword, username, password, vdb.HostNodeMap, vdb.IsEon)
@@ -367,27 +374,24 @@ func produceDropNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
 
 // produceSpreadRemoveNodeOp calls HTTPSSpreadRemoveNodeOp
 // when there is at least one secondary node to remove
-//
-//lint:ignore U1000 Ignore unused function temporarily
 func produceSpreadRemoveNodeOp(instructions *[]ClusterOp, hostsToRemove []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	initiatorHost []string, hostNodeMap vHostNodeMap) error {
 	// find secondary nodes from HostsToRemove
-	hasSecondaryNodesToRemove := false
+	var secondaryHostsToRemove []string
 	for _, h := range hostsToRemove {
 		vnode, ok := hostNodeMap[h]
 		if !ok {
 			return fmt.Errorf("cannot find host %s from vdb.HostNodeMap", h)
 		}
 		if !vnode.IsPrimary {
-			hasSecondaryNodesToRemove = true
-			break
+			secondaryHostsToRemove = append(secondaryHostsToRemove, h)
 		}
 	}
 
-	// only call HTTPSSpreadRemoveNodeOp when there are secondary nodes to remove
-	if hasSecondaryNodesToRemove {
-		httpsSpreadRemoveNodeOp, err := makeHTTPSSpreadRemoveNodeOp(hostsToRemove, initiatorHost,
+	// only call HTTPSSpreadRemoveNodeOp for secondary nodes to remove
+	if len(secondaryHostsToRemove) > 0 {
+		httpsSpreadRemoveNodeOp, err := makeHTTPSSpreadRemoveNodeOp(secondaryHostsToRemove, initiatorHost,
 			useHTTPPassword, userName, httpsPassword, hostNodeMap)
 		if err != nil {
 			return err

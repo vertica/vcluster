@@ -65,6 +65,10 @@ var (
 		"https://integrators.vertica.com/vcluster/errors/internal-load-remote-catalog-failure",
 		"Internal error while loading remote catalog",
 	)
+	GenericSpreadSecurityPersistenceFailure = newProblemID(
+		"https://integrators.vertica.com/vcluster/errors/spread-security-persistence-failure",
+		"Internal error while persisting spread encryption key",
+	)
 	SubclusterNotFound = newProblemID(
 		"https://integrators.vertica.com/vcluster/errors/subcluster-not-found",
 		"Subcluster is not found",
