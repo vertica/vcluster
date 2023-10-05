@@ -130,11 +130,22 @@ func (c *CmdStopDB) Run(log vlog.Printer) error {
 		Log: log.WithName(c.CommandType()),
 	}
 	vcc.Log.Info("Called method Run()")
-	err := vcc.VStopDatabase(c.stopDBOptions)
+
+	options := c.stopDBOptions
+
+	// get config from vertica_cluster.yaml
+	config, err := options.GetDBConfig()
+	if err != nil {
+		return err
+	}
+	options.Config = config
+
+	err = vcc.VStopDatabase(options)
 	if err != nil {
 		vcc.Log.Error(err, "failed to stop the database")
 		return err
 	}
-	vlog.LogPrintInfo("Stopped a database with name %s", *c.stopDBOptions.DBName)
+
+	vlog.LogPrintInfo("Stopped a database with name %s", *options.DBName)
 	return nil
 }

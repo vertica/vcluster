@@ -123,26 +123,17 @@ func (o *VAddNodeOptions) validateAnalyzeOptions() error {
 func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error) {
 	vdb := MakeVCoordinationDatabase()
 
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
-	if err != nil {
-		return vdb, err
-	}
-
-	err = options.validateAnalyzeOptions()
+	err := options.validateAnalyzeOptions()
 	if err != nil {
 		return vdb, err
 	}
 
 	// get hosts from config file and options.
-	// this, as well as all the config file related parts,
-	// will be moved to cmd_add_node.go after VER-88442,
-	// as the operator does not support config file.
-	hosts := options.GetHosts(config)
+	hosts := options.GetHosts(options.Config)
 	options.Hosts = hosts
 	// get depot and data prefix from config file or options.
 	// after VER-88122, we will able to get them from an https endpoint.
-	*options.DepotPrefix, *options.DataPrefix = options.getDepotAndDataPrefix(config)
+	*options.DepotPrefix, *options.DataPrefix = options.getDepotAndDataPrefix(options.Config)
 
 	err = getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {

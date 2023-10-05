@@ -54,6 +54,7 @@ type DatabaseOptions struct {
 	LogPath        *string
 	HonorUserInput *bool
 	usePassword    bool
+	Config         *ClusterConfig
 }
 
 const (

@@ -134,12 +134,23 @@ func (c *CmdStartDB) Run(log vlog.Printer) error {
 		Log: log.WithName(c.CommandType()),
 	}
 	vcc.Log.V(1).Info("Called method Run()")
-	err := vcc.VStartDatabase(c.startDBOptions)
+
+	options := c.startDBOptions
+
+	// load vdb info from the YAML config file
+	// get config from vertica_cluster.yaml
+	config, err := options.GetDBConfig()
+	if err != nil {
+		return err
+	}
+	options.Config = config
+
+	err = vcc.VStartDatabase(options)
 	if err != nil {
 		vcc.Log.Error(err, "failed to start the database")
 		return err
 	}
 
-	vlog.LogPrintInfo("Successfully start the database %s\n", *c.startDBOptions.DBName)
+	vlog.LogPrintInfo("Successfully start the database %s\n", *options.DBName)
 	return nil
 }

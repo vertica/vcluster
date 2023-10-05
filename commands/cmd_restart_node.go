@@ -105,17 +105,28 @@ func (c *CmdRestartNodes) Run(log vlog.Printer) error {
 		Log: log.WithName(c.CommandType()),
 	}
 	vcc.Log.V(1).Info("Called method Run()")
+
+	options := c.restartNodesOptions
+
+	// load vdb info from the YAML config file
+	// get config from vertica_cluster.yaml
+	config, err := options.GetDBConfig()
+	if err != nil {
+		return err
+	}
+	options.Config = config
+
 	// this is the instruction that will be used by both CLI and operator
-	err := vcc.VRestartNodes(c.restartNodesOptions)
+	err = vcc.VRestartNodes(options)
 	if err != nil {
 		return err
 	}
 
 	var hostToRestart []string
-	for _, ip := range c.restartNodesOptions.Nodes {
+	for _, ip := range options.Nodes {
 		hostToRestart = append(hostToRestart, ip)
 	}
-	vlog.LogPrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *c.restartNodesOptions.DBName)
+	vlog.LogPrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *options.DBName)
 
 	return nil
 }

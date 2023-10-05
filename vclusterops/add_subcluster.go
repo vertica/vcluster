@@ -178,13 +178,8 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
-	if err != nil {
-		return err
-	}
 
-	err = options.ValidateAnalyzeOptions(config)
+	err := options.ValidateAnalyzeOptions(options.Config)
 	if err != nil {
 		return err
 	}
@@ -199,7 +194,7 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 		ControlSetSize: *options.ControlSetSize,
 		CloneSC:        *options.CloneSC,
 	}
-	addSubclusterInfo.DBName, addSubclusterInfo.Hosts = options.GetNameAndHosts(config)
+	addSubclusterInfo.DBName, addSubclusterInfo.Hosts = options.GetNameAndHosts(options.Config)
 
 	instructions, err := produceAddSubclusterInstructions(&addSubclusterInfo, options)
 	if err != nil {

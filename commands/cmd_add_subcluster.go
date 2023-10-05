@@ -129,11 +129,22 @@ func (c *CmdAddSubcluster) Run(log vlog.Printer) error {
 		Log: log.WithName(c.CommandType()),
 	}
 	vcc.Log.V(1).Info("Called method Run()")
-	err := vcc.VAddSubcluster(c.addSubclusterOptions)
+
+	options := c.addSubclusterOptions
+
+	// get config from vertica_cluster.yaml
+	config, err := options.GetDBConfig()
+	if err != nil {
+		return err
+	}
+	options.Config = config
+
+	err = vcc.VAddSubcluster(options)
 	if err != nil {
 		vcc.Log.Error(err, "failed to add subcluster")
 		return err
 	}
-	vlog.LogPrintInfo("Added subcluster %s to database %s", *c.addSubclusterOptions.SCName, *c.addSubclusterOptions.DBName)
+
+	vlog.LogPrintInfo("Added subcluster %s to database %s", *options.SCName, *options.DBName)
 	return nil
 }

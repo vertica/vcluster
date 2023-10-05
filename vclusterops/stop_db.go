@@ -130,13 +130,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
-	if err != nil {
-		return err
-	}
-
-	err = options.ValidateAnalyzeOptions(config)
+	err := options.ValidateAnalyzeOptions(options.Config)
 	if err != nil {
 		return err
 	}
@@ -146,8 +140,8 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	stopDBInfo.UserName = *options.UserName
 	stopDBInfo.Password = options.Password
 	stopDBInfo.DrainSeconds = options.DrainSeconds
-	stopDBInfo.DBName, stopDBInfo.Hosts = options.GetNameAndHosts(config)
-	stopDBInfo.IsEon = options.IsEonMode(config)
+	stopDBInfo.DBName, stopDBInfo.Hosts = options.GetNameAndHosts(options.Config)
+	stopDBInfo.IsEon = options.IsEonMode(options.Config)
 
 	instructions, err := vcc.produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {

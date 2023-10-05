@@ -119,22 +119,14 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// TODO: library users won't have vertica_cluster.yaml, remove GetDBConfig() when VER-88442 is closed.
-	// load vdb info from the YAML config file
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
-	if err != nil {
-		return err
-	}
-
 	// validate and analyze options
-	err = options.ValidateAnalyzeOptions()
+	err := options.ValidateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
 
 	// get db name and hosts from config file and options
-	dbName, hosts := options.GetNameAndHosts(config)
+	dbName, hosts := options.GetNameAndHosts(options.Config)
 	options.DBName = &dbName
 	options.Hosts = hosts
 

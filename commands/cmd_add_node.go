@@ -159,15 +159,25 @@ func (c *CmdAddNode) Run(log vlog.Printer) error {
 		Log: log.WithName(c.CommandType()),
 	}
 	vcc.Log.V(1).Info("Called method Run()")
-	vdb, addNodeError := vcc.VAddNode(c.addNodeOptions)
+
+	options := c.addNodeOptions
+
+	// get config from vertica_cluster.yaml
+	config, err := options.GetDBConfig()
+	if err != nil {
+		return err
+	}
+	options.Config = config
+
+	vdb, addNodeError := vcc.VAddNode(options)
 	if addNodeError != nil {
 		return addNodeError
 	}
 	// write cluster information to the YAML config file
-	err := vclusterops.WriteClusterConfig(&vdb, c.addNodeOptions.ConfigDirectory)
+	err = vclusterops.WriteClusterConfig(&vdb, options.ConfigDirectory)
 	if err != nil {
 		vlog.LogPrintWarning("fail to write config file, details: %s", err)
 	}
-	vcc.Log.PrintInfo("Added nodes %s to database %s", *c.newHostListStr, *c.addNodeOptions.DBName)
+	vcc.Log.PrintInfo("Added nodes %s to database %s", *c.newHostListStr, *options.DBName)
 	return nil
 }

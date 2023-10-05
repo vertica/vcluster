@@ -122,26 +122,18 @@ func (o *VRemoveNodeOptions) validateAnalyzeOptions() error {
 func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {
 	vdb := MakeVCoordinationDatabase()
 
-	config, err := options.GetDBConfig()
-	if err != nil {
-		return vdb, err
-	}
-
 	// validate and analyze options
-	err = options.validateAnalyzeOptions()
+	err := options.validateAnalyzeOptions()
 	if err != nil {
 		return vdb, err
 	}
 
 	// get db name and hosts from config file and options.
-	// this, as well as all the config file related parts,
-	// will be moved to cmd_remove_node.go after VER-88122,
-	// as the operator does not support config file.
-	dbName, hosts := options.GetNameAndHosts(config)
+	dbName, hosts := options.GetNameAndHosts(options.Config)
 	options.DBName = &dbName
 	options.Hosts = hosts
 	// get depot and data prefix from config file or options
-	*options.DepotPrefix, *options.DataPrefix = options.getDepotAndDataPrefix(config)
+	*options.DepotPrefix, *options.DataPrefix = options.getDepotAndDataPrefix(options.Config)
 
 	err = getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {

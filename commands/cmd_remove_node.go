@@ -112,14 +112,23 @@ func (c *CmdRemoveNode) Run(log vlog.Printer) error {
 	}
 	vcc.Log.V(1).Info("Called method Run()")
 
-	vdb, err := vcc.VRemoveNode(c.removeNodeOptions)
+	options := c.removeNodeOptions
+
+	// get config from vertica_cluster.yaml
+	config, err := c.removeNodeOptions.GetDBConfig()
 	if err != nil {
 		return err
 	}
-	vlog.LogPrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *c.removeNodeOptions.DBName)
+	options.Config = config
+
+	vdb, err := vcc.VRemoveNode(options)
+	if err != nil {
+		return err
+	}
+	vlog.LogPrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *options.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vclusterops.WriteClusterConfig(&vdb, c.removeNodeOptions.ConfigDirectory)
+	err = vclusterops.WriteClusterConfig(&vdb, options.ConfigDirectory)
 	if err != nil {
 		vlog.LogPrintWarning("failed to write config file, details: %s", err)
 	}

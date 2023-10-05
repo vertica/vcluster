@@ -102,23 +102,16 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// load vdb info from the YAML config file
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
-	if err != nil {
-		return err
-	}
-
-	err = options.ValidateAnalyzeOptions()
+	err := options.ValidateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
 
 	// get db name and hosts from config file and options
-	dbName, hosts := options.GetNameAndHosts(config)
+	dbName, hosts := options.GetNameAndHosts(options.Config)
 	options.DBName = &dbName
 	options.Hosts = hosts
-	options.CatalogPrefix = options.GetCatalogPrefix(config)
+	options.CatalogPrefix = options.GetCatalogPrefix(options.Config)
 
 	// set default value to StatePollingTimeout
 	if options.StatePollingTimeout == 0 {
@@ -127,7 +120,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 	var pVDB *VCoordinationDatabase
 	// retrieve database information from cluster_config.json for EON databases
-	if options.IsEonMode(config) {
+	if options.IsEonMode(options.Config) {
 		if *options.CommunalStorageLocation != "" {
 			vdb, e := options.getVDBWhenDBIsDown()
 			if e != nil {
