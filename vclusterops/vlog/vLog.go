@@ -325,13 +325,18 @@ func (logger *Vlogger) logMaskedArgParse(inputArgv []string) {
 		"gcsauth":                 true,
 		"azurestoragecredentials": true,
 	}
-	const expectedParts = 2
-	const maskedValue = "******"
-	const targetMaskedArg = "--communal-storage-params" // target param
+	const (
+		expectedParts = 2
+		maskedValue   = "******"
+	)
+	// We need to mask any parameters containing sensitive information
+	targetMaskedArg := map[string]bool{
+		"--config-param":            true,
+		"--communal-storage-params": true,
+	}
 	for i := 0; i < len(inputArgv); i++ {
-		if inputArgv[i] == targetMaskedArg && i+1 < len(inputArgv) {
+		if targetMaskedArg[inputArgv[i]] && i+1 < len(inputArgv) {
 			pairs := strings.Split(inputArgv[i+1], ",")
-			maskedPairs = append(maskedPairs, targetMaskedArg)
 			for _, pair := range pairs {
 				keyValue := strings.Split(pair, "=")
 				if len(keyValue) == expectedParts {
@@ -341,7 +346,7 @@ func (logger *Vlogger) logMaskedArgParse(inputArgv []string) {
 					if sensitiveKeyParams[keyLowerCase] {
 						value = maskedValue
 					}
-					maskedPairs = append(maskedPairs, key+"="+value)
+					maskedPairs = append(maskedPairs, inputArgv[i], key+"="+value)
 				} else {
 					// Handle invalid  format
 					maskedPairs = append(maskedPairs, pair)

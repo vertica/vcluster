@@ -187,35 +187,6 @@ func TestSliceDiff(t *testing.T) {
 	assert.Equal(t, expected, actual)
 }
 
-func TestCombineMap(t *testing.T) {
-	// Test with keys-values string-string
-	a := map[string]string{"communal-storage-params": "awsconnecttimeout=123"}
-	b := map[string]string{"config-param": "InitialDefaultSubclusterName=sc"}
-	expected := map[string]string{
-		"communal-storage-params": "awsconnecttimeout=123",
-		"config-param":            "InitialDefaultSubclusterName=sc",
-	}
-	actual := MapCombine(a, b)
-	assert.Equal(t, expected, actual)
-
-	// Test with empty keys and values
-	a = map[string]string{}
-	b = map[string]string{}
-	expected = map[string]string{}
-	actual = MapCombine(a, b)
-	assert.Equal(t, expected, actual)
-
-	// Test with keys-values string-int
-	map1 := map[string]int{"communal-storage-params": 123}
-	map2 := map[string]int{"config-param": 456}
-	expectedMap := map[string]int{
-		"communal-storage-params": 123,
-		"config-param":            456,
-	}
-	actualMap := MapCombine(map1, map2)
-	assert.Equal(t, expectedMap, actualMap)
-}
-
 func TestMapKeyDiff(t *testing.T) {
 	a := map[string]bool{"1": true, "2": true}
 	b := map[string]bool{"1": true, "3": true, "4": false}

@@ -131,9 +131,6 @@ func (opt *VCreateDatabaseOptions) CheckNilPointerParams() error {
 	if opt.CommunalStorageLocation == nil {
 		return util.ParamNotSetErrorMsg("communal-storage-location")
 	}
-	if opt.CommunalStorageParameters == nil {
-		return util.ParamNotSetErrorMsg("communal-storage-params")
-	}
 	if opt.DepotSize == nil {
 		return util.ParamNotSetErrorMsg("depot-size")
 	}

@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -70,8 +69,6 @@ func makeNMABootstrapCatalogOp(
 
 func (op *NMABootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, options *VCreateDatabaseOptions) error {
 	op.hostRequestBodyMap = make(map[string]bootstrapCatalogRequestData)
-	// Add configuration and communal storage params to bootstrap params
-	bootstrapParams := util.MapCombine(options.ConfigurationParameters, options.CommunalStorageParameters)
 
 	for _, host := range op.hosts {
 		bootstrapData := bootstrapCatalogRequestData{}
@@ -88,7 +85,7 @@ func (op *NMABootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 
 		// client port: spread port will be computed based on client port
 		bootstrapData.PortNumber = vnode.Port
-		bootstrapData.Parameters = bootstrapParams
+		bootstrapData.Parameters = options.ConfigurationParameters
 
 		// need to read network_profile info in execContext
 		// see execContext in NMABootstrapCatalogOp:prepare()
