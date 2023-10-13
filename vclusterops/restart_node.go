@@ -126,7 +126,11 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	}
 
 	// get db name and hosts from config file and options
-	dbName, hosts := options.GetNameAndHosts(options.Config)
+	dbName, hosts, err := options.GetNameAndHosts(options.Config)
+	if err != nil {
+		return err
+	}
+
 	options.DBName = &dbName
 	options.Hosts = hosts
 

@@ -108,10 +108,17 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	}
 
 	// get db name and hosts from config file and options
-	dbName, hosts := options.GetNameAndHosts(options.Config)
+	dbName, hosts, err := options.GetNameAndHosts(options.Config)
+	if err != nil {
+		return err
+	}
+
 	options.DBName = &dbName
 	options.Hosts = hosts
-	options.CatalogPrefix = options.GetCatalogPrefix(options.Config)
+	options.CatalogPrefix, err = options.GetCatalogPrefix(options.Config)
+	if err != nil {
+		return err
+	}
 
 	// set default value to StatePollingTimeout
 	if options.StatePollingTimeout == 0 {
@@ -120,7 +127,12 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 	var pVDB *VCoordinationDatabase
 	// retrieve database information from cluster_config.json for EON databases
-	if options.IsEonMode(options.Config) {
+	isEon, err := options.IsEonMode(options.Config)
+	if err != nil {
+		return err
+	}
+
+	if isEon {
 		if *options.CommunalStorageLocation != "" {
 			vdb, e := options.getVDBWhenDBIsDown()
 			if e != nil {
@@ -208,6 +220,12 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	}
 	instructions = append(instructions, &nmaReadCatalogEditorOp)
 
+	if enabled, keyType := options.isSpreadEncryptionEnabled(); enabled {
+		instructions = append(instructions,
+			vcc.setOrRotateEncryptionKey(keyType),
+		)
+	}
+
 	// sourceConfHost is set to nil value in upload and download step
 	// we use information from catalog editor operation to update the sourceConfHost value
 	// after we find host with the highest catalog and hosts that need to synchronize the catalog
@@ -238,4 +256,10 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	}
 
 	return instructions, nil
+}
+
+func (vcc *VClusterCommands) setOrRotateEncryptionKey(keyType string) ClusterOp {
+	vcc.Log.Info("adding instruction to set or rotate the key for spread encryption")
+	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
+	return &op
 }

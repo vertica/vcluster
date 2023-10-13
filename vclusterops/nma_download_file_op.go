@@ -84,7 +84,7 @@ func (e *ReviveDBNodeCountMismatchError) Error() string {
 }
 
 func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
-	communalStorageParameters map[string]string, vdb *VCoordinationDatabase) (NMADownloadFileOp, error) {
+	configurationParameters map[string]string, vdb *VCoordinationDatabase) (NMADownloadFileOp, error) {
 	op := NMADownloadFileOp{}
 	op.name = "NMADownloadFileOp"
 	initiator := getInitiator(newNodes)
@@ -99,7 +99,7 @@ func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePat
 		requestData.SourceFilePath = sourceFilePath
 		requestData.DestinationFilePath = destinationFilePath
 		requestData.CatalogPath = catalogPath
-		requestData.Parameters = communalStorageParameters
+		requestData.Parameters = configurationParameters
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {
@@ -113,9 +113,9 @@ func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePat
 }
 
 func makeNMADownloadFileOpForRevive(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
-	communalStorageParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
+	configurationParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
 	op, err := makeNMADownloadFileOp(newNodes, sourceFilePath, destinationFilePath,
-		catalogPath, communalStorageParameters, vdb)
+		catalogPath, configurationParameters, vdb)
 	if err != nil {
 		return op, err
 	}

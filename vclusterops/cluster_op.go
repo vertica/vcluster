@@ -170,7 +170,6 @@ func (status ResultStatus) getStatusString() string {
 // log* implemented by embedding OpBase, but overrideable
 type ClusterOp interface {
 	getName() string
-	setupClusterHTTPRequest(hosts []string) error
 	prepare(execContext *OpEngineExecContext) error
 	execute(execContext *OpEngineExecContext) error
 	finalize(execContext *OpEngineExecContext) error

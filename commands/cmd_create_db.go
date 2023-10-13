@@ -33,9 +33,8 @@ import (
  */
 
 type CmdCreateDB struct {
-	createDBOptions       *vclusterops.VCreateDatabaseOptions
-	configParamListStr    *string // raw input from user, need further processing
-	communalStorageParams *string // raw input from user, need further processing
+	createDBOptions    *vclusterops.VCreateDatabaseOptions
+	configParamListStr *string // raw input from user, need further processing
 
 	CmdBase
 }
@@ -69,8 +68,6 @@ func makeCmdCreateDB() *CmdCreateDB {
 	createDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
 		util.GetEonFlagMsg("Location of communal storage"))
 	createDBOptions.ShardCount = newCmd.parser.Int("shard-count", 0, util.GetEonFlagMsg("Number of shards in the database"))
-	newCmd.communalStorageParams = newCmd.parser.String("communal-storage-params", "", util.GetOptionalFlagMsg(
-		"Comma-separated list of NAME=VALUE pairs for communal storage parameters"))
 	createDBOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
 	createDBOptions.DepotSize = newCmd.parser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
 	createDBOptions.GetAwsCredentialsFromEnv = newCmd.parser.Bool("get-aws-credentials-from-env-vars", false,
@@ -149,17 +146,8 @@ func (c *CmdCreateDB) Parse(inputArgv []string) error {
 func (c *CmdCreateDB) validateParse() error {
 	vlog.LogInfoln("Called validateParse()")
 
-	// check the format of communal storage params string, and parse it into configParams
-	communalStorageParams, err := util.ParseConfigParams(*c.communalStorageParams)
-	if err != nil {
-		return err
-	}
-	if communalStorageParams != nil {
-		c.createDBOptions.CommunalStorageParameters = communalStorageParams
-	}
-
 	// parse raw host str input into a []string of createDBOptions
-	err = c.createDBOptions.ParseHostList(*c.hostListStr)
+	err := c.createDBOptions.ParseHostList(*c.hostListStr)
 	if err != nil {
 		return err
 	}
@@ -193,7 +181,7 @@ func (c *CmdCreateDB) Run(log vlog.Printer) error {
 		return createError
 	}
 	// write cluster information to the YAML config file
-	err := vclusterops.WriteClusterConfig(&vdb, c.createDBOptions.ConfigDirectory)
+	err := vdb.WriteClusterConfig(c.createDBOptions.ConfigDirectory)
 	if err != nil {
 		vlog.LogPrintWarning("fail to write config file, details: %s", err)
 	}

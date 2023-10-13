@@ -174,7 +174,7 @@ func (c *CmdAddNode) Run(log vlog.Printer) error {
 		return addNodeError
 	}
 	// write cluster information to the YAML config file
-	err = vclusterops.WriteClusterConfig(&vdb, options.ConfigDirectory)
+	err = vdb.WriteClusterConfig(options.ConfigDirectory)
 	if err != nil {
 		vlog.LogPrintWarning("fail to write config file, details: %s", err)
 	}

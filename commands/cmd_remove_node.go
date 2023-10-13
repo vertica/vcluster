@@ -128,7 +128,7 @@ func (c *CmdRemoveNode) Run(log vlog.Printer) error {
 	vlog.LogPrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *options.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vclusterops.WriteClusterConfig(&vdb, options.ConfigDirectory)
+	err = vdb.WriteClusterConfig(options.ConfigDirectory)
 	if err != nil {
 		vlog.LogPrintWarning("failed to write config file, details: %s", err)
 	}

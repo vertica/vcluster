@@ -111,7 +111,7 @@ func (c *CmdRemoveSubcluster) Run(log vlog.Printer) error {
 		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vclusterops.WriteClusterConfig(&vdb, c.removeScOptions.ConfigDirectory)
+	err = vdb.WriteClusterConfig(c.removeScOptions.ConfigDirectory)
 	if err != nil {
 		vcc.Log.PrintWarning("failed to write config file, details: %s", err)
 	}

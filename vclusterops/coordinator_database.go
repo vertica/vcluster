@@ -146,26 +146,34 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string) error {
 	return nil
 }
 
-func (vdb *VCoordinationDatabase) SetFromClusterConfig(clusterConfig *ClusterConfig) {
+func (vdb *VCoordinationDatabase) SetFromClusterConfig(dbName string,
+	clusterConfig *ClusterConfig) error {
 	// we trust the information in the config file
 	// so we do not perform validation here
-	vdb.Name = clusterConfig.DBName
-	vdb.CatalogPrefix = clusterConfig.CatalogPath
-	vdb.DataPrefix = clusterConfig.DataPath
-	vdb.DepotPrefix = clusterConfig.DepotPath
-	vdb.HostList = clusterConfig.Hosts
-	vdb.IsEon = clusterConfig.IsEon
-	vdb.Ipv6 = clusterConfig.Ipv6
+	dbConfig, ok := (*clusterConfig)[dbName]
+	if !ok {
+		return cannotFindDBFromConfigErr(dbName)
+	}
+
+	vdb.Name = dbName
+	vdb.CatalogPrefix = dbConfig.CatalogPath
+	vdb.DataPrefix = dbConfig.DataPath
+	vdb.DepotPrefix = dbConfig.DepotPath
+	vdb.IsEon = dbConfig.IsEon
+	vdb.Ipv6 = dbConfig.Ipv6
 	if vdb.DepotPrefix != "" {
 		vdb.UseDepot = true
 	}
 
 	vdb.HostNodeMap = makeVHostNodeMap()
-	for _, nodeConfig := range clusterConfig.Nodes {
+	for _, nodeConfig := range dbConfig.Nodes {
 		vnode := VCoordinationNode{}
 		vnode.SetFromNodeConfig(nodeConfig, vdb)
 		vdb.HostNodeMap[vnode.Address] = &vnode
+		vdb.HostList = append(vdb.HostList, vnode.Address)
 	}
+
+	return nil
 }
 
 // Copy copies the receiver's fields into a new VCoordinationDatabase struct and
@@ -219,21 +227,6 @@ func (vdb *VCoordinationDatabase) genNodeNameToHostMap() map[string]string {
 		vnodes[vnode.Name] = h
 	}
 	return vnodes
-}
-
-// SetDBInfoFromClusterConfig will set various fields with values
-// from the config file
-func (vdb *VCoordinationDatabase) SetDBInfoFromClusterConfig(clusterConfig *ClusterConfig) {
-	vdb.Name = clusterConfig.DBName
-	vdb.CatalogPrefix = clusterConfig.CatalogPath
-	vdb.DataPrefix = clusterConfig.DataPath
-	vdb.DepotPrefix = clusterConfig.DepotPath
-	vdb.HostList = clusterConfig.Hosts
-	vdb.IsEon = clusterConfig.IsEon
-	vdb.Ipv6 = clusterConfig.Ipv6
-	if vdb.DepotPrefix != "" {
-		vdb.UseDepot = true
-	}
 }
 
 // getSCNames returns a slice of subcluster names which the nodes
@@ -406,4 +399,52 @@ func (vnode *VCoordinationNode) SetFromNodeConfig(nodeConfig NodeConfig, vdb *VC
 	} else {
 		vnode.ControlAddressFamily = util.DefaultControlAddressFamily
 	}
+}
+
+// WriteClusterConfig writes config information to a yaml file.
+func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string) error {
+	/* build config information
+	 */
+	dbConfig := MakeDatabaseConfig()
+	dbConfig.CatalogPath = vdb.CatalogPrefix
+	dbConfig.DataPath = vdb.DataPrefix
+	dbConfig.DepotPath = vdb.DepotPrefix
+	// loop over HostList is needed as we want to preserve the order
+	for _, host := range vdb.HostList {
+		vnode, ok := vdb.HostNodeMap[host]
+		if !ok {
+			return fmt.Errorf("cannot find host %s from HostNodeMap", host)
+		}
+		nodeConfig := NodeConfig{}
+		nodeConfig.Name = vnode.Name
+		nodeConfig.Address = vnode.Address
+		nodeConfig.Subcluster = vnode.Subcluster
+		dbConfig.Nodes = append(dbConfig.Nodes, nodeConfig)
+	}
+	dbConfig.IsEon = vdb.IsEon
+	dbConfig.Ipv6 = vdb.Ipv6
+
+	clusterConfig := MakeClusterConfig()
+	clusterConfig[vdb.Name] = dbConfig
+
+	/* write config to a YAML file
+	 */
+	configFilePath, err := GetConfigFilePath(vdb.Name, configDir)
+	if err != nil {
+		return err
+	}
+
+	// if the config file exists already
+	// create its backup before overwriting it
+	err = BackupConfigFile(configFilePath)
+	if err != nil {
+		return err
+	}
+
+	err = clusterConfig.WriteConfig(configFilePath)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

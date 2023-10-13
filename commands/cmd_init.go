@@ -35,7 +35,8 @@ import (
  * Implements ClusterCommand interface
  */
 type CmdInit struct {
-	Hosts *string
+	DBName *string
+	Hosts  *string
 	ConfigHandler
 }
 
@@ -48,6 +49,7 @@ func makeCmdInit() *CmdInit {
 		"The directory under which the config file will be created. "+
 			"By default the current directory will be used.",
 	)
+	newCmd.DBName = newCmd.parser.String("db-name", "", "Database name")
 	newCmd.Hosts = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
 	return newCmd
 }
@@ -106,12 +108,21 @@ func (c *CmdInit) Run(_ vlog.Printer) error {
 
 	// TODO: this will be improved later with more cluster info
 	// build cluster config information
-	clusterConfig := vclusterops.MakeClusterConfig()
+	dbConfig := vclusterops.MakeDatabaseConfig()
+
 	hosts, err := util.SplitHosts(*c.Hosts)
 	if err != nil {
 		return err
 	}
-	clusterConfig.Hosts = hosts
+
+	for _, h := range hosts {
+		nodeConfig := vclusterops.NodeConfig{}
+		nodeConfig.Address = h
+		dbConfig.Nodes = append(dbConfig.Nodes, nodeConfig)
+	}
+
+	clusterConfig := vclusterops.MakeClusterConfig()
+	clusterConfig[*c.DBName] = dbConfig
 
 	// write information to the YAML file
 	err = clusterConfig.WriteConfig(configFilePath)

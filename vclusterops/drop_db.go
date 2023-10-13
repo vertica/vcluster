@@ -48,12 +48,24 @@ func (options *VDropDatabaseOptions) AnalyzeOptions() error {
 	return nil
 }
 
+func (options *VDropDatabaseOptions) ValidateAnalyzeOptions() error {
+	if *options.DBName == "" {
+		return fmt.Errorf("database name must be provided")
+	}
+	return nil
+}
+
 func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
+
+	err := options.ValidateAnalyzeOptions()
+	if err != nil {
+		return err
+	}
 
 	// Analyze to produce vdb info for drop db use
 	vdb := MakeVCoordinationDatabase()
@@ -66,8 +78,8 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	if options.ConfigDirectory != nil {
 		configDir = *options.ConfigDirectory
 	} else {
-		currentDir, err := os.Getwd()
-		if err != nil {
+		currentDir, e := os.Getwd()
+		if e != nil {
 			return fmt.Errorf("fail to get current directory")
 		}
 		configDir = currentDir
@@ -77,7 +89,10 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	if err != nil {
 		return err
 	}
-	vdb.SetFromClusterConfig(&clusterConfig)
+	err = vdb.SetFromClusterConfig(*options.DBName, &clusterConfig)
+	if err != nil {
+		return err
+	}
 
 	// produce drop_db instructions
 	instructions, err := vcc.produceDropDBInstructions(&vdb, options)

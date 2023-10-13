@@ -331,8 +331,7 @@ func (logger *Vlogger) logMaskedArgParse(inputArgv []string) {
 	)
 	// We need to mask any parameters containing sensitive information
 	targetMaskedArg := map[string]bool{
-		"--config-param":            true,
-		"--communal-storage-params": true,
+		"--config-param": true,
 	}
 	for i := 0; i < len(inputArgv); i++ {
 		if targetMaskedArg[inputArgv[i]] && i+1 < len(inputArgv) {

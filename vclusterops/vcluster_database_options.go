@@ -38,10 +38,10 @@ type DatabaseOptions struct {
 	ConfigDirectory *string
 
 	// part 2: Eon database info
-	DepotPrefix               *string
-	IsEon                     vstruct.NullableBool
-	CommunalStorageLocation   *string
-	CommunalStorageParameters map[string]string
+	DepotPrefix             *string
+	IsEon                   vstruct.NullableBool
+	CommunalStorageLocation *string
+	ConfigurationParameters map[string]string
 
 	// part 3: authentication info
 	UserName *string
@@ -82,7 +82,7 @@ func (opt *DatabaseOptions) SetDefaultValues() {
 	opt.Ipv6 = vstruct.NotSet
 	opt.IsEon = vstruct.NotSet
 	opt.CommunalStorageLocation = new(string)
-	opt.CommunalStorageParameters = make(map[string]string)
+	opt.ConfigurationParameters = make(map[string]string)
 }
 
 func (opt *DatabaseOptions) CheckNilPointerParams() error {
@@ -264,31 +264,42 @@ func (opt *DatabaseOptions) SetUsePassword() error {
 }
 
 // IsEonMode can choose the right eon mode from user input and config file
-func (opt *DatabaseOptions) IsEonMode(config *ClusterConfig) bool {
+func (opt *DatabaseOptions) IsEonMode(config *ClusterConfig) (bool, error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if config == nil {
-		return opt.IsEon.ToBool()
+		return opt.IsEon.ToBool(), nil
 	}
 
-	isEon := config.IsEon
+	dbConfig, ok := (*config)[*opt.DBName]
+	if !ok {
+		return false, cannotFindDBFromConfigErr(*opt.DBName)
+	}
+
+	isEon := dbConfig.IsEon
 	// if HonorUserInput is set, we choose the user input
 	if opt.IsEon != vstruct.NotSet && *opt.HonorUserInput {
 		isEon = opt.IsEon.ToBool()
 	}
-	return isEon
+	return isEon, nil
 }
 
 // GetNameAndHosts can choose the right dbName and hosts from user input and config file
-func (opt *DatabaseOptions) GetNameAndHosts(config *ClusterConfig) (dbName string, hosts []string) {
+func (opt *DatabaseOptions) GetNameAndHosts(config *ClusterConfig) (dbName string, hosts []string, err error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
+	dbName = *opt.DBName
+
 	if config == nil {
-		return *opt.DBName, opt.Hosts
+		return *opt.DBName, opt.Hosts, nil
 	}
 
-	dbName = config.DBName
-	hosts = config.Hosts
+	dbConfig, ok := (*config)[dbName]
+	if !ok {
+		return dbName, hosts, cannotFindDBFromConfigErr(dbName)
+	}
+
+	hosts = dbConfig.GetHosts()
 	// if HonorUserInput is set, we choose the user input
 	if *opt.DBName != "" && *opt.HonorUserInput {
 		dbName = *opt.DBName
@@ -296,50 +307,68 @@ func (opt *DatabaseOptions) GetNameAndHosts(config *ClusterConfig) (dbName strin
 	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
 		hosts = opt.Hosts
 	}
-	return dbName, hosts
+	return dbName, hosts, nil
 }
 
 // GetHosts chooses the right hosts from user input and config file
-func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string) {
+func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string, err error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if config == nil {
-		return opt.Hosts
+		return opt.Hosts, nil
 	}
 
-	hosts = config.Hosts
+	dbConfig, ok := (*config)[*opt.DBName]
+	if !ok {
+		return hosts, cannotFindDBFromConfigErr(*opt.DBName)
+	}
+
+	hosts = dbConfig.GetHosts()
 	// if HonorUserInput is set, we choose the user input
 	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
 		hosts = opt.Hosts
 	}
-	return hosts
+	return hosts, nil
 }
 
 // GetCatalogPrefix can choose the right catalog prefix from user input and config file
-func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPrefix *string) {
+func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPrefix *string, err error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if config == nil {
-		return opt.CatalogPrefix
+		return opt.CatalogPrefix, nil
 	}
-	catalogPrefix = &config.CatalogPath
+
+	dbConfig, ok := (*config)[*opt.DBName]
+	if !ok {
+		return nil, cannotFindDBFromConfigErr(*opt.DBName)
+	}
+
+	catalogPrefix = &dbConfig.CatalogPath
 	// if HonorUserInput is set, we choose the user input
 	if *opt.CatalogPrefix != "" && *opt.HonorUserInput {
 		catalogPrefix = opt.CatalogPrefix
 	}
-	return catalogPrefix
+	return catalogPrefix, nil
 }
 
 // getDepotAndDataPrefix chooses the right depot/data prefix from user input and config file.
-func (opt *DatabaseOptions) getDepotAndDataPrefix(config *ClusterConfig) (depotPrefix, dataPrefix string) {
+func (opt *DatabaseOptions) getDepotAndDataPrefix(
+	config *ClusterConfig) (depotPrefix, dataPrefix string, err error) {
 	if config == nil {
-		return *opt.DepotPrefix, *opt.DataPrefix
+		return *opt.DepotPrefix, *opt.DataPrefix, nil
 	}
-	depotPrefix = config.DepotPath
-	dataPrefix = config.DataPath
+
+	dbConfig, ok := (*config)[*opt.DBName]
+	if !ok {
+		return depotPrefix, dataPrefix, cannotFindDBFromConfigErr(*opt.DBName)
+	}
+
+	depotPrefix = dbConfig.DepotPath
+	dataPrefix = dbConfig.DataPath
 	// if HonorUserInput is set, we choose the user input
 	if !*opt.HonorUserInput {
-		return depotPrefix, dataPrefix
+		return depotPrefix, dataPrefix, nil
 	}
 	if *opt.DepotPrefix != "" {
 		depotPrefix = *opt.DepotPrefix
@@ -347,7 +376,7 @@ func (opt *DatabaseOptions) getDepotAndDataPrefix(config *ClusterConfig) (depotP
 	if *opt.DataPrefix != "" {
 		dataPrefix = *opt.DataPrefix
 	}
-	return depotPrefix, dataPrefix
+	return depotPrefix, dataPrefix, nil
 }
 
 // GetDBConfig can read database configurations from vertica_cluster.yaml to the struct ClusterConfig
@@ -433,7 +462,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown() (vdb VCoordinationDatabase, err
 	var instructions2 []ClusterOp
 	sourceFilePath := opt.getDescriptionFilePath()
 	nmaDownLoadFileOp, err := makeNMADownloadFileOp(opt.Hosts, sourceFilePath, destinationFilePath, catalogPath,
-		opt.CommunalStorageParameters, &vdb2)
+		opt.ConfigurationParameters, &vdb2)
 	if err != nil {
 		return vdb, err
 	}
@@ -485,4 +514,15 @@ func (opt *DatabaseOptions) getDescriptionFilePath() string {
 	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)
 
 	return descriptionFilePath
+}
+
+func (opt *DatabaseOptions) isSpreadEncryptionEnabled() (enabled bool, encryptionType string) {
+	const EncryptSpreadCommConfigName = "encryptspreadcomm"
+	// We cannot use the map lookup because the key name is case insensitive.
+	for key, val := range opt.ConfigurationParameters {
+		if strings.EqualFold(key, EncryptSpreadCommConfigName) {
+			return true, val
+		}
+	}
+	return false, ""
 }

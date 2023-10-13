@@ -65,7 +65,12 @@ func (options *VStopDatabaseOptions) validateRequiredOptions() error {
 
 func (options *VStopDatabaseOptions) validateEonOptions(config *ClusterConfig) error {
 	// if db is enterprise db and we see --drain-seconds, we will ignore it
-	if !options.IsEonMode(config) {
+	isEon, err := options.IsEonMode(config)
+	if err != nil {
+		return err
+	}
+
+	if !isEon {
 		if options.DrainSeconds != nil {
 			vlog.LogPrintInfoln("Notice: --drain-seconds option will be ignored because database is in enterprise mode." +
 				" Connection draining is only available in eon mode.")
@@ -140,8 +145,15 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	stopDBInfo.UserName = *options.UserName
 	stopDBInfo.Password = options.Password
 	stopDBInfo.DrainSeconds = options.DrainSeconds
-	stopDBInfo.DBName, stopDBInfo.Hosts = options.GetNameAndHosts(options.Config)
-	stopDBInfo.IsEon = options.IsEonMode(options.Config)
+	stopDBInfo.DBName, stopDBInfo.Hosts, err = options.GetNameAndHosts(options.Config)
+	if err != nil {
+		return err
+	}
+
+	stopDBInfo.IsEon, err = options.IsEonMode(options.Config)
+	if err != nil {
+		return err
+	}
 
 	instructions, err := vcc.produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {

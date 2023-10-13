@@ -25,12 +25,12 @@ import (
 
 type nmaLoadRemoteCatalogOp struct {
 	OpBase
-	hostRequestBodyMap        map[string]string
-	communalStorageParameters map[string]string
-	oldHosts                  []string
-	vdb                       *VCoordinationDatabase
-	timeout                   uint
-	primaryNodeCount          uint
+	hostRequestBodyMap      map[string]string
+	configurationParameters map[string]string
+	oldHosts                []string
+	vdb                     *VCoordinationDatabase
+	timeout                 uint
+	primaryNodeCount        uint
 }
 
 type loadRemoteCatalogRequestData struct {
@@ -46,13 +46,13 @@ type loadRemoteCatalogRequestData struct {
 	Parameters         map[string]string   `json:"parameters,omitempty"`
 }
 
-func makeNMALoadRemoteCatalogOp(oldHosts []string, communalStorageParameters map[string]string,
+func makeNMALoadRemoteCatalogOp(oldHosts []string, configurationParameters map[string]string,
 	vdb *VCoordinationDatabase, timeout uint) nmaLoadRemoteCatalogOp {
 	op := nmaLoadRemoteCatalogOp{}
 	op.name = "NMALoadRemoteCatalogOp"
 	op.hosts = vdb.HostList
 	op.oldHosts = oldHosts
-	op.communalStorageParameters = communalStorageParameters
+	op.configurationParameters = configurationParameters
 	op.vdb = vdb
 	op.timeout = timeout
 
@@ -96,7 +96,7 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *OpEngineExecCont
 		requestData.CatalogPath = vNode.CatalogPath
 		requestData.StorageLocations = vNode.StorageLocations
 		requestData.NodeAddresses = nodeAddresses
-		requestData.Parameters = op.communalStorageParameters
+		requestData.Parameters = op.configurationParameters
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {

@@ -18,12 +18,12 @@ type CmdStartDB struct {
 	CmdBase
 	startDBOptions *vclusterops.VStartDatabaseOptions
 
-	Force                 *bool   // force cleanup to start the database
-	AllowFallbackKeygen   *bool   // Generate spread encryption key from Vertica. Use under support guidance only
-	IgnoreClusterLease    *bool   // ignore the cluster lease in communal storage
-	Unsafe                *bool   // Start database unsafely, skipping recovery.
-	Fast                  *bool   // Attempt fast startup database
-	communalStorageParams *string // raw input from user, need further processing
+	Force               *bool   // force cleanup to start the database
+	AllowFallbackKeygen *bool   // Generate spread encryption key from Vertica. Use under support guidance only
+	IgnoreClusterLease  *bool   // ignore the cluster lease in communal storage
+	Unsafe              *bool   // Start database unsafely, skipping recovery.
+	Fast                *bool   // Attempt fast startup database
+	configurationParams *string // raw input from user, need further processing
 }
 
 func makeCmdStartDB() *CmdStartDB {
@@ -57,8 +57,8 @@ func makeCmdStartDB() *CmdStartDB {
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
 	startDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
 		util.GetEonFlagMsg("Location of communal storage"))
-	newCmd.communalStorageParams = newCmd.parser.String("communal-storage-params", "", util.GetOptionalFlagMsg(
-		"Comma-separated list of NAME=VALUE pairs for communal storage parameters"))
+	newCmd.configurationParams = newCmd.parser.String("config-param", "", util.GetOptionalFlagMsg(
+		"Comma-separated list of NAME=VALUE pairs for configuration parameters"))
 
 	// hidden options
 	// TODO: the following options will be processed later
@@ -111,13 +111,13 @@ func (c *CmdStartDB) Parse(inputArgv []string) error {
 func (c *CmdStartDB) validateParse() error {
 	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
 
-	// check the format of communal storage params string, and parse it into configParams
-	communalStorageParams, err := util.ParseConfigParams(*c.communalStorageParams)
+	// check the format of configuration params string, and parse it into configParams
+	configurationParams, err := util.ParseConfigParams(*c.configurationParams)
 	if err != nil {
 		return err
 	}
-	if communalStorageParams != nil {
-		c.startDBOptions.CommunalStorageParameters = communalStorageParams
+	if configurationParams != nil {
+		c.startDBOptions.ConfigurationParameters = configurationParams
 	}
 
 	return c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)

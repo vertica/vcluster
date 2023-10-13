@@ -33,9 +33,10 @@ const (
 const ConfigFileName = "vertica_cluster.yaml"
 const ConfigBackupName = "vertica_cluster.yaml.backup"
 
-type ClusterConfig struct {
-	DBName      string       `yaml:"db_name"`
-	Hosts       []string     `yaml:"hosts"`
+// VER-89599: add config file version
+type ClusterConfig map[string]DatabaseConfig
+
+type DatabaseConfig struct {
 	Nodes       []NodeConfig `yaml:"nodes"`
 	CatalogPath string       `yaml:"catalog_path"`
 	DataPath    string       `yaml:"data_path"`
@@ -45,12 +46,17 @@ type ClusterConfig struct {
 }
 
 type NodeConfig struct {
-	Name    string `yaml:"name"`
-	Address string `yaml:"address"`
+	Name       string `yaml:"name"`
+	Address    string `yaml:"address"`
+	Subcluster string `yaml:"subcluster"`
 }
 
 func MakeClusterConfig() ClusterConfig {
-	return ClusterConfig{}
+	return make(ClusterConfig)
+}
+
+func MakeDatabaseConfig() DatabaseConfig {
+	return DatabaseConfig{}
 }
 
 // read config information from the YAML file
@@ -84,6 +90,16 @@ func (c *ClusterConfig) WriteConfig(configFilePath string) error {
 	}
 
 	return nil
+}
+
+func (c *DatabaseConfig) GetHosts() []string {
+	var hostList []string
+
+	for _, vnode := range c.Nodes {
+		hostList = append(hostList, vnode.Address)
+	}
+
+	return hostList
 }
 
 func GetConfigFilePath(dbName string, inputConfigDir *string) (string, error) {

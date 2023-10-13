@@ -183,7 +183,7 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 	// use description file path as source file path
 	sourceFilePath := options.getDescriptionFilePath()
 	nmaDownLoadFileOp, err := makeNMADownloadFileOpForRevive(options.Hosts, sourceFilePath, destinationFilePath, catalogPath,
-		options.CommunalStorageParameters, vdb, *options.DisplayOnly, *options.IgnoreClusterLease)
+		options.ConfigurationParameters, vdb, *options.DisplayOnly, *options.IgnoreClusterLease)
 	if err != nil {
 		return instructions, err
 	}
@@ -239,7 +239,7 @@ func produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordina
 
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(options.Hosts)
 
-	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(oldHosts, options.CommunalStorageParameters, &newVDB, *options.LoadCatalogTimeout)
+	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(oldHosts, options.ConfigurationParameters, &newVDB, *options.LoadCatalogTimeout)
 
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,

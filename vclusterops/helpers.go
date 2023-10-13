@@ -72,52 +72,6 @@ func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *NmaVDatabase,
 	return nil
 }
 
-// WriteClusterConfig writes config information to a yaml file.
-func WriteClusterConfig(vdb *VCoordinationDatabase, configDir *string) error {
-	/* build config information
-	 */
-	clusterConfig := MakeClusterConfig()
-	clusterConfig.DBName = vdb.Name
-	clusterConfig.Hosts = vdb.HostList
-	clusterConfig.CatalogPath = vdb.CatalogPrefix
-	clusterConfig.DataPath = vdb.DataPrefix
-	clusterConfig.DepotPath = vdb.DepotPrefix
-	for _, host := range vdb.HostList {
-		nodeConfig := NodeConfig{}
-		node, ok := vdb.HostNodeMap[host]
-		if !ok {
-			errMsg := fmt.Sprintf("cannot find node info from host %s", host)
-			return errors.New(vlog.ErrorLog + errMsg)
-		}
-		nodeConfig.Address = host
-		nodeConfig.Name = node.Name
-		clusterConfig.Nodes = append(clusterConfig.Nodes, nodeConfig)
-	}
-	clusterConfig.IsEon = vdb.IsEon
-	clusterConfig.Ipv6 = vdb.Ipv6
-
-	/* write config to a YAML file
-	 */
-	configFilePath, err := GetConfigFilePath(vdb.Name, configDir)
-	if err != nil {
-		return err
-	}
-
-	// if the config file exists already
-	// create its backup before overwriting it
-	err = BackupConfigFile(configFilePath)
-	if err != nil {
-		return err
-	}
-
-	err = clusterConfig.WriteConfig(configFilePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // The following structs will store hosts' necessary information for https_get_up_nodes_op,
 // https_get_nodes_information_from_running_db, and incoming operations.
 type NodeStateInfo struct {
@@ -203,4 +157,8 @@ func appendHTTPSFailureError(allErrs error) error {
 func getInitiator(hosts []string) string {
 	// simply use the first one in user input
 	return hosts[0]
+}
+
+func cannotFindDBFromConfigErr(dbName string) error {
+	return fmt.Errorf("database %s cannot be found in the config file", dbName)
 }

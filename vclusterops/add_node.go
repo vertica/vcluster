@@ -129,11 +129,18 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 	}
 
 	// get hosts from config file and options.
-	hosts := options.GetHosts(options.Config)
+	hosts, err := options.GetHosts(options.Config)
+	if err != nil {
+		return vdb, err
+	}
+
 	options.Hosts = hosts
 	// get depot and data prefix from config file or options.
 	// after VER-88122, we will able to get them from an https endpoint.
-	*options.DepotPrefix, *options.DataPrefix = options.getDepotAndDataPrefix(options.Config)
+	*options.DepotPrefix, *options.DataPrefix, err = options.getDepotAndDataPrefix(options.Config)
+	if err != nil {
+		return vdb, err
+	}
 
 	err = getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {

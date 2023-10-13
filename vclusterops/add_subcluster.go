@@ -83,7 +83,12 @@ func (options *VAddSubclusterOptions) validateRequiredOptions() error {
 }
 
 func (options *VAddSubclusterOptions) validateEonOptions(config *ClusterConfig) error {
-	if !options.IsEonMode(config) {
+	isEon, err := options.IsEonMode(config)
+	if err != nil {
+		return err
+	}
+
+	if !isEon {
 		return fmt.Errorf("add subcluster is only supported in Eon mode")
 	}
 	return nil
@@ -194,7 +199,10 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 		ControlSetSize: *options.ControlSetSize,
 		CloneSC:        *options.CloneSC,
 	}
-	addSubclusterInfo.DBName, addSubclusterInfo.Hosts = options.GetNameAndHosts(options.Config)
+	addSubclusterInfo.DBName, addSubclusterInfo.Hosts, err = options.GetNameAndHosts(options.Config)
+	if err != nil {
+		return err
+	}
 
 	instructions, err := produceAddSubclusterInstructions(&addSubclusterInfo, options)
 	if err != nil {

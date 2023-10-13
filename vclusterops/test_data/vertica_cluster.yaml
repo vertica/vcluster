@@ -1,17 +1,16 @@
-db_name: practice_db
-hosts:
-    - ip_1
-    - ip_2
-    - ip_3
-nodes:
-    - name: node_name_1
-      address: ip_1
-    - name: node_name_2
-      address: ip_2
-    - name: node_name_3
-      address: ip_3
-catalog_path: /data
-data_path: /data
-depot_path: /data
-eon_mode: true
-ipv6: false
+practice_db:
+    nodes:
+        - name: node_name_1
+          address: ip_1
+          subcluster: default_subcluster
+        - name: node_name_2
+          address: ip_2
+          subcluster: default_subcluster
+        - name: node_name_3
+          address: ip_3
+          subcluster: default_subcluster
+    catalog_path: /data
+    data_path: /data
+    depot_path: /data
+    eon_mode: true
+    ipv6: false

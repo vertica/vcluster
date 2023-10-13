@@ -38,7 +38,6 @@ type VCreateDatabaseOptions struct {
 	DepotSize                *string // like 10G
 	GetAwsCredentialsFromEnv *bool
 	// part 3: optional info
-	ConfigurationParameters   map[string]string
 	ForceCleanupOnFailure     *bool
 	ForceRemovalAtCreation    *bool
 	SkipPackageInstall        *bool
@@ -80,7 +79,6 @@ func (opt *VCreateDatabaseOptions) SetDefaultValues() {
 	opt.GetAwsCredentialsFromEnv = new(bool)
 
 	// optional info
-	opt.ConfigurationParameters = make(map[string]string)
 	opt.ForceCleanupOnFailure = new(bool)
 	opt.ForceRemovalAtCreation = new(bool)
 	opt.SkipPackageInstall = new(bool)
@@ -504,13 +502,6 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 		return instructions, err
 	}
 
-	nmaStartNodeOp := makeNMAStartNodeOp(bootstrapHost)
-
-	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOp(bootstrapHost, true, *options.UserName, options.Password)
-	if err != nil {
-		return instructions, err
-	}
-
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
@@ -519,6 +510,23 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 		&nmaNetworkProfileOp,
 		&nmaBootstrapCatalogOp,
 		&nmaReadCatalogEditorOp,
+	)
+
+	if enabled, keyType := options.isSpreadEncryptionEnabled(); enabled {
+		instructions = append(instructions,
+			vcc.addEnableSpreadEncryptionOp(keyType),
+		)
+	}
+
+	nmaStartNodeOp := makeNMAStartNodeOp(bootstrapHost)
+
+	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOp(bootstrapHost, true, /* useHTTPPassword */
+		*options.UserName, options.Password)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions,
 		&nmaStartNodeOp,
 		&httpsPollBootstrapNodeStateOp,
 	)
@@ -633,4 +641,10 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
 	return instructions, nil
+}
+
+func (vcc *VClusterCommands) addEnableSpreadEncryptionOp(keyType string) ClusterOp {
+	vcc.Log.Info("adding instruction to set key for spread encryption")
+	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
+	return &op
 }
