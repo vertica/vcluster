@@ -163,7 +163,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 		return vdb, err
 	}
 
-	instructions, err := produceRemoveNodeInstructions(&vdb, options)
+	instructions, err := vcc.produceRemoveNodeInstructions(&vdb, options)
 	if err != nil {
 		vlog.LogPrintError("failed to produce remove node instructions, %s", err)
 		return vdb, err
@@ -235,12 +235,13 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 //   - Update ksafety if needed
 //   - Mark nodes to remove as ephemeral
 //   - Rebalance cluster for Enterprise mode, rebalance shards for Eon mode
+//   - Poll subscription state, wait for all subscrptions ACTIVE for Eon mode
 //   - Remove secondary nodes from spread
 //   - Drop Nodes
 //   - Reload spread
 //   - Delete catalog and data directories
 //   - Sync catalog (eon only)
-func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	var initiatorHost []string
@@ -269,12 +270,21 @@ func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveN
 	// contains the hosts to remove.
 	v := vdb.Copy(options.HostsToRemove)
 	if vdb.IsEon {
-		// We pass the set of subclusters of the nodes to remove.
+		// we pass the set of subclusters of the nodes to remove.
 		err = produceRebalanceSubclusterShardsOps(&instructions, initiatorHost, v.getSCNames(),
 			usePassword, username, password)
 		if err != nil {
 			return instructions, err
 		}
+
+		// for Eon DB, we check whethter all subscriptions are ACTIVE
+		// after rebalance shards
+		httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(vcc.Log, initiatorHost,
+			usePassword, username, password)
+		if e != nil {
+			return instructions, e
+		}
+		instructions = append(instructions, &httpsPollSubscriptionStateOp)
 	} else {
 		var httpsRebalanceClusterOp HTTPSRebalanceClusterOp
 		httpsRebalanceClusterOp, err = makeHTTPSRebalanceClusterOp(initiatorHost, usePassword, username,
@@ -322,22 +332,6 @@ func produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveN
 	return instructions, nil
 }
 
-// produceRebalanceSubclusterShardsOps gets a slice of subclusters and for each of them
-// produces an HTTPSRebalanceSubclusterShardsOp.
-func produceRebalanceSubclusterShardsOps(instructions *[]ClusterOp, initiatorHost, scNames []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) error {
-	for _, scName := range scNames {
-		op, err := makeHTTPSRebalanceSubclusterShardsOp(
-			initiatorHost, useHTTPPassword, userName, httpsPassword, scName)
-		if err != nil {
-			return err
-		}
-		*instructions = append(*instructions, &op)
-	}
-
-	return nil
-}
-
 // produceMarkEphemeralNodeOps gets a slice of target hosts and for each of them
 // produces an HTTPSMarkEphemeralNodeOp.
 func produceMarkEphemeralNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
@@ -351,6 +345,22 @@ func produceMarkEphemeralNodeOps(instructions *[]ClusterOp, targetHosts, hosts [
 		}
 		*instructions = append(*instructions, &httpsMarkEphemeralNodeOp)
 	}
+	return nil
+}
+
+// produceRebalanceSubclusterShardsOps gets a slice of subclusters and for each of them
+// produces an HTTPSRebalanceSubclusterShardsOp.
+func produceRebalanceSubclusterShardsOps(instructions *[]ClusterOp, initiatorHost, scNames []string,
+	useHTTPPassword bool, userName string, httpsPassword *string) error {
+	for _, scName := range scNames {
+		op, err := makeHTTPSRebalanceSubclusterShardsOp(
+			initiatorHost, useHTTPPassword, userName, httpsPassword, scName)
+		if err != nil {
+			return err
+		}
+		*instructions = append(*instructions, &op)
+	}
+
 	return nil
 }
 

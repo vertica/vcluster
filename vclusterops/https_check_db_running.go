@@ -25,14 +25,6 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-const (
-	OneSecond             = 1
-	OneMinute             = 60 * OneSecond
-	StopDBTimeout         = 5 * OneMinute
-	StartupPollingTimeout = 5 * OneMinute
-	PollingInterval       = 3 * OneSecond
-)
-
 type OpType int
 
 const (

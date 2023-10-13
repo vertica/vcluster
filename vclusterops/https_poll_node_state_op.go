@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -107,6 +106,10 @@ func makeHTTPSPollNodeStateOp(hosts []string,
 	return httpsPollNodeStateOp, nil
 }
 
+func (op *HTTPSPollNodeStateOp) getPollingTimeout() int {
+	return op.timeout
+}
+
 func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 	op.clusterHTTPRequest = ClusterHTTPRequest{}
 	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
@@ -147,40 +150,17 @@ func (op *HTTPSPollNodeStateOp) finalize(_ *OpEngineExecContext) error {
 }
 
 func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) error {
-	startTime := time.Now()
-	duration := time.Duration(op.timeout) * time.Second
-	count := 0
-	for endTime := startTime.Add(duration); ; {
-		if time.Now().After(endTime) {
-			break
-		}
-
-		if count > 0 {
-			time.Sleep(PollingInterval * time.Second)
-		}
-
-		shouldStopPoll, err := op.shouldStopPolling()
-		if err != nil {
-			return err
-		}
-
-		if shouldStopPoll {
-			return nil
-		}
-
-		if err := op.runExecute(execContext); err != nil {
-			return err
-		}
-
-		count++
+	err := pollState(op, execContext)
+	if err != nil {
+		// show the hosts that are not UP
+		sort.Strings(op.notUpHosts)
+		msg := fmt.Sprintf("The following hosts are not up after %d seconds: %v, details: %s",
+			op.timeout, op.notUpHosts, err)
+		vlog.LogPrintError(msg)
+		return errors.New(msg)
 	}
 
-	// show the hosts that are not UP
-	sort.Strings(op.notUpHosts)
-	msg := fmt.Sprintf("The following hosts are not up after %d seconds: %v",
-		op.timeout, op.notUpHosts)
-	vlog.LogPrintError(msg)
-	return errors.New(msg)
+	return nil
 }
 
 // the following structs only hosts necessary information for this op
