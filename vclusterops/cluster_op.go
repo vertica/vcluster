@@ -204,11 +204,10 @@ func (op *OpBase) getName() string {
 func (op *OpBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
 	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name)
 	if err != nil {
-		vlog.LogError("[%s] fail to parse response on host %s, detail: %s", op.name, host, err)
+		op.log.Error(err, "fail to parse response on host %s", host)
 		return err
 	}
-	vlog.LogInfo("[%s] JSON response from %s is %+v\n", op.name, host, responseObj)
-
+	op.log.Info("JSON response", "host", host, "responseObj", responseObj)
 	return nil
 }
 
@@ -226,26 +225,26 @@ func (op *OpBase) setVersionToSemVar() {
 // TODO: implement another parse function for list response
 
 func (op *OpBase) logResponse(host string, result HostHTTPResult) {
-	vlog.LogPrintInfo("[%s] result from host %s summary %s, details: %+v",
+	op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v",
 		op.name, host, result.status.getStatusString(), result)
 }
 
 func (op *OpBase) logPrepare() {
-	vlog.LogInfo("[%s] Prepare() called\n", op.name)
+	op.log.Info("Prepare() called", "name", op.name)
 }
 
 func (op *OpBase) logExecute() {
-	vlog.LogInfo("[%s] Execute() called\n", op.name)
+	op.log.Info("Execute() called", "name", op.name)
 }
 
 func (op *OpBase) logFinalize() {
-	vlog.LogInfo("[%s] Finalize() called\n", op.name)
+	op.log.Info("Finalize() called", "name", op.name)
 }
 
 func (op *OpBase) runExecute(execContext *OpEngineExecContext) error {
 	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
 	if err != nil {
-		vlog.LogError("Fail to dispatch request %v", op.clusterHTTPRequest)
+		op.log.Error(err, "Fail to dispatch request %v", op.clusterHTTPRequest)
 		return err
 	}
 	return nil
@@ -287,7 +286,7 @@ func (op *OpBase) isSkipExecute() bool {
 func (op *OpBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
 	quorumCount := (primaryNodeCount + 1) / 2
 	if hostCount < quorumCount {
-		vlog.LogPrintError("[%s] Quorum check failed: "+
+		op.log.PrintError("[%s] Quorum check failed: "+
 			"number of hosts with latest catalog (%d) is not "+
 			"greater than or equal to 1/2 of number of the primary nodes (%d)\n",
 			op.name, hostCount, primaryNodeCount)

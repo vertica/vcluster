@@ -97,8 +97,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	// produce drop_db instructions
 	instructions, err := vcc.produceDropDBInstructions(&vdb, options)
 	if err != nil {
-		vcc.Log.PrintError("fail to produce instructions, %s", err)
-		return err
+		return fmt.Errorf("fail to produce instructions, %w", err)
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
@@ -108,8 +107,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
 	if runError != nil {
-		vcc.Log.PrintError("fail to drop database: %s", runError)
-		return runError
+		return fmt.Errorf("fail to drop database: %w", runError)
 	}
 
 	// if the database is successfully dropped, the config file will be removed
@@ -138,13 +136,13 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 	usePassword := false
 	if options.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName()
+		err := options.ValidateUserName(vcc)
 		if err != nil {
 			return instructions, err
 		}
 	}
 
-	nmaHealthOp := makeNMAHealthOp(hosts)
+	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
 
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
@@ -157,7 +155,7 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 		return instructions, err
 	}
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vcc.Log, vdb, *options.ForceDelete)
 	if err != nil {
 		return instructions, err
 	}

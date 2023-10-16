@@ -235,7 +235,7 @@ func (opt *DatabaseOptions) ParseHostList(hosts string) error {
 	return nil
 }
 
-func (opt *DatabaseOptions) ValidateUserName() error {
+func (opt *DatabaseOptions) ValidateUserName(vcc *VClusterCommands) error {
 	if *opt.UserName == "" {
 		username, err := util.GetCurrentUsername()
 		if err != nil {
@@ -243,18 +243,18 @@ func (opt *DatabaseOptions) ValidateUserName() error {
 		}
 		*opt.UserName = username
 	}
-	vlog.LogInfo("Current username is %s", *opt.UserName)
+	vcc.Log.Info("Current username", "username", *opt.UserName)
 
 	return nil
 }
 
-func (opt *DatabaseOptions) SetUsePassword() error {
+func (opt *DatabaseOptions) SetUsePassword(vcc *VClusterCommands) error {
 	// when password is specified,
 	// we will use username/password to call https endpoints
 	opt.usePassword = false
 	if opt.Password != nil {
 		opt.usePassword = true
-		err := opt.ValidateUserName()
+		err := opt.ValidateUserName(vcc)
 		if err != nil {
 			return err
 		}
@@ -425,7 +425,7 @@ func (opt *DatabaseOptions) normalizePaths() {
 }
 
 // getVDBWhenDBIsDown can retrieve db configurations from NMA /nodes endpoint and cluster_config.json when db is down
-func (opt *DatabaseOptions) getVDBWhenDBIsDown() (vdb VCoordinationDatabase, err error) {
+func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoordinationDatabase, err error) {
 	/*
 	 *   1. Get node names for input hosts from NMA /nodes.
 	 *   2. Get other node information for input hosts from cluster_config.json.
@@ -442,8 +442,8 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown() (vdb VCoordinationDatabase, err
 	// this step can map input hosts with node names
 	vdb1 := VCoordinationDatabase{}
 	var instructions1 []ClusterOp
-	nmaHealthOp := makeNMAHealthOp(opt.Hosts)
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(opt.Hosts, *opt.DBName, *opt.CatalogPrefix, &vdb1)
+	nmaHealthOp := makeNMAHealthOp(vcc.Log, opt.Hosts)
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, opt.Hosts, *opt.DBName, *opt.CatalogPrefix, &vdb1)
 	instructions1 = append(instructions1,
 		&nmaHealthOp,
 		&nmaGetNodesInfoOp,
@@ -461,7 +461,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown() (vdb VCoordinationDatabase, err
 	vdb2 := VCoordinationDatabase{}
 	var instructions2 []ClusterOp
 	sourceFilePath := opt.getDescriptionFilePath()
-	nmaDownLoadFileOp, err := makeNMADownloadFileOp(opt.Hosts, sourceFilePath, destinationFilePath, catalogPath,
+	nmaDownLoadFileOp, err := makeNMADownloadFileOp(vcc.Log, opt.Hosts, sourceFilePath, destinationFilePath, catalogPath,
 		opt.ConfigurationParameters, &vdb2)
 	if err != nil {
 		return vdb, err

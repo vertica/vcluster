@@ -33,9 +33,10 @@ type NMAReIPOp struct {
 	mapHostToCatalogPath map[string]string
 }
 
-func makeNMAReIPOp(reIPList []ReIPInfo, vdb *VCoordinationDatabase) NMAReIPOp {
+func makeNMAReIPOp(log vlog.Printer, reIPList []ReIPInfo, vdb *VCoordinationDatabase) NMAReIPOp {
 	op := NMAReIPOp{}
 	op.name = "NMAReIPOp"
+	op.log = log.WithName(op.name)
 	op.reIPList = reIPList
 	op.vdb = vdb
 	return op
@@ -63,13 +64,13 @@ func (op *NMAReIPOp) updateRequestBody(_ *OpEngineExecContext) error {
 		p.ReIPInfoList = op.reIPList
 		dataBytes, err := json.Marshal(p)
 		if err != nil {
-			vlog.LogError(`[%s] fail to marshal request data to JSON string, detail %s`, op.name, err)
+			op.log.Error(err, `[%s] fail to marshal request data to JSON string, detail %s`, op.name)
 			return err
 		}
 		op.hostRequestBodyMap[host] = string(dataBytes)
 	}
 
-	vlog.LogInfo("[%s] request data: %+v\n", op.name, op.hostRequestBodyMap)
+	op.log.Info("request data", "opName", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
 	return nil
 }
 

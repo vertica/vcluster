@@ -28,11 +28,12 @@ type HTTPSInstallPackagesOp struct {
 	OpHTTPSBase
 }
 
-func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,
+func makeHTTPSInstallPackagesOp(log vlog.Printer, hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string,
 ) (HTTPSInstallPackagesOp, error) {
 	installPackagesOp := HTTPSInstallPackagesOp{}
 	installPackagesOp.name = "HTTPSInstallPackagesOp"
+	installPackagesOp.log = log.WithName(installPackagesOp.name)
 	installPackagesOp.hosts = hosts
 
 	err := util.ValidateUsernameAndPassword(installPackagesOp.name, useHTTPPassword, userName)
@@ -126,7 +127,7 @@ func (op *HTTPSInstallPackagesOp) processResult(_ *OpEngineExecContext) error {
 			allErrs = errors.Join(allErrs, err)
 		}
 
-		vlog.LogPrintInfo("[%s] installed packages: %v", op.name, installedPackages)
+		op.log.PrintInfo("[%s] installed packages: %v", op.name, installedPackages)
 	}
 	return allErrs
 }

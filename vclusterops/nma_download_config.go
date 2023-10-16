@@ -32,6 +32,7 @@ type NMADownloadConfigOp struct {
 }
 
 func makeNMADownloadConfigOp(
+	log vlog.Printer,
 	opName string,
 	sourceConfigHost []string,
 	endpoint string,
@@ -40,6 +41,7 @@ func makeNMADownloadConfigOp(
 ) NMADownloadConfigOp {
 	nmaDownloadConfigOp := NMADownloadConfigOp{}
 	nmaDownloadConfigOp.name = opName
+	nmaDownloadConfigOp.log = log.WithName(nmaDownloadConfigOp.name)
 	nmaDownloadConfigOp.hosts = sourceConfigHost
 	nmaDownloadConfigOp.endpoint = endpoint
 	nmaDownloadConfigOp.fileContent = fileContent
@@ -135,7 +137,7 @@ func (op *NMADownloadConfigOp) processResult(_ *OpEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		// VER-88362 will re-enable the result details and hide sensitive info in it
-		vlog.LogPrintInfo("[%s] result from host %s summary %s",
+		op.log.PrintInfo("[%s] result from host %s summary %s",
 			op.name, host, result.status.getStatusString())
 		if result.isPassing() {
 			// The content of config file will be stored as content of the response

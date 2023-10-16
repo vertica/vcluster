@@ -16,6 +16,8 @@
 package vclusterops
 
 import (
+	"fmt"
+
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -157,8 +159,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 
 	instructions, err := vcc.produceStopDBInstructions(stopDBInfo, options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, %s", err)
-		return err
+		return fmt.Errorf("fail to production instructions: %w", err)
 	}
 
 	// Create a VClusterOpEngine, and add certs to the engine
@@ -168,8 +169,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
 	if runError != nil {
-		vlog.LogPrintError("fail to stop database, %s", runError)
-		return runError
+		return fmt.Errorf("fail to stop database: %w", runError)
 	}
 
 	return nil
@@ -193,13 +193,13 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	usePassword := false
 	if stopDBInfo.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName()
+		err := options.ValidateUserName(vcc)
 		if err != nil {
 			return instructions, err
 		}
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(stopDBInfo.DBName, stopDBInfo.Hosts,
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, stopDBInfo.DBName, stopDBInfo.Hosts,
 		usePassword, *options.UserName, stopDBInfo.Password)
 	if err != nil {
 		return instructions, err
@@ -207,7 +207,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	instructions = append(instructions, &httpsGetUpNodesOp)
 
 	if stopDBInfo.IsEon {
-		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, *options.UserName, stopDBInfo.Password)
+		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(vcc.Log, usePassword, *options.UserName, stopDBInfo.Password)
 		if e != nil {
 			return instructions, e
 		}
@@ -216,7 +216,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 		vlog.LogPrintInfoln("Skipping sync catalog for an enterprise database")
 	}
 
-	httpsStopDBOp, err := makeHTTPSStopDBOp(usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds)
+	httpsStopDBOp, err := makeHTTPSStopDBOp(vcc.Log, usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds)
 	if err != nil {
 		return instructions, err
 	}

@@ -51,11 +51,13 @@ type bootstrapCatalogRequestData struct {
 }
 
 func makeNMABootstrapCatalogOp(
+	log vlog.Printer,
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions,
 	bootstrapHosts []string) (NMABootstrapCatalogOp, error) {
 	nmaBootstrapCatalogOp := NMABootstrapCatalogOp{}
 	nmaBootstrapCatalogOp.name = "NMABootstrapCatalogOp"
+	nmaBootstrapCatalogOp.log = log.WithName(nmaBootstrapCatalogOp.name)
 	// usually, only one node need bootstrap catalog
 	nmaBootstrapCatalogOp.hosts = bootstrapHosts
 
@@ -128,7 +130,7 @@ func (op *NMABootstrapCatalogOp) updateRequestBody(execContext *OpEngineExecCont
 
 		dataBytes, err := json.Marshal(op.hostRequestBodyMap[host])
 		if err != nil {
-			vlog.LogError(`[%s] fail to marshal request data to JSON string, detail %s`, op.name, err)
+			op.log.Error(err, `[%s] fail to marshal request data to JSON string`, op.name)
 			return err
 		}
 		op.marshaledRequestBodyMap[host] = string(dataBytes)
@@ -138,7 +140,7 @@ func (op *NMABootstrapCatalogOp) updateRequestBody(execContext *OpEngineExecCont
 		maskedData.maskSensitiveInfo()
 		maskedRequestBodyMap[host] = maskedData
 	}
-	vlog.LogInfo("[%s] request data: %+v\n", op.name, maskedRequestBodyMap)
+	op.log.Info("request data", "opName", op.name, "bodyMap", maskedRequestBodyMap)
 
 	return nil
 }

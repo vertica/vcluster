@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsStartUpCommandOp struct {
@@ -28,10 +29,11 @@ type httpsStartUpCommandOp struct {
 	vdb *VCoordinationDatabase
 }
 
-func makeHTTPSStartUpCommandOp(useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSStartUpCommandOp(log vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase) (httpsStartUpCommandOp, error) {
 	op := httpsStartUpCommandOp{}
 	op.name = "HTTPSStartUpCommandOp"
+	op.log = log.WithName(op.name)
 	op.useHTTPPassword = useHTTPPassword
 	op.vdb = vdb
 

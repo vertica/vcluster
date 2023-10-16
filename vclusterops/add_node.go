@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // VAddNodeOptions are the option arguments for the VAddNode API
@@ -142,7 +141,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 		return vdb, err
 	}
 
-	err = getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {
 		return vdb, err
 	}
@@ -167,7 +166,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 
 	// trim stale node information from catalog
 	// if NodeNames is provided
-	err = trimNodesInCatalog(&vdb, options)
+	err = vcc.trimNodesInCatalog(&vdb, options)
 	if err != nil {
 		return vdb, err
 	}
@@ -186,15 +185,13 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 
 	instructions, err := vcc.produceAddNodeInstructions(&vdb, options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce add node instructions, %s", err)
-		return vdb, err
+		return vdb, fmt.Errorf("fail to produce add node instructions, %w", err)
 	}
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 	if runError := clusterOpEngine.Run(); runError != nil {
-		vlog.LogPrintError("fail to complete add node operation, %s", runError)
-		return vdb, runError
+		return vdb, fmt.Errorf("fail to complete add node operation, %w", runError)
 	}
 	return vdb, nil
 }
@@ -234,10 +231,10 @@ func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
 
 // trimNodesInCatalog removes failed node info from catalog
 // which can be used to remove partially added nodes
-func trimNodesInCatalog(vdb *VCoordinationDatabase,
+func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions) error {
 	if len(options.ExpectedNodeNames) == 0 {
-		vlog.LogInfoln("ExpectedNodeNames is not set, skip trimming nodes")
+		vcc.Log.Info("ExpectedNodeNames is not set, skip trimming nodes", "ExpectedNodeNames", options.ExpectedNodeNames)
 		return nil
 	}
 
@@ -272,7 +269,7 @@ func trimNodesInCatalog(vdb *VCoordinationDatabase,
 			invalidNodeNames, vdb.Name)
 	}
 
-	vlog.LogPrintInfo("Trim nodes %+v from catalog", nodesToTrim)
+	vcc.Log.PrintInfo("Trim nodes %+v from catalog", nodesToTrim)
 
 	// pick any up host as intiator
 	initiator := aliveHosts[:1]
@@ -281,7 +278,7 @@ func trimNodesInCatalog(vdb *VCoordinationDatabase,
 
 	// mark k-safety
 	if len(aliveHosts) < ksafetyThreshold {
-		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(initiator,
+		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(vcc.Log, initiator,
 			options.usePassword, *options.UserName, options.Password,
 			ksafeValueZero)
 		if err != nil {
@@ -292,7 +289,7 @@ func trimNodesInCatalog(vdb *VCoordinationDatabase,
 
 	// remove down nodes from catalog
 	for _, nodeName := range nodesToTrim {
-		httpsDropNodeOp, err := makeHTTPSDropNodeOp(nodeName, initiator,
+		httpsDropNodeOp, err := makeHTTPSDropNodeOp(vcc.Log, nodeName, initiator,
 			options.usePassword, *options.UserName, options.Password, vdb.IsEon)
 		if err != nil {
 			return err
@@ -304,7 +301,7 @@ func trimNodesInCatalog(vdb *VCoordinationDatabase,
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 	err := clusterOpEngine.Run()
 	if err != nil {
-		vlog.LogPrintError("fail to trim nodes from catalog, %v", err)
+		vcc.Log.Error(err, "fail to trim nodes from catalog, %v")
 		return err
 	}
 
@@ -344,7 +341,7 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	usePassword := options.usePassword
 	password := options.Password
 
-	nmaHealthOp := makeNMAHealthOp(vdb.HostList)
+	nmaHealthOp := makeNMAHealthOp(vcc.Log, vdb.HostList)
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, vdb.HostList, true)
 	instructions = append(instructions,
@@ -353,7 +350,7 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 
 	if vdb.IsEon {
 		httpsFindSubclusterOp, e := makeHTTPSFindSubclusterOp(
-			allHosts, usePassword, username, password, *options.SCName,
+			vcc.Log, allHosts, usePassword, username, password, *options.SCName,
 			true /*ignore not found*/)
 		if e != nil {
 			return instructions, e
@@ -364,22 +361,22 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	// this is a copy of the original HostNodeMap that only
 	// contains the hosts to add.
 	newHostNodeMap := vdb.copyHostNodeMap(options.NewHosts)
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(newHostNodeMap,
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(vcc.Log, newHostNodeMap,
 		*options.ForceRemoval /*force cleanup*/, false /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
-	nmaNetworkProfileOp := makeNMANetworkProfileOp(vdb.HostList)
-	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newHosts, initiatorHost,
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(vcc.Log, vdb.HostList)
+	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(vcc.Log, newHosts, initiatorHost,
 		usePassword, username, password, vdb, *options.SCName)
 	if err != nil {
 		return instructions, err
 	}
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, usePassword, username, password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(vcc.Log, initiatorHost, usePassword, username, password)
 	if err != nil {
 		return instructions, err
 	}
-	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(usePassword, username, password, vdb)
+	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(vcc.Log, usePassword, username, password, vdb)
 	if err != nil {
 		return instructions, err
 	}
@@ -392,13 +389,13 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	)
 
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(&instructions,
+	produceTransferConfigOps(vcc.Log, &instructions,
 		nil,
 		vdb.HostList,
 		vdb /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password)
+	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, newHosts, vdb)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, newHosts, usePassword, username, password)
 	if err != nil {
 		return instructions, err
 	}
@@ -407,17 +404,17 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 		&httpsPollNodeStateOp,
 	)
 
-	return prepareAdditionalEonInstructions(vdb, options, instructions,
+	return vcc.prepareAdditionalEonInstructions(vdb, options, instructions,
 		username, usePassword, initiatorHost, newHosts)
 }
 
-func prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
+func (vcc *VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions,
 	instructions []ClusterOp,
 	username string, usePassword bool,
 	initiatorHost, newHosts []string) ([]ClusterOp, error) {
 	if vdb.UseDepot {
-		httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vdb,
+		httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vcc.Log, vdb,
 			newHosts, usePassword, username, options.Password)
 		if err != nil {
 			return instructions, err
@@ -426,14 +423,14 @@ func prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
 	}
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, true, username, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(vcc.Log, initiatorHost, true, username, options.Password)
 		if err != nil {
 			return instructions, err
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
 		if !*options.SkipRebalanceShards {
 			httpsRBSCShardsOp, err := makeHTTPSRebalanceSubclusterShardsOp(
-				initiatorHost, usePassword, username, options.Password, *options.SCName)
+				vcc.Log, initiatorHost, usePassword, username, options.Password, *options.SCName)
 			if err != nil {
 				return instructions, err
 			}

@@ -34,19 +34,21 @@ type NMAReadCatalogEditorOp struct {
 // makeNMAReadCatalogEditorOpWithInitiator creates an op to read catalog editor info.
 // Initiator is needed when creating new nodes
 func makeNMAReadCatalogEditorOpWithInitiator(
+	log vlog.Printer,
 	initiator []string,
 	vdb *VCoordinationDatabase,
 ) (NMAReadCatalogEditorOp, error) {
 	op := NMAReadCatalogEditorOp{}
 	op.name = "NMAReadCatalogEditorOp"
+	op.log = log.WithName(op.name)
 	op.initiator = initiator
 	op.vdb = vdb
 	return op, nil
 }
 
 // makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
-func makeNMAReadCatalogEditorOp(vdb *VCoordinationDatabase) (NMAReadCatalogEditorOp, error) {
-	return makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
+func makeNMAReadCatalogEditorOp(log vlog.Printer, vdb *VCoordinationDatabase) (NMAReadCatalogEditorOp, error) {
+	return makeNMAReadCatalogEditorOpWithInitiator(log, []string{}, vdb)
 }
 
 func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error {
@@ -61,7 +63,9 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error 
 
 		catalogPath, ok := op.catalogPathMap[host]
 		if !ok {
-			vlog.LogError("[%s] cannot find catalog path of host %s", op.name, host)
+			err := fmt.Errorf("[%s] cannot find catalog path of host %s", op.name, host)
+			op.log.Error(err, "fail to find catalog path, detail")
+			return err
 		}
 		httpRequest.QueryParams = map[string]string{"catalog_path": catalogPath}
 

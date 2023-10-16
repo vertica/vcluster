@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSCreateNodeOp struct {
@@ -28,11 +29,12 @@ type HTTPSCreateNodeOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSCreateNodeOp(hosts []string, bootstrapHost []string,
+func makeHTTPSCreateNodeOp(log vlog.Printer, hosts []string, bootstrapHost []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase, scName string) (HTTPSCreateNodeOp, error) {
 	createNodeOp := HTTPSCreateNodeOp{}
 	createNodeOp.name = "HTTPSCreateNodeOp"
+	createNodeOp.log = log.WithName(createNodeOp.name)
 	createNodeOp.hosts = bootstrapHost
 	createNodeOp.RequestParams = make(map[string]string)
 	// HTTPS create node endpoint requires passing everything before node name

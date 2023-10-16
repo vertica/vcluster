@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaStartNodeOp struct {
@@ -27,15 +29,17 @@ type nmaStartNodeOp struct {
 	vdb                *VCoordinationDatabase
 }
 
-func makeNMAStartNodeOp(hosts []string) nmaStartNodeOp {
+func makeNMAStartNodeOp(log vlog.Printer,
+	hosts []string) nmaStartNodeOp {
 	startNodeOp := nmaStartNodeOp{}
 	startNodeOp.name = "NMAStartNodeOp"
+	startNodeOp.log = log.WithName(startNodeOp.name)
 	startNodeOp.hosts = hosts
 	return startNodeOp
 }
 
-func makeNMAStartNodeOpWithVDB(hosts []string, vdb *VCoordinationDatabase) nmaStartNodeOp {
-	startNodeOp := makeNMAStartNodeOp(hosts)
+func makeNMAStartNodeOpWithVDB(log vlog.Printer, hosts []string, vdb *VCoordinationDatabase) nmaStartNodeOp {
+	startNodeOp := makeNMAStartNodeOp(log, hosts)
 	startNodeOp.vdb = vdb
 	return startNodeOp
 }

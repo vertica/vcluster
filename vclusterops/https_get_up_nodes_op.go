@@ -30,11 +30,12 @@ type HTTPSGetUpNodesOp struct {
 	DBName string
 }
 
-func makeHTTPSGetUpNodesOp(dbName string, hosts []string,
+func makeHTTPSGetUpNodesOp(log vlog.Printer, dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 ) (HTTPSGetUpNodesOp, error) {
 	httpsGetUpNodesOp := HTTPSGetUpNodesOp{}
 	httpsGetUpNodesOp.name = "HTTPSGetUpNodesOp"
+	httpsGetUpNodesOp.log = log.WithName(httpsGetUpNodesOp.name)
 	httpsGetUpNodesOp.hosts = hosts
 	httpsGetUpNodesOp.useHTTPPassword = useHTTPPassword
 	httpsGetUpNodesOp.DBName = dbName
@@ -170,11 +171,11 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 	}
 
 	if len(exceptionHosts) > 0 {
-		vlog.LogPrintError(`[%s] fail to call https endpoint of database %s on hosts %s`, op.name, op.DBName, exceptionHosts)
+		op.log.PrintError(`[%s] fail to call https endpoint of database %s on hosts %s`, op.name, op.DBName, exceptionHosts)
 	}
 
 	if len(downHosts) > 0 {
-		vlog.LogPrintError(`[%s] did not detect database %s running on hosts %v`, op.name, op.DBName, downHosts)
+		op.log.PrintError(`[%s] did not detect database %s running on hosts %v`, op.name, op.DBName, downHosts)
 	}
 
 	return errors.Join(allErrs, fmt.Errorf("no up nodes detected"))

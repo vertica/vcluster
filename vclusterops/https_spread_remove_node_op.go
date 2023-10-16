@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSSpreadRemoveNodeOp struct {
@@ -28,10 +29,11 @@ type HTTPSSpreadRemoveNodeOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSSpreadRemoveNodeOp(hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
+func makeHTTPSSpreadRemoveNodeOp(log vlog.Printer, hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, hostNodeMap vHostNodeMap) (HTTPSSpreadRemoveNodeOp, error) {
 	op := HTTPSSpreadRemoveNodeOp{}
 	op.name = "HTTPSSpreadRemoveNodeOp"
+	op.log = log.WithName(op.name)
 	op.hosts = initiatorHost
 	op.useHTTPPassword = useHTTPPassword
 

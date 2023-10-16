@@ -31,11 +31,12 @@ type httpsGetNodesInfoOp struct {
 	vdb    *VCoordinationDatabase
 }
 
-func makeHTTPSGetNodesInfoOp(dbName string, hosts []string,
+func makeHTTPSGetNodesInfoOp(log vlog.Printer, dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string, vdb *VCoordinationDatabase,
 ) (httpsGetNodesInfoOp, error) {
 	op := httpsGetNodesInfoOp{}
 	op.name = "HTTPSGetNodeInfoOp"
+	op.log = log.WithName(op.name)
 	op.dbName = dbName
 	op.hosts = hosts
 	op.vdb = vdb
@@ -123,7 +124,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 				dbPath := "/" + node.Database
 				index := strings.Index(node.CatalogPath, dbPath)
 				if index == -1 {
-					vlog.LogPrintWarning("[%s] failed to get catalog prefix because catalog path %s does not contain database name %s",
+					op.log.PrintWarning("[%s] failed to get catalog prefix because catalog path %s does not contain database name %s",
 						op.name, node.CatalogPath, node.Database)
 				}
 				op.vdb.CatalogPrefix = node.CatalogPath[:index]

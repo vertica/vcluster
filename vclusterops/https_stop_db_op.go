@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSStopDBOp struct {
@@ -30,10 +31,11 @@ type HTTPSStopDBOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
+func makeHTTPSStopDBOp(log vlog.Printer, useHTTPPassword bool, userName string,
 	httpsPassword *string, timeout *int) (HTTPSStopDBOp, error) {
 	httpsStopDBOp := HTTPSStopDBOp{}
 	httpsStopDBOp.name = "HTTPSStopDBOp"
+	httpsStopDBOp.log = log.WithName(httpsStopDBOp.name)
 	httpsStopDBOp.useHTTPPassword = useHTTPPassword
 
 	// set the query params, "timeout" is optional

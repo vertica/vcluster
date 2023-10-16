@@ -463,13 +463,13 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 	hosts := vdb.HostList
 	initiator := getInitiator(hosts)
 
-	nmaHealthOp := makeNMAHealthOp(hosts)
+	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
 
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
 
 	// need username for https operations
-	err := options.ValidateUserName()
+	err := options.ValidateUserName(vcc)
 	if err != nil {
 		return instructions, err
 	}
@@ -480,24 +480,24 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 		return instructions, err
 	}
 
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(vdb.HostNodeMap,
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(vcc.Log, vdb.HostNodeMap,
 		*options.ForceRemovalAtCreation, false /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
 
-	nmaNetworkProfileOp := makeNMANetworkProfileOp(hosts)
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(vcc.Log, hosts)
 
 	// should be only one bootstrap host
 	// making it an array to follow the convention of passing a list of hosts to each operation
 	bootstrapHost := []string{initiator}
 	options.bootstrapHost = bootstrapHost
-	nmaBootstrapCatalogOp, err := makeNMABootstrapCatalogOp(vdb, options, bootstrapHost)
+	nmaBootstrapCatalogOp, err := makeNMABootstrapCatalogOp(vcc.Log, vdb, options, bootstrapHost)
 	if err != nil {
 		return instructions, err
 	}
 
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOpWithInitiator(bootstrapHost, vdb)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOpWithInitiator(vcc.Log, bootstrapHost, vdb)
 	if err != nil {
 		return instructions, err
 	}
@@ -518,9 +518,9 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 		)
 	}
 
-	nmaStartNodeOp := makeNMAStartNodeOp(bootstrapHost)
+	nmaStartNodeOp := makeNMAStartNodeOp(vcc.Log, bootstrapHost)
 
-	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOp(bootstrapHost, true, /* useHTTPPassword */
+	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, bootstrapHost, true, /* useHTTPPassword */
 		*options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
@@ -545,7 +545,7 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 
 	newNodeHosts := util.SliceDiff(hosts, bootstrapHost)
 	if len(hosts) > 1 {
-		httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newNodeHosts, bootstrapHost,
+		httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(vcc.Log, newNodeHosts, bootstrapHost,
 			true /* use password auth */, *options.UserName, options.Password, vdb, "")
 		if err != nil {
 			return instructions, err
@@ -553,7 +553,7 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 		instructions = append(instructions, &httpsCreateNodeOp)
 	}
 
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(bootstrapHost,
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(vcc.Log, bootstrapHost,
 		true /* use password auth */, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
@@ -566,13 +566,13 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 	}
 
 	if len(hosts) > 1 {
-		httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, bootstrapHost,
+		httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(vcc.Log, *options.DBName, bootstrapHost,
 			true /* use password auth */, *options.UserName, options.Password, vdb)
 		if err != nil {
 			return instructions, err
 		}
 
-		httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOp(true, /*use https password*/
+		httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOp(vcc.Log, true, /*use https password*/
 			*options.UserName, options.Password, vdb)
 		if err != nil {
 			return instructions, err
@@ -580,11 +580,12 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 
 		instructions = append(instructions, &httpsGetNodesInfoOp, &httpsStartUpCommandOp)
 
-		produceTransferConfigOps(&instructions,
+		produceTransferConfigOps(vcc.Log,
+			&instructions,
 			bootstrapHost,
 			vdb.HostList,
 			vdb /*db configurations retrieved from a running db*/)
-		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newNodeHosts, vdb)
+		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, newNodeHosts, vdb)
 		instructions = append(instructions, &nmaStartNewNodesOp)
 	}
 
@@ -601,7 +602,7 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	username := *options.UserName
 
 	if !*options.SkipStartupPolling {
-		httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(hosts, true, username, options.Password)
+		httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, hosts, true, username, options.Password)
 		if err != nil {
 			return instructions, err
 		}
@@ -609,7 +610,7 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	}
 
 	if vdb.UseDepot {
-		httpsCreateDepotOp, err := makeHTTPSCreateClusterDepotOp(vdb, bootstrapHost, true, username, options.Password)
+		httpsCreateDepotOp, err := makeHTTPSCreateClusterDepotOp(vcc.Log, vdb, bootstrapHost, true, username, options.Password)
 		if err != nil {
 			return instructions, err
 		}
@@ -617,7 +618,7 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	}
 
 	if len(hosts) >= ksafetyThreshold {
-		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(bootstrapHost, true, username,
+		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(vcc.Log, bootstrapHost, true, username,
 			options.Password, ksafeValueOne)
 		if err != nil {
 			return instructions, err
@@ -626,7 +627,7 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	}
 
 	if !*options.SkipPackageInstall {
-		httpsInstallPackagesOp, err := makeHTTPSInstallPackagesOp(bootstrapHost, true, username, options.Password)
+		httpsInstallPackagesOp, err := makeHTTPSInstallPackagesOp(vcc.Log, bootstrapHost, true, username, options.Password)
 		if err != nil {
 			return instructions, err
 		}
@@ -634,7 +635,7 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	}
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(bootstrapHost, true, username, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(vcc.Log, bootstrapHost, true, username, options.Password)
 		if err != nil {
 			return instructions, err
 		}

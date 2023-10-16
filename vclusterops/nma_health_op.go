@@ -15,15 +15,20 @@
 
 package vclusterops
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/vertica/vcluster/vclusterops/vlog"
+)
 
 type NMAHealthOp struct {
 	OpBase
 }
 
-func makeNMAHealthOp(hosts []string) NMAHealthOp {
+func makeNMAHealthOp(log vlog.Printer, hosts []string) NMAHealthOp {
 	nmaHealthOp := NMAHealthOp{}
 	nmaHealthOp.name = "NMAHealthOp"
+	nmaHealthOp.log = log.WithName(nmaHealthOp.name)
 	nmaHealthOp.hosts = hosts
 	return nmaHealthOp
 }

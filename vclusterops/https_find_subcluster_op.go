@@ -33,12 +33,13 @@ type HTTPSFindSubclusterOp struct {
 // a subcluster by name and find the default subcluster.
 // When ignoreNotFound is true, the op will not error out if
 // the given cluster name is not found.
-func makeHTTPSFindSubclusterOp(hosts []string, useHTTPPassword bool,
+func makeHTTPSFindSubclusterOp(log vlog.Printer, hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, scName string,
 	ignoreNotFound bool,
 ) (HTTPSFindSubclusterOp, error) {
 	op := HTTPSFindSubclusterOp{}
 	op.name = "HTTPSFindSubclusterOp"
+	op.log = log.WithName(op.name)
 	op.hosts = hosts
 	op.scName = scName
 	op.ignoreNotFound = ignoreNotFound
@@ -146,13 +147,13 @@ func (op *HTTPSFindSubclusterOp) processResult(execContext *OpEngineExecContext)
 		for _, scInfo := range scResp.SCInfoList {
 			if scInfo.SCName == op.scName {
 				foundNamedSc = true
-				vlog.LogInfo(`[%s] subcluster '%s' exists in the database`, op.name, scInfo.SCName)
+				op.log.Info(`subcluster exists in the database`, "subcluster", scInfo.SCName, "dbName", op.name)
 			}
 			if scInfo.IsDefault {
 				// store the default sc name into execContext
 				foundDefaultSc = true
 				execContext.defaultSCName = scInfo.SCName
-				vlog.LogInfo(`[%s] found default subcluster '%s' in the database`, op.name, scInfo.SCName)
+				op.log.Info(`found default subcluster in the database`, "subcluster", scInfo.SCName, "dbName", op.name)
 			}
 			if foundNamedSc && foundDefaultSc {
 				break

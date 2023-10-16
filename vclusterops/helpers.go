@@ -35,17 +35,18 @@ const (
 
 // produceTransferConfigOps generates instructions to transfert some config
 // files from a sourceConfig node to target nodes.
-func produceTransferConfigOps(instructions *[]ClusterOp, sourceConfigHost, targetHosts []string, vdb *VCoordinationDatabase) {
+func produceTransferConfigOps(log vlog.Printer, instructions *[]ClusterOp, sourceConfigHost,
+	targetHosts []string, vdb *VCoordinationDatabase) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := makeNMADownloadConfigOp(
-		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb)
+		log, "NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb)
 	nmaUploadVerticaConfigOp := makeNMAUploadConfigOp(
-		"NMAUploadVerticaConfigOp", sourceConfigHost, targetHosts, "config/vertica", &verticaConfContent, vdb)
+		log, "NMAUploadVerticaConfigOp", sourceConfigHost, targetHosts, "config/vertica", &verticaConfContent, vdb)
 	var spreadConfContent string
 	nmaDownloadSpreadConfigOp := makeNMADownloadConfigOp(
-		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb)
+		log, "NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb)
 	nmaUploadSpreadConfigOp := makeNMAUploadConfigOp(
-		"NMAUploadSpreadConfigOp", sourceConfigHost, targetHosts, "config/spread", &spreadConfContent, vdb)
+		log, "NMAUploadSpreadConfigOp", sourceConfigHost, targetHosts, "config/spread", &spreadConfContent, vdb)
 	*instructions = append(*instructions,
 		&nmaDownloadVerticaConfigOp,
 		&nmaUploadVerticaConfigOp,
@@ -100,25 +101,22 @@ func getInitiatorHost(primaryUpNodes, hostsToSkip []string) (string, error) {
 }
 
 // getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
-func getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
-	err := options.SetUsePassword()
+func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+	err := options.SetUsePassword(vcc)
 	if err != nil {
-		vlog.LogPrintError("fail to set userPassword while retrieving database configurations, %v", err)
-		return err
+		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
 
-	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, options.Hosts,
+	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(vcc.Log, *options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
-		vlog.LogPrintError("fail to produce httpsGetNodesInfo instructions while retrieving database configurations, %v", err)
-		return err
+		return fmt.Errorf("fail to produce httpsGetNodesInfo instructions while retrieving database configurations, %w", err)
 	}
 
-	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.DBName, options.Hosts,
+	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(vcc.Log, *options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
-		vlog.LogPrintError("fail to produce httpsGetClusterInfo instructions while retrieving database configurations, %v", err)
-		return err
+		return fmt.Errorf("fail to produce httpsGetClusterInfo instructions while retrieving database configurations, %w", err)
 	}
 
 	var instructions []ClusterOp
@@ -128,8 +126,7 @@ func getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) e
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 	err = clusterOpEngine.Run()
 	if err != nil {
-		vlog.LogPrintError("fail to retrieve database configurations, %v", err)
-		return err
+		return fmt.Errorf("fail to retrieve database configurations, %w", err)
 	}
 
 	return nil

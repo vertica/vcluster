@@ -64,10 +64,9 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 	// TODO: we need to support reading hosts from config for Go client
 
 	// produce list_allnodes instructions
-	instructions, err := produceListAllNodesInstructions(options)
+	instructions, err := vcc.produceListAllNodesInstructions(options)
 	if err != nil {
-		vlog.LogPrintError("fail to produce instructions, %s", err)
-		return nil, err
+		return nil, fmt.Errorf("fail to produce instructions, %w", err)
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
@@ -83,7 +82,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 
 // produceListAllNodesInstructions will build a list of instructions to execute for
 // the fetch node state operation.
-func produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]ClusterOp, error) {
+func (vcc *VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	// get hosts
@@ -93,13 +92,13 @@ func produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]Cluster
 	usePassword := false
 	if options.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName()
+		err := options.ValidateUserName(vcc)
 		if err != nil {
 			return instructions, err
 		}
 	}
 
-	httpsCheckNodeStateOp, err := makeHTTPCheckNodeStateOp(hosts,
+	httpsCheckNodeStateOp, err := makeHTTPCheckNodeStateOp(vcc.Log, hosts,
 		usePassword, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err

@@ -153,7 +153,7 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 				}
 			}
 
-			op.log.PrintInfo("All subscriptions are ACTIVE\n")
+			op.log.PrintInfo("All subscriptions are ACTIVE")
 			return true, nil
 		}
 	}

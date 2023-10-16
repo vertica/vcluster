@@ -35,6 +35,7 @@ type HTTPSMarkDesignKSafeOp struct {
 }
 
 func makeHTTPSMarkDesignKSafeOp(
+	log vlog.Printer,
 	hosts []string,
 	useHTTPPassword bool,
 	userName string,
@@ -43,6 +44,7 @@ func makeHTTPSMarkDesignKSafeOp(
 ) (HTTPSMarkDesignKSafeOp, error) {
 	httpsMarkDesignKSafeOp := HTTPSMarkDesignKSafeOp{}
 	httpsMarkDesignKSafeOp.name = "HTTPSMarkDesignKsafeOp"
+	httpsMarkDesignKSafeOp.log = log.WithName(httpsMarkDesignKSafeOp.name)
 	httpsMarkDesignKSafeOp.hosts = hosts
 	httpsMarkDesignKSafeOp.useHTTPPassword = useHTTPPassword
 
@@ -147,7 +149,7 @@ func (op *HTTPSMarkDesignKSafeOp) processResult(_ *OpEngineExecContext) error {
 			continue
 		}
 
-		vlog.LogPrintInfo(`[%s] The K-safety value of the database is set as %d`, op.name, ksafeValue)
+		op.log.PrintInfo(`[%s] The K-safety value of the database is set as %d`, op.name, ksafeValue)
 	}
 
 	return allErrs

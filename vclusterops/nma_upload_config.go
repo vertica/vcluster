@@ -48,6 +48,7 @@ type uploadConfigRequestData struct {
 // To add nodes to the DB, use the bootstrapHost value for sourceConfigHost, a list of newly added nodes
 // for newNodeHosts and provide a nil value for hosts.
 func makeNMAUploadConfigOp(
+	log vlog.Printer,
 	opName string,
 	sourceConfigHost []string, // source host for transferring configuration files, specifically, it is
 	// 1. the bootstrap host when creating the database
@@ -59,6 +60,7 @@ func makeNMAUploadConfigOp(
 ) NMAUploadConfigOp {
 	nmaUploadConfigOp := NMAUploadConfigOp{}
 	nmaUploadConfigOp.name = opName
+	nmaUploadConfigOp.log = log.WithName(nmaUploadConfigOp.name)
 	nmaUploadConfigOp.endpoint = endpoint
 	nmaUploadConfigOp.fileContent = fileContent
 	nmaUploadConfigOp.catalogPathMap = make(map[string]string)
@@ -123,7 +125,7 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 			// If no hosts to upload, skip this operation. This can happen if all
 			// hosts have the latest catalog.
 			if len(op.hosts) == 0 {
-				vlog.LogInfo("no hosts require an upload, skipping the operation")
+				op.log.Info("no hosts require an upload, skipping the operation")
 				op.skipExecute = true
 				return nil
 			}

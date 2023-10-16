@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSReloadSpreadOp struct {
@@ -27,11 +28,12 @@ type HTTPSReloadSpreadOp struct {
 	OpHTTPSBase
 }
 
-func makeHTTPSReloadSpreadOpWithInitiator(initHosts []string,
+func makeHTTPSReloadSpreadOpWithInitiator(log vlog.Printer, initHosts []string,
 	useHTTPPassword bool,
 	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
 	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
 	httpsReloadSpreadOp.name = "HTTPSReloadSpreadOp"
+	httpsReloadSpreadOp.log = log.WithName(httpsReloadSpreadOp.name)
 	httpsReloadSpreadOp.hosts = initHosts
 	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
 
@@ -44,9 +46,9 @@ func makeHTTPSReloadSpreadOpWithInitiator(initHosts []string,
 	return httpsReloadSpreadOp, nil
 }
 
-func makeHTTPSReloadSpreadOp(useHTTPPassword bool,
+func makeHTTPSReloadSpreadOp(log vlog.Printer, useHTTPPassword bool,
 	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
-	return makeHTTPSReloadSpreadOpWithInitiator(nil, useHTTPPassword, userName, httpsPassword)
+	return makeHTTPSReloadSpreadOpWithInitiator(log, nil, useHTTPPassword, userName, httpsPassword)
 }
 
 func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {

@@ -22,6 +22,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type HTTPSCreateDepotOp struct {
@@ -31,10 +32,11 @@ type HTTPSCreateDepotOp struct {
 	RequestParams  map[string]string
 }
 
-func makeHTTPSCreateClusterDepotOp(vdb *VCoordinationDatabase, hosts []string,
+func makeHTTPSCreateClusterDepotOp(log vlog.Printer, vdb *VCoordinationDatabase, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (HTTPSCreateDepotOp, error) {
 	httpsCreateDepotOp := HTTPSCreateDepotOp{}
 	httpsCreateDepotOp.name = "HTTPSCreateDepotOp"
+	httpsCreateDepotOp.log = log.WithName(httpsCreateDepotOp.name)
 	httpsCreateDepotOp.hosts = hosts
 	httpsCreateDepotOp.useHTTPPassword = useHTTPPassword
 

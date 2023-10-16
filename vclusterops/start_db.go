@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // Normal strings are easier and safer to use in Go.
@@ -134,7 +133,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 	if isEon {
 		if *options.CommunalStorageLocation != "" {
-			vdb, e := options.getVDBWhenDBIsDown()
+			vdb, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {
 				return e
 			}
@@ -144,16 +143,15 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 		} else {
 			// When communal storage location is missing, we only log a warning message
 			// because fail to read cluster_config.json will not affect start_db in most of the cases.
-			vlog.LogPrintWarningln("communal storage location is not specified for an eon database," +
-				" first start_db after revive_db could fail because we cannot retrieve the correct database information")
+			vcc.Log.PrintWarning("communal storage location is not specified for an eon database," +
+				" first start_db after revive_db could fail because we cannot retrieve the correct database information\n")
 		}
 	}
 
 	// produce start_db instructions
 	instructions, err := vcc.produceStartDBInstructions(options, pVDB)
 	if err != nil {
-		err = fmt.Errorf("fail to production instructions: %w", err)
-		return err
+		return fmt.Errorf("fail to production instructions: %w", err)
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
@@ -163,8 +161,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.Run()
 	if runError != nil {
-		runError = fmt.Errorf("fail to start database: %w", runError)
-		return runError
+		return fmt.Errorf("fail to start database: %w", runError)
 	}
 
 	return nil
@@ -186,11 +183,11 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
-	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
-	err := options.SetUsePassword()
+	err := options.SetUsePassword(vcc)
 	if err != nil {
 		return instructions, err
 	}
@@ -209,12 +206,12 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
 	if vdb == nil {
 		vdb = new(VCoordinationDatabase)
-		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix, vdb)
+		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, options.Hosts, *options.DBName, *options.CatalogPrefix, vdb)
 		instructions = append(instructions, &nmaGetNodesInfoOp)
 	}
 
 	// vdb here should contains only primary nodes
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdb)
 	if err != nil {
 		return instructions, err
 	}
@@ -230,13 +227,14 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	// we use information from catalog editor operation to update the sourceConfHost value
 	// after we find host with the highest catalog and hosts that need to synchronize the catalog
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(&instructions,
+	produceTransferConfigOps(vcc.Log,
+		&instructions,
 		nil, /*source hosts for transferring configuration files*/
 		options.Hosts,
 		nil /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOp(options.Hosts)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(options.Hosts,
+	nmaStartNewNodesOp := makeNMAStartNodeOp(vcc.Log, options.Hosts)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vcc.Log, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout, StartDBCmd)
 	if err != nil {
 		return instructions, err
@@ -248,7 +246,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	)
 
 	if options.IsEon.ToBool() {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(vcc.Log, options.Hosts, true, *options.UserName, options.Password)
 		if err != nil {
 			return instructions, err
 		}

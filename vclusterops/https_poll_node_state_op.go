@@ -56,10 +56,11 @@ type HTTPSPollNodeStateOp struct {
 	cmdType    CmdType
 }
 
-func makeHTTPSPollNodeStateOpHelper(hosts []string,
+func makeHTTPSPollNodeStateOpHelper(log vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (HTTPSPollNodeStateOp, error) {
 	httpsPollNodeStateOp := HTTPSPollNodeStateOp{}
 	httpsPollNodeStateOp.name = "HTTPSPollNodeStateOp"
+	httpsPollNodeStateOp.log = log.WithName(httpsPollNodeStateOp.name)
 	httpsPollNodeStateOp.hosts = hosts
 	httpsPollNodeStateOp.useHTTPPassword = useHTTPPassword
 
@@ -78,10 +79,10 @@ func makeHTTPSPollNodeStateOpHelper(hosts []string,
 	return httpsPollNodeStateOp, nil
 }
 
-func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(hosts []string,
+func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(log vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	timeout int, cmdType CmdType) (HTTPSPollNodeStateOp, error) {
-	op, err := makeHTTPSPollNodeStateOpHelper(hosts, useHTTPPassword, userName, httpsPassword)
+	op, err := makeHTTPSPollNodeStateOpHelper(log, hosts, useHTTPPassword, userName, httpsPassword)
 	if err != nil {
 		return op, err
 	}
@@ -90,10 +91,10 @@ func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(hosts []string,
 	return op, nil
 }
 
-func makeHTTPSPollNodeStateOp(hosts []string,
+func makeHTTPSPollNodeStateOp(log vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string) (HTTPSPollNodeStateOp, error) {
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpHelper(hosts, useHTTPPassword, userName, httpsPassword)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpHelper(log, hosts, useHTTPPassword, userName, httpsPassword)
 	if err != nil {
 		return httpsPollNodeStateOp, err
 	}
@@ -159,7 +160,6 @@ func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) 
 		vlog.LogPrintError(msg)
 		return errors.New(msg)
 	}
-
 	return nil
 }
 
@@ -192,7 +192,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 		if result.IsPasswordAndCertificateError() {
 			switch op.cmdType {
 			case StartDBCmd, RestartNodeCmd:
-				vlog.LogPrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",
+				op.log.PrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",
 					op.name)
 				return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s, but the nodes' startup have been in progress."+
 					"Please use vsql to check the nodes' status and manually run sync_catalog vsql command 'select sync_catalog()'", op.name, host)
@@ -205,7 +205,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 			nodesInfo := NodesInfo{}
 			err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
 			if err != nil {
-				vlog.LogPrintError("[%s] fail to parse result on host %s, details: %s",
+				op.log.PrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
 				return true, err
 			}
@@ -230,6 +230,6 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 		return false, nil
 	}
 
-	vlog.LogPrintInfoln("All nodes are up")
+	op.log.PrintInfo("All nodes are up")
 	return true, nil
 }

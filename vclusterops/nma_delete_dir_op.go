@@ -21,11 +21,13 @@ type deleteDirParams struct {
 }
 
 func makeNMADeleteDirectoriesOp(
+	log vlog.Printer,
 	vdb *VCoordinationDatabase,
 	forceDelete bool,
 ) (NMADeleteDirectoriesOp, error) {
 	nmaDeleteDirectoriesOp := NMADeleteDirectoriesOp{}
 	nmaDeleteDirectoriesOp.name = "NMADeleteDirectoriesOp"
+	nmaDeleteDirectoriesOp.log = log.WithName(nmaDeleteDirectoriesOp.name)
 	nmaDeleteDirectoriesOp.hosts = vdb.HostList
 
 	err := nmaDeleteDirectoriesOp.buildRequestBody(vdb, forceDelete)
@@ -69,7 +71,7 @@ func (op *NMADeleteDirectoriesOp) buildRequestBody(
 		}
 		op.hostRequestBodyMap[h] = string(dataBytes)
 
-		vlog.LogInfo("Host %s delete directory params %+v", h, p)
+		op.log.Info("delete directory params", "host", h, "params", p)
 	}
 
 	return nil
