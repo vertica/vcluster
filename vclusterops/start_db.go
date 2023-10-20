@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // Normal strings are easier and safer to use in Go.
@@ -41,8 +42,8 @@ func (options *VStartDatabaseOptions) SetDefaultValues() {
 	options.DatabaseOptions.SetDefaultValues()
 }
 
-func (options *VStartDatabaseOptions) validateRequiredOptions() error {
-	err := options.ValidateBaseOptions("start_db")
+func (options *VStartDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
+	err := options.ValidateBaseOptions("start_db", log)
 	if err != nil {
 		return err
 	}
@@ -65,9 +66,9 @@ func (options *VStartDatabaseOptions) validateEonOptions() error {
 	return nil
 }
 
-func (options *VStartDatabaseOptions) validateParseOptions() error {
+func (options *VStartDatabaseOptions) validateParseOptions(log vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := options.validateRequiredOptions()
+	err := options.validateRequiredOptions(log)
 	if err != nil {
 		return err
 	}
@@ -87,8 +88,8 @@ func (options *VStartDatabaseOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VStartDatabaseOptions) ValidateAnalyzeOptions() error {
-	if err := options.validateParseOptions(); err != nil {
+func (options *VStartDatabaseOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+	if err := options.validateParseOptions(log); err != nil {
 		return err
 	}
 	return options.analyzeOptions()
@@ -101,7 +102,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions()
+	err := options.ValidateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -159,7 +160,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run()
+	runError := clusterOpEngine.Run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to start database: %w", runError)
 	}
@@ -187,7 +188,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
-	err := options.SetUsePassword(vcc)
+	err := options.SetUsePassword(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

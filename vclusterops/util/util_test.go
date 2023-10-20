@@ -28,14 +28,14 @@ import (
 
 type NMAHealthOpResponse map[string]string
 
-func redirectLog() *bytes.Buffer {
+func redirectLog() (*bytes.Buffer, vlog.Printer) {
 	// redirect log to a local bytes.Buffer
 	var logBuffer bytes.Buffer
 	log := buflogr.NewWithBuffer(&logBuffer)
-	vlogger := vlog.GetGlobalLogger()
+	vlogger := vlog.Printer{}
 	vlogger.Log = log
 
-	return &logBuffer
+	return &logBuffer, vlogger
 }
 
 func TestGetJSONLogErrors(t *testing.T) {
@@ -45,24 +45,26 @@ func TestGetJSONLogErrors(t *testing.T) {
 	var responseObj NMAHealthOpResponse
 	expectedResponseObj := NMAHealthOpResponse{"healthy": "true"}
 
-	err := GetJSONLogErrors(resultContent, &responseObj, "")
+	err := GetJSONLogErrors(resultContent, &responseObj, "", vlog.Printer{})
 
 	assert.Nil(t, err)
 	assert.Equal(t, responseObj, expectedResponseObj)
 
 	/* netative case
 	 */
-	logBuffer := redirectLog()
+	logBuffer, log := redirectLog()
 
 	resultContent = `{"healthy": 123}`
-	err = GetJSONLogErrors(resultContent, &responseObj, "")
+	err = GetJSONLogErrors(resultContent, &responseObj, "", log)
 
 	assert.NotNil(t, err)
-	assert.Contains(t, logBuffer.String(), "ERROR <nil> fail to unmarshal the response content")
+	assert.Contains(t, logBuffer.String(),
+		"ERROR json: cannot unmarshal number into Go value of type string op name  fail to unmarshal the response content")
 
-	err = GetJSONLogErrors(resultContent, &responseObj, "NMAHealthOp")
+	err = GetJSONLogErrors(resultContent, &responseObj, "NMAHealthOp", log)
 	assert.NotNil(t, err)
-	assert.Contains(t, logBuffer.String(), "ERROR <nil> [NMAHealthOp] fail to unmarshal the response content")
+	assert.Contains(t, logBuffer.String(),
+		"ERROR json: cannot unmarshal number into Go value of type string op name [NMAHealthOp] fail to unmarshal the response content")
 }
 
 func TestStringInArray(t *testing.T) {

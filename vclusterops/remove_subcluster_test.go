@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const dbName = "test_db"
@@ -30,27 +31,27 @@ func TestRemoveSubcluster(t *testing.T) {
 	options.Password = new(string)
 
 	// options without db name, sc name, data path, and depot path
-	err := options.validateParseOptions()
+	err := options.validateParseOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify a database name")
 
 	// input db name
 	*options.DBName = dbName
-	err = options.validateParseOptions()
+	err = options.validateParseOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify a subcluster name")
 
 	// input sc name
 	options.SubclusterToRemove = new(string)
 	*options.SubclusterToRemove = "sc1"
-	err = options.validateParseOptions()
+	err = options.validateParseOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify an absolute data path")
 
 	// input data path
 	*options.DataPrefix = defaultPath
-	err = options.validateParseOptions()
+	err = options.validateParseOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify an absolute depot path")
 
 	// input depot path
 	*options.DepotPrefix = defaultPath
-	err = options.validateParseOptions()
+	err = options.validateParseOptions(vlog.Printer{})
 	assert.NoError(t, err)
 }

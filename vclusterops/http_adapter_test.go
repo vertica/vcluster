@@ -146,7 +146,6 @@ func TestHandleSuccessResponseCodes(t *testing.T) {
 func TestHandleRFC7807Response(t *testing.T) {
 	adapter := HTTPAdapter{}
 	rfcErr := rfc7807.New(rfc7807.CommunalAccessError).
-		WithStatus(500).
 		WithDetail("Cannot access communal storage")
 	b, err := json.Marshal(rfcErr)
 	assert.Equal(t, err, nil)

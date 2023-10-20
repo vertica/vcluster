@@ -43,7 +43,7 @@ const (
 	AWSAuthKey       = "awsauth"
 )
 
-func GetJSONLogErrors(responseContent string, responseObj any, opName string) error {
+func GetJSONLogErrors(responseContent string, responseObj any, opName string, logger vlog.Printer) error {
 	err := json.Unmarshal([]byte(responseContent), responseObj)
 	if err != nil {
 		opTag := ""
@@ -51,7 +51,7 @@ func GetJSONLogErrors(responseContent string, responseObj any, opName string) er
 			opTag = fmt.Sprintf("[%s] ", opName)
 		}
 
-		vlog.LogError(opTag+"fail to unmarshal the response content, details: %v\n", err)
+		logger.Error(err, "op name", opTag, "fail to unmarshal the response content")
 		return err
 	}
 

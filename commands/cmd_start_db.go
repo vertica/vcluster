@@ -79,13 +79,13 @@ func (c *CmdStartDB) CommandType() string {
 	return "start_db"
 }
 
-func (c *CmdStartDB) Parse(inputArgv []string) error {
+func (c *CmdStartDB) Parse(inputArgv []string, log vlog.Printer) error {
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -105,11 +105,11 @@ func (c *CmdStartDB) Parse(inputArgv []string) error {
 		c.startDBOptions.ConfigDirectory = nil
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdStartDB) validateParse() error {
-	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
+func (c *CmdStartDB) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()", "command", c.CommandType())
 
 	// check the format of configuration params string, and parse it into configParams
 	configurationParams, err := util.ParseConfigParams(*c.configurationParams)
@@ -123,23 +123,20 @@ func (c *CmdStartDB) validateParse() error {
 	return c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
 }
 
-func (c *CmdStartDB) Analyze() error {
+func (c *CmdStartDB) Analyze(log vlog.Printer) error {
 	// Analyze() is needed to fulfill an interface
-	vlog.LogInfoln("Called method Analyze()")
+	log.Info("Called method Analyze()")
 	return nil
 }
 
-func (c *CmdStartDB) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdStartDB) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 
 	options := c.startDBOptions
 
 	// load vdb info from the YAML config file
 	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
+	config, err := options.GetDBConfig(vcc)
 	if err != nil {
 		return err
 	}
@@ -151,6 +148,6 @@ func (c *CmdStartDB) Run(log vlog.Printer) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Successfully start the database %s\n", *options.DBName)
+	vcc.Log.PrintInfo("Successfully start the database %s\n", *options.DBName)
 	return nil
 }

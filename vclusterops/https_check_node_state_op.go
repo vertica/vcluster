@@ -103,7 +103,7 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 		if !result.isPassing() {
 			// for any error, we continue to the next node
 			if result.IsInternalError() {
-				vlog.LogPrintError("[%s] internal error of the /nodes endpoint: %s", op.name, result.content)
+				op.log.PrintError("[%s] internal error of the /nodes endpoint: %s", op.name, result.content)
 				// At internal error originated from the server, so its a
 				// response, just not a successful one.
 				respondingNodeCount++

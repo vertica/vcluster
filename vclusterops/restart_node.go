@@ -55,8 +55,8 @@ func (options *VRestartNodesOptions) setDefaultValues() {
 	options.DatabaseOptions.SetDefaultValues()
 }
 
-func (options *VRestartNodesOptions) validateRequiredOptions() error {
-	err := options.ValidateBaseOptions("restart_node")
+func (options *VRestartNodesOptions) validateRequiredOptions(log vlog.Printer) error {
+	err := options.ValidateBaseOptions("restart_node", log)
 	if err != nil {
 		return err
 	}
@@ -67,8 +67,8 @@ func (options *VRestartNodesOptions) validateRequiredOptions() error {
 	return nil
 }
 
-func (options *VRestartNodesOptions) validateParseOptions() error {
-	return options.validateRequiredOptions()
+func (options *VRestartNodesOptions) validateParseOptions(log vlog.Printer) error {
+	return options.validateRequiredOptions(log)
 }
 
 // analyzeOptions will modify some options based on what is chosen
@@ -102,8 +102,8 @@ func (options *VRestartNodesOptions) ParseNodesList(nodeListStr string) error {
 	return nil
 }
 
-func (options *VRestartNodesOptions) ValidateAnalyzeOptions() error {
-	if err := options.validateParseOptions(); err != nil {
+func (options *VRestartNodesOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+	if err := options.validateParseOptions(log); err != nil {
 		return err
 	}
 	return options.analyzeOptions()
@@ -120,7 +120,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	 */
 
 	// validate and analyze options
-	err := options.ValidateAnalyzeOptions()
+	err := options.ValidateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	for nodename, newIP := range options.Nodes {
 		oldIP, ok := hostNodeNameMap[nodename]
 		if !ok {
-			vlog.LogPrintError("fail to provide a non-existent node name %s", nodename)
+			vcc.Log.PrintError("fail to provide a non-existent node name %s", nodename)
 			return fmt.Errorf("the node with the provided name %s does not exist", nodename)
 		}
 		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
@@ -184,7 +184,7 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	err = clusterOpEngine.Run()
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to restart node, %w", err)
 	}
@@ -217,7 +217,7 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
-	err := options.SetUsePassword(vcc)
+	err := options.SetUsePassword(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

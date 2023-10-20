@@ -180,12 +180,12 @@ func (opt *VCreateDatabaseOptions) CheckExtraNilPointerParams() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateRequiredOptions() error {
+func (opt *VCreateDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
 	// validate required parameters with default values
 	if opt.Password == nil {
 		opt.Password = new(string)
 		*opt.Password = ""
-		vlog.LogPrintInfoln("no password specified, using none")
+		log.Info("no password specified, using none")
 	}
 
 	if !util.StringInArray(*opt.Policy, util.RestartPolicyList) {
@@ -313,7 +313,7 @@ func (opt *VCreateDatabaseOptions) validateExtraOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateParseOptions() error {
+func (opt *VCreateDatabaseOptions) validateParseOptions(log vlog.Printer) error {
 	// check nil pointers in the required options
 	err := opt.CheckNilPointerParams()
 	if err != nil {
@@ -321,13 +321,13 @@ func (opt *VCreateDatabaseOptions) validateParseOptions() error {
 	}
 
 	// validate base options
-	err = opt.ValidateBaseOptions("create_db")
+	err = opt.ValidateBaseOptions("create_db", log)
 	if err != nil {
 		return err
 	}
 
 	// batch 1: validate required parameters without default values
-	err = opt.validateRequiredOptions()
+	err = opt.validateRequiredOptions(log)
 	if err != nil {
 		return err
 	}
@@ -366,8 +366,8 @@ func (opt *VCreateDatabaseOptions) analyzeOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) ValidateAnalyzeOptions() error {
-	if err := opt.validateParseOptions(); err != nil {
+func (opt *VCreateDatabaseOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+	if err := opt.validateParseOptions(log); err != nil {
 		return err
 	}
 	return opt.analyzeOptions()
@@ -383,7 +383,7 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 	 */
 	// Analyze to produce vdb info, for later create db use and for cache db info
 	vdb := MakeVCoordinationDatabase()
-	err := vdb.SetFromCreateDBOptions(options)
+	err := vdb.SetFromCreateDBOptions(options, vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -399,9 +399,9 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	err = clusterOpEngine.Run()
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
-		vcc.Log.Error(err, "fail to create database, %s")
+		vcc.Log.Error(err, "fail to create database")
 		return vdb, err
 	}
 	return vdb, nil
@@ -469,7 +469,7 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
 
 	// need username for https operations
-	err := options.ValidateUserName(vcc)
+	err := options.ValidateUserName(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

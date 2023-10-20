@@ -140,7 +140,7 @@ func (op *NMABootstrapCatalogOp) updateRequestBody(execContext *OpEngineExecCont
 		maskedData.maskSensitiveInfo()
 		maskedRequestBodyMap[host] = maskedData
 	}
-	op.log.Info("request data", "opName", op.name, "bodyMap", maskedRequestBodyMap)
+	op.log.Info("request data", "op name", op.name, "bodyMap", maskedRequestBodyMap)
 
 	return nil
 }

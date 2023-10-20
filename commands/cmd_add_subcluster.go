@@ -87,9 +87,9 @@ func (c *CmdAddSubcluster) CommandType() string {
 	return "db_add_subcluster"
 }
 
-func (c *CmdAddSubcluster) Parse(inputArgv []string) error {
+func (c *CmdAddSubcluster) Parse(inputArgv []string, log vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -110,30 +110,27 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string) error {
 		c.addSubclusterOptions.ConfigDirectory = nil
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
 // all validations of the arguments should go in here
-func (c *CmdAddSubcluster) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
+func (c *CmdAddSubcluster) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
 }
 
-func (c *CmdAddSubcluster) Analyze() error {
-	vlog.LogInfoln("Called method Analyze()")
+func (c *CmdAddSubcluster) Analyze(log vlog.Printer) error {
+	log.Info("Called method Analyze()")
 	return nil
 }
 
-func (c *CmdAddSubcluster) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdAddSubcluster) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 
 	options := c.addSubclusterOptions
 
 	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
+	config, err := options.GetDBConfig(vcc)
 	if err != nil {
 		return err
 	}
@@ -145,6 +142,6 @@ func (c *CmdAddSubcluster) Run(log vlog.Printer) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Added subcluster %s to database %s", *options.SCName, *options.DBName)
+	vcc.Log.PrintInfo("Added subcluster %s to database %s", *options.SCName, *options.DBName)
 	return nil
 }

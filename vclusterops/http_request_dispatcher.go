@@ -18,27 +18,30 @@ package vclusterops
 import "github.com/vertica/vcluster/vclusterops/vlog"
 
 type HTTPRequestDispatcher struct {
+	OpBase
 	pool AdapterPool
 }
 
-func MakeHTTPRequestDispatcher() HTTPRequestDispatcher {
+func MakeHTTPRequestDispatcher(log vlog.Printer) HTTPRequestDispatcher {
 	newHTTPRequestDispatcher := HTTPRequestDispatcher{}
+	newHTTPRequestDispatcher.name = "HTTPRequestDispatcher"
+	newHTTPRequestDispatcher.log = log.WithName(newHTTPRequestDispatcher.name)
 
 	return newHTTPRequestDispatcher
 }
 
 // set up the pool connection for each host
 func (dispatcher *HTTPRequestDispatcher) Setup(hosts []string) {
-	dispatcher.pool = getPoolInstance()
+	dispatcher.pool = getPoolInstance(dispatcher.log)
 
 	for _, host := range hosts {
-		adapter := MakeHTTPAdapter()
+		adapter := MakeHTTPAdapter(dispatcher.log)
 		adapter.host = host
 		dispatcher.pool.connections[host] = &adapter
 	}
 }
 
 func (dispatcher *HTTPRequestDispatcher) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) error {
-	vlog.LogInfoln("HTTP request dispatcher's sendRequest is called")
+	dispatcher.log.Info("HTTP request dispatcher's sendRequest is called")
 	return dispatcher.pool.sendRequest(clusterHTTPRequest)
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const defaultPath = "/data"
@@ -78,7 +79,7 @@ func TestWriteClusterConfig(t *testing.T) {
 	}
 	vdb.IsEon = true
 
-	err := vdb.WriteClusterConfig(nil)
+	err := vdb.WriteClusterConfig(nil, vlog.Printer{})
 	assert.NoError(t, err)
 
 	// compare the generated file with expected output
@@ -88,7 +89,7 @@ func TestWriteClusterConfig(t *testing.T) {
 
 	// now write the config file again
 	// a backup file should be generated
-	err = vdb.WriteClusterConfig(nil)
+	err = vdb.WriteClusterConfig(nil, vlog.Printer{})
 	assert.NoError(t, err)
 	err = util.CanReadAccessDir(dbName + "/" + ConfigBackupName)
 	assert.NoError(t, err)

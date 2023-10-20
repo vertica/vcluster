@@ -21,6 +21,7 @@ import (
 
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // VRemoveScOptions are the option arguments for the VRemoveSubcluster API
@@ -45,8 +46,8 @@ func (o *VRemoveScOptions) setDefaultValues() {
 	o.ForceDelete = new(bool)
 }
 
-func (o *VRemoveScOptions) validateRequiredOptions() error {
-	err := o.ValidateBaseOptions("db_remove_subcluster")
+func (o *VRemoveScOptions) validateRequiredOptions(log vlog.Printer) error {
+	err := o.ValidateBaseOptions("db_remove_subcluster", log)
 	if err != nil {
 		return err
 	}
@@ -70,8 +71,8 @@ func (o *VRemoveScOptions) validatePathOptions() error {
 	return util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
 }
 
-func (o *VRemoveScOptions) validateParseOptions() error {
-	err := o.validateRequiredOptions()
+func (o *VRemoveScOptions) validateParseOptions(log vlog.Printer) error {
+	err := o.validateRequiredOptions(log)
 	if err != nil {
 		return err
 	}
@@ -92,15 +93,15 @@ func (o *VRemoveScOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (o *VRemoveScOptions) validateAnalyzeOptions(vcc *VClusterCommands) error {
-	if err := o.validateParseOptions(); err != nil {
+func (o *VRemoveScOptions) validateAnalyzeOptions(log vlog.Printer) error {
+	if err := o.validateParseOptions(log); err != nil {
 		return err
 	}
 	err := o.analyzeOptions()
 	if err != nil {
 		return err
 	}
-	return o.SetUsePassword(vcc)
+	return o.SetUsePassword(log)
 }
 
 /*
@@ -115,7 +116,7 @@ func (vcc *VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (V
 	// VER-88594: read config file (may move this part to cmd_remove_subcluster)
 
 	// validate and analyze options
-	err := removeScOpt.validateAnalyzeOptions(vcc)
+	err := removeScOpt.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -212,7 +213,7 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run()
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		// VER-88585 will improve this rfc error flow
 		if strings.Contains(err.Error(), "does not exist in the database") {
@@ -262,7 +263,7 @@ func (vcc *VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options 
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run()
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to drop subcluster, details: %v", dropScErrMsg)
 		return err

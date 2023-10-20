@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type VFetchNodeStateOptions struct {
@@ -19,13 +18,13 @@ func VFetchNodeStateOptionsFactory() VFetchNodeStateOptions {
 	return opt
 }
 
-func (options *VFetchNodeStateOptions) validateParseOptions() error {
+func (options *VFetchNodeStateOptions) validateParseOptions(vcc *VClusterCommands) error {
 	if len(options.RawHosts) == 0 {
 		return fmt.Errorf("must specify a host or host list")
 	}
 
 	if options.Password == nil {
-		vlog.LogPrintInfoln("no password specified, using none")
+		vcc.Log.PrintInfo("no password specified, using none")
 	}
 
 	return nil
@@ -41,8 +40,8 @@ func (options *VFetchNodeStateOptions) analyzeOptions() error {
 	return nil
 }
 
-func (options *VFetchNodeStateOptions) ValidateAnalyzeOptions() error {
-	if err := options.validateParseOptions(); err != nil {
+func (options *VFetchNodeStateOptions) ValidateAnalyzeOptions(vcc *VClusterCommands) error {
+	if err := options.validateParseOptions(vcc); err != nil {
 		return err
 	}
 	return options.analyzeOptions()
@@ -56,7 +55,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions()
+	err := options.ValidateAnalyzeOptions(vcc)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +73,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run()
+	runError := clusterOpEngine.Run(vcc.Log)
 	nodeStates := clusterOpEngine.execContext.nodesInfo
 
 	return nodeStates, runError
@@ -92,7 +91,7 @@ func (vcc *VClusterCommands) produceListAllNodesInstructions(options *VFetchNode
 	usePassword := false
 	if options.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName(vcc)
+		err := options.ValidateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}

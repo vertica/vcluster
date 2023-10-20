@@ -237,8 +237,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 			}
 
 			// save descFileContent in vdb
-			op.buildVDBFromClusterConfig(descFileContent)
-			return nil
+			return op.buildVDBFromClusterConfig(descFileContent)
 		}
 
 		httpsErr := errors.Join(fmt.Errorf("[%s] HTTPS call failed on host %s", op.name, host), result.err)
@@ -249,10 +248,9 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 }
 
 // buildVDBFromClusterConfig can build a vdb using cluster_config.json
-func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileContent) {
+func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileContent) error {
 	op.vdb.HostNodeMap = makeVHostNodeMap()
 	for _, node := range descFileContent.NodeList {
-		op.vdb.HostList = append(op.vdb.HostList, node.Address)
 		vNode := MakeVCoordinationNode()
 		vNode.Name = node.Name
 		vNode.Address = node.Address
@@ -284,8 +282,13 @@ func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileConte
 			}
 		}
 
-		op.vdb.HostNodeMap[node.Address] = &vNode
+		err := op.vdb.addNode(&vNode)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) error {

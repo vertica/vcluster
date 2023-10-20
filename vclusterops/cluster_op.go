@@ -105,14 +105,14 @@ func (hostResult *HostHTTPResult) IsSuccess() bool {
 }
 
 // check only password and certificate for start_db
-func (hostResult *HostHTTPResult) IsPasswordAndCertificateError() bool {
+func (hostResult *HostHTTPResult) IsPasswordAndCertificateError(log vlog.Printer) bool {
 	if !hostResult.IsUnauthorizedRequest() {
 		return false
 	}
 	resultString := fmt.Sprintf("%v", hostResult)
 	for _, msg := range wrongCredentialErrMsg {
 		if strings.Contains(resultString, msg) {
-			vlog.LogError("the user has provided %s", msg)
+			log.Error(errors.New(msg), "the user has provided")
 			return true
 		}
 	}
@@ -202,9 +202,9 @@ func (op *OpBase) getName() string {
 }
 
 func (op *OpBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
-	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name)
+	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name, op.log)
 	if err != nil {
-		op.log.Error(err, "fail to parse response on host %s", host)
+		op.log.Error(err, "fail to parse response on host, detail", "host", host)
 		return err
 	}
 	op.log.Info("JSON response", "host", host, "responseObj", responseObj)
@@ -244,7 +244,7 @@ func (op *OpBase) logFinalize() {
 func (op *OpBase) runExecute(execContext *OpEngineExecContext) error {
 	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
 	if err != nil {
-		op.log.Error(err, "Fail to dispatch request %v", op.clusterHTTPRequest)
+		op.log.Error(err, "Fail to dispatch request, detail", "dispatch request", op.clusterHTTPRequest)
 		return err
 	}
 	return nil
@@ -300,7 +300,7 @@ func (op *OpBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
 func (op *OpBase) checkResponseStatusCode(resp httpsResponseStatus, host string) (err error) {
 	if resp.StatusCode != respSuccStatusCode {
 		err = fmt.Errorf(`[%s] fail to execute HTTPS request on host %s, status code in HTTPS response is %d`, op.name, host, resp.StatusCode)
-		vlog.LogError(err.Error())
+		op.log.Error(err, "fail to execute HTTPS request, detail")
 		return err
 	}
 	return nil

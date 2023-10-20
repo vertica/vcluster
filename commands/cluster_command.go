@@ -15,18 +15,21 @@
 
 package commands
 
-import "github.com/vertica/vcluster/vclusterops/vlog"
+import (
+	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vlog"
+)
 
 type ClusterCommand interface {
 	CommandType() string
-	Parse(argv []string) error
+	Parse(argv []string, log vlog.Printer) error
 
 	/* TODO: Analyze information about the state of
 	 * the cluster. The information could be
 	 * cached in a config file or constructed through
 	 * cluster discovery.
 	 */
-	Analyze() error
-	Run(log vlog.Printer) error
+	Analyze(log vlog.Printer) error
+	Run(vcc vclusterops.VClusterCommands) error
 	PrintUsage(string)
 }

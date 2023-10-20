@@ -85,9 +85,9 @@ func (c *CmdAddNode) CommandType() string {
 	return "db_add_node"
 }
 
-func (c *CmdAddNode) Parse(inputArgv []string) error {
+func (c *CmdAddNode) Parse(inputArgv []string, log vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -105,11 +105,11 @@ func (c *CmdAddNode) Parse(inputArgv []string) error {
 	if !util.IsOptionSet(c.parser, "eon-mode") {
 		c.CmdBase.isEon = nil
 	}
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdAddNode) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
+func (c *CmdAddNode) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 
 	err := c.parseNewHostList()
 	if err != nil {
@@ -150,20 +150,17 @@ func (c *CmdAddNode) parseNodeNameList() error {
 	return nil
 }
 
-func (c *CmdAddNode) Analyze() error {
+func (c *CmdAddNode) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdAddNode) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdAddNode) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 
 	options := c.addNodeOptions
 
 	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
+	config, err := options.GetDBConfig(vcc)
 	if err != nil {
 		return err
 	}
@@ -174,9 +171,9 @@ func (c *CmdAddNode) Run(log vlog.Printer) error {
 		return addNodeError
 	}
 	// write cluster information to the YAML config file
-	err = vdb.WriteClusterConfig(options.ConfigDirectory)
+	err = vdb.WriteClusterConfig(options.ConfigDirectory, vcc.Log)
 	if err != nil {
-		vlog.LogPrintWarning("fail to write config file, details: %s", err)
+		vcc.Log.PrintWarning("fail to write config file, details: %s", err)
 	}
 	vcc.Log.PrintInfo("Added nodes %s to database %s", *c.newHostListStr, *options.DBName)
 	return nil

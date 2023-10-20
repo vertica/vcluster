@@ -115,9 +115,9 @@ func (c *CmdCreateDB) CommandType() string {
 	return "create_db"
 }
 
-func (c *CmdCreateDB) Parse(inputArgv []string) error {
+func (c *CmdCreateDB) Parse(inputArgv []string, log vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseMaskedArgv(c.CommandType())
+	err := c.ValidateParseMaskedArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -139,12 +139,12 @@ func (c *CmdCreateDB) Parse(inputArgv []string) error {
 		c.createDBOptions.IsEon = vstruct.False
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
 // all validations of the arguments should go in here
-func (c *CmdCreateDB) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
+func (c *CmdCreateDB) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 
 	// parse raw host str input into a []string of createDBOptions
 	err := c.createDBOptions.ParseHostList(*c.hostListStr)
@@ -166,25 +166,22 @@ func (c *CmdCreateDB) validateParse() error {
 	return nil
 }
 
-func (c *CmdCreateDB) Analyze() error {
-	vlog.LogInfoln("Called method Analyze()")
+func (c *CmdCreateDB) Analyze(log vlog.Printer) error {
+	log.Info("Called method Analyze()")
 	return nil
 }
 
-func (c *CmdCreateDB) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdCreateDB) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
 		return createError
 	}
 	// write cluster information to the YAML config file
-	err := vdb.WriteClusterConfig(c.createDBOptions.ConfigDirectory)
+	err := vdb.WriteClusterConfig(c.createDBOptions.ConfigDirectory, vcc.Log)
 	if err != nil {
-		vlog.LogPrintWarning("fail to write config file, details: %s", err)
+		vcc.Log.PrintWarning("fail to write config file, details: %s", err)
 	}
-	vlog.LogPrintInfo("Created a database with name [%s]", vdb.Name)
+	vcc.Log.PrintInfo("Created a database with name [%s]", vdb.Name)
 	return nil
 }

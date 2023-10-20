@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type mockOp struct {
@@ -74,7 +75,7 @@ func TestSkipExecuteOp(t *testing.T) {
 	instructions := []ClusterOp{&opWithSkipDisabled, &opWithSkipEnabled}
 	certs := HTTPSCerts{key: "key", cert: "cert", caCert: "ca-cert"}
 	opEngn := MakeClusterOpEngine(instructions, &certs)
-	err := opEngn.Run()
+	err := opEngn.Run(vlog.Printer{})
 	assert.Equal(t, nil, err)
 	assert.True(t, opWithSkipDisabled.calledPrepare)
 	assert.True(t, opWithSkipDisabled.calledExecute)

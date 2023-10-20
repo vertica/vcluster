@@ -70,7 +70,7 @@ func (op *NMAReIPOp) updateRequestBody(_ *OpEngineExecContext) error {
 		op.hostRequestBodyMap[host] = string(dataBytes)
 	}
 
-	op.log.Info("request data", "opName", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
+	op.log.Info("request data", "op name", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
 	return nil
 }
 

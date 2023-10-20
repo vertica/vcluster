@@ -157,7 +157,7 @@ func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) 
 		sort.Strings(op.notUpHosts)
 		msg := fmt.Sprintf("The following hosts are not up after %d seconds: %v, details: %s",
 			op.timeout, op.notUpHosts, err)
-		vlog.LogPrintError(msg)
+		op.log.PrintError(msg)
 		return errors.New(msg)
 	}
 	return nil
@@ -189,7 +189,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 		// We don't need to wait until timeout to determine if all nodes are up or not.
 		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately.
 		// We also need to let user know to wait until all nodes are up
-		if result.IsPasswordAndCertificateError() {
+		if result.IsPasswordAndCertificateError(op.log) {
 			switch op.cmdType {
 			case StartDBCmd, RestartNodeCmd:
 				op.log.PrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",

@@ -23,6 +23,7 @@ import (
 )
 
 type AdapterPool struct {
+	log vlog.Printer
 	// map from host to HTTPAdapter
 	connections map[string]Adapter
 }
@@ -33,22 +34,23 @@ var (
 )
 
 // return a singleton instance of the AdapterPool
-func getPoolInstance() AdapterPool {
+func getPoolInstance(log vlog.Printer) AdapterPool {
 	/* if once.Do(f) is called multiple times,
 	 * only the first call will invoke f,
 	 * even if f has a different value in each invocation.
 	 * Reference: https://pkg.go.dev/sync#Once
 	 */
 	once.Do(func() {
-		poolInstance = makeAdapterPool()
+		poolInstance = makeAdapterPool(log)
 	})
 
 	return poolInstance
 }
 
-func makeAdapterPool() AdapterPool {
+func makeAdapterPool(log vlog.Printer) AdapterPool {
 	newAdapterPool := AdapterPool{}
 	newAdapterPool.connections = make(map[string]Adapter)
+	newAdapterPool.log = log.WithName("AdapterPool")
 	return newAdapterPool
 }
 
@@ -58,7 +60,7 @@ type adapterToRequest struct {
 }
 
 func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) error {
-	vlog.LogInfoln("Adapter pool's sendRequest is called")
+	pool.log.Info("Adapter pool's sendRequest is called")
 	// build a collection of adapter to request
 	// we need this step as a host may not be in the pool
 	// in that case, we should not proceed

@@ -55,8 +55,8 @@ func (c *CmdConfig) CommandType() string {
 	return "config"
 }
 
-func (c *CmdConfig) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
+func (c *CmdConfig) Parse(inputArgv []string, log vlog.Printer) error {
+	log.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
@@ -68,28 +68,27 @@ func (c *CmdConfig) Parse(inputArgv []string) error {
 		return err
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdConfig) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
-
+func (c *CmdConfig) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 	// if directory is not provided, then use the current directory
 	return c.validateDirectory()
 }
 
-func (c *CmdConfig) Analyze() error {
+func (c *CmdConfig) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdConfig) Run(_ vlog.Printer) error {
+func (c *CmdConfig) Run(vcc vclusterops.VClusterCommands) error {
 	if *c.show {
 		configFilePath := filepath.Join(*c.directory, vclusterops.ConfigFileName)
 		fileBytes, err := os.ReadFile(configFilePath)
 		if err != nil {
 			return fmt.Errorf("fail to read config file, details: %w", err)
 		}
-		vlog.LogPrintInfo("Content of the config file:\n%s", string(fileBytes))
+		vcc.Log.PrintInfo("Content of the config file:\n%s", string(fileBytes))
 	}
 
 	return nil

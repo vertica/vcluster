@@ -30,11 +30,11 @@ import (
 func TestInitCmd(t *testing.T) {
 	// no hosts provided, the case should fail
 	c := makeCmdInit()
-	err := c.Parse([]string{})
+	err := c.Parse([]string{}, vlog.Printer{})
 	assert.ErrorContains(t, err, "must provide the host list with --hosts")
 
 	// hosts provided, the case should pass
-	err = c.Parse([]string{"--hosts", "vnode1,vnode2,vnode3"})
+	err = c.Parse([]string{"--hosts", "vnode1,vnode2,vnode3"}, vlog.Printer{})
 	assert.Nil(t, err)
 
 	// no directory provided, current directory will be used
@@ -46,7 +46,7 @@ func TestInitCmd(t *testing.T) {
 	c = makeCmdInit()
 	err = c.Parse([]string{
 		"--hosts", "vnode1,vnode2,vnode3",
-		"--directory", configDir})
+		"--directory", configDir}, vlog.Printer{})
 	assert.Nil(t, err)
 	assert.Equal(t, "/opt/vertica/config", *c.directory)
 }
@@ -57,39 +57,42 @@ func TestConfigCmd(t *testing.T) {
 	log := vlog.Printer{
 		Log: buflogr.NewWithBuffer(&logStr),
 	}
-	vlogger := vlog.GetGlobalLogger()
+	vlogger := vlog.Printer{}
 	vlogger.Log = log.Log
+	vcc := vclusterops.VClusterCommands{
+		Log: vlogger.WithName("initAndConfigTest"),
+	}
 
 	// create a stub YAML file
 	const yamlPath = vclusterops.ConfigFileName
-	const yamlStr = "hosts\n  - vnode1\n  - vnode2\n  - vnode3"
+	const yamlStr = "hosts\\n  - vnode1\\n  - vnode2\\n  - vnode3"
 	_ = os.WriteFile(yamlPath, []byte(yamlStr), vclusterops.ConfigFilePerm)
 	defer os.Remove(yamlPath)
 
 	// if `--show` is not specified, the config content should not show
 	c := makeCmdConfig()
-	err := c.Parse([]string{})
+	err := c.Parse([]string{}, vcc.Log)
 	assert.Nil(t, err)
 
-	err = c.Run(log)
+	err = c.Run(vcc)
 	assert.Nil(t, err)
 	assert.NotContains(t, logStr.String(), yamlStr)
 
 	// if `--show` is specified, the config content should show
 	c = makeCmdConfig()
-	err = c.Parse([]string{"--show"})
+	err = c.Parse([]string{"--show"}, vcc.Log)
 	assert.Nil(t, err)
 
-	err = c.Run(log)
+	err = c.Run(vcc)
 	assert.Nil(t, err)
 	assert.Contains(t, logStr.String(), yamlStr)
 
 	// now run `init`, the command should fail
 	// because the config file under the current directory already exists
 	cmdInit := makeCmdInit()
-	err = cmdInit.Parse([]string{"--hosts", "vnode1,vnode2,vnode3"})
+	err = cmdInit.Parse([]string{"--hosts", "vnode1,vnode2,vnode3"}, vlog.Printer{})
 	assert.Nil(t, err)
 
-	err = cmdInit.Run(log)
+	err = cmdInit.Run(vcc)
 	assert.ErrorContains(t, err, vclusterops.ConfigFileName+" already exists")
 }

@@ -15,6 +15,8 @@
 
 package vclusterops
 
+import "github.com/vertica/vcluster/vclusterops/vlog"
+
 type OpEngineExecContext struct {
 	dispatcher             HTTPRequestDispatcher
 	networkProfiles        map[string]NetworkProfile
@@ -27,9 +29,9 @@ type OpEngineExecContext struct {
 	dbInfo                 string              // store the db info that retrieved from communal storage
 }
 
-func MakeOpEngineExecContext() OpEngineExecContext {
+func MakeOpEngineExecContext(log vlog.Printer) OpEngineExecContext {
 	newOpEngineExecContext := OpEngineExecContext{}
-	newOpEngineExecContext.dispatcher = MakeHTTPRequestDispatcher()
+	newOpEngineExecContext.dispatcher = MakeHTTPRequestDispatcher(log)
 
 	return newOpEngineExecContext
 }

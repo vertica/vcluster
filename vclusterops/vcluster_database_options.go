@@ -103,7 +103,9 @@ func (opt *DatabaseOptions) CheckNilPointerParams() error {
 	return nil
 }
 
-func (opt *DatabaseOptions) ValidateBaseOptions(commandName string) error {
+func (opt *DatabaseOptions) ValidateBaseOptions(commandName string, log vlog.Printer) error {
+	// get vcluster commands
+	log.WithName(commandName)
 	// database name
 	if *opt.DBName == "" {
 		return fmt.Errorf("must specify a database name")
@@ -114,7 +116,7 @@ func (opt *DatabaseOptions) ValidateBaseOptions(commandName string) error {
 	}
 
 	// raw hosts and password
-	err = opt.ValidateHostsAndPwd(commandName)
+	err = opt.ValidateHostsAndPwd(commandName, log)
 	if err != nil {
 		return err
 	}
@@ -141,7 +143,7 @@ func (opt *DatabaseOptions) ValidateBaseOptions(commandName string) error {
 }
 
 // ValidateHostsAndPwd will validate raw hosts and password
-func (opt *DatabaseOptions) ValidateHostsAndPwd(commandName string) error {
+func (opt *DatabaseOptions) ValidateHostsAndPwd(commandName string, log vlog.Printer) error {
 	// when we create db, we need hosts and set password to "" if user did not provide one
 	if commandName == commandCreateDB {
 		// raw hosts
@@ -152,18 +154,18 @@ func (opt *DatabaseOptions) ValidateHostsAndPwd(commandName string) error {
 		if opt.Password == nil {
 			opt.Password = new(string)
 			*opt.Password = ""
-			vlog.LogPrintInfoln("no password specified, using none")
+			log.PrintInfo("no password specified, using none")
 		}
 	} else {
 		// for other commands, we validate hosts when HonorUserInput is set, otherwise we use hosts in config file
 		if *opt.HonorUserInput {
 			if len(opt.RawHosts) == 0 {
-				vlog.LogPrintInfo("no hosts specified, try to use the hosts in %s", ConfigFileName)
+				log.PrintInfo("no hosts specified, try to use the hosts in %s", ConfigFileName)
 			}
 		}
 		// for other commands, we will not use "" as password
 		if opt.Password == nil {
-			vlog.LogPrintInfoln("no password specified, using none")
+			log.PrintInfo("no password specified, using none")
 		}
 	}
 	return nil
@@ -235,7 +237,7 @@ func (opt *DatabaseOptions) ParseHostList(hosts string) error {
 	return nil
 }
 
-func (opt *DatabaseOptions) ValidateUserName(vcc *VClusterCommands) error {
+func (opt *DatabaseOptions) ValidateUserName(log vlog.Printer) error {
 	if *opt.UserName == "" {
 		username, err := util.GetCurrentUsername()
 		if err != nil {
@@ -243,18 +245,18 @@ func (opt *DatabaseOptions) ValidateUserName(vcc *VClusterCommands) error {
 		}
 		*opt.UserName = username
 	}
-	vcc.Log.Info("Current username", "username", *opt.UserName)
+	log.Info("Current username", "username", *opt.UserName)
 
 	return nil
 }
 
-func (opt *DatabaseOptions) SetUsePassword(vcc *VClusterCommands) error {
+func (opt *DatabaseOptions) SetUsePassword(log vlog.Printer) error {
 	// when password is specified,
 	// we will use username/password to call https endpoints
 	opt.usePassword = false
 	if opt.Password != nil {
 		opt.usePassword = true
-		err := opt.ValidateUserName(vcc)
+		err := opt.ValidateUserName(log)
 		if err != nil {
 			return err
 		}
@@ -332,19 +334,19 @@ func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string, err
 }
 
 // GetCatalogPrefix can choose the right catalog prefix from user input and config file
-func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPrefix *string, err error) {
+func (opt *DatabaseOptions) GetCatalogPrefix(clusterConfig *ClusterConfig) (catalogPrefix *string, err error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
-	if config == nil {
+	if clusterConfig == nil {
 		return opt.CatalogPrefix, nil
 	}
 
-	dbConfig, ok := (*config)[*opt.DBName]
-	if !ok {
-		return nil, cannotFindDBFromConfigErr(*opt.DBName)
+	catalogPrefix = new(string)
+	*catalogPrefix, _, _, err = clusterConfig.GetPathPrefix(*opt.DBName)
+	if err != nil {
+		return catalogPrefix, err
 	}
 
-	catalogPrefix = &dbConfig.CatalogPath
 	// if HonorUserInput is set, we choose the user input
 	if *opt.CatalogPrefix != "" && *opt.HonorUserInput {
 		catalogPrefix = opt.CatalogPrefix
@@ -354,18 +356,16 @@ func (opt *DatabaseOptions) GetCatalogPrefix(config *ClusterConfig) (catalogPref
 
 // getDepotAndDataPrefix chooses the right depot/data prefix from user input and config file.
 func (opt *DatabaseOptions) getDepotAndDataPrefix(
-	config *ClusterConfig) (depotPrefix, dataPrefix string, err error) {
-	if config == nil {
+	clusterConfig *ClusterConfig) (depotPrefix, dataPrefix string, err error) {
+	if clusterConfig == nil {
 		return *opt.DepotPrefix, *opt.DataPrefix, nil
 	}
 
-	dbConfig, ok := (*config)[*opt.DBName]
-	if !ok {
-		return depotPrefix, dataPrefix, cannotFindDBFromConfigErr(*opt.DBName)
+	_, dataPrefix, depotPrefix, err = clusterConfig.GetPathPrefix(*opt.DBName)
+	if err != nil {
+		return "", "", err
 	}
 
-	depotPrefix = dbConfig.DepotPath
-	dataPrefix = dbConfig.DataPath
 	// if HonorUserInput is set, we choose the user input
 	if !*opt.HonorUserInput {
 		return depotPrefix, dataPrefix, nil
@@ -380,7 +380,7 @@ func (opt *DatabaseOptions) getDepotAndDataPrefix(
 }
 
 // GetDBConfig can read database configurations from vertica_cluster.yaml to the struct ClusterConfig
-func (opt *DatabaseOptions) GetDBConfig() (config *ClusterConfig, e error) {
+func (opt *DatabaseOptions) GetDBConfig(vcc VClusterCommands) (config *ClusterConfig, e error) {
 	var configDir string
 
 	if opt.ConfigDirectory == nil && !*opt.HonorUserInput {
@@ -398,13 +398,13 @@ func (opt *DatabaseOptions) GetDBConfig() (config *ClusterConfig, e error) {
 	}
 
 	if configDir != "" {
-		configContent, err := ReadConfig(configDir)
+		configContent, err := ReadConfig(configDir, vcc.Log)
 		config = &configContent
 		if err != nil {
 			// when we cannot read config file, config points to an empty ClusterConfig with default values
 			// we want to reset config to nil so we will use user input later rather than those default values
 			config = nil
-			vlog.LogPrintWarningln("Failed to read " + filepath.Join(configDir, ConfigFileName))
+			vcc.Log.PrintWarning("Failed to read " + filepath.Join(configDir, ConfigFileName))
 			// when the customer wants to use user input, we can ignore config file error
 			if !*opt.HonorUserInput {
 				return config, err
@@ -451,9 +451,9 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 
 	certs := HTTPSCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions1, &certs)
-	err = clusterOpEngine.Run()
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
-		vlog.LogPrintError("fail to retrieve node names from NMA /nodes: %v", err)
+		vcc.Log.PrintError("fail to retrieve node names from NMA /nodes: %v", err)
 		return vdb, err
 	}
 
@@ -469,9 +469,9 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	instructions2 = append(instructions2, &nmaDownLoadFileOp)
 
 	clusterOpEngine = MakeClusterOpEngine(instructions2, &certs)
-	err = clusterOpEngine.Run()
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
-		vlog.LogPrintError("fail to retrieve node details from %s: %v", descriptionFileName, err)
+		vcc.Log.PrintError("fail to retrieve node details from %s: %v", descriptionFileName, err)
 		return vdb, err
 	}
 

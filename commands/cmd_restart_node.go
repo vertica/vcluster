@@ -60,13 +60,13 @@ func (c *CmdRestartNodes) CommandType() string {
 	return "restart_node"
 }
 
-func (c *CmdRestartNodes) Parse(inputArgv []string) error {
+func (c *CmdRestartNodes) Parse(inputArgv []string, log vlog.Printer) error {
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -82,11 +82,11 @@ func (c *CmdRestartNodes) Parse(inputArgv []string) error {
 		c.CmdBase.ipv6 = nil
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdRestartNodes) validateParse() error {
-	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
+func (c *CmdRestartNodes) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 	err := c.restartNodesOptions.ParseNodesList(*c.vnodeListStr)
 	if err != nil {
 		return err
@@ -94,23 +94,20 @@ func (c *CmdRestartNodes) validateParse() error {
 	return c.ValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
 }
 
-func (c *CmdRestartNodes) Analyze() error {
+func (c *CmdRestartNodes) Analyze(log vlog.Printer) error {
 	// Analyze() is needed to fulfill an interface
-	vlog.LogInfoln("Called method Analyze()")
+	log.Info("Called method Analyze()")
 	return nil
 }
 
-func (c *CmdRestartNodes) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdRestartNodes) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 
 	options := c.restartNodesOptions
 
 	// load vdb info from the YAML config file
 	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
+	config, err := options.GetDBConfig(vcc)
 	if err != nil {
 		return err
 	}
@@ -126,7 +123,7 @@ func (c *CmdRestartNodes) Run(log vlog.Printer) error {
 	for _, ip := range options.Nodes {
 		hostToRestart = append(hostToRestart, ip)
 	}
-	vlog.LogPrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *options.DBName)
+	vcc.Log.PrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *options.DBName)
 
 	return nil
 }

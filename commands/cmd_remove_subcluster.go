@@ -67,9 +67,9 @@ func (c *CmdRemoveSubcluster) CommandType() string {
 	return "db_remove_subcluster"
 }
 
-func (c *CmdRemoveSubcluster) Parse(inputArgv []string) error {
+func (c *CmdRemoveSubcluster) Parse(inputArgv []string, log vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -84,24 +84,20 @@ func (c *CmdRemoveSubcluster) Parse(inputArgv []string) error {
 	if !util.IsOptionSet(c.parser, "password") {
 		c.removeScOptions.Password = nil
 	}
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdRemoveSubcluster) validateParse() error {
-	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
+func (c *CmdRemoveSubcluster) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 
 	return c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
 }
 
-func (c *CmdRemoveSubcluster) Analyze() error {
+func (c *CmdRemoveSubcluster) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdRemoveSubcluster) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
-
+func (c *CmdRemoveSubcluster) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 	vdb, err := vcc.VRemoveSubcluster(c.removeScOptions)
 	if err != nil {
@@ -111,7 +107,7 @@ func (c *CmdRemoveSubcluster) Run(log vlog.Printer) error {
 		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vdb.WriteClusterConfig(c.removeScOptions.ConfigDirectory)
+	err = vdb.WriteClusterConfig(c.removeScOptions.ConfigDirectory, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("failed to write config file, details: %s", err)
 	}

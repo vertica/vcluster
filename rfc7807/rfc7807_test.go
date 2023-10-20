@@ -30,7 +30,6 @@ import (
 func TestVProblemImplementsError(t *testing.T) {
 	p := New(CommunalStorageNotEmpty).
 		WithDetail("Path /communal needs to be empty").
-		WithStatus(510).
 		WithHost("pod-0")
 	var err1 error
 	var ExpectedErrorStr = fmt.Sprintf("%s on host pod-0", CommunalStorageNotEmpty.Title)
@@ -43,7 +42,6 @@ func TestVProblemImplementsError(t *testing.T) {
 func TestWeCanTestProblemType(t *testing.T) {
 	p := New(GenericBootstrapCatalogFailure).
 		WithDetail("Internal error was hit during bootstrap catalog").
-		WithStatus(501).
 		WithHost("pod-1")
 	assert.True(t, p.IsInstanceOf(GenericBootstrapCatalogFailure))
 	assert.False(t, p.IsInstanceOf(CommunalRWAccessError))
@@ -52,7 +50,6 @@ func TestWeCanTestProblemType(t *testing.T) {
 func TestHttpResponse(t *testing.T) {
 	p := New(CommunalAccessError).
 		WithDetail("communal endpoint is down").
-		WithStatus(500).
 		WithHost("pod-2")
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		p.SendError(w)
@@ -72,7 +69,6 @@ func TestHttpResponse(t *testing.T) {
 func TestProblemExtraction(t *testing.T) {
 	origProblem := New(CommunalRWAccessError).
 		WithDetail("could not read from communal storage").
-		WithStatus(500).
 		WithHost("pod-3")
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		origProblem.SendError(w)

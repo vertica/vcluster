@@ -44,14 +44,14 @@ type ProblemID struct {
 	// not change from occurrence to occurrence of the problem, except for
 	// purposes of localization.
 	Title string `json:"title"`
+
+	// Status is the HTTP status code for this occurrence of the problem.
+	Status int `json:"status,omitempty"`
 }
 
 // VProblem is vertica's implementation of the RFC 7807 standard.
 type VProblem struct {
 	ProblemID
-
-	// Status it the HTTP status code for this occurrence of the problem.
-	Status int `json:"status,omitempty"`
 
 	// A human-readable explanation specific to this occurrence of the problem.
 	// Include any pertinent info in here to help them resolve the problem.
@@ -91,22 +91,17 @@ func GenerateErrorFromResponse(resp string) error {
 }
 
 // newProblemID will generate a ProblemID struct for use with VProblem
-func newProblemID(errType, title string) ProblemID {
+func newProblemID(errType, title string, status int) ProblemID {
 	return ProblemID{
-		Type:  errType,
-		Title: title,
+		Type:   errType,
+		Title:  title,
+		Status: status,
 	}
 }
 
 // WithDetail will set the detail field in the VProblem
 func (v *VProblem) WithDetail(d string) *VProblem {
 	v.Detail = d
-	return v
-}
-
-// WithStatus will set the http status code in the VProblem
-func (v *VProblem) WithStatus(s int) *VProblem {
-	v.Status = s
 	return v
 }
 
@@ -139,11 +134,10 @@ func (v *VProblem) SendError(w http.ResponseWriter) {
 	fmt.Fprintln(w, string(respBytes))
 }
 
-func MakeProblem(problemID ProblemID, detail string, httpStatus int) Problem {
+func MakeProblem(problemID ProblemID, detail string) Problem {
 	hostname, _ := os.Hostname()
 
 	return New(problemID).
 		WithDetail(detail).
-		WithStatus(httpStatus).
 		WithHost(hostname)
 }

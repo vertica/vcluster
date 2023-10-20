@@ -56,8 +56,8 @@ func (options *VStopDatabaseOptions) SetDefaultValues() {
 	options.ForceKill = new(bool)
 }
 
-func (options *VStopDatabaseOptions) validateRequiredOptions() error {
-	err := options.ValidateBaseOptions("stop_db")
+func (options *VStopDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
+	err := options.ValidateBaseOptions("stop_db", log)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (options *VStopDatabaseOptions) validateRequiredOptions() error {
 	return nil
 }
 
-func (options *VStopDatabaseOptions) validateEonOptions(config *ClusterConfig) error {
+func (options *VStopDatabaseOptions) validateEonOptions(config *ClusterConfig, log vlog.Printer) error {
 	// if db is enterprise db and we see --drain-seconds, we will ignore it
 	isEon, err := options.IsEonMode(config)
 	if err != nil {
@@ -74,7 +74,7 @@ func (options *VStopDatabaseOptions) validateEonOptions(config *ClusterConfig) e
 
 	if !isEon {
 		if options.DrainSeconds != nil {
-			vlog.LogPrintInfoln("Notice: --drain-seconds option will be ignored because database is in enterprise mode." +
+			log.PrintInfo("Notice: --drain-seconds option will be ignored because database is in enterprise mode." +
 				" Connection draining is only available in eon mode.")
 		}
 		options.DrainSeconds = nil
@@ -90,14 +90,14 @@ func (options *VStopDatabaseOptions) validateExtraOptions() error {
 	return nil
 }
 
-func (options *VStopDatabaseOptions) validateParseOptions(config *ClusterConfig) error {
+func (options *VStopDatabaseOptions) validateParseOptions(config *ClusterConfig, log vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := options.validateRequiredOptions()
+	err := options.validateRequiredOptions(log)
 	if err != nil {
 		return err
 	}
 	// batch 2: validate eon params
-	err = options.validateEonOptions(config)
+	err = options.validateEonOptions(config, log)
 	if err != nil {
 		return err
 	}
@@ -123,8 +123,8 @@ func (options *VStopDatabaseOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VStopDatabaseOptions) ValidateAnalyzeOptions(config *ClusterConfig) error {
-	if err := options.validateParseOptions(config); err != nil {
+func (options *VStopDatabaseOptions) ValidateAnalyzeOptions(config *ClusterConfig, log vlog.Printer) error {
+	if err := options.validateParseOptions(config, log); err != nil {
 		return err
 	}
 	return options.analyzeOptions()
@@ -137,7 +137,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions(options.Config)
+	err := options.ValidateAnalyzeOptions(options.Config, vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run()
+	runError := clusterOpEngine.Run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to stop database: %w", runError)
 	}
@@ -193,7 +193,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	usePassword := false
 	if stopDBInfo.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName(vcc)
+		err := options.ValidateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}
@@ -213,7 +213,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	} else {
-		vlog.LogPrintInfoln("Skipping sync catalog for an enterprise database")
+		vcc.Log.PrintInfo("Skipping sync catalog for an enterprise database")
 	}
 
 	httpsStopDBOp, err := makeHTTPSStopDBOp(vcc.Log, usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds)

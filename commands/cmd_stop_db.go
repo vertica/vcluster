@@ -85,9 +85,9 @@ func (c *CmdStopDB) CommandType() string {
 	return "stop_db"
 }
 
-func (c *CmdStopDB) Parse(inputArgv []string) error {
+func (c *CmdStopDB) Parse(inputArgv []string, log vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -111,30 +111,27 @@ func (c *CmdStopDB) Parse(inputArgv []string) error {
 		c.stopDBOptions.ConfigDirectory = nil
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
 // all validations of the arguments should go in here
-func (c *CmdStopDB) validateParse() error {
-	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
+func (c *CmdStopDB) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
 }
 
-func (c *CmdStopDB) Analyze() error {
-	vlog.LogInfoln("Called method Analyze()")
+func (c *CmdStopDB) Analyze(log vlog.Printer) error {
+	log.Info("Called method Analyze()")
 	return nil
 }
 
-func (c *CmdStopDB) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdStopDB) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.Info("Called method Run()")
 
 	options := c.stopDBOptions
 
 	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig()
+	config, err := options.GetDBConfig(vcc)
 	if err != nil {
 		return err
 	}
@@ -146,6 +143,6 @@ func (c *CmdStopDB) Run(log vlog.Printer) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Stopped a database with name %s", *options.DBName)
+	vcc.Log.PrintInfo("Stopped a database with name %s", *options.DBName)
 	return nil
 }

@@ -40,24 +40,24 @@ func (c *CmdReIP) CommandType() string {
 	return "re_ip"
 }
 
-func (c *CmdReIP) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
+func (c *CmdReIP) Parse(inputArgv []string, log vlog.Printer) error {
+	log.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdReIP) validateParse() error {
-	vlog.LogInfo("[%s] Called validateParse()\n", c.CommandType())
+func (c *CmdReIP) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 
 	// parse raw host str input into a []string
 	err := c.ParseHostList(&c.reIPOptions.DatabaseOptions)
@@ -71,7 +71,7 @@ func (c *CmdReIP) validateParse() error {
 	return nil
 }
 
-func (c *CmdReIP) Analyze() error {
+func (c *CmdReIP) Analyze(_ vlog.Printer) error {
 	if *c.reIPFilePath == "" {
 		return errors.New("must specify the re-ip-file path")
 	}
@@ -79,10 +79,7 @@ func (c *CmdReIP) Analyze() error {
 	return c.reIPOptions.ReadReIPFile(*c.reIPFilePath)
 }
 
-func (c *CmdReIP) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdReIP) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 	err := vcc.VReIP(c.reIPOptions)
 	if err != nil {

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // VAddNodeOptions are the option arguments for the VAddNode API
@@ -78,9 +79,9 @@ func (o *VAddNodeOptions) validateExtraOptions() error {
 	return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
 }
 
-func (o *VAddNodeOptions) validateParseOptions() error {
+func (o *VAddNodeOptions) validateParseOptions(log vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := o.ValidateBaseOptions("db_add_node")
+	err := o.ValidateBaseOptions("db_add_node", log)
 	if err != nil {
 		return err
 	}
@@ -109,8 +110,8 @@ func (o *VAddNodeOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (o *VAddNodeOptions) validateAnalyzeOptions() error {
-	err := o.validateParseOptions()
+func (o *VAddNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
+	err := o.validateParseOptions(log)
 	if err != nil {
 		return err
 	}
@@ -122,7 +123,7 @@ func (o *VAddNodeOptions) validateAnalyzeOptions() error {
 func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error) {
 	vdb := MakeVCoordinationDatabase()
 
-	err := options.validateAnalyzeOptions()
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -190,7 +191,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	if runError := clusterOpEngine.Run(); runError != nil {
+	if runError := clusterOpEngine.Run(vcc.Log); runError != nil {
 		return vdb, fmt.Errorf("fail to complete add node operation, %w", runError)
 	}
 	return vdb, nil
@@ -299,7 +300,7 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err := clusterOpEngine.Run()
+	err := clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to trim nodes from catalog, %v")
 		return err

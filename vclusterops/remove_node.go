@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // VRemoveNodeOptions are the option arguments for the VRemoveNode API
@@ -63,8 +64,8 @@ func (o *VRemoveNodeOptions) ParseHostToRemoveList(hosts string) error {
 	return nil
 }
 
-func (o *VRemoveNodeOptions) validateRequiredOptions() error {
-	err := o.ValidateBaseOptions("db_remove_node")
+func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
+	err := o.ValidateBaseOptions("db_remove_node", log)
 	if err != nil {
 		return err
 	}
@@ -79,9 +80,9 @@ func (o *VRemoveNodeOptions) validateExtraOptions() error {
 	return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
 }
 
-func (o *VRemoveNodeOptions) validateParseOptions() error {
+func (o *VRemoveNodeOptions) validateParseOptions(log vlog.Printer) error {
 	// batch 1: validate required params
-	err := o.validateRequiredOptions()
+	err := o.validateRequiredOptions(log)
 	if err != nil {
 		return err
 	}
@@ -107,22 +108,22 @@ func (o *VRemoveNodeOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (o *VRemoveNodeOptions) validateAnalyzeOptions(vcc *VClusterCommands) error {
-	if err := o.validateParseOptions(); err != nil {
+func (o *VRemoveNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
+	if err := o.validateParseOptions(log); err != nil {
 		return err
 	}
 	err := o.analyzeOptions()
 	if err != nil {
 		return err
 	}
-	return o.SetUsePassword(vcc)
+	return o.SetUsePassword(log)
 }
 
 func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {
 	vdb := MakeVCoordinationDatabase()
 
 	// validate and analyze options
-	err := options.validateAnalyzeOptions(vcc)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -169,7 +170,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	if runError := clusterOpEngine.Run(); runError != nil {
+	if runError := clusterOpEngine.Run(vcc.Log); runError != nil {
 		return vdb, fmt.Errorf("fail to complete remove node operation, %w", runError)
 	}
 

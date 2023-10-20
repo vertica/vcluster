@@ -85,7 +85,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 		configDir = currentDir
 	}
 
-	clusterConfig, err := ReadConfig(configDir)
+	clusterConfig, err := ReadConfig(configDir, vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -105,14 +105,14 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run()
+	runError := clusterOpEngine.Run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to drop database: %w", runError)
 	}
 
 	// if the database is successfully dropped, the config file will be removed
 	// if failed to remove it, we will ask users to manually do it
-	err = RemoveConfigFile(configDir)
+	err = RemoveConfigFile(configDir, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("Fail to remove the config file(s), please manually clean up under directory %s", configDir)
 	}
@@ -136,7 +136,7 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 	usePassword := false
 	if options.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName(vcc)
+		err := options.ValidateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}

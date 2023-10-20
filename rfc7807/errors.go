@@ -15,6 +15,11 @@
 
 package rfc7807
 
+import (
+	"net/http"
+	"path"
+)
+
 // List of all known RFC 7807 problems that vcluster may see. All are exported
 // from the package so they can be used by the NMA, vcluster, etc.
 //
@@ -24,73 +29,127 @@ package rfc7807
 //
 // In general, the title should be constant too. The only time we may want to
 // relax that is if they are changed for localization purposes.
+const errorEndpointsPrefix = "https://integrators.vertica.com/rest/errors/"
+
 var (
 	GenericBootstrapCatalogFailure = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/internal-bootstrap-catalog-failure",
+		path.Join(errorEndpointsPrefix, "internal-bootstrap-catalog-failure"),
 		"Internal error while bootstraping the catalog",
+		http.StatusInternalServerError,
 	)
 	CommunalStorageNotEmpty = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/communal-storage-not-empty",
+		path.Join(errorEndpointsPrefix, "communal-storage-not-empty"),
 		"Communal storage is not empty",
+		http.StatusInternalServerError,
 	)
 	CommunalStoragePathInvalid = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/communal-storage-path-invalid",
+		path.Join(errorEndpointsPrefix, "communal-storage-path-invalid"),
 		"Communal storage is not a valid path for the file system",
+		http.StatusInternalServerError,
 	)
 	CommunalRWAccessError = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/communal-read-write-access-error",
+		path.Join(errorEndpointsPrefix, "communal-read-write-access-error"),
 		"Failed while testing read/write access to the communal storage",
+		http.StatusInternalServerError,
 	)
 	CommunalAccessError = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/communal-access-error",
+		path.Join(errorEndpointsPrefix, "communal-access-error"),
 		"Error accessing communal storage",
+		http.StatusInternalServerError,
 	)
 	GenericLicenseCheckFailure = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/internal-license-check-failure",
+		path.Join(errorEndpointsPrefix, "internal-license-check-failure"),
 		"Internal error while checking license file",
+		http.StatusInternalServerError,
 	)
 	WrongRequestMethod = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/wrong-request-method",
+		path.Join(errorEndpointsPrefix, "wrong-request-method"),
 		"Wrong request method used",
+		http.StatusMethodNotAllowed,
 	)
 	BadRequest = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/bad-request",
+		path.Join(errorEndpointsPrefix, "bad-request"),
 		"Bad request sent",
+		http.StatusBadRequest,
+	)
+	GenericHTTPInternalServerError = newProblemID(
+		path.Join(errorEndpointsPrefix, "http-internal-server-error"),
+		"Internal server error",
+		http.StatusInternalServerError,
 	)
 	GenericGetNodeInfoFailure = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/internal-get-node-info-failure",
+		path.Join(errorEndpointsPrefix, "internal-get-node-info-failure"),
 		"Internal error while getting node information",
+		http.StatusInternalServerError,
 	)
 	GenericLoadRemoteCatalogFailure = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/internal-load-remote-catalog-failure",
+		path.Join(errorEndpointsPrefix, "internal-load-remote-catalog-failure"),
 		"Internal error while loading remote catalog",
+		http.StatusInternalServerError,
 	)
 	GenericSpreadSecurityPersistenceFailure = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/spread-security-persistence-failure",
+		path.Join(errorEndpointsPrefix, "spread-security-persistence-failure"),
 		"Internal error while persisting spread encryption key",
+		http.StatusInternalServerError,
 	)
 	SubclusterNotFound = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/subcluster-not-found",
+		path.Join(errorEndpointsPrefix, "subcluster-not-found"),
 		"Subcluster is not found",
+		http.StatusInternalServerError,
 	)
 	GenericCatalogEditorFailure = newProblemID(
-		"https://integrators.vertica.com/vcluster/errors/internal-catalog-editor-failure",
+		path.Join(errorEndpointsPrefix, "internal-catalog-editor-failure"),
 		"Internal error while running catalog editor",
+		http.StatusInternalServerError,
 	)
-)
-
-// List of all known RFC 7807 problems that scrutinize may see.
-var (
-	ScrutinizeWrongRequestMethod = newProblemID(
-		"https://integrators.vertica.com/scrutinize/errors/wrong-request-method",
-		"Wrong request method used",
+	GenericVerticaDownloadFileFailure = newProblemID(
+		path.Join(errorEndpointsPrefix, "general-vertica-download-file-failure"),
+		"General error while running Vertica download file",
+		http.StatusInternalServerError,
 	)
-	ScrutinizeBadRequest = newProblemID(
-		"https://integrators.vertica.com/scrutinize/errors/bad-request",
-		"Bad request sent",
+	InsufficientPrivilege = newProblemID(
+		path.Join(errorEndpointsPrefix, "insufficient-privilege"),
+		"Insufficient privilege",
+		http.StatusInternalServerError,
 	)
-	ScrutinizeGenericError = newProblemID(
-		"https://integrators.vertica.com/scrutinize/errors/generic-error",
-		"Error while executing scrutinize operation",
+	UndefinedFile = newProblemID(
+		path.Join(errorEndpointsPrefix, "undefined-file"),
+		"Undefined file",
+		http.StatusInternalServerError,
+	)
+	DuplicateFile = newProblemID(
+		path.Join(errorEndpointsPrefix, "duplicate-file"),
+		"Duplicate file",
+		http.StatusInternalServerError,
+	)
+	WrongObjectType = newProblemID(
+		path.Join(errorEndpointsPrefix, "wrong-object-type"),
+		"Wrong object type",
+		http.StatusInternalServerError,
+	)
+	DiskFull = newProblemID(
+		path.Join(errorEndpointsPrefix, "disk-full"),
+		"Disk full",
+		http.StatusInternalServerError,
+	)
+	InsufficientResources = newProblemID(
+		path.Join(errorEndpointsPrefix, "insufficient-resources"),
+		"Insufficient resources",
+		http.StatusInternalServerError,
+	)
+	IOError = newProblemID(
+		path.Join(errorEndpointsPrefix, "io-error"),
+		"IO error",
+		http.StatusInternalServerError,
+	)
+	QueryCanceled = newProblemID(
+		path.Join(errorEndpointsPrefix, "query-canceled"),
+		"Query canceled",
+		http.StatusInternalServerError,
+	)
+	InternalVerticaDownloadFileFailure = newProblemID(
+		path.Join(errorEndpointsPrefix, "internal-vertica-download-file-failure"),
+		"Internal error while running Vertica download file",
+		http.StatusInternalServerError,
 	)
 )

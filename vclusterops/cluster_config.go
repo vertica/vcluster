@@ -37,18 +37,19 @@ const ConfigBackupName = "vertica_cluster.yaml.backup"
 type ClusterConfig map[string]DatabaseConfig
 
 type DatabaseConfig struct {
-	Nodes       []NodeConfig `yaml:"nodes"`
-	CatalogPath string       `yaml:"catalog_path"`
-	DataPath    string       `yaml:"data_path"`
-	DepotPath   string       `yaml:"depot_path"`
-	IsEon       bool         `yaml:"eon_mode"`
-	Ipv6        bool         `yaml:"ipv6"`
+	Nodes                   []*NodeConfig `yaml:"nodes"`
+	IsEon                   bool          `yaml:"eon_mode"`
+	CommunalStorageLocation string        `yaml:"communal_storage_location"`
+	Ipv6                    bool          `yaml:"ipv6"`
 }
 
 type NodeConfig struct {
-	Name       string `yaml:"name"`
-	Address    string `yaml:"address"`
-	Subcluster string `yaml:"subcluster"`
+	Name        string `yaml:"name"`
+	Address     string `yaml:"address"`
+	Subcluster  string `yaml:"subcluster"`
+	CatalogPath string `yaml:"catalog_path"`
+	DataPath    string `yaml:"data_path"`
+	DepotPath   string `yaml:"depot_path"`
 }
 
 func MakeClusterConfig() ClusterConfig {
@@ -60,7 +61,7 @@ func MakeDatabaseConfig() DatabaseConfig {
 }
 
 // read config information from the YAML file
-func ReadConfig(configDirectory string) (ClusterConfig, error) {
+func ReadConfig(configDirectory string, log vlog.Printer) (ClusterConfig, error) {
 	clusterConfig := ClusterConfig{}
 
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
@@ -74,7 +75,7 @@ func ReadConfig(configDirectory string) (ClusterConfig, error) {
 		return clusterConfig, fmt.Errorf("fail to unmarshal config file, details: %w", err)
 	}
 
-	vlog.LogPrintInfo("The content of cluster config: %+v\n", clusterConfig)
+	log.PrintInfo("The content of cluster config: %+v\n", clusterConfig)
 	return clusterConfig, nil
 }
 
@@ -92,6 +93,23 @@ func (c *ClusterConfig) WriteConfig(configFilePath string) error {
 	return nil
 }
 
+// GetPathPrefix returns catalog, data, and depot prefixes
+func (c *ClusterConfig) GetPathPrefix(dbName string) (catalogPrefix string,
+	dataPrefix string, depotPrefix string, err error) {
+	dbConfig, ok := (*c)[dbName]
+	if !ok {
+		return "", "", "", cannotFindDBFromConfigErr(dbName)
+	}
+
+	if len(dbConfig.Nodes) == 0 {
+		return "", "", "",
+			fmt.Errorf("no node was found from the config file of %s", dbName)
+	}
+
+	return dbConfig.Nodes[0].CatalogPath, dbConfig.Nodes[0].DataPath,
+		dbConfig.Nodes[0].DepotPath, nil
+}
+
 func (c *DatabaseConfig) GetHosts() []string {
 	var hostList []string
 
@@ -102,7 +120,7 @@ func (c *DatabaseConfig) GetHosts() []string {
 	return hostList
 }
 
-func GetConfigFilePath(dbName string, inputConfigDir *string) (string, error) {
+func GetConfigFilePath(dbName string, inputConfigDir *string, log vlog.Printer) (string, error) {
 	var configParentPath string
 
 	// if the input config directory is given and has write permission,
@@ -119,7 +137,7 @@ func GetConfigFilePath(dbName string, inputConfigDir *string) (string, error) {
 	// as <current_dir>/vertica_cluster.yaml
 	currentDir, err := os.Getwd()
 	if err != nil {
-		vlog.LogWarning("Fail to get current directory\n")
+		log.Info("Fail to get current directory\n")
 		configParentPath = currentDir
 	}
 
@@ -134,13 +152,13 @@ func GetConfigFilePath(dbName string, inputConfigDir *string) (string, error) {
 	return configFilePath, nil
 }
 
-func BackupConfigFile(configFilePath string) error {
+func BackupConfigFile(configFilePath string, log vlog.Printer) error {
 	if util.CanReadAccessDir(configFilePath) == nil {
 		// copy file to vertica_cluster.yaml.backup
 		configDirPath := filepath.Dir(configFilePath)
 		configFileBackup := filepath.Join(configDirPath, ConfigBackupName)
-		vlog.LogInfo("Config file exists at %s, creating a backup at %s",
-			configFilePath, configFileBackup)
+		log.Info("Config file exists and, creating a backup", "config file", configFilePath,
+			"backup file", configFileBackup)
 		err := util.CopyFile(configFilePath, configFileBackup, ConfigFilePerm)
 		if err != nil {
 			return err
@@ -150,19 +168,19 @@ func BackupConfigFile(configFilePath string) error {
 	return nil
 }
 
-func RemoveConfigFile(configDirectory string) error {
+func RemoveConfigFile(configDirectory string, log vlog.Printer) error {
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBackupPath := filepath.Join(configDirectory, ConfigBackupName)
 
 	err := os.RemoveAll(configFilePath)
 	if err != nil {
-		vlog.LogPrintError("Fail to remove the config file %s, detail: %s", configFilePath, err)
+		log.PrintError("Fail to remove the config file %s, detail: %s", configFilePath, err)
 		return err
 	}
 
 	err = os.RemoveAll(configBackupPath)
 	if err != nil {
-		vlog.LogPrintError("Fail to remove the backup config file %s, detail: %s", configBackupPath, err)
+		log.PrintError("Fail to remove the backup config file %s, detail: %s", configBackupPath, err)
 		return err
 	}
 

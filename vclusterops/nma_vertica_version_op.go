@@ -81,7 +81,7 @@ func (op *NMAVerticaVersionOp) parseAndCheckResponse(host, resultContent string)
 	// example result:
 	// {"vertica_version": "Vertica Analytic Database v12.0.3"}
 	var responseObj NMAVerticaVersionOpResponse
-	err := util.GetJSONLogErrors(resultContent, &responseObj, op.name)
+	err := util.GetJSONLogErrors(resultContent, &responseObj, op.name, op.log)
 	if err != nil {
 		return err
 	}

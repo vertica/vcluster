@@ -102,7 +102,7 @@ func getInitiatorHost(primaryUpNodes, hostsToSkip []string) (string, error) {
 
 // getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
 func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
-	err := options.SetUsePassword(vcc)
+	err := options.SetUsePassword(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
@@ -124,7 +124,7 @@ func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, opt
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run()
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to retrieve database configurations, %w", err)
 	}

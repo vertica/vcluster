@@ -39,9 +39,9 @@ func (c *CmdListAllNodes) CommandType() string {
 	return "list_allnodes"
 }
 
-func (c *CmdListAllNodes) Parse(inputArgv []string) error {
+func (c *CmdListAllNodes) Parse(inputArgv []string, log vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -53,11 +53,11 @@ func (c *CmdListAllNodes) Parse(inputArgv []string) error {
 		c.fetchNodeStateOptions.Password = nil
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdListAllNodes) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
+func (c *CmdListAllNodes) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 
 	// parse raw host str input into a []string
 	err := c.ParseHostList(&c.fetchNodeStateOptions.DatabaseOptions)
@@ -71,14 +71,11 @@ func (c *CmdListAllNodes) validateParse() error {
 	return nil
 }
 
-func (c *CmdListAllNodes) Analyze() error {
+func (c *CmdListAllNodes) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdListAllNodes) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdListAllNodes) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 
 	nodeStates, err := vcc.VFetchNodeState(c.fetchNodeStateOptions)
@@ -86,7 +83,7 @@ func (c *CmdListAllNodes) Run(log vlog.Printer) error {
 		// if all nodes are down, the nodeStates list is not empty
 		// for this case, we don't want to show errors but show DOWN for the nodes
 		if len(nodeStates) == 0 {
-			vlog.LogPrintError("fail to list all nodes: %s", err)
+			vcc.Log.PrintError("fail to list all nodes: %s", err)
 			return err
 		}
 	}
@@ -95,6 +92,6 @@ func (c *CmdListAllNodes) Run(log vlog.Printer) error {
 	if err != nil {
 		return fmt.Errorf("fail to marshal the node state result, details %w", err)
 	}
-	vlog.LogPrintInfo("Node states: %s", string(bytes))
+	vcc.Log.PrintInfo("Node states: %s", string(bytes))
 	return nil
 }

@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -47,8 +48,8 @@ func (c CmdHelp) CommandType() string {
 	return "help"
 }
 
-func (c *CmdHelp) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
+func (c *CmdHelp) Parse(inputArgv []string, log vlog.Printer) error {
+	log.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
@@ -60,18 +61,18 @@ func (c *CmdHelp) Parse(inputArgv []string) error {
 		return err
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdHelp) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
+func (c *CmdHelp) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 	return nil
 }
 
-func (c *CmdHelp) Analyze() error {
+func (c *CmdHelp) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdHelp) Run(_ vlog.Printer) error {
+func (c *CmdHelp) Run(_ vclusterops.VClusterCommands) error {
 	return nil
 }

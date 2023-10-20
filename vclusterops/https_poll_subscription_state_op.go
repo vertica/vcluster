@@ -133,7 +133,7 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.IsPasswordAndCertificateError() {
+		if result.IsPasswordAndCertificateError(op.log) {
 			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}

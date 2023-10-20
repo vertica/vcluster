@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type VReIPOptions struct {
@@ -38,7 +39,7 @@ func VReIPFactory() VReIPOptions {
 	return opt
 }
 
-func (opt *VReIPOptions) validateParseOptions() error {
+func (opt *VReIPOptions) validateParseOptions(log vlog.Printer) error {
 	err := util.ValidateRequiredAbsPath(opt.CatalogPrefix, "catalog path")
 	if err != nil {
 		return err
@@ -48,7 +49,7 @@ func (opt *VReIPOptions) validateParseOptions() error {
 		return util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
 	}
 
-	return opt.ValidateBaseOptions("re_ip")
+	return opt.ValidateBaseOptions("re_ip", log)
 }
 
 func (opt *VReIPOptions) analyzeOptions() error {
@@ -61,8 +62,8 @@ func (opt *VReIPOptions) analyzeOptions() error {
 	return nil
 }
 
-func (opt *VReIPOptions) ValidateAnalyzeOptions() error {
-	if err := opt.validateParseOptions(); err != nil {
+func (opt *VReIPOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+	if err := opt.validateParseOptions(log); err != nil {
 		return err
 	}
 	if err := opt.analyzeOptions(); err != nil {
@@ -114,7 +115,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions()
+	err := options.ValidateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -148,7 +149,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run()
+	runError := clusterOpEngine.Run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to re-ip: %w", runError)
 	}

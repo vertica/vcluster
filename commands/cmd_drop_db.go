@@ -47,9 +47,9 @@ func (c *CmdDropDB) CommandType() string {
 	return "drop_db"
 }
 
-func (c *CmdDropDB) Parse(inputArgv []string) error {
+func (c *CmdDropDB) Parse(inputArgv []string, log vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType())
+	err := c.ValidateParseArgv(c.CommandType(), log)
 	if err != nil {
 		return err
 	}
@@ -57,9 +57,6 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "password") {
-		c.dropDBOptions.Password = nil
-	}
 	if !util.IsOptionSet(c.parser, "config-directory") {
 		c.dropDBOptions.ConfigDirectory = nil
 	}
@@ -67,22 +64,22 @@ func (c *CmdDropDB) Parse(inputArgv []string) error {
 		c.CmdBase.ipv6 = nil
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdDropDB) validateParse() error {
-	vlog.LogInfo("[%s] Called validateParse()", c.CommandType())
+func (c *CmdDropDB) validateParse(log vlog.Printer) error {
+	if !util.IsOptionSet(c.parser, "password") {
+		c.dropDBOptions.Password = nil
+	}
+	log.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
 }
 
-func (c *CmdDropDB) Analyze() error {
+func (c *CmdDropDB) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdDropDB) Run(log vlog.Printer) error {
-	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(c.CommandType()),
-	}
+func (c *CmdDropDB) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
 
 	err := vcc.VDropDatabase(c.dropDBOptions)
@@ -91,6 +88,6 @@ func (c *CmdDropDB) Run(log vlog.Printer) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Successfully dropped database %s\n", *c.dropDBOptions.DBName)
+	vcc.Log.PrintInfo("Successfully dropped database %s\n", *c.dropDBOptions.DBName)
 	return nil
 }

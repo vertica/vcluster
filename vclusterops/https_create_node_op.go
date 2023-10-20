@@ -29,7 +29,7 @@ type HTTPSCreateNodeOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSCreateNodeOp(log vlog.Printer, hosts []string, bootstrapHost []string,
+func makeHTTPSCreateNodeOp(log vlog.Printer, newNodeHosts []string, bootstrapHost []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase, scName string) (HTTPSCreateNodeOp, error) {
 	createNodeOp := HTTPSCreateNodeOp{}
@@ -40,7 +40,7 @@ func makeHTTPSCreateNodeOp(log vlog.Printer, hosts []string, bootstrapHost []str
 	// HTTPS create node endpoint requires passing everything before node name
 	createNodeOp.RequestParams["catalog-prefix"] = vdb.CatalogPrefix + "/" + vdb.Name
 	createNodeOp.RequestParams["data-prefix"] = vdb.DataPrefix + "/" + vdb.Name
-	createNodeOp.RequestParams["hosts"] = util.ArrayToString(hosts, ",")
+	createNodeOp.RequestParams["hosts"] = util.ArrayToString(newNodeHosts, ",")
 	if scName != "" {
 		createNodeOp.RequestParams["subcluster"] = scName
 	}

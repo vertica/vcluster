@@ -33,11 +33,15 @@ import (
 )
 
 type HTTPAdapter struct {
+	OpBase
 	host string
 }
 
-func MakeHTTPAdapter() HTTPAdapter {
-	return HTTPAdapter{}
+func MakeHTTPAdapter(log vlog.Printer) HTTPAdapter {
+	newHTTPAdapter := HTTPAdapter{}
+	newHTTPAdapter.name = "HTTPAdapter"
+	newHTTPAdapter.log = log.WithName(newHTTPAdapter.name)
+	return newHTTPAdapter
 }
 
 const (
@@ -70,7 +74,7 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 		port,
 		request.Endpoint,
 		queryParams)
-	vlog.LogInfo("Request URL %s\n", requestURL)
+	adapter.log.Info("Request URL", "URL", requestURL)
 
 	// whether use password (for HTTPS endpoints only)
 	usePassword, err := whetherUsePassword(request)

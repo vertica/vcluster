@@ -58,8 +58,8 @@ func (c *CmdInit) CommandType() string {
 	return "init"
 }
 
-func (c *CmdInit) Parse(inputArgv []string) error {
-	vlog.LogArgParse(&inputArgv)
+func (c *CmdInit) Parse(inputArgv []string, log vlog.Printer) error {
+	log.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
@@ -71,11 +71,11 @@ func (c *CmdInit) Parse(inputArgv []string) error {
 		return err
 	}
 
-	return c.validateParse()
+	return c.validateParse(log)
 }
 
-func (c *CmdInit) validateParse() error {
-	vlog.LogInfoln("Called validateParse()")
+func (c *CmdInit) validateParse(log vlog.Printer) error {
+	log.Info("Called validateParse()")
 
 	// if directory is not provided, then use the current directory
 	err := c.validateDirectory()
@@ -91,18 +91,19 @@ func (c *CmdInit) validateParse() error {
 	return nil
 }
 
-func (c *CmdInit) Analyze() error {
+func (c *CmdInit) Analyze(log vlog.Printer) error {
+	log.Info("Called method Analyze()")
 	return nil
 }
 
-func (c *CmdInit) Run(_ vlog.Printer) error {
+func (c *CmdInit) Run(vcc vclusterops.VClusterCommands) error {
 	configFilePath := filepath.Join(*c.directory, vclusterops.ConfigFileName)
 
 	// check config file existence
 	_, e := os.Stat(configFilePath)
 	if e == nil {
 		errMsg := fmt.Sprintf("The config file %s already exists", configFilePath)
-		vlog.LogPrintErrorln(errMsg)
+		vcc.Log.PrintError(errMsg)
 		return errors.New(errMsg)
 	}
 
@@ -118,7 +119,7 @@ func (c *CmdInit) Run(_ vlog.Printer) error {
 	for _, h := range hosts {
 		nodeConfig := vclusterops.NodeConfig{}
 		nodeConfig.Address = h
-		dbConfig.Nodes = append(dbConfig.Nodes, nodeConfig)
+		dbConfig.Nodes = append(dbConfig.Nodes, &nodeConfig)
 	}
 
 	clusterConfig := vclusterops.MakeClusterConfig()
@@ -130,7 +131,7 @@ func (c *CmdInit) Run(_ vlog.Printer) error {
 		return err
 	}
 
-	vlog.LogPrintInfo("Created config file at %s\n", configFilePath)
+	vcc.Log.PrintInfo("Created config file at %s\n", configFilePath)
 
 	return nil
 }
