@@ -45,6 +45,7 @@ func (opEngine *VClusterOpEngine) Run(log vlog.Printer) error {
 	findCertsInOptions := opEngine.shouldGetCertsFromOptions()
 
 	for _, op := range opEngine.instructions {
+		op.setupBasicInfo()
 		op.logPrepare()
 		err := op.prepare(&execContext)
 		if err != nil {

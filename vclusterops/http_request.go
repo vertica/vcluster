@@ -52,4 +52,5 @@ type ClusterHTTPRequest struct {
 	RequestCollection map[string]HostHTTPRequest
 	ResultCollection  map[string]HostHTTPResult
 	SemVar            SemVer
+	Name              string
 }

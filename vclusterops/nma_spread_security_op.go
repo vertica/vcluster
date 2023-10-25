@@ -89,10 +89,6 @@ func (op *nmaSpreadSecurityOp) setupRequestBody() (map[string]string, error) {
 }
 
 func (op *nmaSpreadSecurityOp) setupClusterHTTPRequest(hostRequestBodyMap map[string]string) error {
-	op.clusterHTTPRequest = ClusterHTTPRequest{}
-	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest, len(hostRequestBodyMap))
-	op.setVersionToSemVar()
-
 	for host, requestBody := range hostRequestBodyMap {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod

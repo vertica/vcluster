@@ -178,6 +178,7 @@ type ClusterOp interface {
 	logPrepare()
 	logExecute()
 	logFinalize()
+	setupBasicInfo()
 	loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) error
 	isSkipExecute() bool
 }
@@ -218,11 +219,20 @@ func (op *OpBase) parseAndCheckMapResponse(host, responseContent string) (OpResp
 	return responseObj, err
 }
 
+func (op *OpBase) setClusterHTTPRequestName() {
+	op.clusterHTTPRequest.Name = op.name
+}
+
 func (op *OpBase) setVersionToSemVar() {
 	op.clusterHTTPRequest.SemVar = SemVer{Ver: "1.0.0"}
 }
 
-// TODO: implement another parse function for list response
+func (op *OpBase) setupBasicInfo() {
+	op.clusterHTTPRequest = ClusterHTTPRequest{}
+	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
+	op.setClusterHTTPRequestName()
+	op.setVersionToSemVar()
+}
 
 func (op *OpBase) logResponse(host string, result HostHTTPResult) {
 	op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v",
@@ -235,6 +245,7 @@ func (op *OpBase) logPrepare() {
 
 func (op *OpBase) logExecute() {
 	op.log.Info("Execute() called", "name", op.name)
+	op.log.PrintInfo("[%s] is running", op.name)
 }
 
 func (op *OpBase) logFinalize() {

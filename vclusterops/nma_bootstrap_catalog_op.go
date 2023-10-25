@@ -47,6 +47,7 @@ type bootstrapCatalogRequestData struct {
 	Ipv6               bool   `json:"ipv6"`
 	NumShards          int    `json:"num_shards"`
 	CommunalStorageURL string `json:"communal_storage"`
+	SuperuserName      string `json:"superuser_name"`
 	SensitiveFields
 }
 
@@ -104,6 +105,7 @@ func (op *NMABootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 		bootstrapData.SpreadLogging = *options.SpreadLogging
 		bootstrapData.SpreadLoggingLevel = *options.SpreadLoggingLevel
 		bootstrapData.Ipv6 = options.Ipv6.ToBool()
+		bootstrapData.SuperuserName = *options.UserName
 		bootstrapData.DBPassword = *options.Password
 
 		// Eon params
@@ -146,10 +148,6 @@ func (op *NMABootstrapCatalogOp) updateRequestBody(execContext *OpEngineExecCont
 }
 
 func (op *NMABootstrapCatalogOp) setupClusterHTTPRequest(hosts []string) error {
-	op.clusterHTTPRequest = ClusterHTTPRequest{}
-	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
-	op.setVersionToSemVar()
-
 	// usually, only one node need bootstrap catalog
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}

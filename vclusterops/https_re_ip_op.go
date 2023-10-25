@@ -53,10 +53,6 @@ func makeHTTPSReIPOp(nodeNamesList, hostToReIP []string,
 }
 
 func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
-	op.clusterHTTPRequest = ClusterHTTPRequest{}
-	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
-	op.setVersionToSemVar()
-
 	for i, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PutMethod

@@ -16,8 +16,10 @@
 package vclusterops
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -80,6 +82,10 @@ func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) err
 	// result channel to collect result from each host
 	resultChannel := make(chan HostHTTPResult, hostCount)
 
+	// use context to check whether a step has completed
+	ctx, cancel := context.WithCancel(context.Background())
+	go progressCheck(ctx, clusterHTTPRequest.Name, pool.log)
+
 	for i := 0; i < len(adapterToRequestCollection); i++ {
 		ar := adapterToRequestCollection[i]
 		// send request to the hosts
@@ -100,5 +106,32 @@ func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) err
 	}
 	close(resultChannel)
 
+	// cancel the progress check context when the result channel is closed
+	cancel()
+
 	return nil
+}
+
+// progressCheck checks whether a step (operation) has been completed.
+// Elapsed time of the step in seconds will be displayed.
+func progressCheck(ctx context.Context, name string, log vlog.Printer) {
+	const progressCheckInterval = 5
+	startTime := time.Now()
+
+	ticker := time.NewTicker(progressCheckInterval * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// context is canceled
+			// - when the requests to each host are completed, or
+			// - when the timeout is reached
+			return
+		case tickTime := <-ticker.C:
+			elapsedTime := tickTime.Sub(startTime)
+			log.PrintInfo("[%s] is still running. %.f seconds spent at this step.",
+				name, elapsedTime.Seconds())
+		}
+	}
 }

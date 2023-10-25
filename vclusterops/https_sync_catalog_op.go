@@ -53,10 +53,6 @@ func makeHTTPSSyncCatalogOpWithoutHosts(log vlog.Printer, useHTTPPassword bool,
 }
 
 func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
-	op.clusterHTTPRequest = ClusterHTTPRequest{}
-	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
-	op.setVersionToSemVar()
-
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
