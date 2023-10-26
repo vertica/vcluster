@@ -26,14 +26,20 @@ import (
 )
 
 const (
-	ConfigDirPerm  = 0755
-	ConfigFilePerm = 0600
+	ConfigDirPerm            = 0755
+	ConfigFilePerm           = 0600
+	CurrentConfigFileVersion = 1
 )
 
 const ConfigFileName = "vertica_cluster.yaml"
 const ConfigBackupName = "vertica_cluster.yaml.backup"
 
-// VER-89599: add config file version
+type Config struct {
+	Version   int           `yaml:"config_file_version"`
+	Databases ClusterConfig `yaml:"databases"`
+}
+
+// ClusterConfig holds information of the databases in the cluster
 type ClusterConfig map[string]DatabaseConfig
 
 type DatabaseConfig struct {
@@ -62,26 +68,48 @@ func MakeDatabaseConfig() DatabaseConfig {
 
 // read config information from the YAML file
 func ReadConfig(configDirectory string, log vlog.Printer) (ClusterConfig, error) {
-	clusterConfig := ClusterConfig{}
-
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBytes, err := os.ReadFile(configFilePath)
 	if err != nil {
-		return clusterConfig, fmt.Errorf("fail to read config file, details: %w", err)
+		return nil, fmt.Errorf("fail to read config file, details: %w", err)
 	}
 
-	err = yaml.Unmarshal(configBytes, &clusterConfig)
+	var config Config
+	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
-		return clusterConfig, fmt.Errorf("fail to unmarshal config file, details: %w", err)
+		return nil, fmt.Errorf("fail to unmarshal config file, details: %w", err)
 	}
 
+	// the config file content will look like
+	/*
+		config_file_version: 1
+		databases:
+			test_db:
+				nodes:
+					- name: v_test_db_node0001
+					  address: 192.168.1.101
+					  subcluster: default_subcluster
+					  catalog_path: /data
+					  data_path: /data
+					  depot_path: /data
+					...
+				eon_mode: false
+				communal_storage_location: ""
+				ipv6: false
+	*/
+
+	clusterConfig := config.Databases
 	log.PrintInfo("The content of cluster config: %+v\n", clusterConfig)
 	return clusterConfig, nil
 }
 
 // write config information to the YAML file
 func (c *ClusterConfig) WriteConfig(configFilePath string) error {
-	configBytes, err := yaml.Marshal(&c)
+	var config Config
+	config.Version = CurrentConfigFileVersion
+	config.Databases = *c
+
+	configBytes, err := yaml.Marshal(&config)
 	if err != nil {
 		return fmt.Errorf("fail to marshal config data, details: %w", err)
 	}
@@ -185,4 +213,14 @@ func RemoveConfigFile(configDirectory string, log vlog.Printer) error {
 	}
 
 	return nil
+}
+
+// checkConfigFileExist checks whether config file exists under the given directory
+func checkConfigFileExist(configDirectory *string) bool {
+	if configDirectory == nil {
+		return false
+	}
+
+	configPath := filepath.Join(*configDirectory, ConfigFileName)
+	return util.CheckPathExist(configPath)
 }

@@ -425,7 +425,7 @@ func (vnode *VCoordinationNode) SetFromNodeConfig(nodeConfig *NodeConfig, vdb *V
 	}
 }
 
-// WriteClusterConfig writes config information to a yaml file.
+// WriteClusterConfig updates the yaml config file with the given vdb information
 func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, log vlog.Printer) error {
 	/* build config information
 	 */
@@ -449,7 +449,15 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, log vlog
 	dbConfig.CommunalStorageLocation = vdb.CommunalStorageLocation
 	dbConfig.Ipv6 = vdb.Ipv6
 
+	// update cluster config with the given database info
 	clusterConfig := MakeClusterConfig()
+	if checkConfigFileExist(configDir) {
+		c, err := ReadConfig(*configDir, log)
+		if err != nil {
+			return err
+		}
+		clusterConfig = c
+	}
 	clusterConfig[vdb.Name] = dbConfig
 
 	/* write config to a YAML file
