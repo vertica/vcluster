@@ -53,7 +53,7 @@ func (op *HTTPSRebalanceClusterOp) setupClusterHTTPRequest(hosts []string) error
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildHTTPSEndpoint("cluster/rebalance")
+		httpRequest.buildHTTPSEndpoint("cluster/rebalance")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -64,7 +64,7 @@ func (op *HTTPSRebalanceClusterOp) setupClusterHTTPRequest(hosts []string) error
 }
 
 func (op *HTTPSRebalanceClusterOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
@@ -82,11 +82,11 @@ func (op *HTTPSRebalanceClusterOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.IsUnauthorizedRequest() {
+		if result.isUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
 			return result.err
 		}
-		if !result.IsSuccess() {
+		if !result.isSuccess() {
 			allErrs = errors.Join(allErrs, result.err)
 			// try processing other hosts' responses when the current host has some server errors
 			continue

@@ -55,7 +55,7 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildNMAEndpoint("catalog/database")
+		httpRequest.buildNMAEndpoint("catalog/database")
 
 		catalogPath, ok := op.catalogPathMap[host]
 		if !ok {
@@ -92,7 +92,7 @@ func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) erro
 		}
 	}
 
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

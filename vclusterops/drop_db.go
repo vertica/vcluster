@@ -32,7 +32,7 @@ type VDropDatabaseOptions struct {
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	opt := VDropDatabaseOptions{}
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 
 	return opt
 }
@@ -48,7 +48,7 @@ func (options *VDropDatabaseOptions) AnalyzeOptions() error {
 	return nil
 }
 
-func (options *VDropDatabaseOptions) ValidateAnalyzeOptions() error {
+func (options *VDropDatabaseOptions) validateAnalyzeOptions() error {
 	if *options.DBName == "" {
 		return fmt.Errorf("database name must be provided")
 	}
@@ -62,7 +62,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions()
+	err := options.validateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	if err != nil {
 		return err
 	}
-	err = vdb.SetFromClusterConfig(*options.DBName, &clusterConfig)
+	err = vdb.setFromClusterConfig(*options.DBName, &clusterConfig)
 	if err != nil {
 		return err
 	}
@@ -102,10 +102,10 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run(vcc.Log)
+	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to drop database: %w", runError)
 	}
@@ -136,7 +136,7 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 	usePassword := false
 	if options.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName(vcc.Log)
+		err := options.validateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}

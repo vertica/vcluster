@@ -34,7 +34,7 @@ func TestTimeoutCase(t *testing.T) {
 	instructions = append(instructions, &httpsPollNodeStateOp)
 
 	certs := HTTPSCerts{}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run(vlog.Printer{})
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.run(vlog.Printer{})
 	assert.ErrorContains(t, err, "[HTTPSPollNodeStateOp] cannot connect to host 192.0.2.1, please check if the host is still alive")
 }

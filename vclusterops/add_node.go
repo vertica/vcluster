@@ -47,13 +47,13 @@ type VAddNodeOptions struct {
 func VAddNodeOptionsFactory() VAddNodeOptions {
 	opt := VAddNodeOptions{}
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 
 	return opt
 }
 
-func (o *VAddNodeOptions) SetDefaultValues() {
-	o.DatabaseOptions.SetDefaultValues()
+func (o *VAddNodeOptions) setDefaultValues() {
+	o.DatabaseOptions.setDefaultValues()
 
 	o.SCName = new(string)
 	o.SkipRebalanceShards = new(bool)
@@ -81,7 +81,7 @@ func (o *VAddNodeOptions) validateExtraOptions() error {
 
 func (o *VAddNodeOptions) validateParseOptions(log vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := o.ValidateBaseOptions("db_add_node", log)
+	err := o.validateBaseOptions("db_add_node", log)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 	}
 
 	// get hosts from config file and options.
-	hosts, err := options.GetHosts(options.Config)
+	hosts, err := options.getHosts(options.Config)
 	if err != nil {
 		return vdb, err
 	}
@@ -190,8 +190,8 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 	}
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	if runError := clusterOpEngine.Run(vcc.Log); runError != nil {
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
 		return vdb, fmt.Errorf("fail to complete add node operation, %w", runError)
 	}
 	return vdb, nil
@@ -299,8 +299,8 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	}
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err := clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err := clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to trim nodes from catalog, %v")
 		return err

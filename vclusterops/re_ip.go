@@ -34,7 +34,7 @@ type VReIPOptions struct {
 func VReIPFactory() VReIPOptions {
 	opt := VReIPOptions{}
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 
 	return opt
 }
@@ -49,7 +49,7 @@ func (opt *VReIPOptions) validateParseOptions(log vlog.Printer) error {
 		return util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
 	}
 
-	return opt.ValidateBaseOptions("re_ip", log)
+	return opt.validateBaseOptions("re_ip", log)
 }
 
 func (opt *VReIPOptions) analyzeOptions() error {
@@ -62,7 +62,7 @@ func (opt *VReIPOptions) analyzeOptions() error {
 	return nil
 }
 
-func (opt *VReIPOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+func (opt *VReIPOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err := opt.validateParseOptions(log); err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -146,10 +146,10 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run(vcc.Log)
+	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to re-ip: %w", runError)
 	}

@@ -79,7 +79,7 @@ func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildHTTPSEndpoint("nodes")
+		httpRequest.buildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -95,7 +95,7 @@ func (op *HTTPCheckRunningDBOp) logPrepare() {
 }
 
 func (op *HTTPCheckRunningDBOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -173,7 +173,7 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		resSummaryStr := SuccessResult
 		// VER-87303: it's possible that there's a DB running with a different password
-		if !result.IsHTTPRunning() {
+		if !result.isHTTPRunning() {
 			resSummaryStr = FailureResult
 		}
 		op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v.",
@@ -182,7 +182,7 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 		}
-		if result.isFailing() && !result.IsHTTPRunning() {
+		if result.isFailing() && !result.isHTTPRunning() {
 			downHosts[host] = true
 			continue
 		} else if result.isException() {

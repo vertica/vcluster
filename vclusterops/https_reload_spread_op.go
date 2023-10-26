@@ -55,7 +55,7 @@ func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildHTTPSEndpoint("config/spread/reload")
+		httpRequest.buildHTTPSEndpoint("config/spread/reload")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -71,7 +71,7 @@ func (op *HTTPSReloadSpreadOp) prepare(execContext *OpEngineExecContext) error {
 	if len(op.hosts) == 0 {
 		op.hosts = execContext.upHosts
 	}
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

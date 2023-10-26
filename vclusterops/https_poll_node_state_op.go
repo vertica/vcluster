@@ -116,7 +116,7 @@ func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = httpRequestTimeoutSeconds
-		httpRequest.BuildHTTPSEndpoint("nodes/" + host)
+		httpRequest.buildHTTPSEndpoint("nodes/" + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -129,7 +129,7 @@ func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPSPollNodeStateOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -185,7 +185,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 		// We don't need to wait until timeout to determine if all nodes are up or not.
 		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately.
 		// We also need to let user know to wait until all nodes are up
-		if result.IsPasswordAndCertificateError(op.log) {
+		if result.isPasswordAndCertificateError(op.log) {
 			switch op.cmdType {
 			case StartDBCmd, RestartNodeCmd:
 				op.log.PrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",

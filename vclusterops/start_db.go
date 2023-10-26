@@ -34,22 +34,22 @@ func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
 	opt := VStartDatabaseOptions{}
 
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 	return opt
 }
 
-func (options *VStartDatabaseOptions) SetDefaultValues() {
-	options.DatabaseOptions.SetDefaultValues()
+func (options *VStartDatabaseOptions) setDefaultValues() {
+	options.DatabaseOptions.setDefaultValues()
 }
 
 func (options *VStartDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.ValidateBaseOptions("start_db", log)
+	err := options.validateBaseOptions("start_db", log)
 	if err != nil {
 		return err
 	}
 
 	if *options.HonorUserInput {
-		err = options.ValidateCatalogPath()
+		err = options.validateCatalogPath()
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func (options *VStartDatabaseOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VStartDatabaseOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+func (options *VStartDatabaseOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err := options.validateParseOptions(log); err != nil {
 		return err
 	}
@@ -102,20 +102,20 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
 
 	// get db name and hosts from config file and options
-	dbName, hosts, err := options.GetNameAndHosts(options.Config)
+	dbName, hosts, err := options.getNameAndHosts(options.Config)
 	if err != nil {
 		return err
 	}
 
 	options.DBName = &dbName
 	options.Hosts = hosts
-	options.CatalogPrefix, err = options.GetCatalogPrefix(options.Config)
+	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 	var pVDB *VCoordinationDatabase
 	// retrieve database information from cluster_config.json for EON databases
-	isEon, err := options.IsEonMode(options.Config)
+	isEon, err := options.isEonMode(options.Config)
 	if err != nil {
 		return err
 	}
@@ -157,10 +157,10 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run(vcc.Log)
+	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to start database: %w", runError)
 	}
@@ -188,7 +188,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
-	err := options.SetUsePassword(vcc.Log)
+	err := options.setUsePassword(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

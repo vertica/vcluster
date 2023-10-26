@@ -57,7 +57,7 @@ func (op *HTTPSCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) error
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		node := op.HostNodeMap[host]
-		httpRequest.BuildHTTPSEndpoint("nodes/" + node.Name + "/depot")
+		httpRequest.buildHTTPSEndpoint("nodes/" + node.Name + "/depot")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -73,7 +73,7 @@ func (op *HTTPSCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) error
 }
 
 func (op *HTTPSCreateNodesDepotOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
