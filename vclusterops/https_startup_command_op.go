@@ -55,7 +55,7 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
 
-		httpRequest.buildHTTPSEndpoint("startup/commands")
+		httpRequest.BuildHTTPSEndpoint("startup/commands")
 
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
@@ -78,7 +78,7 @@ func (op *httpsStartUpCommandOp) prepare(execContext *OpEngineExecContext) error
 		}
 	}
 	op.hosts = primaryUpHosts
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -96,7 +96,7 @@ func (op *httpsStartUpCommandOp) processResult(execContext *OpEngineExecContext)
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isUnauthorizedRequest() {
+		if result.IsUnauthorizedRequest() {
 			return fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}

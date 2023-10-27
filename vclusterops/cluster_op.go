@@ -95,18 +95,18 @@ const respSuccStatusCode = 0
 // 3. The local node has not yet joined the cluster; the HTTP server will accept connections once the node joins the cluster.
 // HTTPCheckDBRunningOp in create_db need to check all scenarios to see any HTTP running
 // For HTTPSPollNodeStateOp in start_db, it requires only handling the first and second scenarios
-func (hostResult *HostHTTPResult) isUnauthorizedRequest() bool {
+func (hostResult *HostHTTPResult) IsUnauthorizedRequest() bool {
 	return hostResult.statusCode == UnauthorizedCode
 }
 
-// isSuccess returns true if status code is 200
-func (hostResult *HostHTTPResult) isSuccess() bool {
+// IsSuccess returns true if status code is 200
+func (hostResult *HostHTTPResult) IsSuccess() bool {
 	return hostResult.statusCode == SuccessCode
 }
 
 // check only password and certificate for start_db
-func (hostResult *HostHTTPResult) isPasswordAndCertificateError(log vlog.Printer) bool {
-	if !hostResult.isUnauthorizedRequest() {
+func (hostResult *HostHTTPResult) IsPasswordAndCertificateError(log vlog.Printer) bool {
+	if !hostResult.IsUnauthorizedRequest() {
 		return false
 	}
 	resultString := fmt.Sprintf("%v", hostResult)
@@ -119,12 +119,12 @@ func (hostResult *HostHTTPResult) isPasswordAndCertificateError(log vlog.Printer
 	return false
 }
 
-func (hostResult *HostHTTPResult) isInternalError() bool {
+func (hostResult *HostHTTPResult) IsInternalError() bool {
 	return hostResult.statusCode == InternalErrorCode
 }
 
-func (hostResult *HostHTTPResult) isHTTPRunning() bool {
-	if hostResult.isPassing() || hostResult.isUnauthorizedRequest() || hostResult.isInternalError() {
+func (hostResult *HostHTTPResult) IsHTTPRunning() bool {
+	if hostResult.isPassing() || hostResult.IsUnauthorizedRequest() || hostResult.IsInternalError() {
 		return true
 	}
 	return false

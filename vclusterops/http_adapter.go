@@ -37,7 +37,7 @@ type HTTPAdapter struct {
 	host string
 }
 
-func makeHTTPAdapter(log vlog.Printer) HTTPAdapter {
+func MakeHTTPAdapter(log vlog.Printer) HTTPAdapter {
 	newHTTPAdapter := HTTPAdapter{}
 	newHTTPAdapter.name = "HTTPAdapter"
 	newHTTPAdapter.log = log.WithName(newHTTPAdapter.name)

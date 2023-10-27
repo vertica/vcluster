@@ -45,7 +45,7 @@ func (op *NMAVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildNMAEndpoint("vertica/version")
+		httpRequest.BuildNMAEndpoint("vertica/version")
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -53,7 +53,7 @@ func (op *NMAVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *NMAVerticaVersionOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

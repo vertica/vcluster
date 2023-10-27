@@ -52,11 +52,11 @@ func VRestartNodesOptionsFactory() VRestartNodesOptions {
 }
 
 func (options *VRestartNodesOptions) setDefaultValues() {
-	options.DatabaseOptions.setDefaultValues()
+	options.DatabaseOptions.SetDefaultValues()
 }
 
 func (options *VRestartNodesOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.validateBaseOptions("restart_node", log)
+	err := options.ValidateBaseOptions("restart_node", log)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (options *VRestartNodesOptions) ParseNodesList(nodeListStr string) error {
 	return nil
 }
 
-func (options *VRestartNodesOptions) validateAnalyzeOptions(log vlog.Printer) error {
+func (options *VRestartNodesOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
 	if err := options.validateParseOptions(log); err != nil {
 		return err
 	}
@@ -120,13 +120,13 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	 */
 
 	// validate and analyze options
-	err := options.validateAnalyzeOptions(vcc.Log)
+	err := options.ValidateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
 
 	// get db name and hosts from config file and options
-	dbName, hosts, err := options.getNameAndHosts(options.Config)
+	dbName, hosts, err := options.GetNameAndHosts(options.Config)
 	if err != nil {
 		return err
 	}
@@ -181,10 +181,10 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	err = clusterOpEngine.run(vcc.Log)
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to restart node, %w", err)
 	}
@@ -217,7 +217,7 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
-	err := options.setUsePassword(vcc.Log)
+	err := options.SetUsePassword(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

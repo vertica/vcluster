@@ -52,7 +52,7 @@ func (op *HTTPSMarkEphemeralNodeOp) setupClusterHTTPRequest(hosts []string) erro
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("nodes/" + op.targetNodeName + "/ephemeral")
+		httpRequest.BuildHTTPSEndpoint("nodes/" + op.targetNodeName + "/ephemeral")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -63,7 +63,7 @@ func (op *HTTPSMarkEphemeralNodeOp) setupClusterHTTPRequest(hosts []string) erro
 }
 
 func (op *HTTPSMarkEphemeralNodeOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
@@ -81,7 +81,7 @@ func (op *HTTPSMarkEphemeralNodeOp) processResult(_ *OpEngineExecContext) error 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if !result.isSuccess() {
+		if !result.IsSuccess() {
 			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}

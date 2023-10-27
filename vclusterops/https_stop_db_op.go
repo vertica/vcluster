@@ -59,7 +59,7 @@ func (op *HTTPSStopDBOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("cluster/shutdown")
+		httpRequest.BuildHTTPSEndpoint("cluster/shutdown")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -77,7 +77,7 @@ func (op *HTTPSStopDBOp) prepare(execContext *OpEngineExecContext) error {
 	}
 	// use first up host to execute https post request
 	hosts := []string{execContext.upHosts[0]}
-	execContext.dispatcher.setup(hosts)
+	execContext.dispatcher.Setup(hosts)
 
 	return op.setupClusterHTTPRequest(hosts)
 }

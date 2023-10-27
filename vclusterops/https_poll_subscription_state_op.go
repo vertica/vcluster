@@ -56,7 +56,7 @@ func (op *httpsPollSubscriptionStateOp) setupClusterHTTPRequest(hosts []string) 
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = httpRequestTimeoutSeconds
-		httpRequest.buildHTTPSEndpoint("subscriptions")
+		httpRequest.BuildHTTPSEndpoint("subscriptions")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -69,7 +69,7 @@ func (op *httpsPollSubscriptionStateOp) setupClusterHTTPRequest(hosts []string) 
 }
 
 func (op *httpsPollSubscriptionStateOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -129,7 +129,7 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isPasswordAndCertificateError(op.log) {
+		if result.IsPasswordAndCertificateError(op.log) {
 			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}

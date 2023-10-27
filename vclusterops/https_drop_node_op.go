@@ -60,7 +60,7 @@ func (op *HTTPSDropNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("nodes/" + op.targetHost + "/drop")
+		httpRequest.BuildHTTPSEndpoint("nodes/" + op.targetHost + "/drop")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -72,7 +72,7 @@ func (op *HTTPSDropNodeOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPSDropNodeOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
@@ -90,7 +90,7 @@ func (op *HTTPSDropNodeOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if !result.isSuccess() {
+		if !result.IsSuccess() {
 			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}

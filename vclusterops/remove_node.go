@@ -38,13 +38,13 @@ type VRemoveNodeOptions struct {
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
 	opt := VRemoveNodeOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	opt.SetDefaultValues()
 
 	return opt
 }
 
-func (o *VRemoveNodeOptions) setDefaultValues() {
-	o.DatabaseOptions.setDefaultValues()
+func (o *VRemoveNodeOptions) SetDefaultValues() {
+	o.DatabaseOptions.SetDefaultValues()
 
 	o.ForceDelete = new(bool)
 	*o.ForceDelete = true
@@ -65,7 +65,7 @@ func (o *VRemoveNodeOptions) ParseHostToRemoveList(hosts string) error {
 }
 
 func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := o.validateBaseOptions("db_remove_node", log)
+	err := o.ValidateBaseOptions("db_remove_node", log)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (o *VRemoveNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return o.setUsePassword(log)
+	return o.SetUsePassword(log)
 }
 
 func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {
@@ -129,7 +129,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 	}
 
 	// get db name and hosts from config file and options.
-	dbName, hosts, err := options.getNameAndHosts(options.Config)
+	dbName, hosts, err := options.GetNameAndHosts(options.Config)
 	if err != nil {
 		return vdb, err
 	}
@@ -169,14 +169,14 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 	}
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
-	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	if runError := clusterOpEngine.Run(vcc.Log); runError != nil {
 		return vdb, fmt.Errorf("fail to complete remove node operation, %w", runError)
 	}
 
 	remainingHosts := util.SliceDiff(vdb.HostList, options.HostsToRemove)
 	// we return a vdb that contains only the remaining hosts
-	return vdb.copy(remainingHosts), nil
+	return vdb.Copy(remainingHosts), nil
 }
 
 // checkRemoveNodeRequirements validates  the following remove_node requirements:
@@ -266,7 +266,7 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 
 	// this is a copy of the original that only
 	// contains the hosts to remove.
-	v := vdb.copy(options.HostsToRemove)
+	v := vdb.Copy(options.HostsToRemove)
 	if vdb.IsEon {
 		// we pass the set of subclusters of the nodes to remove.
 		err = vcc.produceRebalanceSubclusterShardsOps(&instructions, initiatorHost, v.getSCNames(),

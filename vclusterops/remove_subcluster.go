@@ -41,13 +41,13 @@ func VRemoveScOptionsFactory() VRemoveScOptions {
 }
 
 func (o *VRemoveScOptions) setDefaultValues() {
-	o.DatabaseOptions.setDefaultValues()
+	o.DatabaseOptions.SetDefaultValues()
 	o.SubclusterToRemove = new(string)
 	o.ForceDelete = new(bool)
 }
 
 func (o *VRemoveScOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := o.validateBaseOptions("db_remove_subcluster", log)
+	err := o.ValidateBaseOptions("db_remove_subcluster", log)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (o *VRemoveScOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return o.setUsePassword(log)
+	return o.SetUsePassword(log)
 }
 
 /*
@@ -212,8 +212,8 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 	)
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.run(vcc.Log)
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		// VER-88585 will improve this rfc error flow
 		if strings.Contains(err.Error(), "does not exist in the database") {
@@ -262,8 +262,8 @@ func (vcc *VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options 
 	instructions = append(instructions, &httpsDropScOp)
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.run(vcc.Log)
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.Run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to drop subcluster, details: %v", dropScErrMsg)
 		return err

@@ -81,7 +81,7 @@ func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildNMAEndpoint("directories/delete")
+		httpRequest.BuildNMAEndpoint("directories/delete")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
@@ -90,7 +90,7 @@ func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *NMADeleteDirectoriesOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

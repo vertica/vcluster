@@ -56,7 +56,7 @@ func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("cluster/catalog/sync")
+		httpRequest.BuildHTTPSEndpoint("cluster/catalog/sync")
 		httpRequest.QueryParams = make(map[string]string)
 		httpRequest.QueryParams["retry-count"] = strconv.Itoa(util.DefaultRetryCount)
 		if op.useHTTPPassword {
@@ -78,7 +78,7 @@ func (op *HTTPSSyncCatalogOp) prepare(execContext *OpEngineExecContext) error {
 		// use first up host to execute https post request
 		op.hosts = []string{execContext.upHosts[0]}
 	}
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

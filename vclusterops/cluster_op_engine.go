@@ -27,7 +27,7 @@ type VClusterOpEngine struct {
 	execContext  *OpEngineExecContext
 }
 
-func makeClusterOpEngine(instructions []ClusterOp, certs *HTTPSCerts) VClusterOpEngine {
+func MakeClusterOpEngine(instructions []ClusterOp, certs *HTTPSCerts) VClusterOpEngine {
 	newClusterOpEngine := VClusterOpEngine{}
 	newClusterOpEngine.instructions = instructions
 	newClusterOpEngine.certs = certs
@@ -38,8 +38,8 @@ func (opEngine *VClusterOpEngine) shouldGetCertsFromOptions() bool {
 	return (opEngine.certs.key != "" && opEngine.certs.cert != "" && opEngine.certs.caCert != "")
 }
 
-func (opEngine *VClusterOpEngine) run(log vlog.Printer) error {
-	execContext := makeOpEngineExecContext(log)
+func (opEngine *VClusterOpEngine) Run(log vlog.Printer) error {
+	execContext := MakeOpEngineExecContext(log)
 	opEngine.execContext = &execContext
 
 	findCertsInOptions := opEngine.shouldGetCertsFromOptions()

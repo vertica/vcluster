@@ -50,7 +50,7 @@ func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("packages")
+		httpRequest.BuildHTTPSEndpoint("packages")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -62,7 +62,7 @@ func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *HTTPSInstallPackagesOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

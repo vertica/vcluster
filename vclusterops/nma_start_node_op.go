@@ -101,7 +101,7 @@ func (op *nmaStartNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildNMAEndpoint("nodes/start")
+		httpRequest.BuildNMAEndpoint("nodes/start")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
@@ -115,7 +115,7 @@ func (op *nmaStartNodeOp) prepare(execContext *OpEngineExecContext) error {
 		return err
 	}
 
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
