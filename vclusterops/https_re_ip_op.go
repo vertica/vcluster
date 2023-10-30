@@ -60,7 +60,7 @@ func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
 		if !ok {
 			return fmt.Errorf("[%s] cannot find node information for address %s", op.name, host)
 		}
-		httpRequest.BuildHTTPSEndpoint("nodes/" + nodesInfo.NodeName + "/ip")
+		httpRequest.buildHTTPSEndpoint("nodes/" + nodesInfo.NodeName + "/ip")
 		httpRequest.QueryParams = make(map[string]string)
 		httpRequest.QueryParams["host"] = nodesInfo.TargetAddress
 		httpRequest.QueryParams["control-host"] = nodesInfo.TargetControlAddress
@@ -97,7 +97,7 @@ func (op *httpsReIPOp) prepare(execContext *OpEngineExecContext) error {
 
 	// use up hosts to execute the HTTP re-IP endpoint
 	op.upHosts = execContext.upHosts
-	execContext.dispatcher.Setup(op.upHosts)
+	execContext.dispatcher.setup(op.upHosts)
 	return op.setupClusterHTTPRequest(op.nodeNamesList)
 }
 
@@ -114,7 +114,7 @@ func (op *httpsReIPOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.IsUnauthorizedRequest() {
+		if result.isUnauthorizedRequest() {
 			return fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}

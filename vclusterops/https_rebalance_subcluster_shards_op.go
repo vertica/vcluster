@@ -56,7 +56,7 @@ func (op *HTTPSRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []stri
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildHTTPSEndpoint("subclusters/" + op.scName + "/rebalance")
+		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/rebalance")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -76,7 +76,7 @@ func (op *HTTPSRebalanceSubclusterShardsOp) prepare(execContext *OpEngineExecCon
 		op.scName = execContext.defaultSCName
 	}
 
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -95,7 +95,7 @@ func (op *HTTPSRebalanceSubclusterShardsOp) processResult(_ *OpEngineExecContext
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.IsUnauthorizedRequest() {
+		if result.isUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
 			return result.err
 		}

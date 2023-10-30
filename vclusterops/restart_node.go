@@ -52,11 +52,11 @@ func VRestartNodesOptionsFactory() VRestartNodesOptions {
 }
 
 func (options *VRestartNodesOptions) setDefaultValues() {
-	options.DatabaseOptions.SetDefaultValues()
+	options.DatabaseOptions.setDefaultValues()
 }
 
 func (options *VRestartNodesOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.ValidateBaseOptions("restart_node", log)
+	err := options.validateBaseOptions("restart_node", log)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (options *VRestartNodesOptions) ParseNodesList(nodeListStr string) error {
 	return nil
 }
 
-func (options *VRestartNodesOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+func (options *VRestartNodesOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err := options.validateParseOptions(log); err != nil {
 		return err
 	}
@@ -120,13 +120,13 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 	 */
 
 	// validate and analyze options
-	err := options.ValidateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
 
 	// get db name and hosts from config file and options
-	dbName, hosts, err := options.GetNameAndHosts(options.Config)
+	dbName, hosts, err := options.getNameAndHosts(options.Config)
 	if err != nil {
 		return err
 	}
@@ -181,10 +181,10 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	err = clusterOpEngine.Run(vcc.Log)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to restart node, %w", err)
 	}
@@ -197,13 +197,14 @@ func (vcc *VClusterCommands) VRestartNodes(options *VRestartNodesOptions) error 
 // The generated instructions will later perform the following operations necessary
 // for a successful restart_node:
 //   - Check NMA connectivity
-//   - Check Vertica versions
-//   - Call network profile
-//   - Call https re-ip endpoint
-//   - Reload spread
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for starting nodes
-//   - Use any UP primary nodes as source host for syncing spread.conf and vertica.conf, source host can be picked
-//     by a HTTPS /v1/nodes call for finding UP primary nodes
+//   - If need to do re-ip:
+//     1. Call network profile
+//     2. Call https re-ip endpoint
+//     3. Reload spread
+//     4. Call https /v1/nodes to update nodes' info
+//   - Check Vertica versions
+//   - Use any UP primary nodes as source host for syncing spread.conf and vertica.conf
 //   - Sync the confs to the nodes to be restarted
 //   - Call https /v1/startup/command to get restart command of the nodes to be restarted
 //   - restart nodes
@@ -214,10 +215,8 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
-	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 	// need username for https operations
-	err := options.SetUsePassword(vcc.Log)
+	err := options.setUsePassword(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}
@@ -229,7 +228,6 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 	}
 	instructions = append(instructions,
 		&nmaHealthOp,
-		&nmaVerticaVersionOp,
 		&httpsGetUpNodesOp,
 	)
 
@@ -261,6 +259,10 @@ func (vcc *VClusterCommands) produceRestartNodesInstructions(restartNodeInfo *VR
 			&httpsGetNodesInfoOp,
 		)
 	}
+
+	// require to have the same vertica version
+	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(vcc.Log, true, vdb)
+	instructions = append(instructions, &nmaVerticaVersionOp)
 
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value

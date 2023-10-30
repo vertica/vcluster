@@ -39,7 +39,7 @@ func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildNMAEndpoint("network-profiles")
+		httpRequest.buildNMAEndpoint("network-profiles")
 		httpRequest.QueryParams = map[string]string{"broadcast-hint": host}
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -49,7 +49,7 @@ func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *NMANetworkProfileOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 

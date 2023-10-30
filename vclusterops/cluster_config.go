@@ -138,7 +138,7 @@ func (c *ClusterConfig) GetPathPrefix(dbName string) (catalogPrefix string,
 		dbConfig.Nodes[0].DepotPath, nil
 }
 
-func (c *DatabaseConfig) GetHosts() []string {
+func (c *DatabaseConfig) getHosts() []string {
 	var hostList []string
 
 	for _, vnode := range c.Nodes {

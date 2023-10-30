@@ -72,9 +72,9 @@ func MakeVCoordinationDatabase() VCoordinationDatabase {
 	return VCoordinationDatabase{}
 }
 
-func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabaseOptions, log vlog.Printer) error {
+func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabaseOptions, log vlog.Printer) error {
 	// build after validating the options
-	err := options.ValidateAnalyzeOptions(log)
+	err := options.validateAnalyzeOptions(log)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 		vdb.UseDepot = true
 	}
 	if *options.GetAwsCredentialsFromEnv {
-		err := vdb.GetAwsCredentialsFromEnv()
+		err := vdb.getAwsCredentialsFromEnv()
 		if err != nil {
 			return err
 		}
@@ -113,7 +113,7 @@ func (vdb *VCoordinationDatabase) SetFromCreateDBOptions(options *VCreateDatabas
 	// section 3: build VCoordinationNode info
 	for _, host := range vdb.HostList {
 		vNode := MakeVCoordinationNode()
-		err := vNode.SetFromCreateDBOptions(options, host)
+		err := vNode.setFromCreateDBOptions(options, host)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (vdb *VCoordinationDatabase) addNode(vnode *VCoordinationNode) error {
 
 // addHosts adds a given list of hosts to the VDB's HostList
 // and HostNodeMap.
-func (vdb *VCoordinationDatabase) addHosts(hosts []string) error {
+func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string) error {
 	totalHostCount := len(hosts) + len(vdb.HostList)
 	nodeNameToHost := vdb.genNodeNameToHostMap()
 	for _, host := range hosts {
@@ -149,10 +149,11 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string) error {
 		}
 		nodeNameToHost[name] = host
 		nodeConfig := NodeConfig{
-			Address: host,
-			Name:    name,
+			Address:    host,
+			Name:       name,
+			Subcluster: scName,
 		}
-		vNode.SetFromNodeConfig(&nodeConfig, vdb)
+		vNode.setFromNodeConfig(&nodeConfig, vdb)
 		err := vdb.addNode(&vNode)
 		if err != nil {
 			return err
@@ -162,7 +163,7 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string) error {
 	return nil
 }
 
-func (vdb *VCoordinationDatabase) SetFromClusterConfig(dbName string,
+func (vdb *VCoordinationDatabase) setFromClusterConfig(dbName string,
 	clusterConfig *ClusterConfig) error {
 	// we trust the information in the config file
 	// so we do not perform validation here
@@ -190,7 +191,7 @@ func (vdb *VCoordinationDatabase) SetFromClusterConfig(dbName string,
 	vdb.HostNodeMap = makeVHostNodeMap()
 	for _, nodeConfig := range dbConfig.Nodes {
 		vnode := VCoordinationNode{}
-		vnode.SetFromNodeConfig(nodeConfig, vdb)
+		vnode.setFromNodeConfig(nodeConfig, vdb)
 		err = vdb.addNode(&vnode)
 		if err != nil {
 			return err
@@ -200,10 +201,10 @@ func (vdb *VCoordinationDatabase) SetFromClusterConfig(dbName string,
 	return nil
 }
 
-// Copy copies the receiver's fields into a new VCoordinationDatabase struct and
+// copy copies the receiver's fields into a new VCoordinationDatabase struct and
 // returns that struct. You can choose to copy only a subset of the receiver's hosts
 // by passing a slice of hosts to keep.
-func (vdb *VCoordinationDatabase) Copy(targetHosts []string) VCoordinationDatabase {
+func (vdb *VCoordinationDatabase) copy(targetHosts []string) VCoordinationDatabase {
 	v := VCoordinationDatabase{
 		Name:                    vdb.Name,
 		CatalogPrefix:           vdb.CatalogPrefix,
@@ -316,7 +317,7 @@ func (vdb *VCoordinationDatabase) genCatalogPath(nodeName string) string {
 }
 
 // set aws id key and aws secret key
-func (vdb *VCoordinationDatabase) GetAwsCredentialsFromEnv() error {
+func (vdb *VCoordinationDatabase) getAwsCredentialsFromEnv() error {
 	awsIDKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	if awsIDKey == "" {
 		return fmt.Errorf("unable to get AWS ID key from environment variable")
@@ -371,7 +372,7 @@ func MakeVCoordinationNode() VCoordinationNode {
 	return VCoordinationNode{}
 }
 
-func (vnode *VCoordinationNode) SetFromCreateDBOptions(
+func (vnode *VCoordinationNode) setFromCreateDBOptions(
 	options *VCreateDatabaseOptions,
 	host string,
 ) error {
@@ -407,11 +408,12 @@ func (vnode *VCoordinationNode) SetFromCreateDBOptions(
 	return fmt.Errorf("fail to set up vnode from options: host %s does not exist in options", host)
 }
 
-func (vnode *VCoordinationNode) SetFromNodeConfig(nodeConfig *NodeConfig, vdb *VCoordinationDatabase) {
+func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *VCoordinationDatabase) {
 	// we trust the information in the config file
 	// so we do not perform validation here
 	vnode.Address = nodeConfig.Address
 	vnode.Name = nodeConfig.Name
+	vnode.Subcluster = nodeConfig.Subcluster
 	vnode.CatalogPath = vdb.genCatalogPath(vnode.Name)
 	dataPath := vdb.genDataPath(vnode.Name)
 	vnode.StorageLocations = append(vnode.StorageLocations, dataPath)

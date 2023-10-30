@@ -54,7 +54,7 @@ func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildNMAEndpoint(op.endpoint)
+		httpRequest.buildNMAEndpoint(op.endpoint)
 
 		catalogPath, ok := op.catalogPathMap[host]
 		if !ok {
@@ -112,7 +112,7 @@ func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
 		op.hosts = primaryUpHosts
 	}
 
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

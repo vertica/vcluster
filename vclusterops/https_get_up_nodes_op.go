@@ -55,7 +55,7 @@ func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildHTTPSEndpoint("nodes")
+		httpRequest.buildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -67,7 +67,7 @@ func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPSGetUpNodesOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -122,7 +122,7 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 		// We assume all the hosts are in the same db cluster
 		// If any of the hosts reject the request, other hosts will reject the request too
 		// Do not try other hosts when we see a http failure
-		if result.isFailing() && result.IsHTTPRunning() {
+		if result.isFailing() && result.isHTTPRunning() {
 			exceptionHosts = append(exceptionHosts, host)
 			continue
 		}

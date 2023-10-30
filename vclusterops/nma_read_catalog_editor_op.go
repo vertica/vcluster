@@ -55,7 +55,7 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildNMAEndpoint("catalog/database")
+		httpRequest.buildNMAEndpoint("catalog/database")
 
 		catalogPath, ok := op.catalogPathMap[host]
 		if !ok {
@@ -92,7 +92,7 @@ func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) erro
 		}
 	}
 
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -144,6 +144,12 @@ type NmaVNode struct {
 	StartCommand         []string    `json:"start_command"`
 	StorageLocations     []string    `json:"storage_locations"`
 	Tag                  json.Number `json:"tag"`
+	Subcluster           struct {
+		Name      string `json:"sc_name"`
+		IsPrimary bool   `json:"is_primary_sc"`
+		IsDefault bool   `json:"is_default"`
+		IsSandbox bool   `json:"sandbox"`
+	} `json:"sc_details"`
 }
 
 type NmaVDatabase struct {
@@ -151,11 +157,11 @@ type NmaVDatabase struct {
 	Versions NmaVersions `json:"versions"`
 	Nodes    []NmaVNode  `json:"nodes"`
 	// this map will not be unmarshaled but will be used in NMAStartNodeOp
-	HostNodeMap             map[string]NmaVNode `json:",omitempty"`
-	ControlMode             string              `json:"control_mode"`
-	WillUpgrade             bool                `json:"will_upgrade"`
-	SpreadEncryption        string              `json:"spread_encryption"`
-	CommunalStorageLocation string              `json:"communal_storage_location"`
+	HostNodeMap             map[string]*NmaVNode `json:",omitempty"`
+	ControlMode             string               `json:"control_mode"`
+	WillUpgrade             bool                 `json:"will_upgrade"`
+	SpreadEncryption        string               `json:"spread_encryption"`
+	CommunalStorageLocation string               `json:"communal_storage_location"`
 	// primary node count will not be unmarshaled but will be used in NMAReIPOp
 	PrimaryNodeCount uint `json:",omitempty"`
 }
@@ -180,10 +186,10 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 
 			var primaryNodeCount uint
 			// build host to node map for NMAStartNodeOp
-			hostNodeMap := make(map[string]NmaVNode)
+			hostNodeMap := make(map[string]*NmaVNode)
 			for i := 0; i < len(nmaVDB.Nodes); i++ {
 				n := nmaVDB.Nodes[i]
-				hostNodeMap[n.Address] = n
+				hostNodeMap[n.Address] = &n
 				if n.IsPrimary {
 					primaryNodeCount++
 				}

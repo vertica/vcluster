@@ -114,7 +114,7 @@ func (op *nmaLoadRemoteCatalogOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildNMAEndpoint("catalog/revive")
+		httpRequest.buildNMAEndpoint("catalog/revive")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 		httpRequest.Timeout = int(op.timeout)
 
@@ -130,7 +130,7 @@ func (op *nmaLoadRemoteCatalogOp) prepare(execContext *OpEngineExecContext) erro
 		return err
 	}
 
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 

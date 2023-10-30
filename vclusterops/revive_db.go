@@ -42,7 +42,7 @@ func VReviveDBOptionsFactory() VReviveDatabaseOptions {
 }
 
 func (options *VReviveDatabaseOptions) setDefaultValues() {
-	options.DatabaseOptions.SetDefaultValues()
+	options.DatabaseOptions.setDefaultValues()
 
 	// set default values for revive db options
 	options.LoadCatalogTimeout = new(uint)
@@ -92,7 +92,7 @@ func (options *VReviveDatabaseOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VReviveDatabaseOptions) ValidateAnalyzeOptions() error {
+func (options *VReviveDatabaseOptions) validateAnalyzeOptions() error {
 	if err := options.validateParseOptions(); err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	 */
 
 	// validate and analyze options
-	err = options.ValidateAnalyzeOptions()
+	err = options.validateAnalyzeOptions()
 	if err != nil {
 		return dbInfo, err
 	}
@@ -124,8 +124,8 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	// generate clusterOpEngine certs
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	// feed the pre-revive db instructions to the VClusterOpEngine
-	clusterOpEngine := MakeClusterOpEngine(preReviveDBInstructions, &certs)
-	err = clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine := makeClusterOpEngine(preReviveDBInstructions, &certs)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		return dbInfo, fmt.Errorf("fail to collect the information of database in revive_db %w", err)
 	}
@@ -142,8 +142,8 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	}
 
 	// feed revive db instructions to the VClusterOpEngine
-	clusterOpEngine = MakeClusterOpEngine(reviveDBInstructions, &certs)
-	err = clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine = makeClusterOpEngine(reviveDBInstructions, &certs)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		return dbInfo, fmt.Errorf("fail to revive database %w", err)
 	}
@@ -159,7 +159,6 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 // producePreReviveDBInstructions will build the first half of revive_db instructions
 // The generated instructions will later perform the following operations
 //   - Check NMA connectivity
-//   - Check NMA version
 //   - Check any DB running on the hosts
 //   - Download and read the description file from communal storage on the initiator
 func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveDatabaseOptions,
@@ -167,7 +166,6 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, options.Hosts, true)
 
 	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, options.Hosts, false, /*use password auth*/
 		"" /*username for https call*/, nil /*password for https call*/, ReviveDB)
@@ -185,7 +183,6 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 
 	instructions = append(instructions,
 		&nmaHealthOp,
-		&nmaVerticaVersionOp,
 		&checkDBRunningOp,
 		&nmaDownLoadFileOp,
 	)
