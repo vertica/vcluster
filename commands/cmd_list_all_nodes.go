@@ -60,7 +60,7 @@ func (c *CmdListAllNodes) validateParse(log vlog.Printer) error {
 	log.Info("Called validateParse()")
 
 	// parse raw host str input into a []string
-	err := c.ParseHostList(&c.fetchNodeStateOptions.DatabaseOptions)
+	err := c.parseHostList(&c.fetchNodeStateOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

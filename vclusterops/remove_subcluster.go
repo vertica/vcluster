@@ -41,13 +41,13 @@ func VRemoveScOptionsFactory() VRemoveScOptions {
 }
 
 func (o *VRemoveScOptions) setDefaultValues() {
-	o.DatabaseOptions.SetDefaultValues()
+	o.DatabaseOptions.setDefaultValues()
 	o.SubclusterToRemove = new(string)
 	o.ForceDelete = new(bool)
 }
 
 func (o *VRemoveScOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := o.ValidateBaseOptions("db_remove_subcluster", log)
+	err := o.validateBaseOptions("db_remove_subcluster", log)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (o *VRemoveScOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return o.SetUsePassword(log)
+	return o.setUsePassword(log)
 }
 
 /*
@@ -111,7 +111,7 @@ VRemoveSubcluster has three major phases:
  3. run drop subcluster (i.e., remove the subcluster name from catalog)
 */
 func (vcc *VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error) {
-	vdb := MakeVCoordinationDatabase()
+	vdb := makeVCoordinationDatabase()
 
 	// VER-88594: read config file (may move this part to cmd_remove_subcluster)
 
@@ -212,8 +212,8 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 	)
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		// VER-88585 will improve this rfc error flow
 		if strings.Contains(err.Error(), "does not exist in the database") {
@@ -262,8 +262,8 @@ func (vcc *VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options 
 	instructions = append(instructions, &httpsDropScOp)
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to drop subcluster, details: %v", dropScErrMsg)
 		return err

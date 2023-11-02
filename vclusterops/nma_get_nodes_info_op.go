@@ -25,13 +25,15 @@ import (
 // The result will be saved into a VCoordinationDatabase object.
 type nmaGetNodesInfoOp struct {
 	OpBase
-	dbName        string
-	catalogPrefix string
-	vdb           *VCoordinationDatabase
+	dbName               string
+	catalogPrefix        string
+	ignoreInternalErrors bool // e.g. in scrutinize, continue even if host has issues
+	vdb                  *VCoordinationDatabase
 }
 
 func makeNMAGetNodesInfoOp(log vlog.Printer, hosts []string,
 	dbName, catalogPrefix string,
+	ignoreInternalErrors bool,
 	vdb *VCoordinationDatabase) nmaGetNodesInfoOp {
 	op := nmaGetNodesInfoOp{}
 	op.name = "NMAGetNodesInfoOp"
@@ -39,6 +41,7 @@ func makeNMAGetNodesInfoOp(log vlog.Printer, hosts []string,
 	op.hosts = hosts
 	op.dbName = dbName
 	op.catalogPrefix = catalogPrefix
+	op.ignoreInternalErrors = ignoreInternalErrors
 	op.vdb = vdb
 	op.vdb.HostNodeMap = makeVHostNodeMap()
 	return op
@@ -48,7 +51,7 @@ func (op *nmaGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildNMAEndpoint("nodes")
+		httpRequest.buildNMAEndpoint("nodes")
 		httpRequest.QueryParams = map[string]string{"db_name": op.dbName, "catalog_prefix": op.catalogPrefix}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
@@ -57,7 +60,7 @@ func (op *nmaGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *nmaGetNodesInfoOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -83,10 +86,22 @@ func (op *nmaGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 			var vnode VCoordinationNode
 			err := op.parseAndCheckResponse(host, result.content, &vnode)
 			if err != nil {
-				return errors.Join(allErrs, err)
+				if op.ignoreInternalErrors {
+					op.log.Error(err, "NMA node info response malformed from host", "Host", host)
+					op.log.PrintWarning("Host %s returned unparsable node info. Skipping host.", host)
+				} else {
+					return errors.Join(allErrs, err)
+				}
+			} else {
+				vnode.Address = host
+				op.vdb.HostNodeMap[host] = &vnode
 			}
-			vnode.Address = host
-			op.vdb.HostNodeMap[host] = &vnode
+		} else if result.isInternalError() && op.ignoreInternalErrors {
+			op.log.Error(result.err, "NMA node info reported internal error", "Host", host)
+			op.log.PrintWarning("Host %s reported internal error to node info query. Skipping host.", host)
+		} else if result.isTimeout() && op.ignoreInternalErrors {
+			// it's unlikely for a node to pass health check but time out here, so leave default timeout limit
+			op.log.PrintWarning("Host %s timed out on node info query. Skipping host.", host)
 		} else {
 			allErrs = errors.Join(allErrs, result.err)
 		}

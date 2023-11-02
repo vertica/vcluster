@@ -44,20 +44,20 @@ type VStopDatabaseInfo struct {
 func VStopDatabaseOptionsFactory() VStopDatabaseOptions {
 	opt := VStopDatabaseOptions{}
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 
 	return opt
 }
 
-func (options *VStopDatabaseOptions) SetDefaultValues() {
-	options.DatabaseOptions.SetDefaultValues()
+func (options *VStopDatabaseOptions) setDefaultValues() {
+	options.DatabaseOptions.setDefaultValues()
 
 	options.CheckUserConn = new(bool)
 	options.ForceKill = new(bool)
 }
 
 func (options *VStopDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.ValidateBaseOptions("stop_db", log)
+	err := options.validateBaseOptions("stop_db", log)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (options *VStopDatabaseOptions) validateRequiredOptions(log vlog.Printer) e
 
 func (options *VStopDatabaseOptions) validateEonOptions(config *ClusterConfig, log vlog.Printer) error {
 	// if db is enterprise db and we see --drain-seconds, we will ignore it
-	isEon, err := options.IsEonMode(config)
+	isEon, err := options.isEonMode(config)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (options *VStopDatabaseOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VStopDatabaseOptions) ValidateAnalyzeOptions(config *ClusterConfig, log vlog.Printer) error {
+func (options *VStopDatabaseOptions) validateAnalyzeOptions(config *ClusterConfig, log vlog.Printer) error {
 	if err := options.validateParseOptions(config, log); err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions(options.Config, vcc.Log)
+	err := options.validateAnalyzeOptions(options.Config, vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -147,12 +147,12 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	stopDBInfo.UserName = *options.UserName
 	stopDBInfo.Password = options.Password
 	stopDBInfo.DrainSeconds = options.DrainSeconds
-	stopDBInfo.DBName, stopDBInfo.Hosts, err = options.GetNameAndHosts(options.Config)
+	stopDBInfo.DBName, stopDBInfo.Hosts, err = options.getNameAndHosts(options.Config)
 	if err != nil {
 		return err
 	}
 
-	stopDBInfo.IsEon, err = options.IsEonMode(options.Config)
+	stopDBInfo.IsEon, err = options.isEonMode(options.Config)
 	if err != nil {
 		return err
 	}
@@ -164,10 +164,10 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 
 	// Create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run(vcc.Log)
+	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to stop database: %w", runError)
 	}
@@ -193,7 +193,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	usePassword := false
 	if stopDBInfo.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName(vcc.Log)
+		err := options.validateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}

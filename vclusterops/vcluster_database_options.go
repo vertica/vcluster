@@ -72,7 +72,7 @@ const (
 	commandAddCluster = "db_add_subcluster"
 )
 
-func (opt *DatabaseOptions) SetDefaultValues() {
+func (opt *DatabaseOptions) setDefaultValues() {
 	opt.DBName = new(string)
 	opt.CatalogPrefix = new(string)
 	opt.DataPrefix = new(string)
@@ -85,7 +85,7 @@ func (opt *DatabaseOptions) SetDefaultValues() {
 	opt.ConfigurationParameters = make(map[string]string)
 }
 
-func (opt *DatabaseOptions) CheckNilPointerParams() error {
+func (opt *DatabaseOptions) checkNilPointerParams() error {
 	// basic params
 	if opt.DBName == nil {
 		return util.ParamNotSetErrorMsg("name")
@@ -103,32 +103,32 @@ func (opt *DatabaseOptions) CheckNilPointerParams() error {
 	return nil
 }
 
-func (opt *DatabaseOptions) ValidateBaseOptions(commandName string, log vlog.Printer) error {
+func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Printer) error {
 	// get vcluster commands
 	log.WithName(commandName)
 	// database name
 	if *opt.DBName == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	err := util.ValidateName(*opt.DBName, "database")
+	err := util.ValidateDBName(*opt.DBName)
 	if err != nil {
 		return err
 	}
 
 	// raw hosts and password
-	err = opt.ValidateHostsAndPwd(commandName, log)
+	err = opt.validateHostsAndPwd(commandName, log)
 	if err != nil {
 		return err
 	}
 
 	// paths
-	err = opt.ValidatePaths(commandName)
+	err = opt.validatePaths(commandName)
 	if err != nil {
 		return err
 	}
 
 	// config directory
-	err = opt.ValidateConfigDir(commandName)
+	err = opt.validateConfigDir(commandName)
 	if err != nil {
 		return err
 	}
@@ -142,8 +142,8 @@ func (opt *DatabaseOptions) ValidateBaseOptions(commandName string, log vlog.Pri
 	return nil
 }
 
-// ValidateHostsAndPwd will validate raw hosts and password
-func (opt *DatabaseOptions) ValidateHostsAndPwd(commandName string, log vlog.Printer) error {
+// validateHostsAndPwd will validate raw hosts and password
+func (opt *DatabaseOptions) validateHostsAndPwd(commandName string, log vlog.Printer) error {
 	// when we create db, we need hosts and set password to "" if user did not provide one
 	if commandName == commandCreateDB {
 		// raw hosts
@@ -172,7 +172,7 @@ func (opt *DatabaseOptions) ValidateHostsAndPwd(commandName string, log vlog.Pri
 }
 
 // validate catalog, data, and depot paths
-func (opt *DatabaseOptions) ValidatePaths(commandName string) error {
+func (opt *DatabaseOptions) validatePaths(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
 	commands := []string{commandCreateDB, commandDropDB}
@@ -181,7 +181,7 @@ func (opt *DatabaseOptions) ValidatePaths(commandName string) error {
 	}
 
 	// catalog prefix path
-	err := opt.ValidateCatalogPath()
+	err := opt.validateCatalogPath()
 	if err != nil {
 		return err
 	}
@@ -202,13 +202,13 @@ func (opt *DatabaseOptions) ValidatePaths(commandName string) error {
 	return nil
 }
 
-func (opt *DatabaseOptions) ValidateCatalogPath() error {
+func (opt *DatabaseOptions) validateCatalogPath() error {
 	// catalog prefix path
 	return util.ValidateRequiredAbsPath(opt.CatalogPrefix, "catalog path")
 }
 
 // validate config directory
-func (opt *DatabaseOptions) ValidateConfigDir(commandName string) error {
+func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
 	commands := []string{commandCreateDB, commandDropDB, commandStopDB, commandStartDB, commandAddCluster}
@@ -237,7 +237,7 @@ func (opt *DatabaseOptions) ParseHostList(hosts string) error {
 	return nil
 }
 
-func (opt *DatabaseOptions) ValidateUserName(log vlog.Printer) error {
+func (opt *DatabaseOptions) validateUserName(log vlog.Printer) error {
 	if *opt.UserName == "" {
 		username, err := util.GetCurrentUsername()
 		if err != nil {
@@ -250,13 +250,13 @@ func (opt *DatabaseOptions) ValidateUserName(log vlog.Printer) error {
 	return nil
 }
 
-func (opt *DatabaseOptions) SetUsePassword(log vlog.Printer) error {
+func (opt *DatabaseOptions) setUsePassword(log vlog.Printer) error {
 	// when password is specified,
 	// we will use username/password to call https endpoints
 	opt.usePassword = false
 	if opt.Password != nil {
 		opt.usePassword = true
-		err := opt.ValidateUserName(log)
+		err := opt.validateUserName(log)
 		if err != nil {
 			return err
 		}
@@ -265,8 +265,8 @@ func (opt *DatabaseOptions) SetUsePassword(log vlog.Printer) error {
 	return nil
 }
 
-// IsEonMode can choose the right eon mode from user input and config file
-func (opt *DatabaseOptions) IsEonMode(config *ClusterConfig) (bool, error) {
+// isEonMode can choose the right eon mode from user input and config file
+func (opt *DatabaseOptions) isEonMode(config *ClusterConfig) (bool, error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if config == nil {
@@ -286,34 +286,16 @@ func (opt *DatabaseOptions) IsEonMode(config *ClusterConfig) (bool, error) {
 	return isEon, nil
 }
 
-// GetNameAndHosts can choose the right dbName and hosts from user input and config file
-func (opt *DatabaseOptions) GetNameAndHosts(config *ClusterConfig) (dbName string, hosts []string, err error) {
-	// when config file is not available, we use user input
-	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
+// getNameAndHosts can choose the right dbName and hosts from user input and config file
+func (opt *DatabaseOptions) getNameAndHosts(config *ClusterConfig) (dbName string, hosts []string, err error) {
+	// DBName is now a required option with our without yaml config, so this function exists for legacy reasons
 	dbName = *opt.DBName
-
-	if config == nil {
-		return *opt.DBName, opt.Hosts, nil
-	}
-
-	dbConfig, ok := (*config)[dbName]
-	if !ok {
-		return dbName, hosts, cannotFindDBFromConfigErr(dbName)
-	}
-
-	hosts = dbConfig.GetHosts()
-	// if HonorUserInput is set, we choose the user input
-	if *opt.DBName != "" && *opt.HonorUserInput {
-		dbName = *opt.DBName
-	}
-	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
-		hosts = opt.Hosts
-	}
-	return dbName, hosts, nil
+	hosts, err = opt.getHosts(config)
+	return dbName, hosts, err
 }
 
-// GetHosts chooses the right hosts from user input and config file
-func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string, err error) {
+// getHosts chooses the right hosts from user input and config file
+func (opt *DatabaseOptions) getHosts(config *ClusterConfig) (hosts []string, err error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if config == nil {
@@ -325,7 +307,7 @@ func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string, err
 		return hosts, cannotFindDBFromConfigErr(*opt.DBName)
 	}
 
-	hosts = dbConfig.GetHosts()
+	hosts = dbConfig.getHosts()
 	// if HonorUserInput is set, we choose the user input
 	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
 		hosts = opt.Hosts
@@ -333,8 +315,8 @@ func (opt *DatabaseOptions) GetHosts(config *ClusterConfig) (hosts []string, err
 	return hosts, nil
 }
 
-// GetCatalogPrefix can choose the right catalog prefix from user input and config file
-func (opt *DatabaseOptions) GetCatalogPrefix(clusterConfig *ClusterConfig) (catalogPrefix *string, err error) {
+// getCatalogPrefix can choose the right catalog prefix from user input and config file
+func (opt *DatabaseOptions) getCatalogPrefix(clusterConfig *ClusterConfig) (catalogPrefix *string, err error) {
 	// when config file is not available, we use user input
 	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
 	if clusterConfig == nil {
@@ -342,7 +324,7 @@ func (opt *DatabaseOptions) GetCatalogPrefix(clusterConfig *ClusterConfig) (cata
 	}
 
 	catalogPrefix = new(string)
-	*catalogPrefix, _, _, err = clusterConfig.GetPathPrefix(*opt.DBName)
+	*catalogPrefix, _, _, err = clusterConfig.getPathPrefix(*opt.DBName)
 	if err != nil {
 		return catalogPrefix, err
 	}
@@ -361,7 +343,7 @@ func (opt *DatabaseOptions) getDepotAndDataPrefix(
 		return *opt.DepotPrefix, *opt.DataPrefix, nil
 	}
 
-	_, dataPrefix, depotPrefix, err = clusterConfig.GetPathPrefix(*opt.DBName)
+	_, dataPrefix, depotPrefix, err = clusterConfig.getPathPrefix(*opt.DBName)
 	if err != nil {
 		return "", "", err
 	}
@@ -443,15 +425,16 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	vdb1 := VCoordinationDatabase{}
 	var instructions1 []ClusterOp
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, opt.Hosts)
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, opt.Hosts, *opt.DBName, *opt.CatalogPrefix, &vdb1)
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, opt.Hosts, *opt.DBName, *opt.CatalogPrefix,
+		false /* report all errors */, &vdb1)
 	instructions1 = append(instructions1,
 		&nmaHealthOp,
 		&nmaGetNodesInfoOp,
 	)
 
 	certs := HTTPSCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions1, &certs)
-	err = clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine := makeClusterOpEngine(instructions1, &certs)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.PrintError("fail to retrieve node names from NMA /nodes: %v", err)
 		return vdb, err
@@ -468,8 +451,8 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	}
 	instructions2 = append(instructions2, &nmaDownLoadFileOp)
 
-	clusterOpEngine = MakeClusterOpEngine(instructions2, &certs)
-	err = clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine = makeClusterOpEngine(instructions2, &certs)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.PrintError("fail to retrieve node details from %s: %v", descriptionFileName, err)
 		return vdb, err
@@ -525,4 +508,13 @@ func (opt *DatabaseOptions) isSpreadEncryptionEnabled() (enabled bool, encryptio
 		}
 	}
 	return false, ""
+}
+
+func (opt *DatabaseOptions) runClusterOpEngine(log vlog.Printer, instructions []ClusterOp) error {
+	// Create a VClusterOpEngine, and add certs to the engine
+	certs := HTTPSCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+
+	// Give the instructions to the VClusterOpEngine to run
+	return clusterOpEngine.run(log)
 }

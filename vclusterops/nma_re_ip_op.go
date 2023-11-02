@@ -31,14 +31,19 @@ type NMAReIPOp struct {
 	hostRequestBodyMap   map[string]string
 	mapHostToNodeName    map[string]string
 	mapHostToCatalogPath map[string]string
+	trimReIPData         bool
 }
 
-func makeNMAReIPOp(log vlog.Printer, reIPList []ReIPInfo, vdb *VCoordinationDatabase) NMAReIPOp {
+func makeNMAReIPOp(log vlog.Printer,
+	reIPList []ReIPInfo,
+	vdb *VCoordinationDatabase,
+	trimReIPData bool) NMAReIPOp {
 	op := NMAReIPOp{}
 	op.name = "NMAReIPOp"
 	op.log = log.WithName(op.name)
 	op.reIPList = reIPList
 	op.vdb = vdb
+	op.trimReIPData = trimReIPData
 	return op
 }
 
@@ -78,7 +83,7 @@ func (op *NMAReIPOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PutMethod
-		httpRequest.BuildNMAEndpoint("catalog/re-ip")
+		httpRequest.buildNMAEndpoint("catalog/re-ip")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -119,6 +124,29 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 	}
 
 	return nil
+}
+
+// trimReIPList removes nodes, based on catalog editor info,
+// which are not among the nodes with latest catalog
+func (op *NMAReIPOp) trimReIPList(execContext *OpEngineExecContext) {
+	nodeNamesWithLatestCatalog := make(map[string]struct{})
+	for i := range execContext.nmaVDatabase.Nodes {
+		vnode := execContext.nmaVDatabase.Nodes[i]
+		nodeNamesWithLatestCatalog[vnode.Name] = struct{}{}
+	}
+
+	var trimmedReIPList []ReIPInfo
+	for _, reIPInfo := range op.reIPList {
+		if _, exist := nodeNamesWithLatestCatalog[reIPInfo.NodeName]; exist {
+			trimmedReIPList = append(trimmedReIPList, reIPInfo)
+		}
+	}
+
+	if len(trimmedReIPList) < len(op.reIPList) {
+		op.log.Info("re-ip list is trimmed", "trimmed re-ip list", trimmedReIPList)
+	}
+
+	op.reIPList = trimmedReIPList
 }
 
 func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
@@ -164,13 +192,18 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 		return fmt.Errorf("[%s] error updating reIP list: %w", op.name, err)
 	}
 
+	// trim re-ip list for clients such as K8s
+	if op.trimReIPData {
+		op.trimReIPList(execContext)
+	}
+
 	// build request body for hosts
 	err = op.updateRequestBody(execContext)
 	if err != nil {
 		return err
 	}
 
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 

@@ -60,12 +60,12 @@ type VCreateDatabaseOptions struct {
 func VCreateDatabaseOptionsFactory() VCreateDatabaseOptions {
 	opt := VCreateDatabaseOptions{}
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 	return opt
 }
 
-func (opt *VCreateDatabaseOptions) SetDefaultValues() {
-	opt.DatabaseOptions.SetDefaultValues()
+func (opt *VCreateDatabaseOptions) setDefaultValues() {
+	opt.DatabaseOptions.setDefaultValues()
 
 	// basic db info
 	defaultPolicy := util.DefaultRestartPolicy
@@ -106,8 +106,8 @@ func (opt *VCreateDatabaseOptions) SetDefaultValues() {
 	opt.SkipStartupPolling = new(bool)
 }
 
-func (opt *VCreateDatabaseOptions) CheckNilPointerParams() error {
-	if err := opt.DatabaseOptions.CheckNilPointerParams(); err != nil {
+func (opt *VCreateDatabaseOptions) checkNilPointerParams() error {
+	if err := opt.DatabaseOptions.checkNilPointerParams(); err != nil {
 		return err
 	}
 
@@ -136,10 +136,10 @@ func (opt *VCreateDatabaseOptions) CheckNilPointerParams() error {
 		return util.ParamNotSetErrorMsg("get-aws-credentials-from-env-vars")
 	}
 
-	return opt.CheckExtraNilPointerParams()
+	return opt.checkExtraNilPointerParams()
 }
 
-func (opt *VCreateDatabaseOptions) CheckExtraNilPointerParams() error {
+func (opt *VCreateDatabaseOptions) checkExtraNilPointerParams() error {
 	// optional params
 	if opt.ForceCleanupOnFailure == nil {
 		return util.ParamNotSetErrorMsg("force-cleanup-on-failure")
@@ -315,13 +315,13 @@ func (opt *VCreateDatabaseOptions) validateExtraOptions() error {
 
 func (opt *VCreateDatabaseOptions) validateParseOptions(log vlog.Printer) error {
 	// check nil pointers in the required options
-	err := opt.CheckNilPointerParams()
+	err := opt.checkNilPointerParams()
 	if err != nil {
 		return err
 	}
 
 	// validate base options
-	err = opt.ValidateBaseOptions("create_db", log)
+	err = opt.validateBaseOptions("create_db", log)
 	if err != nil {
 		return err
 	}
@@ -366,7 +366,7 @@ func (opt *VCreateDatabaseOptions) analyzeOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
+func (opt *VCreateDatabaseOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err := opt.validateParseOptions(log); err != nil {
 		return err
 	}
@@ -382,8 +382,8 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 	// Analyze to produce vdb info, for later create db use and for cache db info
-	vdb := MakeVCoordinationDatabase()
-	err := vdb.SetFromCreateDBOptions(options, vcc.Log)
+	vdb := makeVCoordinationDatabase()
+	err := vdb.setFromCreateDBOptions(options, vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -396,10 +396,10 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	err = clusterOpEngine.Run(vcc.Log)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to create database")
 		return vdb, err
@@ -466,10 +466,10 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true, vdb.IsEon)
 
 	// need username for https operations
-	err := options.ValidateUserName(vcc.Log)
+	err := options.validateUserName(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

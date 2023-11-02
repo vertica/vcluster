@@ -62,7 +62,7 @@ const defaultLogPath = "/opt/vertica/log/vcluster.log"
 func MakeClusterCommandLauncher() (ClusterCommandLauncher, vclusterops.VClusterCommands) {
 	// setup logs for command launcher initialization
 	userCommandString := os.Args[1]
-	log := vlog.Printer{}
+	log := vlog.Printer{ForCli: true}
 	logPath := parseLogPathArg(os.Args, defaultLogPath)
 	log.SetupOrDie(logPath)
 	vcc := vclusterops.VClusterCommands{

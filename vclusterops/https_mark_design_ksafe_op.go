@@ -68,7 +68,7 @@ func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PutMethod
-		httpRequest.BuildHTTPSEndpoint("cluster/k-safety")
+		httpRequest.buildHTTPSEndpoint("cluster/k-safety")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -81,7 +81,7 @@ func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *HTTPSMarkDesignKSafeOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

@@ -121,8 +121,8 @@ func (c *ClusterConfig) WriteConfig(configFilePath string) error {
 	return nil
 }
 
-// GetPathPrefix returns catalog, data, and depot prefixes
-func (c *ClusterConfig) GetPathPrefix(dbName string) (catalogPrefix string,
+// getPathPrefix returns catalog, data, and depot prefixes
+func (c *ClusterConfig) getPathPrefix(dbName string) (catalogPrefix string,
 	dataPrefix string, depotPrefix string, err error) {
 	dbConfig, ok := (*c)[dbName]
 	if !ok {
@@ -138,7 +138,7 @@ func (c *ClusterConfig) GetPathPrefix(dbName string) (catalogPrefix string,
 		dbConfig.Nodes[0].DepotPath, nil
 }
 
-func (c *DatabaseConfig) GetHosts() []string {
+func (c *DatabaseConfig) getHosts() []string {
 	var hostList []string
 
 	for _, vnode := range c.Nodes {
@@ -148,7 +148,7 @@ func (c *DatabaseConfig) GetHosts() []string {
 	return hostList
 }
 
-func GetConfigFilePath(dbName string, inputConfigDir *string, log vlog.Printer) (string, error) {
+func getConfigFilePath(dbName string, inputConfigDir *string, log vlog.Printer) (string, error) {
 	var configParentPath string
 
 	// if the input config directory is given and has write permission,
@@ -180,7 +180,7 @@ func GetConfigFilePath(dbName string, inputConfigDir *string, log vlog.Printer) 
 	return configFilePath, nil
 }
 
-func BackupConfigFile(configFilePath string, log vlog.Printer) error {
+func backupConfigFile(configFilePath string, log vlog.Printer) error {
 	if util.CanReadAccessDir(configFilePath) == nil {
 		// copy file to vertica_cluster.yaml.backup
 		configDirPath := filepath.Dir(configFilePath)
@@ -196,7 +196,7 @@ func BackupConfigFile(configFilePath string, log vlog.Printer) error {
 	return nil
 }
 
-func RemoveConfigFile(configDirectory string, log vlog.Printer) error {
+func removeConfigFile(configDirectory string, log vlog.Printer) error {
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBackupPath := filepath.Join(configDirectory, ConfigBackupName)
 

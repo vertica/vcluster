@@ -32,7 +32,7 @@ type VDropDatabaseOptions struct {
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	opt := VDropDatabaseOptions{}
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 
 	return opt
 }
@@ -48,7 +48,7 @@ func (options *VDropDatabaseOptions) AnalyzeOptions() error {
 	return nil
 }
 
-func (options *VDropDatabaseOptions) ValidateAnalyzeOptions() error {
+func (options *VDropDatabaseOptions) validateAnalyzeOptions() error {
 	if *options.DBName == "" {
 		return fmt.Errorf("database name must be provided")
 	}
@@ -62,13 +62,13 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.ValidateAnalyzeOptions()
+	err := options.validateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
 
 	// Analyze to produce vdb info for drop db use
-	vdb := MakeVCoordinationDatabase()
+	vdb := makeVCoordinationDatabase()
 
 	// TODO: load from options if HonorUserInput is true
 
@@ -89,7 +89,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	if err != nil {
 		return err
 	}
-	err = vdb.SetFromClusterConfig(*options.DBName, &clusterConfig)
+	err = vdb.setFromClusterConfig(*options.DBName, &clusterConfig)
 	if err != nil {
 		return err
 	}
@@ -102,17 +102,17 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.Run(vcc.Log)
+	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to drop database: %w", runError)
 	}
 
 	// if the database is successfully dropped, the config file will be removed
 	// if failed to remove it, we will ask users to manually do it
-	err = RemoveConfigFile(configDir, vcc.Log)
+	err = removeConfigFile(configDir, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("Fail to remove the config file(s), please manually clean up under directory %s", configDir)
 	}
@@ -126,7 +126,6 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 // The generated instructions will later perform the following operations necessary
 // for a successful drop_db:
 //   - Check NMA connectivity
-//   - Check Vertica versions
 //   - Check to see if any dbs running
 //   - Delete directories
 func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]ClusterOp, error) {
@@ -136,16 +135,13 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 	usePassword := false
 	if options.Password != nil {
 		usePassword = true
-		err := options.ValidateUserName(vcc.Log)
+		err := options.validateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}
 	}
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
-
-	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
 
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
@@ -162,7 +158,6 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 
 	instructions = append(instructions,
 		&nmaHealthOp,
-		&nmaVerticaVersionOp,
 		&checkDBRunningOp,
 		&nmaDeleteDirectoriesOp,
 	)

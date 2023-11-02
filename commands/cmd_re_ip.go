@@ -60,7 +60,7 @@ func (c *CmdReIP) validateParse(log vlog.Printer) error {
 	log.Info("Called validateParse()")
 
 	// parse raw host str input into a []string
-	err := c.ParseHostList(&c.reIPOptions.DatabaseOptions)
+	err := c.parseHostList(&c.reIPOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

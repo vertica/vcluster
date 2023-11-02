@@ -47,13 +47,13 @@ type VAddNodeOptions struct {
 func VAddNodeOptionsFactory() VAddNodeOptions {
 	opt := VAddNodeOptions{}
 	// set default values to the params
-	opt.SetDefaultValues()
+	opt.setDefaultValues()
 
 	return opt
 }
 
-func (o *VAddNodeOptions) SetDefaultValues() {
-	o.DatabaseOptions.SetDefaultValues()
+func (o *VAddNodeOptions) setDefaultValues() {
+	o.DatabaseOptions.setDefaultValues()
 
 	o.SCName = new(string)
 	o.SkipRebalanceShards = new(bool)
@@ -81,7 +81,7 @@ func (o *VAddNodeOptions) validateExtraOptions() error {
 
 func (o *VAddNodeOptions) validateParseOptions(log vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := o.ValidateBaseOptions("db_add_node", log)
+	err := o.validateBaseOptions("db_add_node", log)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (o *VAddNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
 
 // VAddNode is the top-level API for adding node(s) to an existing database.
 func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error) {
-	vdb := MakeVCoordinationDatabase()
+	vdb := makeVCoordinationDatabase()
 
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
@@ -129,7 +129,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 	}
 
 	// get hosts from config file and options.
-	hosts, err := options.GetHosts(options.Config)
+	hosts, err := options.getHosts(options.Config)
 	if err != nil {
 		return vdb, err
 	}
@@ -179,7 +179,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 		return vdb, err
 	}
 
-	err = vdb.addHosts(options.NewHosts)
+	err = vdb.addHosts(options.NewHosts, *options.SCName)
 	if err != nil {
 		return vdb, err
 	}
@@ -190,8 +190,8 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 	}
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	if runError := clusterOpEngine.Run(vcc.Log); runError != nil {
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
 		return vdb, fmt.Errorf("fail to complete add node operation, %w", runError)
 	}
 	return vdb, nil
@@ -299,8 +299,8 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	}
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err := clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err := clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to trim nodes from catalog, %v")
 		return err
@@ -319,9 +319,9 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 // The generated instructions will later perform the following operations necessary
 // for a successful add_node:
 //   - Check NMA connectivity
-//   - Check NMA versions
 //   - If we have subcluster in the input, check if the subcluster exists. If not, we stop.
 //     If we do not have a subcluster in the input, fetch the current default subcluster name
+//   - Check NMA versions
 //   - Prepare directories
 //   - Get network profiles
 //   - Create the new node
@@ -337,27 +337,27 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	var instructions []ClusterOp
 	initiatorHost := []string{options.Initiator}
 	newHosts := options.NewHosts
-	allHosts := util.SliceDiff(vdb.HostList, options.NewHosts)
+	allExistingHosts := util.SliceDiff(vdb.HostList, options.NewHosts)
 	username := *options.UserName
 	usePassword := options.usePassword
 	password := options.Password
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, vdb.HostList)
-	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, vdb.HostList, true)
-	instructions = append(instructions,
-		&nmaHealthOp,
-		&nmaVerticaVersionOp)
+	instructions = append(instructions, &nmaHealthOp)
 
 	if vdb.IsEon {
 		httpsFindSubclusterOp, e := makeHTTPSFindSubclusterOp(
-			vcc.Log, allHosts, usePassword, username, password, *options.SCName,
+			vcc.Log, allExistingHosts, usePassword, username, password, *options.SCName,
 			true /*ignore not found*/)
 		if e != nil {
 			return instructions, e
 		}
 		instructions = append(instructions, &httpsFindSubclusterOp)
 	}
+
+	// require to have the same vertica version
+	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(vcc.Log, true /*hosts need to have the same Vertica version*/, vdb)
+	instructions = append(instructions, &nmaVerticaVersionOp)
 
 	// this is a copy of the original HostNodeMap that only
 	// contains the hosts to add.

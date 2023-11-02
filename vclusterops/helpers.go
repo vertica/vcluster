@@ -102,7 +102,7 @@ func getInitiatorHost(primaryUpNodes, hostsToSkip []string) (string, error) {
 
 // getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
 func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
-	err := options.SetUsePassword(vcc.Log)
+	err := options.setUsePassword(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
@@ -123,8 +123,8 @@ func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, opt
 	instructions = append(instructions, &httpsGetNodesInfoOp, &httpsGetClusterInfoOp)
 
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
-	err = clusterOpEngine.Run(vcc.Log)
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to retrieve database configurations, %w", err)
 	}
@@ -158,4 +158,19 @@ func getInitiator(hosts []string) string {
 
 func cannotFindDBFromConfigErr(dbName string) error {
 	return fmt.Errorf("database %s cannot be found in the config file", dbName)
+}
+
+// validates each host has an entry in each map
+func validateHostMaps(hosts []string, maps ...map[string]string) error {
+	var allErrors error
+	for _, strMap := range maps {
+		for _, host := range hosts {
+			val, ok := strMap[host]
+			if !ok || val == "" {
+				allErrors = errors.Join(allErrors,
+					fmt.Errorf("configuration map missing entry for host %s", host))
+			}
+		}
+	}
+	return allErrors
 }

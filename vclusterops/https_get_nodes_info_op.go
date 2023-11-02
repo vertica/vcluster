@@ -51,7 +51,7 @@ func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.BuildHTTPSEndpoint("nodes")
+		httpRequest.buildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -64,7 +64,7 @@ func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *httpsGetNodesInfoOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -82,7 +82,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.IsUnauthorizedRequest() {
+		if result.isUnauthorizedRequest() {
 			return fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}
@@ -104,7 +104,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 					allErrs = errors.Join(allErrs, err)
 					return appendHTTPSFailureError(allErrs)
 				}
-				vNode := MakeVCoordinationNode()
+				vNode := makeVCoordinationNode()
 				vNode.Name = node.Name
 				vNode.Address = node.Address
 				vNode.CatalogPath = node.CatalogPath

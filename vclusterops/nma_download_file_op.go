@@ -131,7 +131,7 @@ func (op *NMADownloadFileOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.BuildNMAEndpoint("vertica/download-file")
+		httpRequest.buildNMAEndpoint("vertica/download-file")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -141,7 +141,7 @@ func (op *NMADownloadFileOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *NMADownloadFileOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.Setup(op.hosts)
+	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
@@ -247,7 +247,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileContent) error {
 	op.vdb.HostNodeMap = makeVHostNodeMap()
 	for _, node := range descFileContent.NodeList {
-		vNode := MakeVCoordinationNode()
+		vNode := makeVCoordinationNode()
 		vNode.Name = node.Name
 		vNode.Address = node.Address
 		vNode.IsPrimary = node.IsPrimary

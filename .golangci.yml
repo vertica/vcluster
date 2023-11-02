@@ -6,6 +6,7 @@ linters-settings:
           - $gostd
           - github.com
           - vertica.com
+          - k8s.io
   dupl:
     threshold: 100
   funlen:
