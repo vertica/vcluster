@@ -34,7 +34,7 @@ type VReIPOptions struct {
 func VReIPFactory() VReIPOptions {
 	opt := VReIPOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	opt.SetDefaultValues()
 
 	return opt
 }
@@ -49,7 +49,7 @@ func (opt *VReIPOptions) validateParseOptions(log vlog.Printer) error {
 		return util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
 	}
 
-	return opt.validateBaseOptions("re_ip", log)
+	return opt.ValidateBaseOptions("re_ip", log)
 }
 
 func (opt *VReIPOptions) analyzeOptions() error {
@@ -62,7 +62,7 @@ func (opt *VReIPOptions) analyzeOptions() error {
 	return nil
 }
 
-func (opt *VReIPOptions) validateAnalyzeOptions(log vlog.Printer) error {
+func (opt *VReIPOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
 	if err := opt.validateParseOptions(log); err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.validateAnalyzeOptions(vcc.Log)
+	err := options.ValidateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -146,10 +146,10 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.run(vcc.Log)
+	runError := clusterOpEngine.Run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to re-ip: %w", runError)
 	}
@@ -160,6 +160,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 // The generated instructions will later perform the following operations necessary
 // for a successful re_ip:
 //   - Check NMA connectivity
+//   - Check Vertica versions
 //   - Read database info from catalog editor
 //     (now we should know which hosts have the latest catalog)
 //   - Run re-ip on the target nodes
@@ -173,6 +174,7 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb 
 	hosts := options.Hosts
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true)
 
 	// get network profiles of the new addresses
 	var newAddresses []string
@@ -183,6 +185,7 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb 
 
 	instructions = append(instructions,
 		&nmaHealthOp,
+		&nmaVerticaVersionOp,
 		&nmaNetworkProfileOp,
 	)
 

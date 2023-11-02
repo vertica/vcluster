@@ -131,7 +131,7 @@ func (op *NMADownloadFileOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildNMAEndpoint("vertica/download-file")
+		httpRequest.BuildNMAEndpoint("vertica/download-file")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -141,7 +141,7 @@ func (op *NMADownloadFileOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *NMADownloadFileOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 

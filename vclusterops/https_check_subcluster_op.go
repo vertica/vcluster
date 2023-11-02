@@ -55,7 +55,7 @@ func (op *HTTPSCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName)
+		httpRequest.BuildHTTPSEndpoint("subclusters/" + op.scName)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -70,7 +70,7 @@ func (op *HTTPSCheckSubclusterOp) prepare(execContext *OpEngineExecContext) erro
 	if len(execContext.upHosts) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
-	execContext.dispatcher.setup(execContext.upHosts)
+	execContext.dispatcher.Setup(execContext.upHosts)
 
 	return op.setupClusterHTTPRequest(execContext.upHosts)
 }
@@ -96,7 +96,7 @@ func (op *HTTPSCheckSubclusterOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isUnauthorizedRequest() {
+		if result.IsUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
 			return result.err
 		}

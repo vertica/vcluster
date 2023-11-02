@@ -53,7 +53,7 @@ func (op *httpsDropSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/drop")
+		httpRequest.BuildHTTPSEndpoint("subclusters/" + op.scName + "/drop")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -66,7 +66,7 @@ func (op *httpsDropSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *httpsDropSubclusterOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -85,7 +85,7 @@ func (op *httpsDropSubclusterOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isUnauthorizedRequest() {
+		if result.IsUnauthorizedRequest() {
 			return fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}

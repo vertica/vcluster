@@ -78,7 +78,7 @@ func (op *NMAReIPOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PutMethod
-		httpRequest.buildNMAEndpoint("catalog/re-ip")
+		httpRequest.BuildNMAEndpoint("catalog/re-ip")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -170,7 +170,7 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 		return err
 	}
 
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 

@@ -22,7 +22,7 @@ type HTTPRequestDispatcher struct {
 	pool AdapterPool
 }
 
-func makeHTTPRequestDispatcher(log vlog.Printer) HTTPRequestDispatcher {
+func MakeHTTPRequestDispatcher(log vlog.Printer) HTTPRequestDispatcher {
 	newHTTPRequestDispatcher := HTTPRequestDispatcher{}
 	newHTTPRequestDispatcher.name = "HTTPRequestDispatcher"
 	newHTTPRequestDispatcher.log = log.WithName(newHTTPRequestDispatcher.name)
@@ -31,11 +31,11 @@ func makeHTTPRequestDispatcher(log vlog.Printer) HTTPRequestDispatcher {
 }
 
 // set up the pool connection for each host
-func (dispatcher *HTTPRequestDispatcher) setup(hosts []string) {
+func (dispatcher *HTTPRequestDispatcher) Setup(hosts []string) {
 	dispatcher.pool = getPoolInstance(dispatcher.log)
 
 	for _, host := range hosts {
-		adapter := makeHTTPAdapter(dispatcher.log)
+		adapter := MakeHTTPAdapter(dispatcher.log)
 		adapter.host = host
 		dispatcher.pool.connections[host] = &adapter
 	}

@@ -56,7 +56,7 @@ func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildHTTPSEndpoint("nodes")
+		httpRequest.BuildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -68,7 +68,7 @@ func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPCheckNodeStateOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -88,7 +88,7 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isUnauthorizedRequest() {
+		if result.IsUnauthorizedRequest() {
 			op.log.PrintError("[%s] unauthorized request: %s", op.name, result.content)
 			// return here because we assume that
 			// we will get the same error across other nodes
@@ -98,7 +98,7 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 
 		if !result.isPassing() {
 			// for any error, we continue to the next node
-			if result.isInternalError() {
+			if result.IsInternalError() {
 				op.log.PrintError("[%s] internal error of the /nodes endpoint: %s", op.name, result.content)
 				// At internal error originated from the server, so its a
 				// response, just not a successful one.

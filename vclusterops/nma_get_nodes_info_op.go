@@ -48,7 +48,7 @@ func (op *nmaGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildNMAEndpoint("nodes")
+		httpRequest.BuildNMAEndpoint("nodes")
 		httpRequest.QueryParams = map[string]string{"db_name": op.dbName, "catalog_prefix": op.catalogPrefix}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
@@ -57,7 +57,7 @@ func (op *nmaGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *nmaGetNodesInfoOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

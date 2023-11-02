@@ -51,7 +51,7 @@ func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildHTTPSEndpoint("nodes")
+		httpRequest.BuildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -64,7 +64,7 @@ func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *httpsGetNodesInfoOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -82,7 +82,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isUnauthorizedRequest() {
+		if result.IsUnauthorizedRequest() {
 			return fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}

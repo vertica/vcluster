@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -48,9 +49,11 @@ func (cmd CmdType) String() string {
 type HTTPSPollNodeStateOp struct {
 	OpBase
 	OpHTTPSBase
-	currentHost string
-	timeout     int
-	cmdType     CmdType
+	allHosts   map[string]any
+	upHosts    map[string]any
+	notUpHosts []string
+	timeout    int
+	cmdType    CmdType
 }
 
 func makeHTTPSPollNodeStateOpHelper(log vlog.Printer, hosts []string,
@@ -68,6 +71,11 @@ func makeHTTPSPollNodeStateOpHelper(log vlog.Printer, hosts []string,
 	httpsPollNodeStateOp.userName = userName
 	httpsPollNodeStateOp.httpsPassword = httpsPassword
 
+	httpsPollNodeStateOp.upHosts = make(map[string]any)
+	httpsPollNodeStateOp.allHosts = make(map[string]any)
+	for _, h := range hosts {
+		httpsPollNodeStateOp.allHosts[h] = struct{}{}
+	}
 	return httpsPollNodeStateOp, nil
 }
 
@@ -108,7 +116,7 @@ func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = httpRequestTimeoutSeconds
-		httpRequest.buildHTTPSEndpoint("nodes/" + host)
+		httpRequest.BuildHTTPSEndpoint("nodes/" + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -121,7 +129,7 @@ func (op *HTTPSPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPSPollNodeStateOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
@@ -141,9 +149,10 @@ func (op *HTTPSPollNodeStateOp) finalize(_ *OpEngineExecContext) error {
 func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) error {
 	err := pollState(op, execContext)
 	if err != nil {
-		// show the host that is not UP
-		msg := fmt.Sprintf("Cannot get the correct response from the host %s after %d seconds, details: %s",
-			op.currentHost, op.timeout, err)
+		// show the hosts that are not UP
+		sort.Strings(op.notUpHosts)
+		msg := fmt.Sprintf("The following hosts are not up after %d seconds: %v, details: %s",
+			op.timeout, op.notUpHosts, err)
 		op.log.PrintError(msg)
 		return errors.New(msg)
 	}
@@ -166,7 +175,6 @@ type NodesInfo struct {
 func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
-		op.currentHost = host
 
 		// when we get timeout error, we know that the host is unreachable/dead
 		if result.isTimeout() {
@@ -177,7 +185,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 		// We don't need to wait until timeout to determine if all nodes are up or not.
 		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately.
 		// We also need to let user know to wait until all nodes are up
-		if result.isPasswordAndCertificateError(op.log) {
+		if result.IsPasswordAndCertificateError(op.log) {
 			switch op.cmdType {
 			case StartDBCmd, RestartNodeCmd:
 				op.log.PrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",

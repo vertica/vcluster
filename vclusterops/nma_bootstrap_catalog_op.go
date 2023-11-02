@@ -152,7 +152,7 @@ func (op *NMABootstrapCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildNMAEndpoint("catalog/bootstrap")
+		httpRequest.BuildNMAEndpoint("catalog/bootstrap")
 		httpRequest.RequestData = op.marshaledRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
@@ -166,7 +166,7 @@ func (op *NMABootstrapCatalogOp) prepare(execContext *OpEngineExecContext) error
 		return err
 	}
 
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

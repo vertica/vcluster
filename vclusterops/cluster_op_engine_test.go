@@ -74,8 +74,8 @@ func TestSkipExecuteOp(t *testing.T) {
 	opWithSkipDisabled := makeMockOp(false)
 	instructions := []ClusterOp{&opWithSkipDisabled, &opWithSkipEnabled}
 	certs := HTTPSCerts{key: "key", cert: "cert", caCert: "ca-cert"}
-	opEngn := makeClusterOpEngine(instructions, &certs)
-	err := opEngn.run(vlog.Printer{})
+	opEngn := MakeClusterOpEngine(instructions, &certs)
+	err := opEngn.Run(vlog.Printer{})
 	assert.Equal(t, nil, err)
 	assert.True(t, opWithSkipDisabled.calledPrepare)
 	assert.True(t, opWithSkipDisabled.calledExecute)

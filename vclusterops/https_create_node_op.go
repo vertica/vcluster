@@ -56,7 +56,7 @@ func (op *HTTPSCreateNodeOp) setupClusterHTTPRequest(hosts []string) error {
 		httpRequest.Method = PostMethod
 		// note that this will be updated in Prepare()
 		// because the endpoint only accept parameters in query
-		httpRequest.buildHTTPSEndpoint("nodes")
+		httpRequest.BuildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -85,7 +85,7 @@ func (op *HTTPSCreateNodeOp) prepare(execContext *OpEngineExecContext) error {
 		return err
 	}
 
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

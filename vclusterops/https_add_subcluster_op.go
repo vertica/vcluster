@@ -82,7 +82,7 @@ func (op *HTTPSAddSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName)
+		httpRequest.BuildHTTPSEndpoint("subclusters/" + op.scName)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -104,7 +104,7 @@ func (op *HTTPSAddSubclusterOp) prepare(execContext *OpEngineExecContext) error 
 	if err != nil {
 		return err
 	}
-	execContext.dispatcher.setup(hosts)
+	execContext.dispatcher.Setup(hosts)
 
 	return op.setupClusterHTTPRequest(hosts)
 }
@@ -123,7 +123,7 @@ func (op *HTTPSAddSubclusterOp) processResult(_ *OpEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isUnauthorizedRequest() {
+		if result.IsUnauthorizedRequest() {
 			// skip checking response from other nodes because we will get the same error there
 			return result.err
 		}

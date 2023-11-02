@@ -92,7 +92,7 @@ func (op *nmaSpreadSecurityOp) setupClusterHTTPRequest(hostRequestBodyMap map[st
 	for host, requestBody := range hostRequestBodyMap {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildNMAEndpoint("catalog/spread-security")
+		httpRequest.BuildNMAEndpoint("catalog/spread-security")
 		httpRequest.RequestData = requestBody
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
@@ -108,7 +108,7 @@ func (op *nmaSpreadSecurityOp) prepare(execContext *OpEngineExecContext) error {
 	if err != nil {
 		return err
 	}
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(hostRequestBodyMap)
 }

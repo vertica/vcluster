@@ -56,7 +56,7 @@ func (op *HTTPSSpreadRemoveNodeOp) setupClusterHTTPRequest(hosts []string) error
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("config/spread/remove")
+		httpRequest.BuildHTTPSEndpoint("config/spread/remove")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -68,7 +68,7 @@ func (op *HTTPSSpreadRemoveNodeOp) setupClusterHTTPRequest(hosts []string) error
 }
 
 func (op *HTTPSSpreadRemoveNodeOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 

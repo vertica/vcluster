@@ -13,7 +13,7 @@ type VFetchNodeStateOptions struct {
 func VFetchNodeStateOptionsFactory() VFetchNodeStateOptions {
 	opt := VFetchNodeStateOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	opt.SetDefaultValues()
 
 	return opt
 }
@@ -40,7 +40,7 @@ func (options *VFetchNodeStateOptions) analyzeOptions() error {
 	return nil
 }
 
-func (options *VFetchNodeStateOptions) validateAnalyzeOptions(vcc *VClusterCommands) error {
+func (options *VFetchNodeStateOptions) ValidateAnalyzeOptions(vcc *VClusterCommands) error {
 	if err := options.validateParseOptions(vcc); err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.validateAnalyzeOptions(vcc)
+	err := options.ValidateAnalyzeOptions(vcc)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +70,10 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 
 	// create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.run(vcc.Log)
+	runError := clusterOpEngine.Run(vcc.Log)
 	nodeStates := clusterOpEngine.execContext.nodesInfo
 
 	return nodeStates, runError
@@ -91,7 +91,7 @@ func (vcc *VClusterCommands) produceListAllNodesInstructions(options *VFetchNode
 	usePassword := false
 	if options.Password != nil {
 		usePassword = true
-		err := options.validateUserName(vcc.Log)
+		err := options.ValidateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}

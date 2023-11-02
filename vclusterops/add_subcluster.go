@@ -55,13 +55,13 @@ type VAddSubclusterInfo struct {
 func VAddSubclusterOptionsFactory() VAddSubclusterOptions {
 	opt := VAddSubclusterOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	opt.SetDefaultValues()
 
 	return opt
 }
 
-func (options *VAddSubclusterOptions) setDefaultValues() {
-	options.DatabaseOptions.setDefaultValues()
+func (options *VAddSubclusterOptions) SetDefaultValues() {
+	options.DatabaseOptions.SetDefaultValues()
 
 	options.SCName = new(string)
 	options.IsPrimary = new(bool)
@@ -71,7 +71,7 @@ func (options *VAddSubclusterOptions) setDefaultValues() {
 }
 
 func (options *VAddSubclusterOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.validateBaseOptions("db_add_subcluster", log)
+	err := options.ValidateBaseOptions("db_add_subcluster", log)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (options *VAddSubclusterOptions) validateRequiredOptions(log vlog.Printer) 
 }
 
 func (options *VAddSubclusterOptions) validateEonOptions(config *ClusterConfig) error {
-	isEon, err := options.isEonMode(config)
+	isEon, err := options.IsEonMode(config)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (options *VAddSubclusterOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateAnalyzeOptions(config *ClusterConfig, vcc *VClusterCommands) error {
+func (options *VAddSubclusterOptions) ValidateAnalyzeOptions(config *ClusterConfig, vcc *VClusterCommands) error {
 	if err := options.validateParseOptions(config, vcc); err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.validateAnalyzeOptions(options.Config, vcc)
+	err := options.ValidateAnalyzeOptions(options.Config, vcc)
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 		ControlSetSize: *options.ControlSetSize,
 		CloneSC:        *options.CloneSC,
 	}
-	addSubclusterInfo.DBName, addSubclusterInfo.Hosts, err = options.getNameAndHosts(options.Config)
+	addSubclusterInfo.DBName, addSubclusterInfo.Hosts, err = options.GetNameAndHosts(options.Config)
 	if err != nil {
 		return err
 	}
@@ -211,10 +211,10 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 
 	// Create a VClusterOpEngine, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := MakeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.run(vcc.Log)
+	runError := clusterOpEngine.Run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to add subcluster %s, %w", addSubclusterInfo.SCName, runError)
 	}
@@ -241,7 +241,7 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(addSubclusterInfo 
 	usePassword := false
 	if addSubclusterInfo.Password != nil {
 		usePassword = true
-		err := options.validateUserName(vcc.Log)
+		err := options.ValidateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}

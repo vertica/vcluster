@@ -38,7 +38,7 @@ func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := HostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildNMAEndpoint("health")
+		httpRequest.BuildNMAEndpoint("health")
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -46,7 +46,7 @@ func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *NMAHealthOp) prepare(execContext *OpEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execContext.dispatcher.Setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }

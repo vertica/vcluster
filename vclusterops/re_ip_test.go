@@ -26,23 +26,23 @@ import (
 
 func TestReIPOptions(t *testing.T) {
 	opt := VReIPFactory()
-	err := opt.validateAnalyzeOptions(vlog.Printer{})
+	err := opt.ValidateAnalyzeOptions(vlog.Printer{})
 	assert.Error(t, err)
 
 	*opt.DBName = "test_db"
 	opt.RawHosts = []string{"192.168.1.101", "192.168.1.102"}
-	err = opt.validateAnalyzeOptions(vlog.Printer{})
+	err = opt.ValidateAnalyzeOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify an absolute catalog path")
 
 	*opt.CatalogPrefix = "/data"
-	err = opt.validateAnalyzeOptions(vlog.Printer{})
+	err = opt.ValidateAnalyzeOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "the re-ip list is not provided")
 
 	var info ReIPInfo
 	info.NodeAddress = "192.168.1.102"
 	info.TargetAddress = "192.168.1.103"
 	opt.ReIPList = append(opt.ReIPList, info)
-	err = opt.validateAnalyzeOptions(vlog.Printer{})
+	err = opt.ValidateAnalyzeOptions(vlog.Printer{})
 	assert.NoError(t, err)
 }
 
