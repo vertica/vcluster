@@ -152,4 +152,39 @@ var (
 		"Internal error while running Vertica download file",
 		http.StatusInternalServerError,
 	)
+	CreateDirectoryPermissionDenied = newProblemID(
+		path.Join(errorEndpointsPrefix, "create-directory-permission-denied"),
+		"Permission denied while creating directories",
+		http.StatusInternalServerError,
+	)
+	CreateDirectoryExistError = newProblemID(
+		path.Join(errorEndpointsPrefix, "create-directory-exist-error"),
+		"Directories already exist while creating directories",
+		http.StatusInternalServerError,
+	)
+	CreateDirectoryInvalidPath = newProblemID(
+		path.Join(errorEndpointsPrefix, "create-directory-invalid-path"),
+		"Found invalid directory paths while creating directories",
+		http.StatusBadRequest,
+	)
+	CreateDirectoryParentDirectoryExists = newProblemID(
+		path.Join(errorEndpointsPrefix, "create-directory-parent-directory-exists"),
+		"Parent directories already exist while creating directories",
+		http.StatusInternalServerError,
+	)
+	CreateDirectoryParentDirectoryNoWritePermission = newProblemID(
+		path.Join(errorEndpointsPrefix, "create-directory-parent-directory-no-write-permission"),
+		"No write permission on parent directories while creating directories",
+		http.StatusInternalServerError,
+	)
+	CreateDirectoryNoWritePermission = newProblemID(
+		path.Join(errorEndpointsPrefix, "create-directory-no-write-permission"),
+		"No write permission on directories while creating directories",
+		http.StatusInternalServerError,
+	)
+	NonAbsolutePathError = newProblemID(
+		path.Join(errorEndpointsPrefix, "non-absolute-path-error"),
+		"Target path is not an absolute path",
+		http.StatusBadRequest,
+	)
 )

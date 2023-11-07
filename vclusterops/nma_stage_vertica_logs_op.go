@@ -31,13 +31,13 @@ type NMAStageVerticaLogsOp struct {
 	hostCatPathMap     map[string]string // must correspond to host list exactly!
 	batch              string
 	logSizeLimitBytes  int64
-	numGZ              int // number of archived logs to retrieve
+	logAgeHours        int // The maximum age of archieved logs in hours to retrieve
 }
 
 type stageVerticaLogsRequestData struct {
 	CatalogPath       string `json:"catalog_path"`
 	LogSizeLimitBytes int64  `json:"log_size_limit_bytes"`
-	NumGZ             int    `json:"numgz"`
+	LogAgeHours       int    `json:"log_age_hours"`
 }
 
 type stageVerticaLogsResponseData struct {
@@ -52,7 +52,7 @@ func makeNMAStageVerticaLogsOp(log vlog.Printer,
 	hostNodeNameMap map[string]string,
 	hostCatPathMap map[string]string,
 	logSizeLimitBytes int64,
-	numGZ int) (NMAStageVerticaLogsOp, error) {
+	logAgeHours int) (NMAStageVerticaLogsOp, error) {
 	nmaStageVerticaLogsOp := NMAStageVerticaLogsOp{}
 	nmaStageVerticaLogsOp.id = id
 	nmaStageVerticaLogsOp.hostNodeNameMap = hostNodeNameMap
@@ -61,7 +61,7 @@ func makeNMAStageVerticaLogsOp(log vlog.Printer,
 	nmaStageVerticaLogsOp.log = log
 	nmaStageVerticaLogsOp.hosts = hosts
 	nmaStageVerticaLogsOp.logSizeLimitBytes = logSizeLimitBytes
-	nmaStageVerticaLogsOp.numGZ = numGZ
+	nmaStageVerticaLogsOp.logAgeHours = logAgeHours
 
 	// the caller is responsible for making sure hosts and maps match up exactly
 	err := validateHostMaps(hosts, hostNodeNameMap, hostCatPathMap)
@@ -75,7 +75,7 @@ func (op *NMAStageVerticaLogsOp) setupRequestBody(hosts []string) error {
 		stageVerticaLogsData := stageVerticaLogsRequestData{}
 		stageVerticaLogsData.CatalogPath = op.hostCatPathMap[host]
 		stageVerticaLogsData.LogSizeLimitBytes = op.logSizeLimitBytes
-		stageVerticaLogsData.NumGZ = op.numGZ
+		stageVerticaLogsData.LogAgeHours = op.logAgeHours
 
 		dataBytes, err := json.Marshal(stageVerticaLogsData)
 		if err != nil {

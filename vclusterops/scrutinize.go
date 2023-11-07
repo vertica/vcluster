@@ -31,7 +31,7 @@ const VScrutinizeTypeName = "scrutinize"
 const scrutinizeURLPrefix = "scrutinize/"
 
 // these could be replaced with options later
-const scrutinizeNumGZ = 10                  // copy up to 10 archived logs
+const scrutinizeLogAgeHours = 24            // copy archived logs produced in recent 24 hours
 const scrutinizeLogLimitBytes = 10737418240 // 10GB in bytes
 
 // batches are fixed, top level folders for each node's data
@@ -227,7 +227,7 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	}
 
 	nmaStageVerticaLogsOp, err := makeNMAStageVerticaLogsOp(vcc.Log, options.ID, options.Hosts,
-		hostNodeNameMap, hostCatPathMap, scrutinizeLogLimitBytes, scrutinizeNumGZ)
+		hostNodeNameMap, hostCatPathMap, scrutinizeLogLimitBytes, scrutinizeLogAgeHours)
 	if err != nil {
 		// map invariant assertion failure -- should not occur
 		return nil, err
