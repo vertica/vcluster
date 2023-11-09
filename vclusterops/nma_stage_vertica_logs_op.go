@@ -54,11 +54,12 @@ func makeNMAStageVerticaLogsOp(log vlog.Printer,
 	logSizeLimitBytes int64,
 	logAgeHours int) (NMAStageVerticaLogsOp, error) {
 	nmaStageVerticaLogsOp := NMAStageVerticaLogsOp{}
+	nmaStageVerticaLogsOp.name = "NMAStageVerticaLogsOp"
+	nmaStageVerticaLogsOp.log = log.WithName(nmaStageVerticaLogsOp.name)
 	nmaStageVerticaLogsOp.id = id
 	nmaStageVerticaLogsOp.hostNodeNameMap = hostNodeNameMap
 	nmaStageVerticaLogsOp.hostCatPathMap = hostCatPathMap
 	nmaStageVerticaLogsOp.batch = scrutinizeBatchNormal
-	nmaStageVerticaLogsOp.log = log
 	nmaStageVerticaLogsOp.hosts = hosts
 	nmaStageVerticaLogsOp.logSizeLimitBytes = logSizeLimitBytes
 	nmaStageVerticaLogsOp.logAgeHours = logAgeHours

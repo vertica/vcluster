@@ -42,6 +42,18 @@ func (dispatcher *HTTPRequestDispatcher) setup(hosts []string) {
 	}
 }
 
+// set up the pool connection for each host to download a file
+func (dispatcher *HTTPRequestDispatcher) setupForDownload(hosts []string,
+	hostToFilePathsMap map[string]string) {
+	dispatcher.pool = getPoolInstance(dispatcher.log)
+
+	for _, host := range hosts {
+		adapter := makeHTTPDownloadAdapter(dispatcher.log, hostToFilePathsMap[host])
+		adapter.host = host
+		dispatcher.pool.connections[host] = &adapter
+	}
+}
+
 func (dispatcher *HTTPRequestDispatcher) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) error {
 	dispatcher.log.Info("HTTP request dispatcher's sendRequest is called")
 	return dispatcher.pool.sendRequest(clusterHTTPRequest)

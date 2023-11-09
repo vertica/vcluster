@@ -52,6 +52,7 @@ type VCreateDatabaseOptions struct {
 	// part 5: other params
 	SkipStartupPolling *bool
 	ConfigDirectory    *string
+	GenerateHTTPCerts  *bool
 
 	// hidden options (which cache information only)
 	bootstrapHost []string
@@ -82,6 +83,7 @@ func (opt *VCreateDatabaseOptions) setDefaultValues() {
 	opt.ForceCleanupOnFailure = new(bool)
 	opt.ForceRemovalAtCreation = new(bool)
 	opt.SkipPackageInstall = new(bool)
+	opt.GenerateHTTPCerts = new(bool)
 
 	defaultTimeoutNodeStartupSeconds := util.DefaultTimeoutSeconds
 	opt.TimeoutNodeStartupSeconds = &defaultTimeoutNodeStartupSeconds

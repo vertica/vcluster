@@ -30,6 +30,10 @@ const VScrutinizeTypeName = "scrutinize"
 // top level handler for scrutinize operations
 const scrutinizeURLPrefix = "scrutinize/"
 
+// folders used by scrutinize
+const scrutinizeOutputBasePath = "/tmp/scrutinize"
+const scrutinizeRemoteOutputPath = scrutinizeOutputBasePath + "/remote"
+
 // these could be replaced with options later
 const scrutinizeLogAgeHours = 24            // copy archived logs produced in recent 24 hours
 const scrutinizeLogLimitBytes = 10737418240 // 10GB in bytes
@@ -213,7 +217,7 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(log vlog.Printer,
 //   - Stage vertica logs on all nodes
 //   - TODO Stage ErrorReport.txt on all nodes
 //   - TODO Stage DC tables on all nodes
-//   - TODO Tar and retrieve vertica logs from all nodes (batch normal)
+//   - Tar and retrieve vertica logs from all nodes (batch normal)
 //   - TODO Tar and retrieve error report from all nodes (batch context)
 //   - TODO Tar and retrieve DC tables from all nodes (batch context)
 //   - TODO (If applicable) Poll for system table staging completion on task node
@@ -226,6 +230,7 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 		return nil, fmt.Errorf("failed to process retrieved node info, details %w", err)
 	}
 
+	// stage Vertica logs
 	nmaStageVerticaLogsOp, err := makeNMAStageVerticaLogsOp(vcc.Log, options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap, scrutinizeLogLimitBytes, scrutinizeLogAgeHours)
 	if err != nil {
@@ -233,6 +238,14 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 		return nil, err
 	}
 	instructions = append(instructions, &nmaStageVerticaLogsOp)
+
+	// get 'normal' batch tarball (inc. Vertica logs)
+	getNormalTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchNormal,
+		options.Hosts, hostNodeNameMap)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &getNormalTarballOp)
 
 	return instructions, nil
 }

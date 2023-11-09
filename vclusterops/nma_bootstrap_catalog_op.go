@@ -48,6 +48,7 @@ type bootstrapCatalogRequestData struct {
 	NumShards          int    `json:"num_shards"`
 	CommunalStorageURL string `json:"communal_storage"`
 	SuperuserName      string `json:"superuser_name"`
+	GenerateHTTPCerts  bool   `json:"generate_http_certs"`
 	SensitiveFields
 }
 
@@ -107,6 +108,9 @@ func (op *NMABootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 		bootstrapData.Ipv6 = options.Ipv6.ToBool()
 		bootstrapData.SuperuserName = *options.UserName
 		bootstrapData.DBPassword = *options.Password
+
+		// Flag to generate certs and tls configuration
+		bootstrapData.GenerateHTTPCerts = *options.GenerateHTTPCerts
 
 		// Eon params
 		bootstrapData.NumShards = vdb.NumShards

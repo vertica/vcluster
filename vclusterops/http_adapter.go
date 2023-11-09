@@ -34,14 +34,42 @@ import (
 
 type HTTPAdapter struct {
 	OpBase
-	host string
+	host            string
+	respBodyHandler responseBodyHandler
 }
 
 func makeHTTPAdapter(log vlog.Printer) HTTPAdapter {
 	newHTTPAdapter := HTTPAdapter{}
 	newHTTPAdapter.name = "HTTPAdapter"
 	newHTTPAdapter.log = log.WithName(newHTTPAdapter.name)
+	newHTTPAdapter.respBodyHandler = &responseBodyReader{}
 	return newHTTPAdapter
+}
+
+// makeHTTPDownloadAdapter creates an HTTP adaptor which will
+// download a response body to a file via streaming read and
+// buffered write, rather than copying the body to memory.
+func makeHTTPDownloadAdapter(log vlog.Printer,
+	destFilePath string) HTTPAdapter {
+	newHTTPAdapter := makeHTTPAdapter(log)
+	newHTTPAdapter.respBodyHandler = &responseBodyDownloader{
+		log,
+		destFilePath,
+	}
+	return newHTTPAdapter
+}
+
+type responseBodyHandler interface {
+	readResponseBody(resp *http.Response) (string, error)
+}
+
+// empty struct for default behavior of reading response body into memory
+type responseBodyReader struct{}
+
+// for downloading response body to file instead of reading into memory
+type responseBodyDownloader struct {
+	log          vlog.Printer
+	destFilePath string
 }
 
 const (
@@ -128,7 +156,7 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 }
 
 func (adapter *HTTPAdapter) generateResult(resp *http.Response) HostHTTPResult {
-	bodyString, err := adapter.readResponseBody(resp)
+	bodyString, err := adapter.respBodyHandler.readResponseBody(resp)
 	if err != nil {
 		return adapter.makeExceptionResult(err)
 	}
@@ -138,7 +166,7 @@ func (adapter *HTTPAdapter) generateResult(resp *http.Response) HostHTTPResult {
 	return adapter.makeFailResult(resp.Header, bodyString, resp.StatusCode)
 }
 
-func (adapter *HTTPAdapter) readResponseBody(resp *http.Response) (bodyString string, err error) {
+func (reader *responseBodyReader) readResponseBody(resp *http.Response) (bodyString string, err error) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("fail to read the response body: %w", err)
@@ -147,6 +175,25 @@ func (adapter *HTTPAdapter) readResponseBody(resp *http.Response) (bodyString st
 	bodyString = string(bodyBytes)
 
 	return bodyString, nil
+}
+
+func (downloader *responseBodyDownloader) readResponseBody(resp *http.Response) (bodyString string, err error) {
+	bytesWritten, err := downloader.downloadFile(resp)
+	if err != nil {
+		err = fmt.Errorf("fail to stream the response body to file %s: %w", downloader.destFilePath, err)
+	} else {
+		downloader.log.Info("File downloaded", "File", downloader.destFilePath, "Bytes", bytesWritten)
+	}
+	return "", err
+}
+
+func (downloader *responseBodyDownloader) downloadFile(resp *http.Response) (bytesWritten int64, err error) {
+	file, err := os.Create(downloader.destFilePath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+	return io.Copy(file, resp.Body)
 }
 
 // makeSuccessResult is a factory method for HostHTTPResult when a success
