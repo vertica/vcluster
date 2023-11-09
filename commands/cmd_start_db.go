@@ -49,7 +49,7 @@ func makeCmdStartDB() *CmdStartDB {
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
 	startDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	startDBOptions.StatePollingTimeout = *newCmd.parser.Int("timeout", util.DefaultTimeoutSeconds,
+	startDBOptions.StatePollingTimeout = newCmd.parser.Int("timeout", util.DefaultTimeoutSeconds,
 		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
 			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
 	// eon flags
@@ -67,6 +67,7 @@ func makeCmdStartDB() *CmdStartDB {
 	newCmd.AllowFallbackKeygen = newCmd.parser.Bool("allow_fallback_keygen", false, util.SuppressHelp)
 	newCmd.IgnoreClusterLease = newCmd.parser.Bool("ignore_cluster_lease", false, util.SuppressHelp)
 	newCmd.Fast = newCmd.parser.Bool("fast", false, util.SuppressHelp)
+	startDBOptions.TrimHostList = newCmd.parser.Bool("trim-hosts", false, util.SuppressHelp)
 
 	newCmd.startDBOptions = &startDBOptions
 	newCmd.parser.Usage = func() {

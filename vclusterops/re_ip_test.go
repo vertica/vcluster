@@ -73,6 +73,7 @@ func TestReadReIPFile(t *testing.T) {
 func TestTrimReIPList(t *testing.T) {
 	// build a stub exec context
 	log := vlog.Printer{}
+	var op NMAReIPOp
 	execContext := makeOpEngineExecContext(log)
 
 	// build a stub NmaVDatabase
@@ -87,10 +88,10 @@ func TestTrimReIPList(t *testing.T) {
 
 	// build a stub re-ip list
 	// which has an extra node compared to the actual NmaVDatabase
-	var op NMAReIPOp
 	for i := 0; i < 4; i++ {
 		var reIPInfo ReIPInfo
 		reIPInfo.NodeName = fmt.Sprintf("v_%s_node000%d", dbName, i+1)
+		reIPInfo.NodeAddress = fmt.Sprintf("vnode%d", i+1)
 		reIPInfo.TargetAddress = fmt.Sprintf("vnode_new_%d", i+1)
 		op.reIPList = append(op.reIPList, reIPInfo)
 	}
@@ -98,7 +99,13 @@ func TestTrimReIPList(t *testing.T) {
 	// re-ip list before trimming
 	assert.Equal(t, len(op.reIPList), 4)
 
+	err := op.trimReIPList(&execContext)
+	assert.ErrorContains(t, err,
+		"the following nodes from the re-ip list do not exist in the catalog")
+
 	// re-ip list after trimming: the extra node is trimmed off
-	op.trimReIPList(&execContext)
+	op.trimReIPData = true
+	err = op.trimReIPList(&execContext)
+	assert.NoError(t, err)
 	assert.Equal(t, len(op.reIPList), 3)
 }

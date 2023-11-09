@@ -26,8 +26,11 @@ import (
 type VStartDatabaseOptions struct {
 	// basic db info
 	DatabaseOptions
-	// Timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
-	StatePollingTimeout int
+	// timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
+	StatePollingTimeout *int
+
+	// hidden option
+	TrimHostList *bool
 }
 
 func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
@@ -35,6 +38,7 @@ func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
 
 	// set default values to the params
 	opt.setDefaultValues()
+
 	return opt
 }
 
@@ -98,7 +102,7 @@ func (options *VStartDatabaseOptions) validateAnalyzeOptions(log vlog.Printer) e
 func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error {
 	/*
 	 *   - Produce Instructions
-	 *   - Create a VClusterOpEngine
+	 *   - Create VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
@@ -121,11 +125,11 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	}
 
 	// set default value to StatePollingTimeout
-	if options.StatePollingTimeout == 0 {
-		options.StatePollingTimeout = util.DefaultStatePollingTimeout
+	if *options.StatePollingTimeout == 0 {
+		*options.StatePollingTimeout = util.DefaultStatePollingTimeout
 	}
 
-	var pVDB *VCoordinationDatabase
+	var vdb VCoordinationDatabase
 	// retrieve database information from cluster_config.json for EON databases
 	isEon, err := options.isEonMode(options.Config)
 	if err != nil {
@@ -134,13 +138,13 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 	if isEon {
 		if *options.CommunalStorageLocation != "" {
-			vdb, e := options.getVDBWhenDBIsDown(vcc)
+			vdbNew, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {
 				return e
 			}
 			// we want to read catalog info only from primary nodes later
-			vdb.filterPrimaryNodes()
-			pVDB = &vdb
+			vdbNew.filterPrimaryNodes()
+			vdb = vdbNew
 		} else {
 			// When communal storage location is missing, we only log a warning message
 			// because fail to read cluster_config.json will not affect start_db in most of the cases.
@@ -149,13 +153,19 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 		}
 	}
 
+	// start_db pre-checks and get basic info
+	err = vcc.runStartDBPrecheck(options, &vdb)
+	if err != nil {
+		return err
+	}
+
 	// produce start_db instructions
-	instructions, err := vcc.produceStartDBInstructions(options, pVDB)
+	instructions, err := vcc.produceStartDBInstructions(options, &vdb)
 	if err != nil {
 		return fmt.Errorf("fail to production instructions: %w", err)
 	}
 
-	// create a VClusterOpEngine, and add certs to the engine
+	// create a VClusterOpEngine for start_db instructions, and add certs to the engine
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
@@ -168,20 +178,54 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	return nil
 }
 
-// produceStartDBInstructions will build a list of instructions to execute for
+func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) error {
+	// pre-instruction to perform basic checks and get basic information
+	preInstructions, err := vcc.produceStartDBPreCheck(options, vdb)
+	if err != nil {
+		return fmt.Errorf("fail to production instructions: %w", err)
+	}
+
+	// create a VClusterOpEngine for pre-check, and add certs to the engine
+	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := makeClusterOpEngine(preInstructions, &certs)
+	runError := clusterOpEngine.run(vcc.Log)
+	if runError != nil {
+		return fmt.Errorf("fail to start database pre-checks: %w", runError)
+	}
+
+	// if TrimHostList is true,
+	// update the host list as some provided hosts may not exist in the catalog
+	if *options.TrimHostList {
+		var trimmedHostList []string
+		var extraHosts []string
+
+		for _, h := range options.Hosts {
+			if _, exist := vdb.HostNodeMap[h]; exist {
+				trimmedHostList = append(trimmedHostList, h)
+			} else {
+				extraHosts = append(extraHosts, h)
+			}
+		}
+
+		if len(extraHosts) > 0 {
+			vcc.Log.PrintInfo("The following hosts will be trimmed as they are not found in catalog: %+v",
+				extraHosts)
+			options.Hosts = trimmedHostList
+		}
+	}
+
+	return nil
+}
+
+// produceStartDBPreCheck will build a list of pre-check instructions to execute for
 // the start_db command.
 //
 // The generated instructions will later perform the following operations necessary
 // for a successful start_db:
 //   - Check NMA connectivity
-//   - Check to see if any dbs running
-//   - Use NMA /catalog/database to get the best source node for spread.conf and vertica.conf
-//   - Check Vertica versions
-//   - Sync the confs to the rest of nodes who have lower catalog version (results from the previous step)
-//   - Start all nodes of the database
-//   - Poll node startup
-//   - Sync catalog (Eon mode only)
-func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
+//   - Check to see if any dbs run
+//   - Get nodes' information by calling the NMA /nodes endpoint
+func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
 	var instructions []ClusterOp
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
@@ -202,12 +246,28 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	)
 
 	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
-	if vdb == nil {
-		vdb = new(VCoordinationDatabase)
+	if len(vdb.HostNodeMap) == 0 {
 		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, options.Hosts, *options.DBName, *options.CatalogPrefix,
-			false /* report all errors */, vdb)
+			true /* ignore internal errors */, vdb)
 		instructions = append(instructions, &nmaGetNodesInfoOp)
 	}
+
+	return instructions, nil
+}
+
+// produceStartDBInstructions will build a list of instructions to execute for
+// the start_db command.
+//
+// The generated instructions will later perform the following operations necessary
+// for a successful start_db:
+//   - Use NMA /catalog/database to get the best source node for spread.conf and vertica.conf
+//   - Check Vertica versions
+//   - Sync the confs to the rest of nodes who have lower catalog version (results from the previous step)
+//   - Start all nodes of the database
+//   - Poll node startup
+//   - Sync catalog (Eon mode only)
+func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
+	var instructions []ClusterOp
 
 	// vdb here should contains only primary nodes
 	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdb)
@@ -239,7 +299,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 
 	nmaStartNewNodesOp := makeNMAStartNodeOp(vcc.Log, options.Hosts)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vcc.Log, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout, StartDBCmd)
+		options.usePassword, *options.UserName, options.Password, *options.StatePollingTimeout, StartDBCmd)
 	if err != nil {
 		return instructions, err
 	}

@@ -34,6 +34,7 @@ func makeHTTPRequestDispatcher(log vlog.Printer) HTTPRequestDispatcher {
 func (dispatcher *HTTPRequestDispatcher) setup(hosts []string) {
 	dispatcher.pool = getPoolInstance(dispatcher.log)
 
+	dispatcher.pool.connections = make(map[string]Adapter)
 	for _, host := range hosts {
 		adapter := makeHTTPAdapter(dispatcher.log)
 		adapter.host = host

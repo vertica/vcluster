@@ -128,7 +128,7 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 
 // trimReIPList removes nodes, based on catalog editor info,
 // which are not among the nodes with latest catalog
-func (op *NMAReIPOp) trimReIPList(execContext *OpEngineExecContext) {
+func (op *NMAReIPOp) trimReIPList(execContext *OpEngineExecContext) error {
 	nodeNamesWithLatestCatalog := make(map[string]struct{})
 	for i := range execContext.nmaVDatabase.Nodes {
 		vnode := execContext.nmaVDatabase.Nodes[i]
@@ -136,17 +136,54 @@ func (op *NMAReIPOp) trimReIPList(execContext *OpEngineExecContext) {
 	}
 
 	var trimmedReIPList []ReIPInfo
+	nodesToTrim := make(map[string]string)
 	for _, reIPInfo := range op.reIPList {
 		if _, exist := nodeNamesWithLatestCatalog[reIPInfo.NodeName]; exist {
 			trimmedReIPList = append(trimmedReIPList, reIPInfo)
+		} else {
+			nodesToTrim[reIPInfo.NodeName] = reIPInfo.NodeAddress
 		}
 	}
 
-	if len(trimmedReIPList) < len(op.reIPList) {
+	if len(nodesToTrim) > 0 {
+		// throw an error if not automatically trim the re-ip list
+		if !op.trimReIPData {
+			return fmt.Errorf("[%s] the following nodes from the re-ip list do not exist in the catalog: %+v",
+				op.name, nodesToTrim)
+		}
+
+		// otherwise, trim the re-ip list
 		op.log.Info("re-ip list is trimmed", "trimmed re-ip list", trimmedReIPList)
 	}
 
 	op.reIPList = trimmedReIPList
+	return nil
+}
+
+// whetherSkipReIP decides whether skip calling the re-ip endpoint; skip it in case that
+// the target addresses in the re-ip list match the node addresses in catalog.
+// Return true if skip.
+func (op *NMAReIPOp) whetherSkipReIP(execContext *OpEngineExecContext) bool {
+	// node name to address map retrieved from catalog
+	nodeAddressMap := make(map[string]string)
+	for h, n := range execContext.nmaVDatabase.HostNodeMap {
+		nodeAddressMap[n.Name] = h
+	}
+
+	// we should run re-ip if any node's target address is different from its existing one
+	for _, reIPInfo := range op.reIPList {
+		nodeAddress, exist := nodeAddressMap[reIPInfo.NodeName]
+		if !exist {
+			return false
+		}
+		if reIPInfo.TargetAddress != nodeAddress {
+			return false
+		}
+	}
+
+	op.log.PrintInfo("[%s] all target addresses already exist in the catalog, no need to re-ip.",
+		op.name)
+	return true
 }
 
 func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
@@ -193,8 +230,16 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 	}
 
 	// trim re-ip list for clients such as K8s
-	if op.trimReIPData {
-		op.trimReIPList(execContext)
+	err = op.trimReIPList(execContext)
+	if err != nil {
+		return err
+	}
+
+	// if no new IP provided in the re-ip list
+	// we will skip calling the re-ip endpoint
+	if op.whetherSkipReIP(execContext) {
+		op.skipExecute = true
+		return nil
 	}
 
 	// build request body for hosts
