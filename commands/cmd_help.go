@@ -48,8 +48,8 @@ func (c CmdHelp) CommandType() string {
 	return "help"
 }
 
-func (c *CmdHelp) Parse(inputArgv []string, log vlog.Printer) error {
-	log.LogArgParse(&inputArgv)
+func (c *CmdHelp) Parse(inputArgv []string, logger vlog.Printer) error {
+	logger.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
@@ -61,11 +61,11 @@ func (c *CmdHelp) Parse(inputArgv []string, log vlog.Printer) error {
 		return err
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdHelp) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdHelp) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 	return nil
 }
 

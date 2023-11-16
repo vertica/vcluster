@@ -40,24 +40,24 @@ func (c *CmdReIP) CommandType() string {
 	return "re_ip"
 }
 
-func (c *CmdReIP) Parse(inputArgv []string, log vlog.Printer) error {
-	log.LogArgParse(&inputArgv)
+func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
+	logger.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdReIP) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdReIP) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	// parse raw host str input into a []string
 	err := c.parseHostList(&c.reIPOptions.DatabaseOptions)

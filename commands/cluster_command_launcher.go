@@ -62,11 +62,11 @@ const defaultLogPath = "/opt/vertica/log/vcluster.log"
 func MakeClusterCommandLauncher() (ClusterCommandLauncher, vclusterops.VClusterCommands) {
 	// setup logs for command launcher initialization
 	userCommandString := os.Args[1]
-	log := vlog.Printer{ForCli: true}
+	logger := vlog.Printer{ForCli: true}
 	logPath := parseLogPathArg(os.Args, defaultLogPath)
-	log.SetupOrDie(logPath)
+	logger.SetupOrDie(logPath)
 	vcc := vclusterops.VClusterCommands{
-		Log: log.WithName(userCommandString),
+		Log: logger.WithName(userCommandString),
 	}
 	vcc.Log.Info("New vcluster command initialization")
 	newLauncher := ClusterCommandLauncher{}
@@ -175,14 +175,14 @@ func (c ClusterCommandLauncher) Run(inputArgv []string, vcc vclusterops.VCluster
 }
 
 func identifySubcommand(commands map[string]ClusterCommand, userCommandString string,
-	log vlog.Printer) (ClusterCommand, error) {
+	logger vlog.Printer) (ClusterCommand, error) {
 	command, ok := commands[userCommandString]
 	if !ok {
 		return nil, fmt.Errorf("unrecognized command '%s'",
 			userCommandString)
 	}
 
-	log.Log.Info("Recognized command", "cmd", userCommandString)
+	logger.Log.Info("Recognized command", "cmd", userCommandString)
 	return command, nil
 }
 

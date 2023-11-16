@@ -46,11 +46,11 @@ type loadRemoteCatalogRequestData struct {
 	Parameters         map[string]string   `json:"parameters,omitempty"`
 }
 
-func makeNMALoadRemoteCatalogOp(log vlog.Printer, oldHosts []string, configurationParameters map[string]string,
+func makeNMALoadRemoteCatalogOp(logger vlog.Printer, oldHosts []string, configurationParameters map[string]string,
 	vdb *VCoordinationDatabase, timeout uint) nmaLoadRemoteCatalogOp {
 	op := nmaLoadRemoteCatalogOp{}
 	op.name = "NMALoadRemoteCatalogOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.hosts = vdb.HostList
 	op.oldHosts = oldHosts
 	op.configurationParameters = configurationParameters
@@ -180,7 +180,7 @@ func (op *nmaLoadRemoteCatalogOp) processResult(_ *OpEngineExecContext) error {
 	// quorum check
 	if !op.hasQuorum(successPrimaryNodeCount, op.primaryNodeCount) {
 		err := fmt.Errorf("[%s] fail to load catalog on enough primary nodes. Success count: %d", op.name, successPrimaryNodeCount)
-		op.log.Error(err, "fail to load catalog, detail")
+		op.logger.Error(err, "fail to load catalog, detail")
 		allErrs = errors.Join(allErrs, err)
 		return allErrs
 	}

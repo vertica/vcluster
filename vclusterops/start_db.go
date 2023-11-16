@@ -39,6 +39,9 @@ func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
 	// set default values to the params
 	opt.setDefaultValues()
 
+	opt.StatePollingTimeout = new(int)
+	opt.TrimHostList = new(bool)
+
 	return opt
 }
 
@@ -46,8 +49,8 @@ func (options *VStartDatabaseOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
 }
 
-func (options *VStartDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.validateBaseOptions("start_db", log)
+func (options *VStartDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions("start_db", logger)
 	if err != nil {
 		return err
 	}
@@ -70,9 +73,9 @@ func (options *VStartDatabaseOptions) validateEonOptions() error {
 	return nil
 }
 
-func (options *VStartDatabaseOptions) validateParseOptions(log vlog.Printer) error {
+func (options *VStartDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := options.validateRequiredOptions(log)
+	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -92,8 +95,8 @@ func (options *VStartDatabaseOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VStartDatabaseOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	if err := options.validateParseOptions(log); err != nil {
+func (options *VStartDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
 	return options.analyzeOptions()

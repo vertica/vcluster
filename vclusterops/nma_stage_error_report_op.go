@@ -22,63 +22,51 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAStageVerticaLogsOp struct {
+type NMAStageErrorReportOp struct {
 	ScrutinizeOpBase
-	logSizeLimitBytes int64
-	logAgeHours       int // The maximum age of archieved logs in hours to retrieve
 }
 
-type stageVerticaLogsRequestData struct {
-	CatalogPath       string `json:"catalog_path"`
-	LogSizeLimitBytes int64  `json:"log_size_limit_bytes"`
-	LogAgeHours       int    `json:"log_age_hours"`
+type stageErrorReportRequestData struct {
+	CatalogPath string `json:"catalog_path"`
 }
 
-type stageVerticaLogsResponseData struct {
+type stageErrorReportResponseData struct {
 	Name      string `json:"name"`
 	SizeBytes int64  `json:"size_bytes"`
 	ModTime   string `json:"mod_time"`
 }
 
-func makeNMAStageVerticaLogsOp(logger vlog.Printer,
+func makeNMAStageErrorReportOp(logger vlog.Printer,
 	id string,
 	hosts []string,
 	hostNodeNameMap map[string]string,
-	hostCatPathMap map[string]string,
-	logSizeLimitBytes int64,
-	logAgeHours int) (NMAStageVerticaLogsOp, error) {
+	hostCatPathMap map[string]string) (NMAStageErrorReportOp, error) {
 	// base members
-	op := NMAStageVerticaLogsOp{}
-	op.name = "NMAStageVerticaLogsOp"
+	op := NMAStageErrorReportOp{}
+	op.name = "NMAStageErrorReportOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 
 	// scrutinize members
 	op.id = id
-	op.batch = scrutinizeBatchNormal
+	op.batch = scrutinizeBatchContext
 	op.hostNodeNameMap = hostNodeNameMap
 	op.hostCatPathMap = hostCatPathMap
 	op.httpMethod = PostMethod
-	op.urlSuffix = "/vertica.log"
-
-	// custom members
-	op.logSizeLimitBytes = logSizeLimitBytes
-	op.logAgeHours = logAgeHours
+	op.urlSuffix = "/ErrorReport.txt"
 
 	// the caller is responsible for making sure hosts and maps match up exactly
 	err := validateHostMaps(hosts, hostNodeNameMap, hostCatPathMap)
 	return op, err
 }
 
-func (op *NMAStageVerticaLogsOp) setupRequestBody(hosts []string) error {
+func (op *NMAStageErrorReportOp) setupRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string, len(hosts))
 	for _, host := range hosts {
-		stageVerticaLogsData := stageVerticaLogsRequestData{}
-		stageVerticaLogsData.CatalogPath = op.hostCatPathMap[host]
-		stageVerticaLogsData.LogSizeLimitBytes = op.logSizeLimitBytes
-		stageVerticaLogsData.LogAgeHours = op.logAgeHours
+		stageErrorReportData := stageErrorReportRequestData{}
+		stageErrorReportData.CatalogPath = op.hostCatPathMap[host]
 
-		dataBytes, err := json.Marshal(stageVerticaLogsData)
+		dataBytes, err := json.Marshal(stageErrorReportData)
 		if err != nil {
 			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
 		}
@@ -89,7 +77,7 @@ func (op *NMAStageVerticaLogsOp) setupRequestBody(hosts []string) error {
 	return nil
 }
 
-func (op *NMAStageVerticaLogsOp) prepare(execContext *OpEngineExecContext) error {
+func (op *NMAStageErrorReportOp) prepare(execContext *OpEngineExecContext) error {
 	err := op.setupRequestBody(op.hosts)
 	if err != nil {
 		return err
@@ -99,7 +87,7 @@ func (op *NMAStageVerticaLogsOp) prepare(execContext *OpEngineExecContext) error
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAStageVerticaLogsOp) execute(execContext *OpEngineExecContext) error {
+func (op *NMAStageErrorReportOp) execute(execContext *OpEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -107,11 +95,11 @@ func (op *NMAStageVerticaLogsOp) execute(execContext *OpEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *NMAStageVerticaLogsOp) finalize(_ *OpEngineExecContext) error {
+func (op *NMAStageErrorReportOp) finalize(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAStageVerticaLogsOp) processResult(_ *OpEngineExecContext) error {
-	fileList := make([]stageVerticaLogsResponseData, 0)
+func (op *NMAStageErrorReportOp) processResult(_ *OpEngineExecContext) error {
+	fileList := make([]stageErrorReportResponseData, 0)
 	return processStagedFilesResult(&op.ScrutinizeOpBase, fileList)
 }

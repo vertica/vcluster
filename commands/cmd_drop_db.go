@@ -47,9 +47,9 @@ func (c *CmdDropDB) CommandType() string {
 	return "drop_db"
 }
 
-func (c *CmdDropDB) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -64,14 +64,14 @@ func (c *CmdDropDB) Parse(inputArgv []string, log vlog.Printer) error {
 		c.CmdBase.ipv6 = nil
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdDropDB) validateParse(log vlog.Printer) error {
+func (c *CmdDropDB) validateParse(logger vlog.Printer) error {
 	if !util.IsOptionSet(c.parser, "password") {
 		c.dropDBOptions.Password = nil
 	}
-	log.Info("Called validateParse()")
+	logger.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
 }
 
@@ -88,6 +88,6 @@ func (c *CmdDropDB) Run(vcc vclusterops.VClusterCommands) error {
 		return err
 	}
 
-	vcc.Log.PrintInfo("Successfully dropped database %s\n", *c.dropDBOptions.DBName)
+	vcc.Log.PrintInfo("Successfully dropped database %s", *c.dropDBOptions.DBName)
 	return nil
 }

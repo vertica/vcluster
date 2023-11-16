@@ -85,9 +85,9 @@ func (c *CmdStopDB) CommandType() string {
 	return "stop_db"
 }
 
-func (c *CmdStopDB) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -111,17 +111,17 @@ func (c *CmdStopDB) Parse(inputArgv []string, log vlog.Printer) error {
 		c.stopDBOptions.ConfigDirectory = nil
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
 // all validations of the arguments should go in here
-func (c *CmdStopDB) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdStopDB) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
 }
 
-func (c *CmdStopDB) Analyze(log vlog.Printer) error {
-	log.Info("Called method Analyze()")
+func (c *CmdStopDB) Analyze(logger vlog.Printer) error {
+	logger.Info("Called method Analyze()")
 	return nil
 }
 

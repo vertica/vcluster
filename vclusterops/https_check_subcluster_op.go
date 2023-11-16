@@ -30,11 +30,11 @@ type HTTPSCheckSubclusterOp struct {
 	ctlSetSize  int
 }
 
-func makeHTTPSCheckSubclusterOp(log vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSCheckSubclusterOp(logger vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
 	scName string, isPrimary bool, ctlSetSize int) (HTTPSCheckSubclusterOp, error) {
 	httpsCheckSubclusterOp := HTTPSCheckSubclusterOp{}
 	httpsCheckSubclusterOp.name = "HTTPSCheckSubclusterOp"
-	httpsCheckSubclusterOp.log = log.WithName(httpsCheckSubclusterOp.name)
+	httpsCheckSubclusterOp.logger = logger.WithName(httpsCheckSubclusterOp.name)
 	httpsCheckSubclusterOp.scName = scName
 	httpsCheckSubclusterOp.isSecondary = !isPrimary
 	httpsCheckSubclusterOp.ctlSetSize = ctlSetSize

@@ -216,3 +216,10 @@ func (p *Printer) SetupOrDie(logFile string) {
 	p.Log = zapr.NewLogger(zapLg)
 	p.Log.Info("Successfully started logger", "logFile", logFile)
 }
+
+// PrintWithIndent prints message to console only with an indentation
+func PrintWithIndent(msg string, v ...any) {
+	// the indent level may be adjusted
+	const indentLevel = 2
+	fmt.Printf("%*s%s\n", indentLevel, "", fmt.Sprintf(msg, v...))
+}

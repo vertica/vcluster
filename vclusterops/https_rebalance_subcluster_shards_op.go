@@ -32,11 +32,11 @@ type HTTPSRebalanceSubclusterShardsOp struct {
 }
 
 // makeHTTPSRebalanceSubclusterShardsOp creates an op that calls vertica-http service to rebalance shards of a subcluster
-func makeHTTPSRebalanceSubclusterShardsOp(log vlog.Printer, bootstrapHost []string, useHTTPPassword bool, userName string,
+func makeHTTPSRebalanceSubclusterShardsOp(logger vlog.Printer, bootstrapHost []string, useHTTPPassword bool, userName string,
 	httpsPassword *string, scName string) (HTTPSRebalanceSubclusterShardsOp, error) {
 	httpsRBSCShardsOp := HTTPSRebalanceSubclusterShardsOp{}
 	httpsRBSCShardsOp.name = "HTTPSRebalanceSubclusterShardsOp"
-	httpsRBSCShardsOp.log = log.WithName(httpsRBSCShardsOp.name)
+	httpsRBSCShardsOp.logger = logger.WithName(httpsRBSCShardsOp.name)
 	httpsRBSCShardsOp.hosts = bootstrapHost
 	httpsRBSCShardsOp.scName = scName
 

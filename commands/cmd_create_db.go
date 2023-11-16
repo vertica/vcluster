@@ -115,9 +115,9 @@ func (c *CmdCreateDB) CommandType() string {
 	return "create_db"
 }
 
-func (c *CmdCreateDB) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdCreateDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseMaskedArgv(c.CommandType(), log)
+	err := c.ValidateParseMaskedArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -139,12 +139,12 @@ func (c *CmdCreateDB) Parse(inputArgv []string, log vlog.Printer) error {
 		c.createDBOptions.IsEon = vstruct.False
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
 // all validations of the arguments should go in here
-func (c *CmdCreateDB) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdCreateDB) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	// parse raw host str input into a []string of createDBOptions
 	err := c.createDBOptions.ParseHostList(*c.hostListStr)
@@ -166,8 +166,8 @@ func (c *CmdCreateDB) validateParse(log vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdCreateDB) Analyze(log vlog.Printer) error {
-	log.Info("Called method Analyze()")
+func (c *CmdCreateDB) Analyze(logger vlog.Printer) error {
+	logger.Info("Called method Analyze()")
 	return nil
 }
 

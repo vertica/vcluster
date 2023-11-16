@@ -60,9 +60,9 @@ func (c *CmdReviveDB) CommandType() string {
 	return "revive_db"
 }
 
-func (c *CmdReviveDB) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseMaskedArgv(c.CommandType(), log)
+	err := c.ValidateParseMaskedArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -74,11 +74,11 @@ func (c *CmdReviveDB) Parse(inputArgv []string, log vlog.Printer) error {
 		c.CmdBase.ipv6 = nil
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdReviveDB) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdReviveDB) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	// check the format of configuration params string, and parse it into configParams
 	configurationParams, err := util.ParseConfigParams(*c.configurationParams)
@@ -100,8 +100,8 @@ func (c *CmdReviveDB) validateParse(log vlog.Printer) error {
 	return c.ValidateParseBaseOptions(&c.reviveDBOptions.DatabaseOptions)
 }
 
-func (c *CmdReviveDB) Analyze(log vlog.Printer) error {
-	log.Info("Called method Analyze()")
+func (c *CmdReviveDB) Analyze(logger vlog.Printer) error {
+	logger.Info("Called method Analyze()")
 	return nil
 }
 

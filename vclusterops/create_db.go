@@ -182,12 +182,12 @@ func (opt *VCreateDatabaseOptions) checkExtraNilPointerParams() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
+func (opt *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
 	// validate required parameters with default values
 	if opt.Password == nil {
 		opt.Password = new(string)
 		*opt.Password = ""
-		log.Info("no password specified, using none")
+		logger.Info("no password specified, using none")
 	}
 
 	if !util.StringInArray(*opt.Policy, util.RestartPolicyList) {
@@ -315,7 +315,7 @@ func (opt *VCreateDatabaseOptions) validateExtraOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateParseOptions(log vlog.Printer) error {
+func (opt *VCreateDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
 	// check nil pointers in the required options
 	err := opt.checkNilPointerParams()
 	if err != nil {
@@ -323,13 +323,13 @@ func (opt *VCreateDatabaseOptions) validateParseOptions(log vlog.Printer) error 
 	}
 
 	// validate base options
-	err = opt.validateBaseOptions("create_db", log)
+	err = opt.validateBaseOptions("create_db", logger)
 	if err != nil {
 		return err
 	}
 
 	// batch 1: validate required parameters without default values
-	err = opt.validateRequiredOptions(log)
+	err = opt.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -368,8 +368,8 @@ func (opt *VCreateDatabaseOptions) analyzeOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	if err := opt.validateParseOptions(log); err != nil {
+func (opt *VCreateDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := opt.validateParseOptions(logger); err != nil {
 		return err
 	}
 	return opt.analyzeOptions()

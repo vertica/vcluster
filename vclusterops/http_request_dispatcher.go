@@ -22,21 +22,21 @@ type HTTPRequestDispatcher struct {
 	pool AdapterPool
 }
 
-func makeHTTPRequestDispatcher(log vlog.Printer) HTTPRequestDispatcher {
+func makeHTTPRequestDispatcher(logger vlog.Printer) HTTPRequestDispatcher {
 	newHTTPRequestDispatcher := HTTPRequestDispatcher{}
 	newHTTPRequestDispatcher.name = "HTTPRequestDispatcher"
-	newHTTPRequestDispatcher.log = log.WithName(newHTTPRequestDispatcher.name)
+	newHTTPRequestDispatcher.logger = logger.WithName(newHTTPRequestDispatcher.name)
 
 	return newHTTPRequestDispatcher
 }
 
 // set up the pool connection for each host
 func (dispatcher *HTTPRequestDispatcher) setup(hosts []string) {
-	dispatcher.pool = getPoolInstance(dispatcher.log)
+	dispatcher.pool = getPoolInstance(dispatcher.logger)
 
 	dispatcher.pool.connections = make(map[string]Adapter)
 	for _, host := range hosts {
-		adapter := makeHTTPAdapter(dispatcher.log)
+		adapter := makeHTTPAdapter(dispatcher.logger)
 		adapter.host = host
 		dispatcher.pool.connections[host] = &adapter
 	}
@@ -45,16 +45,16 @@ func (dispatcher *HTTPRequestDispatcher) setup(hosts []string) {
 // set up the pool connection for each host to download a file
 func (dispatcher *HTTPRequestDispatcher) setupForDownload(hosts []string,
 	hostToFilePathsMap map[string]string) {
-	dispatcher.pool = getPoolInstance(dispatcher.log)
+	dispatcher.pool = getPoolInstance(dispatcher.logger)
 
 	for _, host := range hosts {
-		adapter := makeHTTPDownloadAdapter(dispatcher.log, hostToFilePathsMap[host])
+		adapter := makeHTTPDownloadAdapter(dispatcher.logger, hostToFilePathsMap[host])
 		adapter.host = host
 		dispatcher.pool.connections[host] = &adapter
 	}
 }
 
 func (dispatcher *HTTPRequestDispatcher) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) error {
-	dispatcher.log.Info("HTTP request dispatcher's sendRequest is called")
+	dispatcher.logger.Info("HTTP request dispatcher's sendRequest is called")
 	return dispatcher.pool.sendRequest(clusterHTTPRequest)
 }

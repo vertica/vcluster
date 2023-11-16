@@ -25,29 +25,31 @@ import (
 )
 
 type NMAGetScrutinizeTarOp struct {
-	OpBase
-	id              string
-	hostNodeNameMap map[string]string // must correspond to host list exactly!
-	batch           string
+	ScrutinizeOpBase
 }
 
-func makeNMAGetScrutinizeTarOp(log vlog.Printer,
+func makeNMAGetScrutinizeTarOp(logger vlog.Printer,
 	id, batch string,
 	hosts []string,
 	hostNodeNameMap map[string]string) (NMAGetScrutinizeTarOp, error) {
+	// base members
 	op := NMAGetScrutinizeTarOp{}
 	op.name = "NMAGetScrutinizeTarOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+
+	// scrutinize members
 	op.id = id
 	op.batch = batch
 	op.hostNodeNameMap = hostNodeNameMap
-	op.hosts = hosts
+	op.httpMethod = GetMethod
 
 	// the caller is responsible for making sure hosts and maps match up exactly
 	err := validateHostMaps(hosts, hostNodeNameMap)
 	if err != nil {
 		return op, err
 	}
+
 	err = op.createOutputDir()
 	return op, err
 }
@@ -69,23 +71,6 @@ func (op *NMAGetScrutinizeTarOp) createOutputDir() error {
 	if stagingDirPathAccess == util.NoWritePerm {
 		return fmt.Errorf("scrutinize output directory not writeable: '%s'", outputDir)
 	}
-	return nil
-}
-
-func (op *NMAGetScrutinizeTarOp) setupClusterHTTPRequest(hosts []string) error {
-	op.clusterHTTPRequest = ClusterHTTPRequest{}
-	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
-	op.setVersionToSemVar()
-
-	for _, host := range hosts {
-		nodeName := op.hostNodeNameMap[host]
-
-		httpRequest := HostHTTPRequest{}
-		httpRequest.Method = GetMethod
-		httpRequest.buildNMAEndpoint(scrutinizeURLPrefix + op.id + "/" + nodeName + "/" + op.batch)
-		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
-	}
-
 	return nil
 }
 
@@ -122,17 +107,17 @@ func (op *NMAGetScrutinizeTarOp) processResult(_ *OpEngineExecContext) error {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			op.log.Info("Retrieved tarball",
+			op.logger.Info("Retrieved tarball",
 				"Host", host,
 				"Node", op.hostNodeNameMap[host],
 				"Batch", op.batch)
 		} else {
-			op.log.Error(result.err, "Failed to retrieve tarball",
+			op.logger.Error(result.err, "Failed to retrieve tarball",
 				"Host", host,
 				"Node", op.hostNodeNameMap[host],
 				"Batch", op.batch)
 			if result.isInternalError() {
-				op.log.PrintWarning("Failed to tar batch %s on host %s. Skipping.", op.batch, host)
+				op.logger.PrintWarning("Failed to tar batch %s on host %s. Skipping.", op.batch, host)
 			} else {
 				err := fmt.Errorf("failed to retrieve tarball batch %s on host %s, details %w",
 					op.batch, host, result.err)

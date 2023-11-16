@@ -39,9 +39,9 @@ func (c *CmdListAllNodes) CommandType() string {
 	return "list_allnodes"
 }
 
-func (c *CmdListAllNodes) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -53,11 +53,11 @@ func (c *CmdListAllNodes) Parse(inputArgv []string, log vlog.Printer) error {
 		c.fetchNodeStateOptions.Password = nil
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdListAllNodes) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdListAllNodes) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	// parse raw host str input into a []string
 	err := c.parseHostList(&c.fetchNodeStateOptions.DatabaseOptions)

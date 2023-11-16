@@ -29,7 +29,7 @@ type HTTPSDropNodeOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSDropNodeOp(log vlog.Printer, vnode string,
+func makeHTTPSDropNodeOp(logger vlog.Printer, vnode string,
 	initiatorHost []string,
 	useHTTPPassword bool,
 	userName string,
@@ -37,7 +37,7 @@ func makeHTTPSDropNodeOp(log vlog.Printer, vnode string,
 	isEon bool) (HTTPSDropNodeOp, error) {
 	dropNodeOp := HTTPSDropNodeOp{}
 	dropNodeOp.name = "HTTPSDropNodeOp"
-	dropNodeOp.log = log.WithName(dropNodeOp.name)
+	dropNodeOp.logger = logger.WithName(dropNodeOp.name)
 	dropNodeOp.hosts = initiatorHost
 	dropNodeOp.targetHost = vnode
 	dropNodeOp.useHTTPPassword = useHTTPPassword

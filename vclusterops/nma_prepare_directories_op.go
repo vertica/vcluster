@@ -41,11 +41,11 @@ type prepareDirectoriesRequestData struct {
 	IgnoreParent         bool     `json:"ignore_parent"`
 }
 
-func makeNMAPrepareDirectoriesOp(log vlog.Printer, hostNodeMap vHostNodeMap,
+func makeNMAPrepareDirectoriesOp(logger vlog.Printer, hostNodeMap vHostNodeMap,
 	forceCleanup, forRevive bool) (NMAPrepareDirectoriesOp, error) {
 	nmaPrepareDirectoriesOp := NMAPrepareDirectoriesOp{}
 	nmaPrepareDirectoriesOp.name = "NMAPrepareDirectoriesOp"
-	nmaPrepareDirectoriesOp.log = log.WithName(nmaPrepareDirectoriesOp.name)
+	nmaPrepareDirectoriesOp.logger = logger.WithName(nmaPrepareDirectoriesOp.name)
 	nmaPrepareDirectoriesOp.forceCleanup = forceCleanup
 	nmaPrepareDirectoriesOp.forRevive = forRevive
 
@@ -79,7 +79,7 @@ func (op *NMAPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) er
 
 		op.hostRequestBodyMap[host] = string(dataBytes)
 	}
-	op.log.Info("request data", "op name", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
+	op.logger.Info("request data", "op name", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
 
 	return nil
 }

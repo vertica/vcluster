@@ -99,10 +99,10 @@ func (c *CmdScrutinize) CommandType() string {
 	return vclusterops.VScrutinizeTypeName
 }
 
-func (c *CmdScrutinize) Parse(inputArgv []string, log vlog.Printer) error {
-	log.PrintInfo("Parsing scrutinize command input")
+func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
+	logger.PrintInfo("Parsing scrutinize command input")
 	c.argv = inputArgv
-	err := c.ValidateParseMaskedArgv(c.CommandType(), log)
+	err := c.ValidateParseMaskedArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -125,20 +125,20 @@ func (c *CmdScrutinize) Parse(inputArgv []string, log vlog.Printer) error {
 	}
 
 	// parses host list and ipv6 - eon is irrelevant but handled
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
 // all validations of the arguments should go in here
-func (c *CmdScrutinize) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
 }
 
-func (c *CmdScrutinize) Analyze(log vlog.Printer) error {
-	log.Info("Called method Analyze()")
+func (c *CmdScrutinize) Analyze(logger vlog.Printer) error {
+	logger.Info("Called method Analyze()")
 
 	// set cert/key values from env k8s
-	err := c.updateCertTextsFromk8s(log)
+	err := c.updateCertTextsFromk8s(logger)
 	if err != nil {
 		return err
 	}
@@ -146,13 +146,13 @@ func (c *CmdScrutinize) Analyze(log vlog.Printer) error {
 	var allErrs error
 	port, found := os.LookupEnv(kubernetesPort)
 	if found && port != "" && *c.sOptions.HonorUserInput {
-		log.Info(kubernetesPort, " is set, k8s environment detected", found)
+		logger.Info(kubernetesPort, " is set, k8s environment detected", found)
 		dbName, found := os.LookupEnv(databaseName)
 		if !found || dbName == "" {
 			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get database name from environment variable. "))
 		} else {
 			c.sOptions.DBName = &dbName
-			log.Info("Setting database name from env as", "DBName", *c.sOptions.DBName)
+			logger.Info("Setting database name from env as", "DBName", *c.sOptions.DBName)
 		}
 
 		catPrefix, found := os.LookupEnv(catalogPathPref)
@@ -160,7 +160,7 @@ func (c *CmdScrutinize) Analyze(log vlog.Printer) error {
 			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get catalog path from environment variable. "))
 		} else {
 			c.sOptions.CatalogPrefix = &catPrefix
-			log.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
+			logger.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
 		}
 		if allErrs != nil {
 			return allErrs
@@ -226,12 +226,12 @@ func (k8sSecretRetrieverStruct) RetrieveSecret(namespace, secretName string) (ca
 
 // updateCertTextsFromk8s retrieves PEM-encoded text of CA certs, the server cert, and
 // the server key from kubernetes.
-func (c *CmdScrutinize) updateCertTextsFromk8s(log vlog.Printer) error {
+func (c *CmdScrutinize) updateCertTextsFromk8s(logger vlog.Printer) error {
 	_, portSet := os.LookupEnv(kubernetesPort)
 	if !portSet {
 		return nil
 	}
-	log.Info("K8s environment")
+	logger.Info("K8s environment")
 	secretNameSpace, nameSpaceSet := os.LookupEnv(secretNameSpaceEnvVar)
 	secretName, nameSet := os.LookupEnv(secretNameEnvVar)
 
@@ -244,7 +244,7 @@ func (c *CmdScrutinize) updateCertTextsFromk8s(log vlog.Printer) error {
 	}
 
 	if !nameSpaceSet {
-		log.Info("Secret name not set in env. Failback to other cert retieval methods.")
+		logger.Info("Secret name not set in env. Failback to other cert retieval methods.")
 		return nil
 	}
 
@@ -253,7 +253,7 @@ func (c *CmdScrutinize) updateCertTextsFromk8s(log vlog.Printer) error {
 		return fmt.Errorf("failed to read certs from k8s secret %s in namespace %s: %w", secretName, secretNameSpace, err)
 	}
 	if len(caCert) != 0 && len(cert) != 0 && len(key) != 0 {
-		log.Info("Successfully read cert from k8s secret ", "secretName", secretName, "secretNameSpace", secretNameSpace)
+		logger.Info("Successfully read cert from k8s secret ", "secretName", secretName, "secretNameSpace", secretNameSpace)
 	} else {
 		return fmt.Errorf("failed to read CA, cert or key (sizes = %d/%d/%d)",
 			len(caCert), len(cert), len(key))

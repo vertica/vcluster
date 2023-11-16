@@ -29,9 +29,9 @@ type OpEngineExecContext struct {
 	dbInfo                 string              // store the db info that retrieved from communal storage
 }
 
-func makeOpEngineExecContext(log vlog.Printer) OpEngineExecContext {
+func makeOpEngineExecContext(logger vlog.Printer) OpEngineExecContext {
 	newOpEngineExecContext := OpEngineExecContext{}
-	newOpEngineExecContext.dispatcher = makeHTTPRequestDispatcher(log)
+	newOpEngineExecContext.dispatcher = makeHTTPRequestDispatcher(logger)
 
 	return newOpEngineExecContext
 }

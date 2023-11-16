@@ -30,12 +30,12 @@ type httpsGetClusterInfoOp struct {
 	vdb    *VCoordinationDatabase
 }
 
-func makeHTTPSGetClusterInfoOp(log vlog.Printer, dbName string, hosts []string,
+func makeHTTPSGetClusterInfoOp(logger vlog.Printer, dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string, vdb *VCoordinationDatabase,
 ) (httpsGetClusterInfoOp, error) {
 	op := httpsGetClusterInfoOp{}
 	op.name = "HTTPSGetClusterInfoOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.dbName = dbName
 	op.hosts = hosts
 	op.vdb = vdb

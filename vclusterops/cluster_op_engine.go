@@ -38,8 +38,8 @@ func (opEngine *VClusterOpEngine) shouldGetCertsFromOptions() bool {
 	return (opEngine.certs.key != "" && opEngine.certs.cert != "" && opEngine.certs.caCert != "")
 }
 
-func (opEngine *VClusterOpEngine) run(log vlog.Printer) error {
-	execContext := makeOpEngineExecContext(log)
+func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
+	execContext := makeOpEngineExecContext(logger)
 	opEngine.execContext = &execContext
 
 	findCertsInOptions := opEngine.shouldGetCertsFromOptions()
@@ -71,6 +71,8 @@ func (opEngine *VClusterOpEngine) run(log vlog.Printer) error {
 		if err != nil {
 			return fmt.Errorf("finalize failed %w", err)
 		}
+
+		vlog.PrintWithIndent("[%s] is successfully completed", op.getName())
 	}
 
 	return nil

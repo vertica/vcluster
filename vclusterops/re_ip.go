@@ -43,7 +43,7 @@ func VReIPFactory() VReIPOptions {
 	return opt
 }
 
-func (opt *VReIPOptions) validateParseOptions(log vlog.Printer) error {
+func (opt *VReIPOptions) validateParseOptions(logger vlog.Printer) error {
 	err := util.ValidateRequiredAbsPath(opt.CatalogPrefix, "catalog path")
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (opt *VReIPOptions) validateParseOptions(log vlog.Printer) error {
 		return util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
 	}
 
-	return opt.validateBaseOptions("re_ip", log)
+	return opt.validateBaseOptions("re_ip", logger)
 }
 
 func (opt *VReIPOptions) analyzeOptions() error {
@@ -66,8 +66,8 @@ func (opt *VReIPOptions) analyzeOptions() error {
 	return nil
 }
 
-func (opt *VReIPOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	if err := opt.validateParseOptions(log); err != nil {
+func (opt *VReIPOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := opt.validateParseOptions(logger); err != nil {
 		return err
 	}
 	if err := opt.analyzeOptions(); err != nil {

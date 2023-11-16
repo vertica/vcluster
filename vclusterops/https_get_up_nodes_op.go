@@ -27,15 +27,16 @@ import (
 type HTTPSGetUpNodesOp struct {
 	OpBase
 	OpHTTPSBase
-	DBName string
+	DBName      string
+	noUpHostsOk bool
 }
 
-func makeHTTPSGetUpNodesOp(log vlog.Printer, dbName string, hosts []string,
+func makeHTTPSGetUpNodesOp(logger vlog.Printer, dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 ) (HTTPSGetUpNodesOp, error) {
 	httpsGetUpNodesOp := HTTPSGetUpNodesOp{}
 	httpsGetUpNodesOp.name = "HTTPSGetUpNodesOp"
-	httpsGetUpNodesOp.log = log.WithName(httpsGetUpNodesOp.name)
+	httpsGetUpNodesOp.logger = logger.WithName(httpsGetUpNodesOp.name)
 	httpsGetUpNodesOp.hosts = hosts
 	httpsGetUpNodesOp.useHTTPPassword = useHTTPPassword
 	httpsGetUpNodesOp.DBName = dbName
@@ -49,6 +50,10 @@ func makeHTTPSGetUpNodesOp(log vlog.Printer, dbName string, hosts []string,
 		httpsGetUpNodesOp.httpsPassword = httpsPassword
 	}
 	return httpsGetUpNodesOp, nil
+}
+
+func (op *HTTPSGetUpNodesOp) allowNoUpHosts() {
+	op.noUpHostsOk = true
 }
 
 func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) error {
@@ -157,21 +162,9 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 		}
 	}
 
-	if len(upHosts) > 0 {
-		for host := range upHosts {
-			execContext.upHosts = append(execContext.upHosts, host)
-		}
-		// sorting the up hosts will be helpful for picking up the initiator in later instructions
-		sort.Strings(execContext.upHosts)
+	ignoreErrors := op.processHostLists(upHosts, exceptionHosts, downHosts, execContext)
+	if ignoreErrors {
 		return nil
-	}
-
-	if len(exceptionHosts) > 0 {
-		op.log.PrintError(`[%s] fail to call https endpoint of database %s on hosts %s`, op.name, op.DBName, exceptionHosts)
-	}
-
-	if len(downHosts) > 0 {
-		op.log.PrintError(`[%s] did not detect database %s running on hosts %v`, op.name, op.DBName, downHosts)
 	}
 
 	return errors.Join(allErrs, fmt.Errorf("no up nodes detected"))
@@ -179,4 +172,29 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 
 func (op *HTTPSGetUpNodesOp) finalize(_ *OpEngineExecContext) error {
 	return nil
+}
+
+// processHostLists stashes the up hosts, and if there are no up hosts, prints and logs
+// down or erratic hosts.  Additionally, it determines if the op should fail or not.
+func (op *HTTPSGetUpNodesOp) processHostLists(upHosts map[string]struct{},
+	exceptionHosts, downHosts []string,
+	execContext *OpEngineExecContext) (ignoreErrors bool) {
+	if len(upHosts) > 0 {
+		for host := range upHosts {
+			execContext.upHosts = append(execContext.upHosts, host)
+		}
+		// sorting the up hosts will be helpful for picking up the initiator in later instructions
+		sort.Strings(execContext.upHosts)
+		return true
+	}
+
+	if len(exceptionHosts) > 0 {
+		op.logger.PrintError(`[%s] fail to call https endpoint of database %s on hosts %s`, op.name, op.DBName, exceptionHosts)
+	}
+
+	if len(downHosts) > 0 {
+		op.logger.PrintError(`[%s] did not detect database %s running on hosts %v`, op.name, op.DBName, downHosts)
+	}
+
+	return op.noUpHostsOk
 }

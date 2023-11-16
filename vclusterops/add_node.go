@@ -79,9 +79,9 @@ func (o *VAddNodeOptions) validateExtraOptions() error {
 	return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
 }
 
-func (o *VAddNodeOptions) validateParseOptions(log vlog.Printer) error {
+func (o *VAddNodeOptions) validateParseOptions(logger vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := o.validateBaseOptions("db_add_node", log)
+	err := o.validateBaseOptions("db_add_node", logger)
 	if err != nil {
 		return err
 	}
@@ -110,8 +110,8 @@ func (o *VAddNodeOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (o *VAddNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	err := o.validateParseOptions(log)
+func (o *VAddNodeOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	err := o.validateParseOptions(logger)
 	if err != nil {
 		return err
 	}

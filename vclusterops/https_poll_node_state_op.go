@@ -53,11 +53,11 @@ type HTTPSPollNodeStateOp struct {
 	cmdType     CmdType
 }
 
-func makeHTTPSPollNodeStateOpHelper(log vlog.Printer, hosts []string,
+func makeHTTPSPollNodeStateOpHelper(logger vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (HTTPSPollNodeStateOp, error) {
 	httpsPollNodeStateOp := HTTPSPollNodeStateOp{}
 	httpsPollNodeStateOp.name = "HTTPSPollNodeStateOp"
-	httpsPollNodeStateOp.log = log.WithName(httpsPollNodeStateOp.name)
+	httpsPollNodeStateOp.logger = logger.WithName(httpsPollNodeStateOp.name)
 	httpsPollNodeStateOp.hosts = hosts
 	httpsPollNodeStateOp.useHTTPPassword = useHTTPPassword
 
@@ -71,10 +71,10 @@ func makeHTTPSPollNodeStateOpHelper(log vlog.Printer, hosts []string,
 	return httpsPollNodeStateOp, nil
 }
 
-func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(log vlog.Printer, hosts []string,
+func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(logger vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	timeout int, cmdType CmdType) (HTTPSPollNodeStateOp, error) {
-	op, err := makeHTTPSPollNodeStateOpHelper(log, hosts, useHTTPPassword, userName, httpsPassword)
+	op, err := makeHTTPSPollNodeStateOpHelper(logger, hosts, useHTTPPassword, userName, httpsPassword)
 	if err != nil {
 		return op, err
 	}
@@ -83,10 +83,10 @@ func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(log vlog.Printer, hosts []str
 	return op, nil
 }
 
-func makeHTTPSPollNodeStateOp(log vlog.Printer, hosts []string,
+func makeHTTPSPollNodeStateOp(logger vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string) (HTTPSPollNodeStateOp, error) {
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpHelper(log, hosts, useHTTPPassword, userName, httpsPassword)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpHelper(logger, hosts, useHTTPPassword, userName, httpsPassword)
 	if err != nil {
 		return httpsPollNodeStateOp, err
 	}
@@ -139,12 +139,14 @@ func (op *HTTPSPollNodeStateOp) finalize(_ *OpEngineExecContext) error {
 }
 
 func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) error {
+	vlog.PrintWithIndent("[%s] expecting %d up host(s)", op.name, len(op.hosts))
+
 	err := pollState(op, execContext)
 	if err != nil {
 		// show the host that is not UP
 		msg := fmt.Sprintf("Cannot get the correct response from the host %s after %d seconds, details: %s",
 			op.currentHost, op.timeout, err)
-		op.log.PrintError(msg)
+		op.logger.PrintError(msg)
 		return errors.New(msg)
 	}
 	return nil
@@ -164,8 +166,9 @@ type NodesInfo struct {
 }
 
 func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
+	upNodeCount := 0
+
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
-		op.logResponse(host, result)
 		op.currentHost = host
 
 		// when we get timeout error, we know that the host is unreachable/dead
@@ -177,10 +180,10 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 		// We don't need to wait until timeout to determine if all nodes are up or not.
 		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately.
 		// We also need to let user know to wait until all nodes are up
-		if result.isPasswordAndCertificateError(op.log) {
+		if result.isPasswordAndCertificateError(op.logger) {
 			switch op.cmdType {
 			case StartDBCmd, RestartNodeCmd:
-				op.log.PrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",
+				op.logger.PrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",
 					op.name)
 				return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s, but the nodes' startup have been in progress."+
 					"Please use vsql to check the nodes' status and manually run sync_catalog vsql command 'select sync_catalog()'", op.name, host)
@@ -193,7 +196,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 			nodesInfo := NodesInfo{}
 			err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
 			if err != nil {
-				op.log.PrintError("[%s] fail to parse result on host %s, details: %s",
+				op.logger.PrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
 				return true, err
 			}
@@ -203,7 +206,7 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 			if len(nodesInfo.NodeList) == 1 {
 				nodeInfo := nodesInfo.NodeList[0]
 				if nodeInfo.State == util.NodeUpState {
-					continue
+					upNodeCount++
 				}
 			} else {
 				// if NMA endpoint cannot function well on any of the hosts, we do not want to retry polling
@@ -212,12 +215,14 @@ func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 					op.name, len(nodesInfo.NodeList), host)
 			}
 		}
+	}
 
-		// if we cannot get correct response in current node, we assume the node is not up and wait for the next poll.
-		// if the node is busy and cannot return correct response in this poll, the following polls should get correct response from it.
+	if upNodeCount < len(op.hosts) {
+		vlog.PrintWithIndent("[%s] %d host(s) up", op.name, upNodeCount)
 		return false, nil
 	}
 
-	op.log.PrintInfo("All nodes are up")
+	vlog.PrintWithIndent("[%s] All nodes are up", op.name)
+
 	return true, nil
 }

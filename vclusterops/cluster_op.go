@@ -105,14 +105,14 @@ func (hostResult *HostHTTPResult) isSuccess() bool {
 }
 
 // check only password and certificate for start_db
-func (hostResult *HostHTTPResult) isPasswordAndCertificateError(log vlog.Printer) bool {
+func (hostResult *HostHTTPResult) isPasswordAndCertificateError(logger vlog.Printer) bool {
 	if !hostResult.isUnauthorizedRequest() {
 		return false
 	}
 	resultString := fmt.Sprintf("%v", hostResult)
 	for _, msg := range wrongCredentialErrMsg {
 		if strings.Contains(resultString, msg) {
-			log.Error(errors.New(msg), "the user has provided")
+			logger.Error(errors.New(msg), "the user has provided")
 			return true
 		}
 	}
@@ -189,7 +189,7 @@ type ClusterOp interface {
 // OpBase defines base fields and implements basic functions
 // for all ops
 type OpBase struct {
-	log                vlog.Printer
+	logger             vlog.Printer
 	name               string
 	hosts              []string
 	clusterHTTPRequest ClusterHTTPRequest
@@ -203,12 +203,12 @@ func (op *OpBase) getName() string {
 }
 
 func (op *OpBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
-	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name, op.log)
+	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name, op.logger)
 	if err != nil {
-		op.log.Error(err, "fail to parse response on host, detail", "host", host)
+		op.logger.Error(err, "fail to parse response on host, detail", "host", host)
 		return err
 	}
-	op.log.Info("JSON response", "host", host, "responseObj", responseObj)
+	op.logger.Info("JSON response", "host", host, "responseObj", responseObj)
 	return nil
 }
 
@@ -235,27 +235,32 @@ func (op *OpBase) setupBasicInfo() {
 }
 
 func (op *OpBase) logResponse(host string, result HostHTTPResult) {
-	op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v",
-		op.name, host, result.status.getStatusString(), result)
+	if result.err != nil {
+		op.logger.PrintError("[%s] result from host %s summary %s, details: %+v",
+			op.name, host, result.status.getStatusString(), result.err)
+	} else {
+		op.logger.Log.Info("Request succeeded",
+			"op name", op.name, "host", host, "details", result)
+	}
 }
 
 func (op *OpBase) logPrepare() {
-	op.log.Info("Prepare() called", "name", op.name)
+	op.logger.Info("Prepare() called", "name", op.name)
 }
 
 func (op *OpBase) logExecute() {
-	op.log.Info("Execute() called", "name", op.name)
-	op.log.PrintInfo("[%s] is running", op.name)
+	op.logger.Info("Execute() called", "name", op.name)
+	op.logger.PrintInfo("[%s] is running", op.name)
 }
 
 func (op *OpBase) logFinalize() {
-	op.log.Info("Finalize() called", "name", op.name)
+	op.logger.Info("Finalize() called", "name", op.name)
 }
 
 func (op *OpBase) runExecute(execContext *OpEngineExecContext) error {
 	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
 	if err != nil {
-		op.log.Error(err, "Fail to dispatch request, detail", "dispatch request", op.clusterHTTPRequest)
+		op.logger.Error(err, "Fail to dispatch request, detail", "dispatch request", op.clusterHTTPRequest)
 		return err
 	}
 	return nil
@@ -297,7 +302,7 @@ func (op *OpBase) isSkipExecute() bool {
 func (op *OpBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
 	quorumCount := (primaryNodeCount + 1) / 2
 	if hostCount < quorumCount {
-		op.log.PrintError("[%s] Quorum check failed: "+
+		op.logger.PrintError("[%s] Quorum check failed: "+
 			"number of hosts with latest catalog (%d) is not "+
 			"greater than or equal to 1/2 of number of the primary nodes (%d)\n",
 			op.name, hostCount, primaryNodeCount)
@@ -311,7 +316,7 @@ func (op *OpBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
 func (op *OpBase) checkResponseStatusCode(resp httpsResponseStatus, host string) (err error) {
 	if resp.StatusCode != respSuccStatusCode {
 		err = fmt.Errorf(`[%s] fail to execute HTTPS request on host %s, status code in HTTPS response is %d`, op.name, host, resp.StatusCode)
-		op.log.Error(err, "fail to execute HTTPS request, detail")
+		op.logger.Error(err, "fail to execute HTTPS request, detail")
 		return err
 	}
 	return nil

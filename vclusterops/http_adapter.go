@@ -38,22 +38,22 @@ type HTTPAdapter struct {
 	respBodyHandler responseBodyHandler
 }
 
-func makeHTTPAdapter(log vlog.Printer) HTTPAdapter {
+func makeHTTPAdapter(logger vlog.Printer) HTTPAdapter {
 	newHTTPAdapter := HTTPAdapter{}
 	newHTTPAdapter.name = "HTTPAdapter"
-	newHTTPAdapter.log = log.WithName(newHTTPAdapter.name)
+	newHTTPAdapter.logger = logger.WithName(newHTTPAdapter.name)
 	newHTTPAdapter.respBodyHandler = &responseBodyReader{}
 	return newHTTPAdapter
 }
 
-// makeHTTPDownloadAdapter creates an HTTP adaptor which will
+// makeHTTPDownloadAdapter creates an HTTP adapter which will
 // download a response body to a file via streaming read and
 // buffered write, rather than copying the body to memory.
-func makeHTTPDownloadAdapter(log vlog.Printer,
+func makeHTTPDownloadAdapter(logger vlog.Printer,
 	destFilePath string) HTTPAdapter {
-	newHTTPAdapter := makeHTTPAdapter(log)
+	newHTTPAdapter := makeHTTPAdapter(logger)
 	newHTTPAdapter.respBodyHandler = &responseBodyDownloader{
-		log,
+		logger,
 		destFilePath,
 	}
 	return newHTTPAdapter
@@ -68,7 +68,7 @@ type responseBodyReader struct{}
 
 // for downloading response body to file instead of reading into memory
 type responseBodyDownloader struct {
-	log          vlog.Printer
+	logger       vlog.Printer
 	destFilePath string
 }
 
@@ -102,7 +102,7 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 		port,
 		request.Endpoint,
 		queryParams)
-	adapter.log.Info("Request URL", "URL", requestURL)
+	adapter.logger.Info("Request URL", "URL", requestURL)
 
 	// whether use password (for HTTPS endpoints only)
 	usePassword, err := whetherUsePassword(request)
@@ -182,7 +182,7 @@ func (downloader *responseBodyDownloader) readResponseBody(resp *http.Response) 
 	if err != nil {
 		err = fmt.Errorf("fail to stream the response body to file %s: %w", downloader.destFilePath, err)
 	} else {
-		downloader.log.Info("File downloaded", "File", downloader.destFilePath, "Bytes", bytesWritten)
+		downloader.logger.Info("File downloaded", "File", downloader.destFilePath, "Bytes", bytesWritten)
 	}
 	return "", err
 }

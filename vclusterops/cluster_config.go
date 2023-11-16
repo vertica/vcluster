@@ -67,7 +67,7 @@ func MakeDatabaseConfig() DatabaseConfig {
 }
 
 // read config information from the YAML file
-func ReadConfig(configDirectory string, log vlog.Printer) (ClusterConfig, error) {
+func ReadConfig(configDirectory string, logger vlog.Printer) (ClusterConfig, error) {
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBytes, err := os.ReadFile(configFilePath)
 	if err != nil {
@@ -99,7 +99,7 @@ func ReadConfig(configDirectory string, log vlog.Printer) (ClusterConfig, error)
 	*/
 
 	clusterConfig := config.Databases
-	log.PrintInfo("The content of cluster config: %+v\n", clusterConfig)
+	logger.PrintInfo("The content of cluster config: %+v", clusterConfig)
 	return clusterConfig, nil
 }
 
@@ -148,7 +148,7 @@ func (c *DatabaseConfig) getHosts() []string {
 	return hostList
 }
 
-func getConfigFilePath(dbName string, inputConfigDir *string, log vlog.Printer) (string, error) {
+func getConfigFilePath(dbName string, inputConfigDir *string, logger vlog.Printer) (string, error) {
 	var configParentPath string
 
 	// if the input config directory is given and has write permission,
@@ -165,7 +165,7 @@ func getConfigFilePath(dbName string, inputConfigDir *string, log vlog.Printer) 
 	// as <current_dir>/vertica_cluster.yaml
 	currentDir, err := os.Getwd()
 	if err != nil {
-		log.Info("Fail to get current directory\n")
+		logger.Info("Fail to get current directory\n")
 		configParentPath = currentDir
 	}
 
@@ -180,12 +180,12 @@ func getConfigFilePath(dbName string, inputConfigDir *string, log vlog.Printer) 
 	return configFilePath, nil
 }
 
-func backupConfigFile(configFilePath string, log vlog.Printer) error {
+func backupConfigFile(configFilePath string, logger vlog.Printer) error {
 	if util.CanReadAccessDir(configFilePath) == nil {
 		// copy file to vertica_cluster.yaml.backup
 		configDirPath := filepath.Dir(configFilePath)
 		configFileBackup := filepath.Join(configDirPath, ConfigBackupName)
-		log.Info("Config file exists and, creating a backup", "config file", configFilePath,
+		logger.Info("Config file exists and, creating a backup", "config file", configFilePath,
 			"backup file", configFileBackup)
 		err := util.CopyFile(configFilePath, configFileBackup, ConfigFilePerm)
 		if err != nil {
@@ -196,19 +196,19 @@ func backupConfigFile(configFilePath string, log vlog.Printer) error {
 	return nil
 }
 
-func removeConfigFile(configDirectory string, log vlog.Printer) error {
+func removeConfigFile(configDirectory string, logger vlog.Printer) error {
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBackupPath := filepath.Join(configDirectory, ConfigBackupName)
 
 	err := os.RemoveAll(configFilePath)
 	if err != nil {
-		log.PrintError("Fail to remove the config file %s, detail: %s", configFilePath, err)
+		logger.PrintError("Fail to remove the config file %s, detail: %s", configFilePath, err)
 		return err
 	}
 
 	err = os.RemoveAll(configBackupPath)
 	if err != nil {
-		log.PrintError("Fail to remove the backup config file %s, detail: %s", configBackupPath, err)
+		logger.PrintError("Fail to remove the backup config file %s, detail: %s", configBackupPath, err)
 		return err
 	}
 

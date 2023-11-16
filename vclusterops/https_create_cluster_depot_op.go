@@ -32,11 +32,11 @@ type HTTPSCreateDepotOp struct {
 	RequestParams  map[string]string
 }
 
-func makeHTTPSCreateClusterDepotOp(log vlog.Printer, vdb *VCoordinationDatabase, hosts []string,
+func makeHTTPSCreateClusterDepotOp(logger vlog.Printer, vdb *VCoordinationDatabase, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (HTTPSCreateDepotOp, error) {
 	httpsCreateDepotOp := HTTPSCreateDepotOp{}
 	httpsCreateDepotOp.name = "HTTPSCreateDepotOp"
-	httpsCreateDepotOp.log = log.WithName(httpsCreateDepotOp.name)
+	httpsCreateDepotOp.logger = logger.WithName(httpsCreateDepotOp.name)
 	httpsCreateDepotOp.hosts = hosts
 	httpsCreateDepotOp.useHTTPPassword = useHTTPPassword
 

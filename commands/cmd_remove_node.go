@@ -72,9 +72,9 @@ func (c *CmdRemoveNode) CommandType() string {
 	return "db_remove_node"
 }
 
-func (c *CmdRemoveNode) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -89,11 +89,11 @@ func (c *CmdRemoveNode) Parse(inputArgv []string, log vlog.Printer) error {
 	if !util.IsOptionSet(c.parser, "password") {
 		c.removeNodeOptions.Password = nil
 	}
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdRemoveNode) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdRemoveNode) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	err := c.removeNodeOptions.ParseHostToRemoveList(*c.hostToRemoveListStr)
 	if err != nil {

@@ -28,11 +28,11 @@ type httpsPollSubscriptionStateOp struct {
 	timeout int
 }
 
-func makeHTTPSPollSubscriptionStateOp(log vlog.Printer, hosts []string,
+func makeHTTPSPollSubscriptionStateOp(logger vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsPollSubscriptionStateOp, error) {
 	op := httpsPollSubscriptionStateOp{}
 	op.name = "HTTPSPollSubscriptionStateOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.timeout = StartupPollingTimeout
@@ -129,7 +129,7 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
-		if result.isPasswordAndCertificateError(op.log) {
+		if result.isPasswordAndCertificateError(op.logger) {
 			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
 		}
@@ -137,7 +137,7 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 		if result.isPassing() {
 			err := op.parseAndCheckResponse(host, result.content, &subscriptionList)
 			if err != nil {
-				op.log.PrintError("[%s] fail to parse result on host %s, details: %s",
+				op.logger.PrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
 				return true, err
 			}
@@ -149,12 +149,12 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 				}
 			}
 
-			op.log.PrintInfo("All subscriptions are ACTIVE")
+			op.logger.PrintInfo("All subscriptions are ACTIVE")
 			return true, nil
 		}
 	}
 
 	// this could happen if ResultCollection is empty
-	op.log.PrintError("[%s] empty result received from the provided hosts %v", op.name, op.hosts)
+	op.logger.PrintError("[%s] empty result received from the provided hosts %v", op.name, op.hosts)
 	return false, nil
 }

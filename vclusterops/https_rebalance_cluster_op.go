@@ -32,11 +32,11 @@ type HTTPSRebalanceClusterOp struct {
 }
 
 // makeHTTPSRebalanceClusterOp will make an op that call vertica-http service to rebalance the cluster
-func makeHTTPSRebalanceClusterOp(log vlog.Printer, initiatorHost []string, useHTTPPassword bool, userName string,
+func makeHTTPSRebalanceClusterOp(logger vlog.Printer, initiatorHost []string, useHTTPPassword bool, userName string,
 	httpsPassword *string) (HTTPSRebalanceClusterOp, error) {
 	httpsRBCOp := HTTPSRebalanceClusterOp{}
 	httpsRBCOp.name = "HTTPSRebalanceClusterOp"
-	httpsRBCOp.log = log.WithName(httpsRBCOp.name)
+	httpsRBCOp.logger = logger.WithName(httpsRBCOp.name)
 	httpsRBCOp.hosts = initiatorHost
 
 	httpsRBCOp.useHTTPPassword = useHTTPPassword

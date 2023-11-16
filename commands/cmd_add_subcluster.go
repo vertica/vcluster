@@ -87,9 +87,9 @@ func (c *CmdAddSubcluster) CommandType() string {
 	return "db_add_subcluster"
 }
 
-func (c *CmdAddSubcluster) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -110,17 +110,17 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string, log vlog.Printer) error {
 		c.addSubclusterOptions.ConfigDirectory = nil
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
 // all validations of the arguments should go in here
-func (c *CmdAddSubcluster) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdAddSubcluster) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
 }
 
-func (c *CmdAddSubcluster) Analyze(log vlog.Printer) error {
-	log.Info("Called method Analyze()")
+func (c *CmdAddSubcluster) Analyze(logger vlog.Printer) error {
+	logger.Info("Called method Analyze()")
 	return nil
 }
 

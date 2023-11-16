@@ -80,13 +80,13 @@ func (c *CmdStartDB) CommandType() string {
 	return "start_db"
 }
 
-func (c *CmdStartDB) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -106,11 +106,11 @@ func (c *CmdStartDB) Parse(inputArgv []string, log vlog.Printer) error {
 		c.startDBOptions.ConfigDirectory = nil
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdStartDB) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()", "command", c.CommandType())
+func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()", "command", c.CommandType())
 
 	// check the format of configuration params string, and parse it into configParams
 	configurationParams, err := util.ParseConfigParams(*c.configurationParams)
@@ -124,9 +124,9 @@ func (c *CmdStartDB) validateParse(log vlog.Printer) error {
 	return c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
 }
 
-func (c *CmdStartDB) Analyze(log vlog.Printer) error {
+func (c *CmdStartDB) Analyze(logger vlog.Printer) error {
 	// Analyze() is needed to fulfill an interface
-	log.Info("Called method Analyze()")
+	logger.Info("Called method Analyze()")
 	return nil
 }
 

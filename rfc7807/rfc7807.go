@@ -64,7 +64,7 @@ type VProblem struct {
 // Error implement this function so that VProblem can be passed around with Go's
 // error interface.
 func (v *VProblem) Error() string {
-	return fmt.Sprintf("%s on host %s", v.Title, v.Host)
+	return fmt.Sprintf("%s on host %s, detail: %s", v.Title, v.Host, v.Detail)
 }
 
 // New will return a new VProblem object. Each occurrence must have the

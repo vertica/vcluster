@@ -58,8 +58,8 @@ func (c *CmdInit) CommandType() string {
 	return "init"
 }
 
-func (c *CmdInit) Parse(inputArgv []string, log vlog.Printer) error {
-	log.LogArgParse(&inputArgv)
+func (c *CmdInit) Parse(inputArgv []string, logger vlog.Printer) error {
+	logger.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
@@ -71,11 +71,11 @@ func (c *CmdInit) Parse(inputArgv []string, log vlog.Printer) error {
 		return err
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdInit) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdInit) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	// if directory is not provided, then use the current directory
 	err := c.validateDirectory()
@@ -91,8 +91,8 @@ func (c *CmdInit) validateParse(log vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdInit) Analyze(log vlog.Printer) error {
-	log.Info("Called method Analyze()")
+func (c *CmdInit) Analyze(logger vlog.Printer) error {
+	logger.Info("Called method Analyze()")
 	return nil
 }
 

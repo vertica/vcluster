@@ -33,12 +33,12 @@ type HTTPSAddSubclusterOp struct {
 	ctlSetSize         int
 }
 
-func makeHTTPSAddSubclusterOp(log vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSAddSubclusterOp(logger vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
 	scName string, isPrimary bool, ctlSetSize int) (HTTPSAddSubclusterOp, error) {
 	httpsAddSubclusterOp := HTTPSAddSubclusterOp{}
 	httpsAddSubclusterOp.name = "HTTPSAddSubclusterOp"
 	httpsAddSubclusterOp.scName = scName
-	httpsAddSubclusterOp.log = log.WithName(httpsAddSubclusterOp.name)
+	httpsAddSubclusterOp.logger = logger.WithName(httpsAddSubclusterOp.name)
 	httpsAddSubclusterOp.isSecondary = !isPrimary
 	httpsAddSubclusterOp.ctlSetSize = ctlSetSize
 

@@ -25,7 +25,7 @@ import (
 )
 
 type AdapterPool struct {
-	log vlog.Printer
+	logger vlog.Printer
 	// map from host to HTTPAdapter
 	connections map[string]Adapter
 }
@@ -36,23 +36,23 @@ var (
 )
 
 // return a singleton instance of the AdapterPool
-func getPoolInstance(log vlog.Printer) AdapterPool {
+func getPoolInstance(logger vlog.Printer) AdapterPool {
 	/* if once.Do(f) is called multiple times,
 	 * only the first call will invoke f,
 	 * even if f has a different value in each invocation.
 	 * Reference: https://pkg.go.dev/sync#Once
 	 */
 	once.Do(func() {
-		poolInstance = makeAdapterPool(log)
+		poolInstance = makeAdapterPool(logger)
 	})
 
 	return poolInstance
 }
 
-func makeAdapterPool(log vlog.Printer) AdapterPool {
+func makeAdapterPool(logger vlog.Printer) AdapterPool {
 	newAdapterPool := AdapterPool{}
 	newAdapterPool.connections = make(map[string]Adapter)
-	newAdapterPool.log = log.WithName("AdapterPool")
+	newAdapterPool.logger = logger.WithName("AdapterPool")
 	return newAdapterPool
 }
 
@@ -82,7 +82,7 @@ func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) err
 	resultChannel := make(chan HostHTTPResult, hostCount)
 
 	// only track the progress of HTTP requests for vcluster CLI
-	if pool.log.ForCli {
+	if pool.logger.ForCli {
 		// use context to check whether a step has completed
 		ctx, cancelCtx := context.WithCancel(context.Background())
 		go progressCheck(ctx, clusterHTTPRequest.Name)
@@ -131,7 +131,7 @@ func progressCheck(ctx context.Context, name string) {
 			return
 		case tickTime := <-ticker.C:
 			elapsedTime := tickTime.Sub(startTime)
-			fmt.Printf("[%s] is still running. %.f seconds spent at this step.\n",
+			vlog.PrintWithIndent("[%s] is still running. %.f seconds spent at this step.",
 				name, elapsedTime.Seconds())
 		}
 	}

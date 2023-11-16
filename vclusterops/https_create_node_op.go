@@ -29,12 +29,12 @@ type HTTPSCreateNodeOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSCreateNodeOp(log vlog.Printer, newNodeHosts []string, bootstrapHost []string,
+func makeHTTPSCreateNodeOp(logger vlog.Printer, newNodeHosts []string, bootstrapHost []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase, scName string) (HTTPSCreateNodeOp, error) {
 	createNodeOp := HTTPSCreateNodeOp{}
 	createNodeOp.name = "HTTPSCreateNodeOp"
-	createNodeOp.log = log.WithName(createNodeOp.name)
+	createNodeOp.logger = logger.WithName(createNodeOp.name)
 	createNodeOp.hosts = bootstrapHost
 	createNodeOp.RequestParams = make(map[string]string)
 	// HTTPS create node endpoint requires passing everything before node name

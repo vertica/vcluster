@@ -29,17 +29,17 @@ type nmaStartNodeOp struct {
 	vdb                *VCoordinationDatabase
 }
 
-func makeNMAStartNodeOp(log vlog.Printer,
+func makeNMAStartNodeOp(logger vlog.Printer,
 	hosts []string) nmaStartNodeOp {
 	startNodeOp := nmaStartNodeOp{}
 	startNodeOp.name = "NMAStartNodeOp"
-	startNodeOp.log = log.WithName(startNodeOp.name)
+	startNodeOp.logger = logger.WithName(startNodeOp.name)
 	startNodeOp.hosts = hosts
 	return startNodeOp
 }
 
-func makeNMAStartNodeOpWithVDB(log vlog.Printer, hosts []string, vdb *VCoordinationDatabase) nmaStartNodeOp {
-	startNodeOp := makeNMAStartNodeOp(log, hosts)
+func makeNMAStartNodeOpWithVDB(logger vlog.Printer, hosts []string, vdb *VCoordinationDatabase) nmaStartNodeOp {
+	startNodeOp := makeNMAStartNodeOp(logger, hosts)
 	startNodeOp.vdb = vdb
 	return startNodeOp
 }

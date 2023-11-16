@@ -85,9 +85,9 @@ func (c *CmdAddNode) CommandType() string {
 	return "db_add_node"
 }
 
-func (c *CmdAddNode) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -105,11 +105,11 @@ func (c *CmdAddNode) Parse(inputArgv []string, log vlog.Printer) error {
 	if !util.IsOptionSet(c.parser, "eon-mode") {
 		c.CmdBase.isEon = nil
 	}
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdAddNode) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	err := c.parseNewHostList()
 	if err != nil {

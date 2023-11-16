@@ -31,12 +31,12 @@ type HTTPSCreateNodesDepotOp struct {
 }
 
 // makeHTTPSCreateNodesDepotOp will make an op that call vertica-http service to create depot for the new nodes
-func makeHTTPSCreateNodesDepotOp(log vlog.Printer, vdb *VCoordinationDatabase, nodes []string,
+func makeHTTPSCreateNodesDepotOp(logger vlog.Printer, vdb *VCoordinationDatabase, nodes []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 ) (HTTPSCreateNodesDepotOp, error) {
 	httpsCreateNodesDepotOp := HTTPSCreateNodesDepotOp{}
 	httpsCreateNodesDepotOp.name = "HTTPSCreateNodesDepotOp"
-	httpsCreateNodesDepotOp.log = log.WithName(httpsCreateNodesDepotOp.name)
+	httpsCreateNodesDepotOp.logger = logger.WithName(httpsCreateNodesDepotOp.name)
 	httpsCreateNodesDepotOp.hosts = nodes
 	httpsCreateNodesDepotOp.useHTTPPassword = useHTTPPassword
 	httpsCreateNodesDepotOp.HostNodeMap = vdb.HostNodeMap

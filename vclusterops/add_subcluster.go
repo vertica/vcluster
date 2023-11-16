@@ -70,8 +70,8 @@ func (options *VAddSubclusterOptions) setDefaultValues() {
 	options.CloneSC = new(string)
 }
 
-func (options *VAddSubclusterOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.validateBaseOptions("db_add_subcluster", log)
+func (options *VAddSubclusterOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions("db_add_subcluster", logger)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (options *VAddSubclusterOptions) validateEonOptions(config *ClusterConfig) 
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateExtraOptions(log vlog.Printer) error {
+func (options *VAddSubclusterOptions) validateExtraOptions(logger vlog.Printer) error {
 	// control-set-size can only be -1 or [1 to 120]
 	if !(*options.ControlSetSize == ControlSetSizeDefaultValue ||
 		(*options.ControlSetSize >= ControlSetSizeLowerBound && *options.ControlSetSize <= ControlSetSizeUpperBound)) {
@@ -104,7 +104,7 @@ func (options *VAddSubclusterOptions) validateExtraOptions(log vlog.Printer) err
 
 	if *options.CloneSC != "" {
 		// TODO remove this log after we supported subcluster clone
-		log.PrintWarning("option CloneSC is not implemented yet so it will be ignored")
+		logger.PrintWarning("option CloneSC is not implemented yet so it will be ignored")
 	}
 
 	// verify the hosts of new subcluster does not exist in current database
@@ -124,7 +124,7 @@ func (options *VAddSubclusterOptions) validateExtraOptions(log vlog.Printer) err
 		}
 
 		// TODO remove this log after we supported adding subcluster with nodes
-		log.PrintWarning("options SCRawHosts and SCHosts are not implemented yet so they will be ignored")
+		logger.PrintWarning("options SCRawHosts and SCHosts are not implemented yet so they will be ignored")
 	}
 
 	return nil

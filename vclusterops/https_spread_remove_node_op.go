@@ -29,11 +29,11 @@ type HTTPSSpreadRemoveNodeOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSSpreadRemoveNodeOp(log vlog.Printer, hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
+func makeHTTPSSpreadRemoveNodeOp(logger vlog.Printer, hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, hostNodeMap vHostNodeMap) (HTTPSSpreadRemoveNodeOp, error) {
 	op := HTTPSSpreadRemoveNodeOp{}
 	op.name = "HTTPSSpreadRemoveNodeOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.hosts = initiatorHost
 	op.useHTTPPassword = useHTTPPassword
 

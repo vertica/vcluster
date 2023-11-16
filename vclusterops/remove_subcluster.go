@@ -46,8 +46,8 @@ func (o *VRemoveScOptions) setDefaultValues() {
 	o.ForceDelete = new(bool)
 }
 
-func (o *VRemoveScOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := o.validateBaseOptions("db_remove_subcluster", log)
+func (o *VRemoveScOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := o.validateBaseOptions("db_remove_subcluster", logger)
 	if err != nil {
 		return err
 	}
@@ -71,8 +71,8 @@ func (o *VRemoveScOptions) validatePathOptions() error {
 	return util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
 }
 
-func (o *VRemoveScOptions) validateParseOptions(log vlog.Printer) error {
-	err := o.validateRequiredOptions(log)
+func (o *VRemoveScOptions) validateParseOptions(logger vlog.Printer) error {
+	err := o.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -93,15 +93,15 @@ func (o *VRemoveScOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (o *VRemoveScOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	if err := o.validateParseOptions(log); err != nil {
+func (o *VRemoveScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := o.validateParseOptions(logger); err != nil {
 		return err
 	}
 	err := o.analyzeOptions()
 	if err != nil {
 		return err
 	}
-	return o.setUsePassword(log)
+	return o.setUsePassword(logger)
 }
 
 /*

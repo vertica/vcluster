@@ -55,8 +55,8 @@ func (options *VRestartNodesOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
 }
 
-func (options *VRestartNodesOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.validateBaseOptions("restart_node", log)
+func (options *VRestartNodesOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions("restart_node", logger)
 	if err != nil {
 		return err
 	}
@@ -67,8 +67,8 @@ func (options *VRestartNodesOptions) validateRequiredOptions(log vlog.Printer) e
 	return nil
 }
 
-func (options *VRestartNodesOptions) validateParseOptions(log vlog.Printer) error {
-	return options.validateRequiredOptions(log)
+func (options *VRestartNodesOptions) validateParseOptions(logger vlog.Printer) error {
+	return options.validateRequiredOptions(logger)
 }
 
 // analyzeOptions will modify some options based on what is chosen
@@ -102,8 +102,8 @@ func (options *VRestartNodesOptions) ParseNodesList(nodeListStr string) error {
 	return nil
 }
 
-func (options *VRestartNodesOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	if err := options.validateParseOptions(log); err != nil {
+func (options *VRestartNodesOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
 	return options.analyzeOptions()

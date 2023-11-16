@@ -54,13 +54,13 @@ type HTTPCheckRunningDBOp struct {
 	opType OpType
 }
 
-func makeHTTPCheckRunningDBOp(log vlog.Printer, hosts []string,
+func makeHTTPCheckRunningDBOp(logger vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string, opType OpType,
 ) (HTTPCheckRunningDBOp, error) {
 	runningDBChecker := HTTPCheckRunningDBOp{}
 	runningDBChecker.name = "HTTPCheckDBRunningOp"
-	runningDBChecker.log = log.WithName(runningDBChecker.name)
+	runningDBChecker.logger = logger.WithName(runningDBChecker.name)
 	runningDBChecker.hosts = hosts
 	runningDBChecker.useHTTPPassword = useHTTPPassword
 
@@ -91,7 +91,7 @@ func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *HTTPCheckRunningDBOp) logPrepare() {
-	op.log.Info("prepare() called", "opType", op.opType)
+	op.logger.Info("prepare() called", "opType", op.opType)
 }
 
 func (op *HTTPCheckRunningDBOp) prepare(execContext *OpEngineExecContext) error {
@@ -101,26 +101,32 @@ func (op *HTTPCheckRunningDBOp) prepare(execContext *OpEngineExecContext) error 
 }
 
 /* HTTPNodeStateResponse example:
-   {'details':[]
-    'node_list':[{'name': 'v_test_db_running_node0001',
-	          'node_id':'45035996273704982',
-		  'address': '192.168.1.101',
-		  'state' : 'UP'
-		  'database' : 'test_db',
-		  'is_primary' : true,
-		  'is_readonly' : false,
-		  'catalog_path' : "\/data\/test_db\/v_test_db_node0001_catalog\/Catalog"
-		  'subcluster_name' : ''
-		  'last_msg_from_node_at':'2023-01-23T15:18:18.44866"
-		  'down_since' : null
-		  'build_info' : "v12.0.4-7142c8b01f373cc1aa60b1a8feff6c40bfb7afe8"
-    }]}
+   {
+	"details": null,
+    "node_list":[{
+				  "name": "v_test_db_running_node0001",
+	          	  "node_id": 45035996273704982,
+		  		  "address": "192.168.1.101",
+		  		  "state" : "UP",
+		  		  "database" : "test_db",
+		  		  "is_primary" : true,
+		  		  "is_readonly" : false,
+		  		  "catalog_path" : "\/data\/test_db\/v_test_db_node0001_catalog\/Catalog",
+		  		  "data_path": ["\/data\/test_db\/v_test_db_node0001_data"],
+      	          "depot_path": "\/data\/test_db\/v_test_db_node0001_depot",
+		          "subcluster_name" : "default_subcluster",
+		          "last_msg_from_node_at":"2023-01-23T15:18:18.44866",
+		          "down_since" : null,
+		          "build_info" : "v12.0.4-7142c8b01f373cc1aa60b1a8feff6c40bfb7afe8"
+                }]
+	}
 */
 //
 // or a message if the endpoint doesn't return a well-structured JSON, examples:
-// {'message': 'Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n'}
+// {"message": "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n"}
 // {"message": "Wrong password\n"}
-type HTTPNodeStateResponse map[string][]map[string]string
+type NodeList []map[string]any
+type HTTPNodeStateResponse map[string]NodeList
 
 func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
 	responseObj HTTPNodeStateResponse) (running bool, msg string, err error) {
@@ -171,20 +177,6 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 	// print msg
 	msg := ""
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
-		resSummaryStr := SuccessResult
-		// VER-87303: it's possible that there's a DB running with a different password
-		if !result.isHTTPRunning() {
-			resSummaryStr = FailureResult
-		}
-
-		if result.err != nil {
-			op.log.PrintInfo("[%s] result from host %s summary %s, error: %+v",
-				op.name, host, resSummaryStr, result.err)
-		} else {
-			op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v.",
-				op.name, host, resSummaryStr, result)
-		}
-
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 		}
@@ -214,35 +206,37 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 			return fmt.Errorf("[%s] error happened during checking DB running on host %s, details: %w",
 				op.name, host, err)
 		}
-		op.log.Info("DB running", "host", host, "dbRunning", dbRunning, "checkMsg", checkMsg)
+		op.logger.Info("DB running", "host", host, "dbRunning", dbRunning, "checkMsg", checkMsg)
 		// return at least one check msg to user
 		msg = checkMsg
 	}
 
 	// log info
-	op.log.Info("check db running results", "up hosts", upHosts, "down hosts", downHosts, "hosts with status unknown", exceptionHosts)
+	op.logger.Info("check db running results", "up hosts", upHosts, "down hosts", downHosts, "hosts with status unknown", exceptionHosts)
 	// no DB is running on hosts, return a passed result
 	if len(upHosts) == 0 {
 		return nil
 	}
 
-	op.log.PrintInfo("%s\n", msg)
+	op.logger.Info("Check DB running", "detail", msg)
 
 	switch op.opType {
 	case CreateDB:
-		op.log.PrintInfo("Aborting database creation\n")
+		op.logger.PrintInfo("Aborting database creation")
 	case StopDB:
-		op.log.PrintInfo("The database has not been down yet\n")
+		op.logger.PrintInfo("The database has not been down yet")
 	case StartDB:
-		op.log.PrintInfo("Aborting database start\n")
+		op.logger.PrintInfo("Aborting database start")
 	case ReviveDB:
-		op.log.PrintInfo("Aborting database revival\n")
+		op.logger.PrintInfo("Aborting database revival")
 	}
-	return allErrs
+
+	// when db is running, append an error to allErrs for stopping VClusterOpEngine
+	return errors.Join(allErrs, errors.New(msg))
 }
 
 func (op *HTTPCheckRunningDBOp) execute(execContext *OpEngineExecContext) error {
-	op.log.Info("Execute() called", "opType", op.opType)
+	op.logger.Info("Execute() called", "opType", op.opType)
 	switch op.opType {
 	case CreateDB, StartDB, ReviveDB:
 		return op.checkDBConnection(execContext)
@@ -285,7 +279,7 @@ func (op *HTTPCheckRunningDBOp) pollForDBDown(execContext *OpEngineExecContext) 
 		// request again. We are waiting for all nodes to be down, which is a
 		// success result from processContext.
 		if err != nil {
-			op.log.Info("failure when checking node status", "err", err)
+			op.logger.Info("failure when checking node status", "err", err)
 		} else {
 			return nil
 		}
@@ -293,7 +287,7 @@ func (op *HTTPCheckRunningDBOp) pollForDBDown(execContext *OpEngineExecContext) 
 	}
 	// timeout
 	msg := fmt.Sprintf("the DB is still up after %s seconds", timeoutSecondStr)
-	op.log.PrintWarning(msg)
+	op.logger.PrintWarning(msg)
 	return errors.New(msg)
 }
 

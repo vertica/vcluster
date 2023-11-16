@@ -25,10 +25,10 @@ type NMAHealthOp struct {
 	OpBase
 }
 
-func makeNMAHealthOp(log vlog.Printer, hosts []string) NMAHealthOp {
+func makeNMAHealthOp(logger vlog.Printer, hosts []string) NMAHealthOp {
 	nmaHealthOp := NMAHealthOp{}
 	nmaHealthOp.name = "NMAHealthOp"
-	nmaHealthOp.log = log.WithName(nmaHealthOp.name)
+	nmaHealthOp.logger = logger.WithName(nmaHealthOp.name)
 	nmaHealthOp.hosts = hosts
 	return nmaHealthOp
 }

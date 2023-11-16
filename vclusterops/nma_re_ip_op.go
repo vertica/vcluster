@@ -34,13 +34,13 @@ type NMAReIPOp struct {
 	trimReIPData         bool
 }
 
-func makeNMAReIPOp(log vlog.Printer,
+func makeNMAReIPOp(logger vlog.Printer,
 	reIPList []ReIPInfo,
 	vdb *VCoordinationDatabase,
 	trimReIPData bool) NMAReIPOp {
 	op := NMAReIPOp{}
 	op.name = "NMAReIPOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.reIPList = reIPList
 	op.vdb = vdb
 	op.trimReIPData = trimReIPData
@@ -69,13 +69,13 @@ func (op *NMAReIPOp) updateRequestBody(_ *OpEngineExecContext) error {
 		p.ReIPInfoList = op.reIPList
 		dataBytes, err := json.Marshal(p)
 		if err != nil {
-			op.log.Error(err, `[%s] fail to marshal request data to JSON string, detail %s`, op.name)
+			op.logger.Error(err, `[%s] fail to marshal request data to JSON string, detail %s`, op.name)
 			return err
 		}
 		op.hostRequestBodyMap[host] = string(dataBytes)
 	}
 
-	op.log.Info("request data", "op name", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
+	op.logger.Info("request data", "op name", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
 	return nil
 }
 
@@ -153,7 +153,7 @@ func (op *NMAReIPOp) trimReIPList(execContext *OpEngineExecContext) error {
 		}
 
 		// otherwise, trim the re-ip list
-		op.log.Info("re-ip list is trimmed", "trimmed re-ip list", trimmedReIPList)
+		op.logger.Info("re-ip list is trimmed", "trimmed re-ip list", trimmedReIPList)
 	}
 
 	op.reIPList = trimmedReIPList
@@ -181,7 +181,7 @@ func (op *NMAReIPOp) whetherSkipReIP(execContext *OpEngineExecContext) bool {
 		}
 	}
 
-	op.log.PrintInfo("[%s] all target addresses already exist in the catalog, no need to re-ip.",
+	op.logger.PrintInfo("[%s] all target addresses already exist in the catalog, no need to re-ip.",
 		op.name)
 	return true
 }

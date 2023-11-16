@@ -30,11 +30,11 @@ type NMAGetHealthyNodesOp struct {
 	vdb *VCoordinationDatabase
 }
 
-func makeNMAGetHealthyNodesOp(log vlog.Printer, hosts []string,
+func makeNMAGetHealthyNodesOp(logger vlog.Printer, hosts []string,
 	vdb *VCoordinationDatabase) NMAGetHealthyNodesOp {
 	nmaGetHealthyNodesOp := NMAGetHealthyNodesOp{}
 	nmaGetHealthyNodesOp.name = "NMAGetHealthyNodesOp"
-	nmaGetHealthyNodesOp.log = log.WithName(nmaGetHealthyNodesOp.name)
+	nmaGetHealthyNodesOp.logger = logger.WithName(nmaGetHealthyNodesOp.name)
 	nmaGetHealthyNodesOp.hosts = hosts
 	nmaGetHealthyNodesOp.vdb = vdb
 	return nmaGetHealthyNodesOp
@@ -80,12 +80,12 @@ func (op *NMAGetHealthyNodesOp) processResult(_ *OpEngineExecContext) error {
 			if err == nil {
 				op.vdb.HostList = append(op.vdb.HostList, host)
 			} else {
-				op.log.Error(err, "NMA health check response malformed from host", "Host", host)
-				op.log.PrintWarning("Skipping unhealthy host %s", host)
+				op.logger.Error(err, "NMA health check response malformed from host", "Host", host)
+				op.logger.PrintWarning("Skipping unhealthy host %s", host)
 			}
 		} else {
-			op.log.Error(result.err, "Host is not reachable", "Host", host)
-			op.log.PrintWarning("Skipping unreachable host %s", host)
+			op.logger.Error(result.err, "Host is not reachable", "Host", host)
+			op.logger.PrintWarning("Skipping unreachable host %s", host)
 		}
 	}
 	if len(op.vdb.HostList) == 0 {

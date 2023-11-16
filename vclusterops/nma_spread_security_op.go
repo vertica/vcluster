@@ -41,14 +41,14 @@ const spreadKeyTypeVertica = "vertica"
 // makeNMASpreadSecurityOp will create the op to set or rotate the key for
 // spread encryption.
 func makeNMASpreadSecurityOp(
-	log vlog.Printer,
+	logger vlog.Printer,
 	keyType string,
 ) nmaSpreadSecurityOp {
 	return nmaSpreadSecurityOp{
 		OpBase: OpBase{
-			log:   log,
-			name:  "NMASpreadSecurityOp",
-			hosts: nil, // We always set this at runtime from read catalog editor
+			logger: logger.WithName("NMASpreadSecurityOp"),
+			name:   "NMASpreadSecurityOp",
+			hosts:  nil, // We always set this at runtime from read catalog editor
 		},
 		catalogPathMap: nil, // Set at runtime after reading the catalog editor
 		keyType:        keyType,
@@ -176,7 +176,7 @@ func (op *nmaSpreadSecurityOp) generateSecurityDetails() (string, error) {
 	}
 	// Note, we log the key ID for info purposes and is safe because it isn't
 	// sensitive. NEVER log the spreadKey.
-	op.log.Info("generating spread key", "keyID", keyID)
+	op.logger.Info("generating spread key", "keyID", keyID)
 	return fmt.Sprintf(`{\"%s\":\"%s\"}`, keyID, spreadKey), nil
 }
 

@@ -31,13 +31,13 @@ type nmaGetNodesInfoOp struct {
 	vdb                  *VCoordinationDatabase
 }
 
-func makeNMAGetNodesInfoOp(log vlog.Printer, hosts []string,
+func makeNMAGetNodesInfoOp(logger vlog.Printer, hosts []string,
 	dbName, catalogPrefix string,
 	ignoreInternalErrors bool,
 	vdb *VCoordinationDatabase) nmaGetNodesInfoOp {
 	op := nmaGetNodesInfoOp{}
 	op.name = "NMAGetNodesInfoOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.dbName = dbName
 	op.catalogPrefix = catalogPrefix
@@ -87,8 +87,8 @@ func (op *nmaGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 			err := op.parseAndCheckResponse(host, result.content, &vnode)
 			if err != nil {
 				if op.ignoreInternalErrors {
-					op.log.Error(err, "NMA node info response malformed from host", "Host", host)
-					op.log.PrintWarning("Host %s returned unparsable node info. Skipping host.", host)
+					op.logger.Error(err, "NMA node info response malformed from host", "Host", host)
+					op.logger.PrintWarning("Host %s returned unparsable node info. Skipping host.", host)
 				} else {
 					return errors.Join(allErrs, err)
 				}
@@ -97,11 +97,11 @@ func (op *nmaGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 				op.vdb.HostNodeMap[host] = &vnode
 			}
 		} else if result.isInternalError() && op.ignoreInternalErrors {
-			op.log.Error(result.err, "NMA node info reported internal error", "Host", host)
-			op.log.PrintWarning("Host %s reported internal error to node info query. Skipping host.", host)
+			op.logger.Error(result.err, "NMA node info reported internal error", "Host", host)
+			op.logger.PrintWarning("Host %s reported internal error to node info query. Skipping host.", host)
 		} else if result.isTimeout() && op.ignoreInternalErrors {
 			// it's unlikely for a node to pass health check but time out here, so leave default timeout limit
-			op.log.PrintWarning("Host %s timed out on node info query. Skipping host.", host)
+			op.logger.PrintWarning("Host %s timed out on node info query. Skipping host.", host)
 		} else {
 			allErrs = errors.Join(allErrs, result.err)
 		}

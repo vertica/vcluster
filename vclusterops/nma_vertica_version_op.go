@@ -48,10 +48,10 @@ func makeSCToHostVersionMap() map[string]HostVersionMap {
 }
 
 // makeNMAVerticaVersionOp is used when db has not been created
-func makeNMAVerticaVersionOp(log vlog.Printer, hosts []string, sameVersion, isEon bool) NMAVerticaVersionOp {
+func makeNMAVerticaVersionOp(logger vlog.Printer, hosts []string, sameVersion, isEon bool) NMAVerticaVersionOp {
 	nmaVerticaVersionOp := NMAVerticaVersionOp{}
 	nmaVerticaVersionOp.name = "NMAVerticaVersionOp"
-	nmaVerticaVersionOp.log = log.WithName(nmaVerticaVersionOp.name)
+	nmaVerticaVersionOp.logger = logger.WithName(nmaVerticaVersionOp.name)
 	nmaVerticaVersionOp.hosts = hosts
 	nmaVerticaVersionOp.RequireSameVersion = sameVersion
 	nmaVerticaVersionOp.IsEon = isEon
@@ -60,15 +60,15 @@ func makeNMAVerticaVersionOp(log vlog.Printer, hosts []string, sameVersion, isEo
 }
 
 // makeNMAVerticaVersionOpWithoutHosts is used when db is down
-func makeNMAVerticaVersionOpWithoutHosts(log vlog.Printer, sameVersion bool) NMAVerticaVersionOp {
+func makeNMAVerticaVersionOpWithoutHosts(logger vlog.Printer, sameVersion bool) NMAVerticaVersionOp {
 	// We set hosts to nil and isEon to false temporarily, and they will get the correct value from execute context in prepare()
-	return makeNMAVerticaVersionOp(log, nil /*hosts*/, sameVersion, false /*isEon*/)
+	return makeNMAVerticaVersionOp(logger, nil /*hosts*/, sameVersion, false /*isEon*/)
 }
 
 // makeNMAVerticaVersionOpWithVDB is used when db is up
-func makeNMAVerticaVersionOpWithVDB(log vlog.Printer, sameVersion bool, vdb *VCoordinationDatabase) NMAVerticaVersionOp {
+func makeNMAVerticaVersionOpWithVDB(logger vlog.Printer, sameVersion bool, vdb *VCoordinationDatabase) NMAVerticaVersionOp {
 	// We set hosts to nil temporarily, and it will get the correct value from vdb in prepare()
-	op := makeNMAVerticaVersionOp(log, nil /*hosts*/, sameVersion, vdb.IsEon)
+	op := makeNMAVerticaVersionOp(logger, nil /*hosts*/, sameVersion, vdb.IsEon)
 	op.vdb = vdb
 	return op
 }
@@ -169,7 +169,7 @@ func (op *NMAVerticaVersionOp) parseAndCheckResponse(host, resultContent string)
 	// example result:
 	// {"vertica_version": "Vertica Analytic Database v12.0.3"}
 	var responseObj NMAVerticaVersionOpResponse
-	err := util.GetJSONLogErrors(resultContent, &responseObj, op.name, op.log)
+	err := util.GetJSONLogErrors(resultContent, &responseObj, op.name, op.logger)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (op *NMAVerticaVersionOp) parseAndCheckResponse(host, resultContent string)
 		return errors.New("Unable to get vertica version from host " + host)
 	}
 
-	op.log.Info("JSON response", "host", host, "responseObj", responseObj)
+	op.logger.Info("JSON response", "host", host, "responseObj", responseObj)
 	// update version for the host in SCToHostVersionMap
 	for sc, hostVersionMap := range op.SCToHostVersionMap {
 		if _, exists := hostVersionMap[host]; exists {
@@ -192,6 +192,8 @@ func (op *NMAVerticaVersionOp) parseAndCheckResponse(host, resultContent string)
 
 func (op *NMAVerticaVersionOp) logResponseCollectVersions() error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
+		op.logResponse(host, result)
+
 		if !result.isPassing() {
 			errStr := fmt.Sprintf("[%s] result from host %s summary %s, details: %+v\n",
 				op.name, host, FailureResult, result)
@@ -200,12 +202,8 @@ func (op *NMAVerticaVersionOp) logResponseCollectVersions() error {
 
 		err := op.parseAndCheckResponse(host, result.content)
 		if err != nil {
-			op.log.Info("failure response", "host", host, "result", result, "err", err)
-			return err
+			return fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
 		}
-
-		op.log.PrintInfo("[%s] result from host %s summary %s, details: %+v",
-			op.name, host, SuccessResult, result)
 	}
 	return nil
 }
@@ -222,7 +220,7 @@ func (op *NMAVerticaVersionOp) logCheckVersionMatch() error {
 	for sc, hostVersionMap := range op.SCToHostVersionMap {
 		versionStr = NoVersion
 		for host, version := range hostVersionMap {
-			op.log.Info("version check", "host", host, "version", version)
+			op.logger.Info("version check", "host", host, "version", version)
 			if version == "" {
 				if op.IsEon && op.HasIncomingSCNames {
 					return fmt.Errorf("[%s] No version collected for host [%s] in subcluster [%s]", op.name, host, sc)

@@ -72,9 +72,9 @@ func makeVCoordinationDatabase() VCoordinationDatabase {
 	return VCoordinationDatabase{}
 }
 
-func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabaseOptions, log vlog.Printer) error {
+func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabaseOptions, logger vlog.Printer) error {
 	// build after validating the options
-	err := options.validateAnalyzeOptions(log)
+	err := options.validateAnalyzeOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *V
 }
 
 // WriteClusterConfig updates the yaml config file with the given vdb information
-func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, log vlog.Printer) error {
+func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, logger vlog.Printer) error {
 	/* build config information
 	 */
 	dbConfig := MakeDatabaseConfig()
@@ -454,7 +454,7 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, log vlog
 	// update cluster config with the given database info
 	clusterConfig := MakeClusterConfig()
 	if checkConfigFileExist(configDir) {
-		c, err := ReadConfig(*configDir, log)
+		c, err := ReadConfig(*configDir, logger)
 		if err != nil {
 			return err
 		}
@@ -464,14 +464,14 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, log vlog
 
 	/* write config to a YAML file
 	 */
-	configFilePath, err := getConfigFilePath(vdb.Name, configDir, log)
+	configFilePath, err := getConfigFilePath(vdb.Name, configDir, logger)
 	if err != nil {
 		return err
 	}
 
 	// if the config file exists already
 	// create its backup before overwriting it
-	err = backupConfigFile(configFilePath, log)
+	err = backupConfigFile(configFilePath, logger)
 	if err != nil {
 		return err
 	}

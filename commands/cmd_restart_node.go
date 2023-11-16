@@ -60,13 +60,13 @@ func (c *CmdRestartNodes) CommandType() string {
 	return "restart_node"
 }
 
-func (c *CmdRestartNodes) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -82,11 +82,11 @@ func (c *CmdRestartNodes) Parse(inputArgv []string, log vlog.Printer) error {
 		c.CmdBase.ipv6 = nil
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdRestartNodes) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdRestartNodes) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 	err := c.restartNodesOptions.ParseNodesList(*c.vnodeListStr)
 	if err != nil {
 		return err
@@ -94,9 +94,9 @@ func (c *CmdRestartNodes) validateParse(log vlog.Printer) error {
 	return c.ValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
 }
 
-func (c *CmdRestartNodes) Analyze(log vlog.Printer) error {
+func (c *CmdRestartNodes) Analyze(logger vlog.Printer) error {
 	// Analyze() is needed to fulfill an interface
-	log.Info("Called method Analyze()")
+	logger.Info("Called method Analyze()")
 	return nil
 }
 

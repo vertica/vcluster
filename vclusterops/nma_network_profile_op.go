@@ -27,10 +27,10 @@ type NMANetworkProfileOp struct {
 	OpBase
 }
 
-func makeNMANetworkProfileOp(log vlog.Printer, hosts []string) NMANetworkProfileOp {
+func makeNMANetworkProfileOp(logger vlog.Printer, hosts []string) NMANetworkProfileOp {
 	nmaNetworkProfileOp := NMANetworkProfileOp{}
 	nmaNetworkProfileOp.name = "NMANetworkProfileOp"
-	nmaNetworkProfileOp.log = log.WithName(nmaNetworkProfileOp.name)
+	nmaNetworkProfileOp.logger = logger.WithName(nmaNetworkProfileOp.name)
 	nmaNetworkProfileOp.hosts = hosts
 	return nmaNetworkProfileOp
 }

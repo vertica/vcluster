@@ -29,11 +29,11 @@ type httpsStartUpCommandOp struct {
 	vdb *VCoordinationDatabase
 }
 
-func makeHTTPSStartUpCommandOp(log vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSStartUpCommandOp(logger vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase) (httpsStartUpCommandOp, error) {
 	op := httpsStartUpCommandOp{}
 	op.name = "HTTPSStartUpCommandOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.useHTTPPassword = useHTTPPassword
 	op.vdb = vdb
 

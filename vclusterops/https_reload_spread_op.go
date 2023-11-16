@@ -28,12 +28,12 @@ type HTTPSReloadSpreadOp struct {
 	OpHTTPSBase
 }
 
-func makeHTTPSReloadSpreadOpWithInitiator(log vlog.Printer, initHosts []string,
+func makeHTTPSReloadSpreadOpWithInitiator(logger vlog.Printer, initHosts []string,
 	useHTTPPassword bool,
 	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
 	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
 	httpsReloadSpreadOp.name = "HTTPSReloadSpreadOp"
-	httpsReloadSpreadOp.log = log.WithName(httpsReloadSpreadOp.name)
+	httpsReloadSpreadOp.logger = logger.WithName(httpsReloadSpreadOp.name)
 	httpsReloadSpreadOp.hosts = initHosts
 	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
 
@@ -46,9 +46,9 @@ func makeHTTPSReloadSpreadOpWithInitiator(log vlog.Printer, initHosts []string,
 	return httpsReloadSpreadOp, nil
 }
 
-func makeHTTPSReloadSpreadOp(log vlog.Printer, useHTTPPassword bool,
+func makeHTTPSReloadSpreadOp(logger vlog.Printer, useHTTPPassword bool,
 	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
-	return makeHTTPSReloadSpreadOpWithInitiator(log, nil, useHTTPPassword, userName, httpsPassword)
+	return makeHTTPSReloadSpreadOpWithInitiator(logger, nil, useHTTPPassword, userName, httpsPassword)
 }
 
 func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {

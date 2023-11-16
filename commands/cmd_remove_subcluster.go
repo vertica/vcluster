@@ -67,9 +67,9 @@ func (c *CmdRemoveSubcluster) CommandType() string {
 	return "db_remove_subcluster"
 }
 
-func (c *CmdRemoveSubcluster) Parse(inputArgv []string, log vlog.Printer) error {
+func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), log)
+	err := c.ValidateParseArgv(c.CommandType(), logger)
 	if err != nil {
 		return err
 	}
@@ -84,11 +84,11 @@ func (c *CmdRemoveSubcluster) Parse(inputArgv []string, log vlog.Printer) error 
 	if !util.IsOptionSet(c.parser, "password") {
 		c.removeScOptions.Password = nil
 	}
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdRemoveSubcluster) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdRemoveSubcluster) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 
 	return c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
 }

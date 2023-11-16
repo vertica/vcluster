@@ -83,11 +83,11 @@ func (e *ReviveDBNodeCountMismatchError) Error() string {
 		e.ReviveDBStep, e.FailureHost, e.NumOfNewNodes, e.NumOfOldNodes)
 }
 
-func makeNMADownloadFileOp(log vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+func makeNMADownloadFileOp(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
 	configurationParameters map[string]string, vdb *VCoordinationDatabase) (NMADownloadFileOp, error) {
 	op := NMADownloadFileOp{}
 	op.name = "NMADownloadFileOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	initiator := getInitiator(newNodes)
 	op.hosts = []string{initiator}
 	op.vdb = vdb
@@ -113,9 +113,9 @@ func makeNMADownloadFileOp(log vlog.Printer, newNodes []string, sourceFilePath, 
 	return op, nil
 }
 
-func makeNMADownloadFileOpForRevive(log vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+func makeNMADownloadFileOpForRevive(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
 	configurationParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
-	op, err := makeNMADownloadFileOp(log, newNodes, sourceFilePath, destinationFilePath,
+	op, err := makeNMADownloadFileOp(logger, newNodes, sourceFilePath, destinationFilePath,
 		catalogPath, configurationParameters, vdb)
 	if err != nil {
 		return op, err
@@ -194,7 +194,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 			result := strings.TrimSpace(response.Result)
 			if result != respSuccResult {
 				err = fmt.Errorf(`[%s] fail to download file on host %s, error result in the response is %s`, op.name, host, result)
-				op.log.Error(err, "fail to download file, detail")
+				op.logger.Error(err, "fail to download file, detail")
 				allErrs = errors.Join(allErrs, err)
 				break
 			}
@@ -289,7 +289,7 @@ func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileConte
 
 func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) error {
 	if op.ignoreClusterLease {
-		op.log.PrintWarning("Skipping cluster lease check\n")
+		op.logger.PrintWarning("Skipping cluster lease check\n")
 		return nil
 	}
 
@@ -305,6 +305,6 @@ func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) er
 		return &ClusterLeaseNotExpiredError{Expiration: clusterLeaseExpiration}
 	}
 
-	op.log.PrintInfo("Cluster lease check has passed. We proceed to revive the database")
+	op.logger.PrintInfo("Cluster lease check has passed. We proceed to revive the database")
 	return nil
 }

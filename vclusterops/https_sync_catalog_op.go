@@ -29,11 +29,11 @@ type HTTPSSyncCatalogOp struct {
 	OpHTTPSBase
 }
 
-func makeHTTPSSyncCatalogOp(log vlog.Printer, hosts []string, useHTTPPassword bool,
+func makeHTTPSSyncCatalogOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string) (HTTPSSyncCatalogOp, error) {
 	op := HTTPSSyncCatalogOp{}
 	op.name = "HTTPSSyncCatalogOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 
@@ -47,9 +47,9 @@ func makeHTTPSSyncCatalogOp(log vlog.Printer, hosts []string, useHTTPPassword bo
 	return op, nil
 }
 
-func makeHTTPSSyncCatalogOpWithoutHosts(log vlog.Printer, useHTTPPassword bool,
+func makeHTTPSSyncCatalogOpWithoutHosts(logger vlog.Printer, useHTTPPassword bool,
 	userName string, httpsPassword *string) (HTTPSSyncCatalogOp, error) {
-	return makeHTTPSSyncCatalogOp(log, nil, useHTTPPassword, userName, httpsPassword)
+	return makeHTTPSSyncCatalogOp(logger, nil, useHTTPPassword, userName, httpsPassword)
 }
 
 func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
@@ -111,7 +111,7 @@ func (op *HTTPSSyncCatalogOp) processResult(_ *OpEngineExecContext) error {
 				err = fmt.Errorf(`[%s] response does not contain field "new_truncation_version"`, op.name)
 				allErrs = errors.Join(allErrs, err)
 			}
-			op.log.PrintInfo(`[%s] the_latest_truncation_catalog_version: %s"`, op.name, version)
+			op.logger.PrintInfo(`[%s] the_latest_truncation_catalog_version: %s"`, op.name, version)
 		} else {
 			allErrs = errors.Join(allErrs, result.err)
 		}

@@ -22,14 +22,14 @@ import (
 
 type ClusterCommand interface {
 	CommandType() string
-	Parse(argv []string, log vlog.Printer) error
+	Parse(argv []string, logger vlog.Printer) error
 
 	/* TODO: Analyze information about the state of
 	 * the cluster. The information could be
 	 * cached in a config file or constructed through
 	 * cluster discovery.
 	 */
-	Analyze(log vlog.Printer) error
+	Analyze(logger vlog.Printer) error
 	Run(vcc vclusterops.VClusterCommands) error
 	PrintUsage(string)
 }

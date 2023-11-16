@@ -55,8 +55,8 @@ func (c *CmdConfig) CommandType() string {
 	return "config"
 }
 
-func (c *CmdConfig) Parse(inputArgv []string, log vlog.Printer) error {
-	log.LogArgParse(&inputArgv)
+func (c *CmdConfig) Parse(inputArgv []string, logger vlog.Printer) error {
+	logger.LogArgParse(&inputArgv)
 
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
@@ -68,11 +68,11 @@ func (c *CmdConfig) Parse(inputArgv []string, log vlog.Printer) error {
 		return err
 	}
 
-	return c.validateParse(log)
+	return c.validateParse(logger)
 }
 
-func (c *CmdConfig) validateParse(log vlog.Printer) error {
-	log.Info("Called validateParse()")
+func (c *CmdConfig) validateParse(logger vlog.Printer) error {
+	logger.Info("Called validateParse()")
 	// if directory is not provided, then use the current directory
 	return c.validateDirectory()
 }

@@ -18,6 +18,8 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -26,9 +28,6 @@ import (
 
 // const to sync cmd, options parsing, and this
 const VScrutinizeTypeName = "scrutinize"
-
-// top level handler for scrutinize operations
-const scrutinizeURLPrefix = "scrutinize/"
 
 // folders used by scrutinize
 const scrutinizeOutputBasePath = "/tmp/scrutinize"
@@ -40,6 +39,7 @@ const scrutinizeLogLimitBytes = 10737418240 // 10GB in bytes
 
 // batches are fixed, top level folders for each node's data
 const scrutinizeBatchNormal = "normal"
+const scrutinizeBatchContext = "context"
 
 type VScrutinizeOptions struct {
 	DatabaseOptions
@@ -65,22 +65,19 @@ func generateScrutinizeID() string {
 	return idPrefix + idSuffix
 }
 
-func (options *VScrutinizeOptions) validateRequiredOptions(log vlog.Printer) error {
+func (options *VScrutinizeOptions) validateRequiredOptions(logger vlog.Printer) error {
 	// checks for correctness, but not for presence of all flags
-	err := options.validateBaseOptions(VScrutinizeTypeName, log)
+	err := options.validateBaseOptions(VScrutinizeTypeName, logger)
 	if err != nil {
 		return err
 	}
 
 	// will auto-generate username if not provided
-	// should be replaced by a later call to SetUsePassword() when we use
-	// an embedded server endpoint for system table retrieval
-	err = options.validateUserName(log)
+	// can be removed after adding embedded server endpoint for system table retrieval
+	err = options.validateUserName(logger)
 	if err != nil {
 		return err
 	}
-
-	// Password is not required
 
 	if *options.HonorUserInput {
 		// RawHosts is already required by the cmd parser, so no need to check here
@@ -94,12 +91,12 @@ func (options *VScrutinizeOptions) validateRequiredOptions(log vlog.Printer) err
 	return nil
 }
 
-func (options *VScrutinizeOptions) validateParseOptions(log vlog.Printer) error {
-	return options.validateRequiredOptions(log)
+func (options *VScrutinizeOptions) validateParseOptions(logger vlog.Printer) error {
+	return options.validateRequiredOptions(logger)
 }
 
 // analyzeOptions will modify some options based on what is chosen
-func (options *VScrutinizeOptions) analyzeOptions(log vlog.Printer) (err error) {
+func (options *VScrutinizeOptions) analyzeOptions(logger vlog.Printer) (err error) {
 	// we analyze host names when HonorUserInput is set, otherwise we use hosts in yaml config
 	if *options.HonorUserInput {
 		// resolve RawHosts to be IP addresses
@@ -107,17 +104,18 @@ func (options *VScrutinizeOptions) analyzeOptions(log vlog.Printer) (err error) 
 		if err != nil {
 			return err
 		}
-		log.V(1).Info("Resolved host list to IPs", "Hosts", options.Hosts)
+		logger.V(1).Info("Resolved host list to IPs", "Hosts", options.Hosts)
 	}
 
-	return nil
+	err = options.setUsePassword(logger)
+	return err
 }
 
-func (options *VScrutinizeOptions) ValidateAnalyzeOptions(log vlog.Printer) error {
-	if err := options.validateParseOptions(log); err != nil {
+func (options *VScrutinizeOptions) ValidateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
-	return options.analyzeOptions(log)
+	return options.analyzeOptions(logger)
 }
 
 func (vcc *VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
@@ -169,26 +167,47 @@ func (vcc *VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
 		return err
 	}
 
-	// TODO tar all results (VER-89741)
+	// tar all results
+	if err = tarAndRemoveDirectory(options.ID, vcc.Log); err != nil {
+		vcc.Log.Error(err, "failed to create final scrutinize output tarball")
+		return err
+	}
+
+	return nil
+}
+
+func tarAndRemoveDirectory(id string, log vlog.Printer) (err error) {
+	tarballPath := "/tmp/scrutinize/" + id + ".tgz"
+	cmd := exec.Command("tar", "czf", tarballPath, "-C", "/tmp/scrutinize/remote", id)
+	log.Info("running command %s with args %v", cmd.Path, cmd.Args)
+	if err = cmd.Run(); err != nil {
+		return
+	}
+	log.PrintInfo("Scrutinize final result at %s", tarballPath)
+
+	intermediateDirectoryPath := "/tmp/scrutinize/remote/" + id
+	if err = os.RemoveAll(intermediateDirectoryPath); err != nil {
+		log.PrintError("Failed to remove intermediate output directory %s: %s", intermediateDirectoryPath, err.Error())
+	}
 
 	return nil
 }
 
 // getVDBForScrutinize populates an empty coordinator database with the minimum
 // required information for further scrutinize operations.
-func (options *VScrutinizeOptions) getVDBForScrutinize(log vlog.Printer,
+func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 	vdb *VCoordinationDatabase) error {
 	// get nodes where NMA is running and only use those for NMA ops
-	nmaGetHealthyNodesOp := makeNMAGetHealthyNodesOp(log, options.Hosts, vdb)
-	err := options.runClusterOpEngine(log, []ClusterOp{&nmaGetHealthyNodesOp})
+	nmaGetHealthyNodesOp := makeNMAGetHealthyNodesOp(logger, options.Hosts, vdb)
+	err := options.runClusterOpEngine(logger, []ClusterOp{&nmaGetHealthyNodesOp})
 	if err != nil {
 		return err
 	}
 
 	// get map of host to node name and fully qualified catalog path
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(log, vdb.HostList, *options.DBName,
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(logger, vdb.HostList, *options.DBName,
 		*options.CatalogPrefix, true /* ignore internal errors */, vdb)
-	err = options.runClusterOpEngine(log, []ClusterOp{&nmaGetNodesInfoOp})
+	err = options.runClusterOpEngine(logger, []ClusterOp{&nmaGetNodesInfoOp})
 	if err != nil {
 		return err
 	}
@@ -212,14 +231,13 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(log vlog.Printer,
 //
 // The generated instructions will later perform the following operations necessary
 // for a successful scrutinize:
-//   - TODO Get up nodes through https call
+//   - Get up nodes through https call
 //   - TODO Initiate system table staging on the first up node, if available
 //   - Stage vertica logs on all nodes
-//   - TODO Stage ErrorReport.txt on all nodes
+//   - Stage ErrorReport.txt on all nodes
 //   - TODO Stage DC tables on all nodes
-//   - Tar and retrieve vertica logs from all nodes (batch normal)
-//   - TODO Tar and retrieve error report from all nodes (batch context)
-//   - TODO Tar and retrieve DC tables from all nodes (batch context)
+//   - Tar and retrieve vertica logs (TODO + DC tables) from all nodes (batch normal)
+//   - Tar and retrieve error report from all nodes (batch context)
 //   - TODO (If applicable) Poll for system table staging completion on task node
 //   - TODO (If applicable) Tar and retrieve system tables from task node (batch system_tables)
 func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeOptions,
@@ -230,6 +248,15 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 		return nil, fmt.Errorf("failed to process retrieved node info, details %w", err)
 	}
 
+	// Get up database nodes for the system table task later
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, *options.DBName, options.Hosts,
+		options.usePassword, *options.UserName, options.Password)
+	if err != nil {
+		return nil, err
+	}
+	httpsGetUpNodesOp.allowNoUpHosts()
+	instructions = append(instructions, &httpsGetUpNodesOp)
+
 	// stage Vertica logs
 	nmaStageVerticaLogsOp, err := makeNMAStageVerticaLogsOp(vcc.Log, options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap, scrutinizeLogLimitBytes, scrutinizeLogAgeHours)
@@ -239,6 +266,14 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	}
 	instructions = append(instructions, &nmaStageVerticaLogsOp)
 
+	// stage ErrorReport.txt
+	nmaStageVerticaErrorReportOp, err := makeNMAStageErrorReportOp(vcc.Log, options.ID, options.Hosts,
+		hostNodeNameMap, hostCatPathMap)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &nmaStageVerticaErrorReportOp)
+
 	// get 'normal' batch tarball (inc. Vertica logs)
 	getNormalTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchNormal,
 		options.Hosts, hostNodeNameMap)
@@ -246,6 +281,14 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 		return nil, err
 	}
 	instructions = append(instructions, &getNormalTarballOp)
+
+	// get 'context' batch tarball (inc. ErrorReport.txt)
+	getContextTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchContext,
+		options.Hosts, hostNodeNameMap)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &getContextTarballOp)
 
 	return instructions, nil
 }

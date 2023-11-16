@@ -55,15 +55,15 @@ func (c *CmdBase) ParseArgv() error {
 }
 
 // validate and parse argv
-func (c *CmdBase) ValidateParseArgv(commandType string, log vlog.Printer) error {
-	log.LogArgParse(&c.argv)
+func (c *CmdBase) ValidateParseArgv(commandType string, logger vlog.Printer) error {
+	logger.LogArgParse(&c.argv)
 	return c.ValidateParseArgvHelper(commandType)
 }
 
 // validate and parse masked argv
 // Some database actions, such as createDB and reviveDB, need to mask sensitive parameters in the log
-func (c *CmdBase) ValidateParseMaskedArgv(commandType string, log vlog.Printer) error {
-	log.LogMaskedArgParse(c.argv)
+func (c *CmdBase) ValidateParseMaskedArgv(commandType string, logger vlog.Printer) error {
+	logger.LogMaskedArgParse(c.argv)
 	return c.ValidateParseArgvHelper(commandType)
 }
 

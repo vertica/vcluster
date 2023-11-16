@@ -31,11 +31,11 @@ type HTTPSStopDBOp struct {
 	RequestParams map[string]string
 }
 
-func makeHTTPSStopDBOp(log vlog.Printer, useHTTPPassword bool, userName string,
+func makeHTTPSStopDBOp(logger vlog.Printer, useHTTPPassword bool, userName string,
 	httpsPassword *string, timeout *int) (HTTPSStopDBOp, error) {
 	httpsStopDBOp := HTTPSStopDBOp{}
 	httpsStopDBOp.name = "HTTPSStopDBOp"
-	httpsStopDBOp.log = log.WithName(httpsStopDBOp.name)
+	httpsStopDBOp.logger = logger.WithName(httpsStopDBOp.name)
 	httpsStopDBOp.useHTTPPassword = useHTTPPassword
 
 	// set the query params, "timeout" is optional

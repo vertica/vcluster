@@ -28,14 +28,14 @@ type HTTPSMarkEphemeralNodeOp struct {
 	targetNodeName string
 }
 
-func makeHTTPSMarkEphemeralNodeOp(log vlog.Printer, nodeName string,
+func makeHTTPSMarkEphemeralNodeOp(logger vlog.Printer, nodeName string,
 	initiatorHost []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string) (HTTPSMarkEphemeralNodeOp, error) {
 	op := HTTPSMarkEphemeralNodeOp{}
 	op.name = "HTTPSMarkEphemeralNodeOp"
-	op.log = log.WithName(op.name)
+	op.logger = logger.WithName(op.name)
 	op.hosts = initiatorHost
 	op.targetNodeName = nodeName
 	op.useHTTPPassword = useHTTPPassword
