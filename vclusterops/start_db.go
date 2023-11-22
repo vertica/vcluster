@@ -26,10 +26,13 @@ import (
 type VStartDatabaseOptions struct {
 	// basic db info
 	DatabaseOptions
+
 	// timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
 	StatePollingTimeout *int
 
-	// hidden option
+	/* hidden option */
+
+	// whether trim the input host list based on the catalog info
 	TrimHostList *bool
 }
 

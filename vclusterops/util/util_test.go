@@ -340,6 +340,18 @@ func TestValidateCommunalStorageLocation(t *testing.T) {
 	err := ValidateCommunalStorageLocation("")
 	assert.Error(t, err)
 
+	// no error for a valid s3 location
+	err = ValidateCommunalStorageLocation("s3://vertica-fleeting/k8s/revive_eon_5")
+	assert.NoError(t, err)
+
+	// no error for a valid local location
+	err = ValidateCommunalStorageLocation("/communal/vert/k8s/revive_eon_5")
+	assert.NoError(t, err)
+
+	// return error for a non-absolute local path
+	err = ValidateCommunalStorageLocation("~/test_folder/test")
+	assert.Error(t, err)
+
 	// return error for an invalid s3 location with ":"
 	err = ValidateCommunalStorageLocation("s3:vertica-fleeting/k8s/revive_eon_5")
 	assert.Error(t, err)
@@ -348,11 +360,15 @@ func TestValidateCommunalStorageLocation(t *testing.T) {
 	err = ValidateCommunalStorageLocation("s3:/vertica-fleeting/k8s/revive_eon_5")
 	assert.Error(t, err)
 
-	// no error for an valid s3 location
-	err = ValidateCommunalStorageLocation("s3://vertica-fleeting/k8s/revive_eon_5")
-	assert.NoError(t, err)
+	// return error for an invalid s3 location with ":///"
+	err = ValidateCommunalStorageLocation("s3:///vertica-fleeting/k8s/revive_eon_5")
+	assert.Error(t, err)
 
-	// no error for an valid local location
-	err = ValidateCommunalStorageLocation("/communal/vert/k8s/revive_eon_5")
-	assert.NoError(t, err)
+	// return error for an invalid s3 location with "//" as the path separator
+	err = ValidateCommunalStorageLocation("s3://vertica-fleeting//k8s/revive_eon_5")
+	assert.Error(t, err)
+
+	// return error for an invalid s3 location with "///" as the path separator
+	err = ValidateCommunalStorageLocation("s3://vertica-fleeting///k8s/revive_eon_5")
+	assert.Error(t, err)
 }

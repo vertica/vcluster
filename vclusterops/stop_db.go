@@ -23,13 +23,16 @@ import (
 )
 
 type VStopDatabaseOptions struct {
-	// part 1: basic db info
+	/* part 1: basic db info */
 	DatabaseOptions
-	// part 2: eon db info
-	DrainSeconds *int
-	// part 3: hidden info
-	CheckUserConn *bool
-	ForceKill     *bool
+
+	/* part 2: eon db info */
+	DrainSeconds *int // time in seconds to wait for database users' disconnection
+
+	/* part 3: hidden info */
+
+	CheckUserConn *bool // whether check user connection
+	ForceKill     *bool // whether force kill connections
 }
 
 type VStopDatabaseInfo struct {

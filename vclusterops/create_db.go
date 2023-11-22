@@ -28,33 +28,40 @@ import (
 // A good rule of thumb is to use normal strings unless you need nil.
 // Normal strings are easier and safer to use in Go.
 type VCreateDatabaseOptions struct {
-	// part 1: basic db info
+	/* part 1: basic db info */
 	DatabaseOptions
-	Policy            *string
-	SQLFile           *string
+	Policy            *string // database restart policy
+	SQLFile           *string // SQL file to run (as dbadmin) immediately on database creation
 	LicensePathOnNode *string // required to be a fully qualified path
-	// part 2: eon db info
-	ShardCount               *int
-	DepotSize                *string // like 10G
-	GetAwsCredentialsFromEnv *bool
-	// part 3: optional info
-	ForceCleanupOnFailure     *bool
-	ForceRemovalAtCreation    *bool
-	SkipPackageInstall        *bool
-	TimeoutNodeStartupSeconds *int
-	// part 4: new params originally in installer generated admintools.conf, now in create db op
-	Broadcast          *bool
-	P2p                *bool
-	LargeCluster       *int
-	ClientPort         *int // for internal QA test only, do not abuse
-	SpreadLogging      *bool
-	SpreadLoggingLevel *int
-	// part 5: other params
-	SkipStartupPolling *bool
-	ConfigDirectory    *string
-	GenerateHTTPCerts  *bool
 
-	// hidden options (which cache information only)
+	/* part 2: eon db info */
+
+	ShardCount               *int    // number of shards in the database"
+	DepotSize                *string // depot size with two supported formats: % and KMGT, e.g., 50% or 10G
+	GetAwsCredentialsFromEnv *bool   // whether get AWS credentials from environmental variables
+	// part 3: optional info
+	ForceCleanupOnFailure     *bool // whether force remove existing directories on failure
+	ForceRemovalAtCreation    *bool // whether force remove existing directories before creating the database
+	SkipPackageInstall        *bool // whether skip package installation
+	TimeoutNodeStartupSeconds *int  // timeout in seconds for polling node start up state
+
+	/* part 3: new params originally in installer generated admintools.conf, now in create db op */
+
+	Broadcast          *bool // configure Spread to use UDP broadcast traffic between nodes on the same subnet
+	P2p                *bool // configure Spread to use point-to-point communication between all Vertica nodes
+	LargeCluster       *int  // whether enables a large cluster layout
+	ClientPort         *int  // for internal QA test only, do not abuse
+	SpreadLogging      *bool // whether enable spread logging
+	SpreadLoggingLevel *int  // spread logging level
+
+	/* part 4: other params */
+
+	SkipStartupPolling *bool // whether skip startup polling
+	GenerateHTTPCerts  *bool // whether generate http certificates
+
+	/* hidden options (which cache information only) */
+
+	// the host used for bootstrapping
 	bootstrapHost []string
 }
 
@@ -279,6 +286,10 @@ func validateDepotSize(size string) (bool, error) {
 
 func (opt *VCreateDatabaseOptions) validateEonOptions() error {
 	if *opt.CommunalStorageLocation != "" {
+		err := util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
+		if err != nil {
+			return err
+		}
 		if *opt.DepotPrefix == "" {
 			return fmt.Errorf("must specify a depot path with commual storage location")
 		}

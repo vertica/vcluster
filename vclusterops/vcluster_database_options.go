@@ -28,33 +28,57 @@ import (
 )
 
 type DatabaseOptions struct {
-	// part 1: basic database info
-	DBName          *string
-	RawHosts        []string // expected to be IP addresses or hostnames
-	Hosts           []string // expected to be IP addresses resolved from RawHosts
-	Ipv6            vstruct.NullableBool
-	CatalogPrefix   *string
-	DataPrefix      *string
+	/* part 1: basic database info */
+
+	// name of the database
+	DBName *string
+	// expected to be IP addresses or hostnames
+	RawHosts []string
+	// expected to be IP addresses resolved from RawHosts
+	Hosts []string
+	// whether using IPv6 for host addresses
+	Ipv6 vstruct.NullableBool
+	// path of catalog directory
+	CatalogPrefix *string
+	// path of data directory
+	DataPrefix *string
+	// directory of the YAML config file
 	ConfigDirectory *string
 
-	// part 2: Eon database info
-	DepotPrefix             *string
-	IsEon                   vstruct.NullableBool
+	/* part 2: Eon database info */
+
+	// path of depot directory
+	DepotPrefix *string
+	// whether the database is in Eon mode
+	IsEon vstruct.NullableBool
+	// path of the communal storage
 	CommunalStorageLocation *string
+	// database configuration parameters
 	ConfigurationParameters map[string]string
 
-	// part 3: authentication info
-	UserName *string
-	Password *string
-	Key      string
-	Cert     string
-	CaCert   string
+	/* part 3: authentication info */
 
-	// part 4: other info
-	LogPath        *string
+	// user name
+	UserName *string
+	// password
+	Password *string
+	// TLS Key
+	Key string
+	// TLS Certificate
+	Cert string
+	// TLS CA Certificate
+	CaCert string
+
+	/* part 4: other info */
+
+	// path of the log file
+	LogPath *string
+	// whether honor user's input rather than reading values from the config file
 	HonorUserInput *bool
-	usePassword    bool
-	Config         *ClusterConfig
+	// whether use password
+	usePassword bool
+	// pointer to the cluster config object
+	Config *ClusterConfig
 }
 
 const (

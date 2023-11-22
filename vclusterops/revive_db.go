@@ -23,12 +23,18 @@ import (
 )
 
 type VReviveDatabaseOptions struct {
-	// part 1: basic db info
+	/* part 1: basic db info */
 	DatabaseOptions
-	// part 2: revive db info
+
+	/* part 2: revive db info */
+
+	// timeout in seconds of loading remote catalog
 	LoadCatalogTimeout *uint
-	ForceRemoval       *bool
-	DisplayOnly        *bool
+	// whether force remove existing directories before revive the database
+	ForceRemoval *bool
+	// describe the database on communal storage, and exit
+	DisplayOnly *bool
+	// whether ignore the cluster lease
 	IgnoreClusterLease *bool
 }
 

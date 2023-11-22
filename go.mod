@@ -3,6 +3,7 @@ module github.com/vertica/vcluster
 go 1.20
 
 require (
+	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.4
 	github.com/stretchr/testify v1.8.2

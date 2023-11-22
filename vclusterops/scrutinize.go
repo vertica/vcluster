@@ -266,6 +266,15 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	}
 	instructions = append(instructions, &nmaStageVerticaLogsOp)
 
+	// stage DC Tables
+	nmaStageDCTablesOp, err := makeNMAStageDCTablesOp(vcc.Log, options.ID, options.Hosts,
+		hostNodeNameMap, hostCatPathMap)
+	if err != nil {
+		// map invariant assertion failure -- should not occur
+		return nil, err
+	}
+	instructions = append(instructions, &nmaStageDCTablesOp)
+
 	// stage ErrorReport.txt
 	nmaStageVerticaErrorReportOp, err := makeNMAStageErrorReportOp(vcc.Log, options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap)

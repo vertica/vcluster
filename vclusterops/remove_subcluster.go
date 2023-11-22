@@ -29,7 +29,8 @@ type VRemoveScOptions struct {
 	DatabaseOptions
 	// Subcluster to remove from database
 	SubclusterToRemove *string
-	ForceDelete        *bool
+	// whether force delete directories
+	ForceDelete *bool
 }
 
 func VRemoveScOptionsFactory() VRemoveScOptions {

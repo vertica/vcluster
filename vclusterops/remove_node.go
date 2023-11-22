@@ -31,7 +31,8 @@ type VRemoveNodeOptions struct {
 	HostsToRemove []string
 	// A primary up host that will be used to execute
 	// remove_node operations.
-	Initiator   string
+	Initiator string
+	// whether force delete directories
 	ForceDelete *bool
 }
 
@@ -168,13 +169,24 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 		return vdb, fmt.Errorf("fail to produce remove node instructions, %w", err)
 	}
 
+	remainingHosts := util.SliceDiff(vdb.HostList, options.HostsToRemove)
+
 	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
-		return vdb, fmt.Errorf("fail to complete remove node operation, %w", runError)
+		// If the machines of the to-be-removed nodes crashed or get killed,
+		// the run error may be ignored.
+		// Here we check whether the to-be-removed nodes are still in the catalog.
+		// If they have been removed from catalog, we let remove_node succeed.
+		if vcc.findRemovedNodesInCatalog(options, remainingHosts) {
+			return vdb, fmt.Errorf("fail to complete remove node operation, %w", runError)
+		}
+		// If the target nodes have already been removed from catalog,
+		// show a warning about the run error for users to trouble shoot their machines
+		vcc.Log.PrintWarning("Nodes have been successfully removed, but encountered the following problems: %v",
+			runError)
 	}
 
-	remainingHosts := util.SliceDiff(vdb.HostList, options.HostsToRemove)
 	// we return a vdb that contains only the remaining hosts
 	return vdb.copy(remainingHosts), nil
 }
@@ -418,4 +430,28 @@ func (o *VRemoveNodeOptions) setInitiator(primaryUpNodes []string) error {
 	}
 	o.Initiator = initiatorHost
 	return nil
+}
+
+// findRemovedNodesInCatalog checks whether the to-be-removed nodes are still in catalog.
+// Return true if they are still in catalog.
+func (vcc *VClusterCommands) findRemovedNodesInCatalog(options *VRemoveNodeOptions,
+	remainingHosts []string) bool {
+	fetchNodeStateOpt := VFetchNodeStateOptionsFactory()
+	fetchNodeStateOpt.DBName = options.DBName
+	fetchNodeStateOpt.RawHosts = remainingHosts
+	fetchNodeStateOpt.Ipv6 = options.Ipv6
+	fetchNodeStateOpt.UserName = options.UserName
+	fetchNodeStateOpt.Password = options.Password
+	*fetchNodeStateOpt.HonorUserInput = true
+
+	var nodesInfo NodesInfo
+	res, err := vcc.VFetchNodeState(&fetchNodeStateOpt)
+	if err != nil {
+		vcc.Log.PrintWarning("Fail to fetch states of the nodes, detail: %v", err)
+		return false
+	}
+	nodesInfo.NodeList = res
+
+	// return true if the target (to-be-removed) nodes are still in catalog
+	return nodesInfo.findHosts(options.HostsToRemove)
 }

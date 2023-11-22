@@ -152,19 +152,6 @@ func (op *HTTPSPollNodeStateOp) processResult(execContext *OpEngineExecContext) 
 	return nil
 }
 
-// the following structs only hosts necessary information for this op
-type NodeInfo struct {
-	Address string `json:"address"`
-	// vnode name, e.g., v_dbname_node0001
-	Name        string `json:"name"`
-	State       string `json:"state"`
-	CatalogPath string `json:"catalog_path"`
-}
-
-type NodesInfo struct {
-	NodeList []NodeInfo `json:"node_list"`
-}
-
 func (op *HTTPSPollNodeStateOp) shouldStopPolling() (bool, error) {
 	upNodeCount := 0
 

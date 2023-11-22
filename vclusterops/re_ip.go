@@ -28,9 +28,12 @@ import (
 type VReIPOptions struct {
 	DatabaseOptions
 
+	// re-ip list
 	ReIPList []ReIPInfo
 
-	// hidden option
+	/* hidden option */
+
+	// whether trim re-ip list based on the catalog info
 	TrimReIPList bool
 }
 

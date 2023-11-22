@@ -520,10 +520,11 @@ func ValidateCommunalStorageLocation(location string) error {
 		return fmt.Errorf("must specify a communal storage location")
 	}
 
-	// reject communal storage location with ":/"
-	re := regexp.MustCompile(":/?[^/]")
-	if re.MatchString(location) {
-		return fmt.Errorf("invalid separator found in communal storage location, use :// instead of : or :/")
+	// create a regex to accept valid urls like "s3://vertica-fleeting/k8s/revive_eon_5"
+	re := regexp.MustCompile("^[0-9a-zA-Z]+://[^/]+(/[^/]+)*/?$")
+	// check if communal location is a valid local path or a valid remote url path
+	if !IsAbsPath(location) && !re.MatchString(location) {
+		return fmt.Errorf("communal storage path is invalid: use an absolute local path or a correct remote url path")
 	}
 
 	return nil

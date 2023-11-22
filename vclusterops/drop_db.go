@@ -26,7 +26,7 @@ import (
 // Normal strings are easier and safer to use in Go.
 type VDropDatabaseOptions struct {
 	VCreateDatabaseOptions
-	ForceDelete *bool
+	ForceDelete *bool // whether force delete directories
 }
 
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
