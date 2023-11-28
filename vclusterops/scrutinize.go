@@ -40,6 +40,7 @@ const scrutinizeLogLimitBytes = 10737418240 // 10GB in bytes
 // batches are fixed, top level folders for each node's data
 const scrutinizeBatchNormal = "normal"
 const scrutinizeBatchContext = "context"
+const scrutinizeBatchSystemTables = "system_tables"
 
 type VScrutinizeOptions struct {
 	DatabaseOptions
@@ -198,16 +199,16 @@ func tarAndRemoveDirectory(id string, log vlog.Printer) (err error) {
 func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 	vdb *VCoordinationDatabase) error {
 	// get nodes where NMA is running and only use those for NMA ops
-	nmaGetHealthyNodesOp := makeNMAGetHealthyNodesOp(logger, options.Hosts, vdb)
-	err := options.runClusterOpEngine(logger, []clusterOp{&nmaGetHealthyNodesOp})
+	getHealthyNodesOp := makeNMAGetHealthyNodesOp(logger, options.Hosts, vdb)
+	err := options.runClusterOpEngine(logger, []clusterOp{&getHealthyNodesOp})
 	if err != nil {
 		return err
 	}
 
 	// get map of host to node name and fully qualified catalog path
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(logger, vdb.HostList, *options.DBName,
+	getNodesInfoOp := makeNMAGetNodesInfoOp(logger, vdb.HostList, *options.DBName,
 		*options.CatalogPrefix, true /* ignore internal errors */, vdb)
-	err = options.runClusterOpEngine(logger, []clusterOp{&nmaGetNodesInfoOp})
+	err = options.runClusterOpEngine(logger, []clusterOp{&getNodesInfoOp})
 	if err != nil {
 		return err
 	}
@@ -232,14 +233,14 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 // The generated instructions will later perform the following operations necessary
 // for a successful scrutinize:
 //   - Get up nodes through https call
-//   - TODO Initiate system table staging on the first up node, if available
+//   - Initiate system table staging on the first up node, if available
 //   - Stage vertica logs on all nodes
 //   - Stage ErrorReport.txt on all nodes
-//   - TODO Stage DC tables on all nodes
-//   - Tar and retrieve vertica logs (TODO + DC tables) from all nodes (batch normal)
+//   - Stage DC tables on all nodes
+//   - Tar and retrieve vertica logs and DC tables from all nodes (batch normal)
 //   - Tar and retrieve error report from all nodes (batch context)
-//   - TODO (If applicable) Poll for system table staging completion on task node
-//   - TODO (If applicable) Tar and retrieve system tables from task node (batch system_tables)
+//   - (If applicable) Poll for system table staging completion on task node
+//   - (If applicable) Tar and retrieve system tables from task node (batch system_tables)
 func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeOptions,
 	vdb *VCoordinationDatabase) (instructions []clusterOp, err error) {
 	// extract needed info from vdb
@@ -248,40 +249,45 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 		return nil, fmt.Errorf("failed to process retrieved node info, details %w", err)
 	}
 
-	// Get up database nodes for the system table task later
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, *options.DBName, options.Hosts,
+	// Get up database nodes for the system table task
+	getUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, *options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password)
 	if err != nil {
 		return nil, err
 	}
-	httpsGetUpNodesOp.allowNoUpHosts()
-	instructions = append(instructions, &httpsGetUpNodesOp)
+	getUpNodesOp.allowNoUpHosts()
+	instructions = append(instructions, &getUpNodesOp)
+
+	// Initiate system table staging early as it may take significantly longer than other ops
+	stageSystemTablesOp := makeNMAStageSystemTablesOp(vcc.Log, options.ID, *options.UserName,
+		options.Password, hostNodeNameMap)
+	instructions = append(instructions, &stageSystemTablesOp)
 
 	// stage Vertica logs
-	nmaStageVerticaLogsOp, err := makeNMAStageVerticaLogsOp(vcc.Log, options.ID, options.Hosts,
+	stageVerticaLogsOp, err := makeNMAStageVerticaLogsOp(vcc.Log, options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap, scrutinizeLogLimitBytes, scrutinizeLogAgeHours)
 	if err != nil {
 		// map invariant assertion failure -- should not occur
 		return nil, err
 	}
-	instructions = append(instructions, &nmaStageVerticaLogsOp)
+	instructions = append(instructions, &stageVerticaLogsOp)
 
 	// stage DC Tables
-	nmaStageDCTablesOp, err := makeNMAStageDCTablesOp(vcc.Log, options.ID, options.Hosts,
+	stageDCTablesOp, err := makeNMAStageDCTablesOp(vcc.Log, options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap)
 	if err != nil {
 		// map invariant assertion failure -- should not occur
 		return nil, err
 	}
-	instructions = append(instructions, &nmaStageDCTablesOp)
+	instructions = append(instructions, &stageDCTablesOp)
 
 	// stage ErrorReport.txt
-	nmaStageVerticaErrorReportOp, err := makeNMAStageErrorReportOp(vcc.Log, options.ID, options.Hosts,
+	stageVerticaErrorReportOp, err := makeNMAStageErrorReportOp(vcc.Log, options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap)
 	if err != nil {
 		return nil, err
 	}
-	instructions = append(instructions, &nmaStageVerticaErrorReportOp)
+	instructions = append(instructions, &stageVerticaErrorReportOp)
 
 	// get 'normal' batch tarball (inc. Vertica logs)
 	getNormalTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchNormal,
@@ -298,6 +304,19 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 		return nil, err
 	}
 	instructions = append(instructions, &getContextTarballOp)
+
+	// check for system tables staging completion before continuing
+	checkSystemTablesOp := makeNMACheckSystemTablesOp(vcc.Log, options.ID, hostNodeNameMap)
+	instructions = append(instructions, &checkSystemTablesOp)
+
+	// get 'system_tables' batch tarball last, as staging systables can take a long time
+	getSystemTablesTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchSystemTables,
+		options.Hosts, hostNodeNameMap)
+	if err != nil {
+		return nil, err
+	}
+	getSystemTablesTarballOp.useSingleHost()
+	instructions = append(instructions, &getSystemTablesTarballOp)
 
 	return instructions, nil
 }

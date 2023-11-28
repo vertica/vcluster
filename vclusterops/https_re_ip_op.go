@@ -26,7 +26,7 @@ type httpsReIPOp struct {
 	opBase
 	opHTTPSBase
 	hostToReIP    []string
-	reIPList      map[string]reIPInfo
+	reIPList      map[string]ReIPInfo
 	nodeNamesList []string
 	upHosts       []string
 }
@@ -77,7 +77,7 @@ func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *httpsReIPOp) prepare(execContext *opEngineExecContext) error {
-	op.reIPList = make(map[string]reIPInfo)
+	op.reIPList = make(map[string]ReIPInfo)
 	// update reIPList from input node names and execContext.networkProfiles
 	for i := 0; i < len(op.nodeNamesList); i++ {
 		nodeNameToReIP := op.nodeNamesList[i]
@@ -86,7 +86,7 @@ func (op *httpsReIPOp) prepare(execContext *opEngineExecContext) error {
 		if !ok {
 			return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, targetAddress)
 		}
-		info := reIPInfo{
+		info := ReIPInfo{
 			NodeName:               nodeNameToReIP,
 			TargetAddress:          targetAddress,
 			TargetControlAddress:   profile.Address,

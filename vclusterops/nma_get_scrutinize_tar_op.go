@@ -26,6 +26,7 @@ import (
 
 type nmaGetScrutinizeTarOp struct {
 	scrutinizeOpBase
+	useInitiator bool
 }
 
 func makeNMAGetScrutinizeTarOp(logger vlog.Printer,
@@ -54,6 +55,12 @@ func makeNMAGetScrutinizeTarOp(logger vlog.Printer,
 	return op, err
 }
 
+// useSingleHost indicates that the tarball should only be retrieved from the first
+// up node
+func (op *nmaGetScrutinizeTarOp) useSingleHost() {
+	op.useInitiator = true
+}
+
 // createOutputDir creates a subdirectory {id} under /tmp/scrutinize/remote, which
 // may also be created by this function.  the "remote" subdirectory is created to
 // separate local scrutinize data staged by the NMA (placed in /tmp/scrutinize/) from
@@ -75,6 +82,24 @@ func (op *nmaGetScrutinizeTarOp) createOutputDir() error {
 }
 
 func (op *nmaGetScrutinizeTarOp) prepare(execContext *opEngineExecContext) error {
+	// for the system table batch
+	if op.useInitiator {
+		if len(execContext.upHosts) == 0 {
+			op.logger.PrintWarning("no up hosts to collect system tables from, skipping the operation")
+			op.skipExecute = true
+			return nil
+		}
+		host := getInitiator(execContext.upHosts)
+		op.hosts = []string{host}
+
+		// the initiator host should have been in the original host list, and already
+		// validated, but let's not assume
+		err := validateHostMaps(op.hosts, op.hostNodeNameMap)
+		if err != nil {
+			return err
+		}
+	}
+
 	hostToFilePathsMap := map[string]string{}
 	for _, host := range op.hosts {
 		hostToFilePathsMap[host] = fmt.Sprintf("%s/%s/%s-%s.tgz",

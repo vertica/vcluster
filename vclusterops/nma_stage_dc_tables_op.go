@@ -99,5 +99,5 @@ func (op *nmaStageDCTablesOp) finalize(_ *opEngineExecContext) error {
 
 func (op *nmaStageDCTablesOp) processResult(_ *opEngineExecContext) error {
 	fileList := make([]stageDCTablesResponseData, 0)
-	return processStagedFilesResult(&op.scrutinizeOpBase, fileList)
+	return processStagedItemsResult(&op.scrutinizeOpBase, fileList)
 }

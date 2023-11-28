@@ -113,5 +113,5 @@ func (op *nmaStageVerticaLogsOp) finalize(_ *opEngineExecContext) error {
 
 func (op *nmaStageVerticaLogsOp) processResult(_ *opEngineExecContext) error {
 	fileList := make([]stageVerticaLogsResponseData, 0)
-	return processStagedFilesResult(&op.scrutinizeOpBase, fileList)
+	return processStagedItemsResult(&op.scrutinizeOpBase, fileList)
 }

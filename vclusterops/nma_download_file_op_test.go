@@ -33,7 +33,7 @@ func TestClusteLeaseExpiryError(t *testing.T) {
 	err := op.clusterLeaseCheck(fakeLeaseTime.Format(expirationStringLayout))
 	assert.Error(t, err)
 	// Ensure we get a specific error type back
-	clusterLeaseErr := &clusterLeaseNotExpiredError{}
+	clusterLeaseErr := &ClusterLeaseNotExpiredError{}
 	ok := errors.As(err, &clusterLeaseErr)
 	assert.True(t, ok)
 	assert.Contains(t, err.Error(), "The cluster lease will expire at")

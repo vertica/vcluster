@@ -39,7 +39,7 @@ func TestReIPOptions(t *testing.T) {
 	err = opt.validateAnalyzeOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "the re-ip list is not provided")
 
-	var info reIPInfo
+	var info ReIPInfo
 	info.NodeAddress = "192.168.1.102"
 	info.TargetAddress = "192.168.1.103"
 	opt.ReIPList = append(opt.ReIPList, info)
@@ -89,7 +89,7 @@ func TestTrimReIPList(t *testing.T) {
 	// build a stub re-ip list
 	// which has an extra node compared to the actual NmaVDatabase
 	for i := 0; i < 4; i++ {
-		var info reIPInfo
+		var info ReIPInfo
 		info.NodeName = fmt.Sprintf("v_%s_node000%d", dbName, i+1)
 		info.NodeAddress = fmt.Sprintf("vnode%d", i+1)
 		info.TargetAddress = fmt.Sprintf("vnode_new_%d", i+1)

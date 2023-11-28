@@ -25,7 +25,7 @@ import (
 
 type nmaReIPOp struct {
 	opBase
-	reIPList             []reIPInfo
+	reIPList             []ReIPInfo
 	vdb                  *VCoordinationDatabase
 	primaryNodeCount     uint
 	hostRequestBodyMap   map[string]string
@@ -35,7 +35,7 @@ type nmaReIPOp struct {
 }
 
 func makeNMAReIPOp(logger vlog.Printer,
-	reIPList []reIPInfo,
+	reIPList []ReIPInfo,
 	vdb *VCoordinationDatabase,
 	trimReIPData bool) nmaReIPOp {
 	op := nmaReIPOp{}
@@ -47,7 +47,7 @@ func makeNMAReIPOp(logger vlog.Printer,
 	return op
 }
 
-type reIPInfo struct {
+type ReIPInfo struct {
 	NodeName               string `json:"node_name"`
 	NodeAddress            string `json:"-"`
 	TargetAddress          string `json:"address"`
@@ -57,7 +57,7 @@ type reIPInfo struct {
 
 type reIPParams struct {
 	CatalogPath  string     `json:"catalog_path"`
-	ReIPInfoList []reIPInfo `json:"re_ip_list"`
+	ReIPInfoList []ReIPInfo `json:"re_ip_list"`
 }
 
 func (op *nmaReIPOp) updateRequestBody(_ *opEngineExecContext) error {
@@ -135,7 +135,7 @@ func (op *nmaReIPOp) trimReIPList(execContext *opEngineExecContext) error {
 		nodeNamesWithLatestCatalog[vnode.Name] = struct{}{}
 	}
 
-	var trimmedReIPList []reIPInfo
+	var trimmedReIPList []ReIPInfo
 	nodesToTrim := make(map[string]string)
 	for _, reIPInfo := range op.reIPList {
 		if _, exist := nodeNamesWithLatestCatalog[reIPInfo.NodeName]; exist {
@@ -271,7 +271,7 @@ func (op *nmaReIPOp) processResult(_ *opEngineExecContext) error {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			var reIPResult []reIPInfo
+			var reIPResult []ReIPInfo
 			err := op.parseAndCheckResponse(host, result.content, &reIPResult)
 			if err != nil {
 				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w",

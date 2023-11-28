@@ -100,7 +100,8 @@ func makeHTTPSPollNodeStateOp(logger vlog.Printer, hosts []string,
 }
 
 func (op *httpsPollNodeStateOp) getPollingTimeout() int {
-	return op.timeout
+	// a negative value indicates no timeout and should never be used for this op
+	return util.Max(op.timeout, 0)
 }
 
 func (op *httpsPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {

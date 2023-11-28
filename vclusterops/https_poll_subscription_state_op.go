@@ -48,7 +48,8 @@ func makeHTTPSPollSubscriptionStateOp(logger vlog.Printer, hosts []string,
 }
 
 func (op *httpsPollSubscriptionStateOp) getPollingTimeout() int {
-	return op.timeout
+	// a negative value indicates no timeout and should never be used for this op
+	return util.Max(op.timeout, 0)
 }
 
 func (op *httpsPollSubscriptionStateOp) setupClusterHTTPRequest(hosts []string) error {

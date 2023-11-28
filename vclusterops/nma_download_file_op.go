@@ -57,27 +57,27 @@ type downloadFileRequestData struct {
 
 // ClusterLeaseNotExpiredFailure is returned when an attempt is made to use a
 // communal storage before the lease for it has expired.
-type clusterLeaseNotExpiredError struct {
+type ClusterLeaseNotExpiredError struct {
 	Expiration string
 }
 
-func (e *clusterLeaseNotExpiredError) Error() string {
+func (e *ClusterLeaseNotExpiredError) Error() string {
 	return fmt.Sprintf("revive database cannot continue because the communal storage location might still be in use."+
 		" The cluster lease will expire at %s(UTC)."+
 		" Please ensure that the other cluster has stopped and try revive_db after the cluster lease expiration",
 		e.Expiration)
 }
 
-// reviveDBNodeCountMismatchError is returned when the number of nodes in new cluster
+// ReviveDBNodeCountMismatchError is returned when the number of nodes in new cluster
 // does not match the number of nodes in original cluster
-type reviveDBNodeCountMismatchError struct {
+type ReviveDBNodeCountMismatchError struct {
 	ReviveDBStep  string
 	FailureHost   string
 	NumOfNewNodes int
 	NumOfOldNodes int
 }
 
-func (e *reviveDBNodeCountMismatchError) Error() string {
+func (e *ReviveDBNodeCountMismatchError) Error() string {
 	return fmt.Sprintf(`[%s] nodes mismatch found on host %s: the number of the new nodes in --hosts is %d,`+
 		` but the number of the old nodes in description file is %d`,
 		e.ReviveDBStep, e.FailureHost, e.NumOfNewNodes, e.NumOfOldNodes)
@@ -221,7 +221,7 @@ func (op *nmaDownloadFileOp) processResult(execContext *opEngineExecContext) err
 				}
 
 				if len(descFileContent.NodeList) != len(op.newNodes) {
-					err := &reviveDBNodeCountMismatchError{
+					err := &ReviveDBNodeCountMismatchError{
 						ReviveDBStep:  op.name,
 						FailureHost:   host,
 						NumOfNewNodes: len(op.newNodes),
@@ -302,7 +302,7 @@ func (op *nmaDownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) er
 
 	// current time < expire time, it means that the cluster lease is not expired
 	if utcNow.Before(utcExpiration) {
-		return &clusterLeaseNotExpiredError{Expiration: clusterLeaseExpiration}
+		return &ClusterLeaseNotExpiredError{Expiration: clusterLeaseExpiration}
 	}
 
 	op.logger.PrintInfo("Cluster lease check has passed. We proceed to revive the database")

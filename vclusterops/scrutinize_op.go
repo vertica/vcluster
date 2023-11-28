@@ -52,9 +52,10 @@ func (op *scrutinizeOpBase) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-// processeStagedFilesResult is a parameterized function which contains common logic
-// for processing the results of staging various types of files, e.g. vertica.log
-func processStagedFilesResult[T any](op *scrutinizeOpBase, fileList []T) error {
+// processeStagedItemsResult is a parameterized function which contains common logic
+// for processing the results of staging various types of items, e.g. vertica.log,
+// system tables, etc.
+func processStagedItemsResult[T any](op *scrutinizeOpBase, itemList []T) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -65,15 +66,15 @@ func processStagedFilesResult[T any](op *scrutinizeOpBase, fileList []T) error {
 				op.logger.Info("nothing staged on host", "Host", host)
 				continue
 			}
-			// the response is an array of file info structs
-			err := op.parseAndCheckResponse(host, result.content, &fileList)
+			// the response is an array of item info structs
+			err := op.parseAndCheckResponse(host, result.content, &itemList)
 			if err != nil {
 				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
 				allErrs = errors.Join(allErrs, err)
 				continue
 			}
-			for _, fileEntry := range fileList {
-				op.logger.Info("file staged on host", "Host", host, "FileInfo", fileEntry)
+			for _, entry := range itemList {
+				op.logger.Info("item staged on host", "Host", host, "Item", entry)
 			}
 		} else {
 			allErrs = errors.Join(allErrs, result.err)

@@ -101,5 +101,5 @@ func (op *nmaStageErrorReportOp) finalize(_ *opEngineExecContext) error {
 
 func (op *nmaStageErrorReportOp) processResult(_ *opEngineExecContext) error {
 	fileList := make([]stageErrorReportResponseData, 0)
-	return processStagedFilesResult(&op.scrutinizeOpBase, fileList)
+	return processStagedItemsResult(&op.scrutinizeOpBase, fileList)
 }

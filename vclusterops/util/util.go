@@ -30,6 +30,7 @@ import (
 	"regexp"
 	"strings"
 
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sys/unix"
 
@@ -528,4 +529,13 @@ func ValidateCommunalStorageLocation(location string) error {
 	}
 
 	return nil
+}
+
+// Max works on all sane types, not just float64 like the math package funcs.
+// Can be removed after upgrade to go 1.21 (VER-90410) as min/max become builtins.
+func Max[T constraints.Ordered](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
 }

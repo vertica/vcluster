@@ -29,7 +29,7 @@ type VReIPOptions struct {
 	DatabaseOptions
 
 	// re-ip list
-	ReIPList []reIPInfo
+	ReIPList []ReIPInfo
 
 	/* hidden option */
 
@@ -274,7 +274,7 @@ func (opt *VReIPOptions) ReadReIPFile(path string) error {
 
 	ipv6 := opt.Ipv6.ToBool()
 	for _, row := range reIPRows {
-		var info reIPInfo
+		var info ReIPInfo
 		info.NodeAddress = row.CurrentAddress
 		if e := addressCheck(row.CurrentAddress, ipv6); e != nil {
 			return e

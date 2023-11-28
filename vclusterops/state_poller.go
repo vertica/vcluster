@@ -21,11 +21,12 @@ import (
 )
 
 const (
-	OneSecond             = 1
-	OneMinute             = 60 * OneSecond
-	StopDBTimeout         = 5 * OneMinute
-	StartupPollingTimeout = 5 * OneMinute
-	PollingInterval       = 3 * OneSecond
+	OneSecond                = 1
+	OneMinute                = 60 * OneSecond
+	StopDBTimeout            = 5 * OneMinute
+	StartupPollingTimeout    = 5 * OneMinute
+	ScrutinizePollingTimeout = -1 * OneMinute // no timeout
+	PollingInterval          = 3 * OneSecond
 )
 
 type statePoller interface {
@@ -34,15 +35,20 @@ type statePoller interface {
 	runExecute(execContext *opEngineExecContext) error
 }
 
-// pollState is a helper function to poll state for all ops that implement the statePoller interface
+// pollState is a helper function to poll state for all ops that implement the StatePoller interface.
+// If poller.getPollingTimeout() returns a value < 0, pollState will poll forever.
 func pollState(poller statePoller, execContext *opEngineExecContext) error {
 	startTime := time.Now()
 	timeout := poller.getPollingTimeout()
 	duration := time.Duration(timeout) * time.Second
 	count := 0
+	needTimeout := true
+	if timeout < 0 {
+		needTimeout = false
+	}
 
 	for endTime := startTime.Add(duration); ; {
-		if time.Now().After(endTime) {
+		if needTimeout && time.Now().After(endTime) {
 			break
 		}
 
