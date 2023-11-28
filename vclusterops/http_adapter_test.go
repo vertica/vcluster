@@ -63,7 +63,7 @@ func getCertFilePathsMock() (certPaths certificatePaths, err error) {
 }
 
 func TestBuildCertsFromMemory(t *testing.T) {
-	adapter := HTTPAdapter{}
+	adapter := httpAdapter{}
 
 	// get cert and cacert using buildCertsFromFile()
 	originalFunc := getCertFilePaths
@@ -130,7 +130,7 @@ func (m *MockReadCloser) Close() error {
 }
 
 func TestHandleSuccessResponseCodes(t *testing.T) {
-	adapter := HTTPAdapter{respBodyHandler: &responseBodyReader{}}
+	adapter := httpAdapter{respBodyHandler: &responseBodyReader{}}
 	mockBodyReader := MockReadCloser{
 		body: []byte("success!"),
 	}
@@ -144,7 +144,7 @@ func TestHandleSuccessResponseCodes(t *testing.T) {
 }
 
 func TestHandleRFC7807Response(t *testing.T) {
-	adapter := HTTPAdapter{respBodyHandler: &responseBodyReader{}}
+	adapter := httpAdapter{respBodyHandler: &responseBodyReader{}}
 	rfcErr := rfc7807.New(rfc7807.CommunalAccessError).
 		WithDetail("Cannot access communal storage")
 	b, err := json.Marshal(rfcErr)
@@ -178,7 +178,7 @@ func TestHandleGenericErrorResponse(t *testing.T) {
 		Header:     http.Header{},
 		Body:       &mockBodyReader,
 	}
-	adapter := HTTPAdapter{respBodyHandler: &responseBodyReader{}}
+	adapter := httpAdapter{respBodyHandler: &responseBodyReader{}}
 	result := adapter.generateResult(mockResp)
 	assert.Equal(t, result.status, FAILURE)
 	assert.NotEqual(t, result.err, nil)

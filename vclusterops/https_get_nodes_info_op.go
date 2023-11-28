@@ -25,8 +25,8 @@ import (
 )
 
 type httpsGetNodesInfoOp struct {
-	OpBase
-	OpHTTPSBase
+	opBase
+	opHTTPSBase
 	dbName string
 	vdb    *VCoordinationDatabase
 }
@@ -49,7 +49,7 @@ func makeHTTPSGetNodesInfoOp(logger vlog.Printer, dbName string, hosts []string,
 
 func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
@@ -63,13 +63,13 @@ func (op *httpsGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *httpsGetNodesInfoOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsGetNodesInfoOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsGetNodesInfoOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsGetNodesInfoOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (op *httpsGetNodesInfoOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -89,8 +89,8 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 
 		if result.isPassing() {
 			// parse the /nodes endpoint response
-			nodesStateInfo := NodesStateInfo{}
-			err := op.parseAndCheckResponse(host, result.content, &nodesStateInfo)
+			nodesStates := nodesStateInfo{}
+			err := op.parseAndCheckResponse(host, result.content, &nodesStates)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 				break
@@ -98,7 +98,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 			// save nodes info to vdb
 			op.vdb.HostNodeMap = makeVHostNodeMap()
 			op.vdb.HostList = []string{}
-			for _, node := range nodesStateInfo.NodeList {
+			for _, node := range nodesStates.NodeList {
 				if node.Database != op.dbName {
 					err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.dbName)
 					allErrs = errors.Join(allErrs, err)
@@ -137,6 +137,6 @@ func (op *httpsGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
 	return appendHTTPSFailureError(allErrs)
 }
 
-func (op *httpsGetNodesInfoOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsGetNodesInfoOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

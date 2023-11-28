@@ -21,22 +21,22 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAHealthOp struct {
-	OpBase
+type nmaHealthOp struct {
+	opBase
 }
 
-func makeNMAHealthOp(logger vlog.Printer, hosts []string) NMAHealthOp {
-	nmaHealthOp := NMAHealthOp{}
-	nmaHealthOp.name = "NMAHealthOp"
-	nmaHealthOp.logger = logger.WithName(nmaHealthOp.name)
-	nmaHealthOp.hosts = hosts
-	return nmaHealthOp
+func makeNMAHealthOp(logger vlog.Printer, hosts []string) nmaHealthOp {
+	op := nmaHealthOp{}
+	op.name = "NMAHealthOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	return op
 }
 
 // setupClusterHTTPRequest works as the module setup in Admintools
-func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaHealthOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildNMAEndpoint("health")
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -45,13 +45,13 @@ func (op *NMAHealthOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *NMAHealthOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaHealthOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAHealthOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaHealthOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -59,11 +59,11 @@ func (op *NMAHealthOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMAHealthOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaHealthOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAHealthOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaHealthOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)

@@ -17,7 +17,7 @@ package vclusterops
 
 import "net/http"
 
-type Adapter interface {
-	sendRequest(*HostHTTPRequest, chan<- HostHTTPResult)
-	generateResult(*http.Response) HostHTTPResult
+type adapter interface {
+	sendRequest(*hostHTTPRequest, chan<- hostHTTPResult)
+	generateResult(*http.Response) hostHTTPResult
 }

@@ -23,8 +23,8 @@ import (
 )
 
 type httpsPollSubscriptionStateOp struct {
-	OpBase
-	OpHTTPSBase
+	opBase
+	opHTTPSBase
 	timeout int
 }
 
@@ -53,7 +53,7 @@ func (op *httpsPollSubscriptionStateOp) getPollingTimeout() int {
 
 func (op *httpsPollSubscriptionStateOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = httpRequestTimeoutSeconds
 		httpRequest.buildHTTPSEndpoint("subscriptions")
@@ -68,13 +68,13 @@ func (op *httpsPollSubscriptionStateOp) setupClusterHTTPRequest(hosts []string) 
 	return nil
 }
 
-func (op *httpsPollSubscriptionStateOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsPollSubscriptionStateOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsPollSubscriptionStateOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsPollSubscriptionStateOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (op *httpsPollSubscriptionStateOp) execute(execContext *OpEngineExecContext
 	return op.processResult(execContext)
 }
 
-func (op *httpsPollSubscriptionStateOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsPollSubscriptionStateOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
@@ -103,18 +103,18 @@ func (op *httpsPollSubscriptionStateOp) finalize(_ *OpEngineExecContext) error {
 	...
   ]
 */
-type SubscriptionList struct {
-	SubscriptionList []SubscriptionInfo `json:"subscription_list"`
+type subscriptionList struct {
+	SubscriptionList []subscriptionInfo `json:"subscription_list"`
 }
 
-type SubscriptionInfo struct {
+type subscriptionInfo struct {
 	Nodename          string `json:"node_name"`
 	ShardName         string `json:"shard_name"`
 	SubscriptionState string `json:"subscription_state"`
 	IsPrimary         bool   `json:"is_primary"`
 }
 
-func (op *httpsPollSubscriptionStateOp) processResult(execContext *OpEngineExecContext) error {
+func (op *httpsPollSubscriptionStateOp) processResult(execContext *opEngineExecContext) error {
 	err := pollState(op, execContext)
 	if err != nil {
 		return fmt.Errorf("not all subscriptions are ACTIVE, %w", err)
@@ -124,7 +124,7 @@ func (op *httpsPollSubscriptionStateOp) processResult(execContext *OpEngineExecC
 }
 
 func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
-	var subscriptionList SubscriptionList
+	var subscriptList subscriptionList
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -135,7 +135,7 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 		}
 
 		if result.isPassing() {
-			err := op.parseAndCheckResponse(host, result.content, &subscriptionList)
+			err := op.parseAndCheckResponse(host, result.content, &subscriptList)
 			if err != nil {
 				op.logger.PrintError("[%s] fail to parse result on host %s, details: %s",
 					op.name, host, err)
@@ -143,7 +143,7 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 			}
 
 			// check whether all subscriptions are ACTIVE
-			for _, s := range subscriptionList.SubscriptionList {
+			for _, s := range subscriptList.SubscriptionList {
 				if s.SubscriptionState != "ACTIVE" {
 					return false, nil
 				}

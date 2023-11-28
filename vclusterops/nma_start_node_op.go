@@ -24,7 +24,7 @@ import (
 )
 
 type nmaStartNodeOp struct {
-	OpBase
+	opBase
 	hostRequestBodyMap map[string]string
 	vdb                *VCoordinationDatabase
 }
@@ -44,7 +44,7 @@ func makeNMAStartNodeOpWithVDB(logger vlog.Printer, hosts []string, vdb *VCoordi
 	return startNodeOp
 }
 
-func (op *nmaStartNodeOp) updateRequestBody(execContext *OpEngineExecContext) error {
+func (op *nmaStartNodeOp) updateRequestBody(execContext *opEngineExecContext) error {
 	op.hostRequestBodyMap = make(map[string]string)
 	// If the execContext.StartUpCommand  is nil, we will use startup command information from NMA Read Catalog Editor.
 	// This case is used for certain operations (e.g., start_db, create_db) when the database is down,
@@ -99,7 +99,7 @@ func (op *nmaStartNodeOp) updateHostRequestBodyMapFromNodeStartCommand(host stri
 
 func (op *nmaStartNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildNMAEndpoint("nodes/start")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
@@ -109,7 +109,7 @@ func (op *nmaStartNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *nmaStartNodeOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaStartNodeOp) prepare(execContext *opEngineExecContext) error {
 	err := op.updateRequestBody(execContext)
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func (op *nmaStartNodeOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *nmaStartNodeOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaStartNodeOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (op *nmaStartNodeOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *nmaStartNodeOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaStartNodeOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
@@ -137,7 +137,7 @@ type startNodeResponse struct {
 	ReturnCode int    `json:"return_code"`
 }
 
-func (op *nmaStartNodeOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaStartNodeOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

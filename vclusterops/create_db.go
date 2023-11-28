@@ -408,7 +408,7 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
@@ -445,7 +445,7 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 //   - Sync catalog
 func (vcc *VClusterCommands) produceCreateDBInstructions(
 	vdb *VCoordinationDatabase,
-	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
+	options *VCreateDatabaseOptions) ([]clusterOp, error) {
 	instructions, err := vcc.produceCreateDBBootstrapInstructions(vdb, options)
 	if err != nil {
 		return instructions, err
@@ -470,8 +470,8 @@ func (vcc *VClusterCommands) produceCreateDBInstructions(
 // produceCreateDBBootstrapInstructions returns the bootstrap instructions for create_db.
 func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 	vdb *VCoordinationDatabase,
-	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+	options *VCreateDatabaseOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	hosts := vdb.HostList
 	initiator := getInitiator(hosts)
@@ -487,7 +487,7 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 		return instructions, err
 	}
 
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, hosts, true, /* use password auth */
+	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, hosts, true, /* use password auth */
 		*options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err
@@ -550,8 +550,8 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 // produceCreateDBWorkerNodesInstructions returns the workder nodes' instructions for create_db.
 func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 	vdb *VCoordinationDatabase,
-	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+	options *VCreateDatabaseOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	hosts := vdb.HostList
 	bootstrapHost := options.bootstrapHost
@@ -607,8 +607,8 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 
 // produceAdditionalCreateDBInstructions returns additional instruction necessary for create_db.
 func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase,
-	options *VCreateDatabaseOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+	options *VCreateDatabaseOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	hosts := vdb.HostList
 	bootstrapHost := options.bootstrapHost
@@ -657,7 +657,7 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	return instructions, nil
 }
 
-func (vcc *VClusterCommands) addEnableSpreadEncryptionOp(keyType string) ClusterOp {
+func (vcc *VClusterCommands) addEnableSpreadEncryptionOp(keyType string) clusterOp {
 	vcc.Log.Info("adding instruction to set key for spread encryption")
 	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
 	return &op

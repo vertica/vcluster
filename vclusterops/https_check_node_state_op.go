@@ -23,17 +23,17 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPCheckNodeStateOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsCheckNodeStateOp struct {
+	opBase
+	opHTTPSBase
 }
 
-func makeHTTPCheckNodeStateOp(logger vlog.Printer, hosts []string,
+func makeHTTPSCheckNodeStateOp(logger vlog.Printer, hosts []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,
-) (HTTPCheckNodeStateOp, error) {
-	nodeStateChecker := HTTPCheckNodeStateOp{}
+) (httpsCheckNodeStateOp, error) {
+	nodeStateChecker := httpsCheckNodeStateOp{}
 	nodeStateChecker.logger = logger.WithName(nodeStateChecker.name)
 	nodeStateChecker.name = "HTTPCheckNodeStateOp"
 	// The hosts are the ones we are going to talk to.
@@ -52,9 +52,9 @@ func makeHTTPCheckNodeStateOp(logger vlog.Printer, hosts []string,
 	return nodeStateChecker, nil
 }
 
-func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
@@ -67,13 +67,13 @@ func (op *HTTPCheckNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPCheckNodeStateOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsCheckNodeStateOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPCheckNodeStateOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsCheckNodeStateOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (op *HTTPCheckNodeStateOp) execute(execContext *OpEngineExecContext) error 
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) error {
+func (op *httpsCheckNodeStateOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	respondingNodeCount := 0
 
@@ -110,7 +110,7 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 
 		// parse the /nodes endpoint response
 		respondingNodeCount++
-		nodesInfo := NodesInfo{}
+		nodesInfo := nodesInfo{}
 		err := op.parseAndCheckResponse(host, result.content, &nodesInfo)
 		if err != nil {
 			err = fmt.Errorf("[%s] fail to parse result on host %s: %w",
@@ -139,6 +139,6 @@ func (op *HTTPCheckNodeStateOp) processResult(execContext *OpEngineExecContext) 
 	return allErrs
 }
 
-func (op *HTTPCheckNodeStateOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsCheckNodeStateOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

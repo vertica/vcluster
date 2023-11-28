@@ -26,17 +26,17 @@ type NodeInfo struct {
 	CatalogPath string `json:"catalog_path"`
 }
 
-type NodesInfo struct {
+type nodesInfo struct {
 	NodeList []NodeInfo `json:"node_list"`
 }
 
 // findHosts looks for hosts in a list of NodesInfo.
 // If found, return true; if not found, return false.
-func (nodesInfo *NodesInfo) findHosts(hosts []string) bool {
+func (info *nodesInfo) findHosts(hosts []string) bool {
 	inputHostSet := mapset.NewSet(hosts...)
 
 	nodeAddrSet := mapset.NewSet[string]()
-	for _, n := range nodesInfo.NodeList {
+	for _, n := range info.NodeList {
 		nodeAddrSet.Add(n.Address)
 	}
 

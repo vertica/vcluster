@@ -172,7 +172,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	}
 
 	// create a VClusterOpEngine for start_db instructions, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
@@ -192,7 +192,7 @@ func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, 
 	}
 
 	// create a VClusterOpEngine for pre-check, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(preInstructions, &certs)
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
@@ -231,8 +231,8 @@ func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, 
 //   - Check NMA connectivity
 //   - Check to see if any dbs run
 //   - Get nodes' information by calling the NMA /nodes endpoint
-func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
 	// need username for https operations
@@ -241,7 +241,7 @@ func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptio
 		return instructions, err
 	}
 
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, options.Hosts,
+	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, StartDB)
 	if err != nil {
 		return instructions, err
@@ -272,8 +272,8 @@ func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptio
 //   - Start all nodes of the database
 //   - Poll node startup
 //   - Sync catalog (Eon mode only)
-func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	// vdb here should contains only primary nodes
 	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdb)
@@ -326,7 +326,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	return instructions, nil
 }
 
-func (vcc *VClusterCommands) setOrRotateEncryptionKey(keyType string) ClusterOp {
+func (vcc *VClusterCommands) setOrRotateEncryptionKey(keyType string) clusterOp {
 	vcc.Log.Info("adding instruction to set or rotate the key for spread encryption")
 	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
 	return &op

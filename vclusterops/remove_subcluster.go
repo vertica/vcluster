@@ -166,11 +166,11 @@ func (vcc *VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (V
 	return vdb, nil
 }
 
-type RemoveDefaultSubclusterError struct {
+type removeDefaultSubclusterError struct {
 	Name string
 }
 
-func (e *RemoveDefaultSubclusterError) Error() string {
+func (e *removeDefaultSubclusterError) Error() string {
 	return fmt.Sprintf("cannot remove the default subcluster '%s'", e.Name)
 }
 
@@ -207,12 +207,12 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 			preCheckErrMsg, err)
 	}
 
-	var instructions []ClusterOp
+	var instructions []clusterOp
 	instructions = append(instructions,
 		&httpsFindSubclusterOp,
 	)
 
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
@@ -227,7 +227,7 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 
 	// the default subcluster should not be removed
 	if *options.SubclusterToRemove == clusterOpEngine.execContext.defaultSCName {
-		return hostsToRemove, &RemoveDefaultSubclusterError{Name: *options.SubclusterToRemove}
+		return hostsToRemove, &removeDefaultSubclusterError{Name: *options.SubclusterToRemove}
 	}
 
 	// get nodes of the to-be-removed subcluster
@@ -259,10 +259,10 @@ func (vcc *VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options 
 		return err
 	}
 
-	var instructions []ClusterOp
+	var instructions []clusterOp
 	instructions = append(instructions, &httpsDropScOp)
 
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {

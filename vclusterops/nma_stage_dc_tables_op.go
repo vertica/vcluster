@@ -22,8 +22,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAStageDCTablesOp struct {
-	ScrutinizeOpBase
+type nmaStageDCTablesOp struct {
+	scrutinizeOpBase
 }
 
 type stageDCTablesRequestData struct {
@@ -38,9 +38,9 @@ func makeNMAStageDCTablesOp(logger vlog.Printer,
 	id string,
 	hosts []string,
 	hostNodeNameMap map[string]string,
-	hostCatPathMap map[string]string) (NMAStageDCTablesOp, error) {
+	hostCatPathMap map[string]string) (nmaStageDCTablesOp, error) {
 	// base members
-	op := NMAStageDCTablesOp{}
+	op := nmaStageDCTablesOp{}
 	op.name = "NMAStageDCTablesOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
@@ -58,7 +58,7 @@ func makeNMAStageDCTablesOp(logger vlog.Printer,
 	return op, err
 }
 
-func (op *NMAStageDCTablesOp) setupRequestBody(hosts []string) error {
+func (op *nmaStageDCTablesOp) setupRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string, len(hosts))
 	for _, host := range hosts {
 		stageDCTablesData := stageDCTablesRequestData{}
@@ -75,7 +75,7 @@ func (op *NMAStageDCTablesOp) setupRequestBody(hosts []string) error {
 	return nil
 }
 
-func (op *NMAStageDCTablesOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaStageDCTablesOp) prepare(execContext *opEngineExecContext) error {
 	err := op.setupRequestBody(op.hosts)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func (op *NMAStageDCTablesOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAStageDCTablesOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaStageDCTablesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -93,11 +93,11 @@ func (op *NMAStageDCTablesOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMAStageDCTablesOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaStageDCTablesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAStageDCTablesOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaStageDCTablesOp) processResult(_ *opEngineExecContext) error {
 	fileList := make([]stageDCTablesResponseData, 0)
-	return processStagedFilesResult(&op.ScrutinizeOpBase, fileList)
+	return processStagedFilesResult(&op.scrutinizeOpBase, fileList)
 }

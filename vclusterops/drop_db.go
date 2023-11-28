@@ -101,7 +101,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
@@ -128,8 +128,8 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 //   - Check NMA connectivity
 //   - Check to see if any dbs running
 //   - Delete directories
-func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	hosts := vdb.HostList
 	usePassword := false
@@ -145,7 +145,7 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, hosts, usePassword,
+	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, hosts, usePassword,
 		*options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err

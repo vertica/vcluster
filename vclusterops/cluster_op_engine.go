@@ -22,12 +22,12 @@ import (
 )
 
 type VClusterOpEngine struct {
-	instructions []ClusterOp
-	certs        *HTTPSCerts
-	execContext  *OpEngineExecContext
+	instructions []clusterOp
+	certs        *httpsCerts
+	execContext  *opEngineExecContext
 }
 
-func makeClusterOpEngine(instructions []ClusterOp, certs *HTTPSCerts) VClusterOpEngine {
+func makeClusterOpEngine(instructions []clusterOp, certs *httpsCerts) VClusterOpEngine {
 	newClusterOpEngine := VClusterOpEngine{}
 	newClusterOpEngine.instructions = instructions
 	newClusterOpEngine.certs = certs

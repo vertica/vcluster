@@ -23,8 +23,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMADownloadConfigOp struct {
-	OpBase
+type nmaDownloadConfigOp struct {
+	opBase
 	catalogPathMap map[string]string
 	endpoint       string
 	fileContent    *string
@@ -38,21 +38,21 @@ func makeNMADownloadConfigOp(
 	endpoint string,
 	fileContent *string,
 	vdb *VCoordinationDatabase,
-) NMADownloadConfigOp {
-	nmaDownloadConfigOp := NMADownloadConfigOp{}
-	nmaDownloadConfigOp.name = opName
-	nmaDownloadConfigOp.logger = logger.WithName(nmaDownloadConfigOp.name)
-	nmaDownloadConfigOp.hosts = sourceConfigHost
-	nmaDownloadConfigOp.endpoint = endpoint
-	nmaDownloadConfigOp.fileContent = fileContent
-	nmaDownloadConfigOp.vdb = vdb
+) nmaDownloadConfigOp {
+	op := nmaDownloadConfigOp{}
+	op.name = opName
+	op.logger = logger.WithName(op.name)
+	op.hosts = sourceConfigHost
+	op.endpoint = endpoint
+	op.fileContent = fileContent
+	op.vdb = vdb
 
-	return nmaDownloadConfigOp
+	return op
 }
 
-func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaDownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildNMAEndpoint(op.endpoint)
 
@@ -68,7 +68,7 @@ func (op *NMADownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaDownloadConfigOp) prepare(execContext *opEngineExecContext) error {
 	op.catalogPathMap = make(map[string]string)
 	// vdb is built by calling /cluster and /nodes endpoints of a running db.
 	// If nodes' info is not available in vdb, we will get the host from execContext.nmaVDatabase which is build by reading the catalog editor
@@ -117,7 +117,7 @@ func (op *NMADownloadConfigOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMADownloadConfigOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaDownloadConfigOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -125,11 +125,11 @@ func (op *NMADownloadConfigOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMADownloadConfigOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaDownloadConfigOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMADownloadConfigOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaDownloadConfigOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		// VER-88362 will re-enable the result details and hide sensitive info in it

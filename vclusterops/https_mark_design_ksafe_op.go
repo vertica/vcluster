@@ -27,9 +27,9 @@ import (
 const zeroSafeRspStr = "Marked design 0-safe"
 const oneSafeRspStr = "Marked design 1-safe"
 
-type HTTPSMarkDesignKSafeOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsMarkDesignKSafeOp struct {
+	opBase
+	opHTTPSBase
 	RequestParams map[string]string
 	ksafeValue    int
 }
@@ -41,32 +41,32 @@ func makeHTTPSMarkDesignKSafeOp(
 	userName string,
 	httpsPassword *string,
 	ksafeValue int,
-) (HTTPSMarkDesignKSafeOp, error) {
-	httpsMarkDesignKSafeOp := HTTPSMarkDesignKSafeOp{}
-	httpsMarkDesignKSafeOp.name = "HTTPSMarkDesignKsafeOp"
-	httpsMarkDesignKSafeOp.logger = logger.WithName(httpsMarkDesignKSafeOp.name)
-	httpsMarkDesignKSafeOp.hosts = hosts
-	httpsMarkDesignKSafeOp.useHTTPPassword = useHTTPPassword
+) (httpsMarkDesignKSafeOp, error) {
+	op := httpsMarkDesignKSafeOp{}
+	op.name = "HTTPSMarkDesignKsafeOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
 
 	// set ksafeValue.  Should be 1 or 0.
 	// store directly for later response verification
-	httpsMarkDesignKSafeOp.ksafeValue = ksafeValue
-	httpsMarkDesignKSafeOp.RequestParams = make(map[string]string)
-	httpsMarkDesignKSafeOp.RequestParams["k"] = strconv.Itoa(ksafeValue)
+	op.ksafeValue = ksafeValue
+	op.RequestParams = make(map[string]string)
+	op.RequestParams["k"] = strconv.Itoa(ksafeValue)
 
-	err := util.ValidateUsernameAndPassword(httpsMarkDesignKSafeOp.name, useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
-		return httpsMarkDesignKSafeOp, err
+		return op, err
 	}
-	httpsMarkDesignKSafeOp.userName = userName
-	httpsMarkDesignKSafeOp.httpsPassword = httpsPassword
-	return httpsMarkDesignKSafeOp, nil
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	return op, nil
 }
 
-func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) error {
 	// in practice, initiator only
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PutMethod
 		httpRequest.buildHTTPSEndpoint("cluster/k-safety")
 		if op.useHTTPPassword {
@@ -80,13 +80,13 @@ func (op *HTTPSMarkDesignKSafeOp) setupClusterHTTPRequest(hosts []string) error 
 	return nil
 }
 
-func (op *HTTPSMarkDesignKSafeOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsMarkDesignKSafeOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSMarkDesignKSafeOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsMarkDesignKSafeOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -94,14 +94,14 @@ func (op *HTTPSMarkDesignKSafeOp) execute(execContext *OpEngineExecContext) erro
 	return op.processResult(execContext)
 }
 
-// MarkDesignKSafeRsp will be either
+// markDesignKSafeRsp will be either
 // {"detail": "Marked design 0-safe"} OR
 // {"detail": "Marked design 1-safe"}
-type MarkDesignKSafeRsp struct {
+type markDesignKSafeRsp struct {
 	Detail string `json:"detail"`
 }
 
-func (op *HTTPSMarkDesignKSafeOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsMarkDesignKSafeOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	// in practice, just the initiator node
@@ -115,8 +115,8 @@ func (op *HTTPSMarkDesignKSafeOp) processResult(_ *OpEngineExecContext) error {
 
 		// The response object will be a dictionary, an example:
 		// {"detail": "Marked design 0-safe"}
-		markDesignKSafeRsp := MarkDesignKSafeRsp{}
-		err := op.parseAndCheckResponse(host, result.content, &markDesignKSafeRsp)
+		markDesignKSafeResponse := markDesignKSafeRsp{}
+		err := op.parseAndCheckResponse(host, result.content, &markDesignKSafeResponse)
 		if err != nil {
 			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 			allErrs = errors.Join(allErrs, err)
@@ -125,13 +125,13 @@ func (op *HTTPSMarkDesignKSafeOp) processResult(_ *OpEngineExecContext) error {
 
 		// retrieve and verify the mark ksafety response
 		var ksafeValue int
-		if markDesignKSafeRsp.Detail == zeroSafeRspStr {
+		if markDesignKSafeResponse.Detail == zeroSafeRspStr {
 			ksafeValue = 0
-		} else if markDesignKSafeRsp.Detail == oneSafeRspStr {
+		} else if markDesignKSafeResponse.Detail == oneSafeRspStr {
 			ksafeValue = 1
 		} else {
 			err = fmt.Errorf(`[%s] fail to parse the ksafety value information, detail: %s`,
-				op.name, markDesignKSafeRsp.Detail)
+				op.name, markDesignKSafeResponse.Detail)
 			allErrs = errors.Join(allErrs, err)
 			continue
 		}
@@ -151,6 +151,6 @@ func (op *HTTPSMarkDesignKSafeOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSMarkDesignKSafeOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsMarkDesignKSafeOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

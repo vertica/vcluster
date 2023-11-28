@@ -24,7 +24,7 @@ import (
 )
 
 func TestClusteLeaseExpiryError(t *testing.T) {
-	op := NMADownloadFileOp{
+	op := nmaDownloadFileOp{
 		ignoreClusterLease: false,
 	}
 
@@ -33,7 +33,7 @@ func TestClusteLeaseExpiryError(t *testing.T) {
 	err := op.clusterLeaseCheck(fakeLeaseTime.Format(expirationStringLayout))
 	assert.Error(t, err)
 	// Ensure we get a specific error type back
-	clusterLeaseErr := &ClusterLeaseNotExpiredError{}
+	clusterLeaseErr := &clusterLeaseNotExpiredError{}
 	ok := errors.As(err, &clusterLeaseErr)
 	assert.True(t, ok)
 	assert.Contains(t, err.Error(), "The cluster lease will expire at")

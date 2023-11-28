@@ -24,7 +24,7 @@ import (
 )
 
 type mockOp struct {
-	OpBase
+	opBase
 	calledPrepare  bool
 	calledExecute  bool
 	calledFinalize bool
@@ -32,14 +32,14 @@ type mockOp struct {
 
 func makeMockOp(skipExecute bool) mockOp {
 	return mockOp{
-		OpBase: OpBase{
+		opBase: opBase{
 			name:        fmt.Sprintf("skip-enabled-%v", skipExecute),
 			skipExecute: skipExecute,
 		},
 	}
 }
 
-func (m *mockOp) prepare(_ *OpEngineExecContext) error {
+func (m *mockOp) prepare(_ *opEngineExecContext) error {
 	m.calledPrepare = true
 	if !m.skipExecute {
 		return m.setupClusterHTTPRequest([]string{"host1"})
@@ -47,24 +47,24 @@ func (m *mockOp) prepare(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (m *mockOp) execute(_ *OpEngineExecContext) error {
+func (m *mockOp) execute(_ *opEngineExecContext) error {
 	m.calledExecute = true
 	return nil
 }
 
-func (m *mockOp) finalize(_ *OpEngineExecContext) error {
+func (m *mockOp) finalize(_ *opEngineExecContext) error {
 	m.calledFinalize = true
 	return nil
 }
 
-func (m *mockOp) processResult(_ *OpEngineExecContext) error {
+func (m *mockOp) processResult(_ *opEngineExecContext) error {
 	return nil
 }
 
 func (m *mockOp) setupClusterHTTPRequest(hosts []string) error {
-	m.clusterHTTPRequest.RequestCollection = map[string]HostHTTPRequest{}
+	m.clusterHTTPRequest.RequestCollection = map[string]hostHTTPRequest{}
 	for i := range hosts {
-		m.clusterHTTPRequest.RequestCollection[hosts[i]] = HostHTTPRequest{}
+		m.clusterHTTPRequest.RequestCollection[hosts[i]] = hostHTTPRequest{}
 	}
 	return nil
 }
@@ -72,8 +72,8 @@ func (m *mockOp) setupClusterHTTPRequest(hosts []string) error {
 func TestSkipExecuteOp(t *testing.T) {
 	opWithSkipEnabled := makeMockOp(true)
 	opWithSkipDisabled := makeMockOp(false)
-	instructions := []ClusterOp{&opWithSkipDisabled, &opWithSkipEnabled}
-	certs := HTTPSCerts{key: "key", cert: "cert", caCert: "ca-cert"}
+	instructions := []clusterOp{&opWithSkipDisabled, &opWithSkipEnabled}
+	certs := httpsCerts{key: "key", cert: "cert", caCert: "ca-cert"}
 	opEngn := makeClusterOpEngine(instructions, &certs)
 	err := opEngn.run(vlog.Printer{})
 	assert.Equal(t, nil, err)

@@ -39,7 +39,7 @@ func TestReIPOptions(t *testing.T) {
 	err = opt.validateAnalyzeOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "the re-ip list is not provided")
 
-	var info ReIPInfo
+	var info reIPInfo
 	info.NodeAddress = "192.168.1.102"
 	info.TargetAddress = "192.168.1.103"
 	opt.ReIPList = append(opt.ReIPList, info)
@@ -73,27 +73,27 @@ func TestReadReIPFile(t *testing.T) {
 func TestTrimReIPList(t *testing.T) {
 	// build a stub exec context
 	log := vlog.Printer{}
-	var op NMAReIPOp
+	var op nmaReIPOp
 	execContext := makeOpEngineExecContext(log)
 
 	// build a stub NmaVDatabase
-	nmaVDatabase := NmaVDatabase{}
+	nmaVDB := nmaVDatabase{}
 	for i := 0; i < 3; i++ {
-		vnode := NmaVNode{}
+		vnode := nmaVNode{}
 		vnode.Address = fmt.Sprintf("vnode%d", i+1)
 		vnode.Name = fmt.Sprintf("v_%s_node000%d", dbName, i+1)
-		nmaVDatabase.Nodes = append(nmaVDatabase.Nodes, vnode)
+		nmaVDB.Nodes = append(nmaVDB.Nodes, vnode)
 	}
-	execContext.nmaVDatabase = nmaVDatabase
+	execContext.nmaVDatabase = nmaVDB
 
 	// build a stub re-ip list
 	// which has an extra node compared to the actual NmaVDatabase
 	for i := 0; i < 4; i++ {
-		var reIPInfo ReIPInfo
-		reIPInfo.NodeName = fmt.Sprintf("v_%s_node000%d", dbName, i+1)
-		reIPInfo.NodeAddress = fmt.Sprintf("vnode%d", i+1)
-		reIPInfo.TargetAddress = fmt.Sprintf("vnode_new_%d", i+1)
-		op.reIPList = append(op.reIPList, reIPInfo)
+		var info reIPInfo
+		info.NodeName = fmt.Sprintf("v_%s_node000%d", dbName, i+1)
+		info.NodeAddress = fmt.Sprintf("vnode%d", i+1)
+		info.TargetAddress = fmt.Sprintf("vnode_new_%d", i+1)
+		op.reIPList = append(op.reIPList, info)
 	}
 
 	// re-ip list before trimming

@@ -24,14 +24,14 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSSyncCatalogOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsSyncCatalogOp struct {
+	opBase
+	opHTTPSBase
 }
 
 func makeHTTPSSyncCatalogOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string) (HTTPSSyncCatalogOp, error) {
-	op := HTTPSSyncCatalogOp{}
+	userName string, httpsPassword *string) (httpsSyncCatalogOp, error) {
+	op := httpsSyncCatalogOp{}
 	op.name = "HTTPSSyncCatalogOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
@@ -48,13 +48,13 @@ func makeHTTPSSyncCatalogOp(logger vlog.Printer, hosts []string, useHTTPPassword
 }
 
 func makeHTTPSSyncCatalogOpWithoutHosts(logger vlog.Printer, useHTTPPassword bool,
-	userName string, httpsPassword *string) (HTTPSSyncCatalogOp, error) {
+	userName string, httpsPassword *string) (httpsSyncCatalogOp, error) {
 	return makeHTTPSSyncCatalogOp(logger, nil, useHTTPPassword, userName, httpsPassword)
 }
 
-func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("cluster/catalog/sync")
 		httpRequest.QueryParams = make(map[string]string)
@@ -69,7 +69,7 @@ func (op *HTTPSSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSSyncCatalogOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsSyncCatalogOp) prepare(execContext *opEngineExecContext) error {
 	// If no hosts passed in, we will find the hosts from execute-context
 	if len(op.hosts) == 0 {
 		if len(execContext.upHosts) == 0 {
@@ -83,7 +83,7 @@ func (op *HTTPSSyncCatalogOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSSyncCatalogOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsSyncCatalogOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (op *HTTPSSyncCatalogOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSSyncCatalogOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsSyncCatalogOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -119,6 +119,6 @@ func (op *HTTPSSyncCatalogOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSSyncCatalogOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsSyncCatalogOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

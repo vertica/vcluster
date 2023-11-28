@@ -24,8 +24,8 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-type NMAReadCatalogEditorOp struct {
-	OpBase
+type nmaReadCatalogEditorOp struct {
+	opBase
 	initiator      []string // used when creating new nodes
 	vdb            *VCoordinationDatabase
 	catalogPathMap map[string]string
@@ -37,8 +37,8 @@ func makeNMAReadCatalogEditorOpWithInitiator(
 	logger vlog.Printer,
 	initiator []string,
 	vdb *VCoordinationDatabase,
-) (NMAReadCatalogEditorOp, error) {
-	op := NMAReadCatalogEditorOp{}
+) (nmaReadCatalogEditorOp, error) {
+	op := nmaReadCatalogEditorOp{}
 	op.name = "NMAReadCatalogEditorOp"
 	op.logger = logger.WithName(op.name)
 	op.initiator = initiator
@@ -47,13 +47,13 @@ func makeNMAReadCatalogEditorOpWithInitiator(
 }
 
 // makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
-func makeNMAReadCatalogEditorOp(logger vlog.Printer, vdb *VCoordinationDatabase) (NMAReadCatalogEditorOp, error) {
+func makeNMAReadCatalogEditorOp(logger vlog.Printer, vdb *VCoordinationDatabase) (nmaReadCatalogEditorOp, error) {
 	return makeNMAReadCatalogEditorOpWithInitiator(logger, []string{}, vdb)
 }
 
-func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildNMAEndpoint("catalog/database")
 
@@ -71,7 +71,7 @@ func (op *NMAReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error 
 	return nil
 }
 
-func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaReadCatalogEditorOp) prepare(execContext *opEngineExecContext) error {
 	// build a map from host to catalog path
 	// if the initiator host(s) are given, only build map for these hosts
 	op.catalogPathMap = make(map[string]string)
@@ -97,7 +97,7 @@ func (op *NMAReadCatalogEditorOp) prepare(execContext *OpEngineExecContext) erro
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAReadCatalogEditorOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaReadCatalogEditorOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -105,11 +105,11 @@ func (op *NMAReadCatalogEditorOp) execute(execContext *OpEngineExecContext) erro
 	return op.processResult(execContext)
 }
 
-func (op *NMAReadCatalogEditorOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaReadCatalogEditorOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type NmaVersions struct {
+type nmaVersions struct {
 	Global      json.Number `json:"global"`
 	Local       json.Number `json:"local"`
 	Session     json.Number `json:"session"`
@@ -118,7 +118,7 @@ type NmaVersions struct {
 	TwoPhaseID  json.Number `json:"two_phase_id"`
 }
 
-type NmaVNode struct {
+type nmaVNode struct {
 	Address              string      `json:"address"`
 	AddressFamily        string      `json:"address_family"`
 	CatalogPath          string      `json:"catalog_path"`
@@ -152,12 +152,12 @@ type NmaVNode struct {
 	} `json:"sc_details"`
 }
 
-type NmaVDatabase struct {
+type nmaVDatabase struct {
 	Name     string      `json:"name"`
-	Versions NmaVersions `json:"versions"`
-	Nodes    []NmaVNode  `json:"nodes"`
+	Versions nmaVersions `json:"versions"`
+	Nodes    []nmaVNode  `json:"nodes"`
 	// this map will not be unmarshaled but will be used in NMAStartNodeOp
-	HostNodeMap             map[string]*NmaVNode `json:",omitempty"`
+	HostNodeMap             map[string]*nmaVNode `json:",omitempty"`
 	ControlMode             string               `json:"control_mode"`
 	WillUpgrade             bool                 `json:"will_upgrade"`
 	SpreadEncryption        string               `json:"spread_encryption"`
@@ -166,16 +166,16 @@ type NmaVDatabase struct {
 	PrimaryNodeCount uint `json:",omitempty"`
 }
 
-func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext) error {
+func (op *nmaReadCatalogEditorOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	var hostsWithLatestCatalog []string
 	var maxGlobalVersion int64
-	var latestNmaVDB NmaVDatabase
+	var latestNmaVDB nmaVDatabase
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			nmaVDB := NmaVDatabase{}
+			nmaVDB := nmaVDatabase{}
 			err := op.parseAndCheckResponse(host, result.content, &nmaVDB)
 			if err != nil {
 				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w",
@@ -186,7 +186,7 @@ func (op *NMAReadCatalogEditorOp) processResult(execContext *OpEngineExecContext
 
 			var primaryNodeCount uint
 			// build host to node map for NMAStartNodeOp
-			hostNodeMap := make(map[string]*NmaVNode)
+			hostNodeMap := make(map[string]*nmaVNode)
 			for i := 0; i < len(nmaVDB.Nodes); i++ {
 				n := nmaVDB.Nodes[i]
 				hostNodeMap[n.Address] = &n

@@ -35,7 +35,7 @@ const (
 
 // produceTransferConfigOps generates instructions to transfert some config
 // files from a sourceConfig node to target nodes.
-func produceTransferConfigOps(logger vlog.Printer, instructions *[]ClusterOp, sourceConfigHost,
+func produceTransferConfigOps(logger vlog.Printer, instructions *[]clusterOp, sourceConfigHost,
 	targetHosts []string, vdb *VCoordinationDatabase) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := makeNMADownloadConfigOp(
@@ -56,7 +56,7 @@ func produceTransferConfigOps(logger vlog.Printer, instructions *[]ClusterOp, so
 }
 
 // Get catalog path after we have db information from /catalog/database endpoint
-func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *NmaVDatabase, catalogPathMap map[string]string) error {
+func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *nmaVDatabase, catalogPathMap map[string]string) error {
 	if len(hosts) == 0 {
 		return fmt.Errorf("[%s] fail to get host with highest catalog version", nmaVDB.Name)
 	}
@@ -75,7 +75,7 @@ func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *NmaVDatabase,
 
 // The following structs will store hosts' necessary information for https_get_up_nodes_op,
 // https_get_nodes_information_from_running_db, and incoming operations.
-type NodeStateInfo struct {
+type nodeStateInfo struct {
 	Address     string `json:"address"`
 	State       string `json:"state"`
 	Database    string `json:"database"`
@@ -85,8 +85,8 @@ type NodeStateInfo struct {
 	Name        string `json:"name"`
 }
 
-type NodesStateInfo struct {
-	NodeList []NodeStateInfo `json:"node_list"`
+type nodesStateInfo struct {
+	NodeList []nodeStateInfo `json:"node_list"`
 }
 
 // getInitiatorHost returns as initiator the first primary up node that is not
@@ -119,10 +119,10 @@ func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, opt
 		return fmt.Errorf("fail to produce httpsGetClusterInfo instructions while retrieving database configurations, %w", err)
 	}
 
-	var instructions []ClusterOp
+	var instructions []clusterOp
 	instructions = append(instructions, &httpsGetNodesInfoOp, &httpsGetClusterInfoOp)
 
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {

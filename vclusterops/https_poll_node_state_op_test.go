@@ -23,7 +23,7 @@ import (
 )
 
 func TestTimeoutCase(t *testing.T) {
-	var instructions []ClusterOp
+	var instructions []clusterOp
 	// use a non-existing IP to test the timeout error
 	// 192.0.2.1 is one that is reserved for test purpose (by RFC 5737)
 	hosts := []string{"192.0.2.1"}
@@ -33,7 +33,7 @@ func TestTimeoutCase(t *testing.T) {
 	assert.Nil(t, err)
 	instructions = append(instructions, &httpsPollNodeStateOp)
 
-	certs := HTTPSCerts{}
+	certs := httpsCerts{}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	err = clusterOpEngine.run(vlog.Printer{})
 	assert.ErrorContains(t, err, "[HTTPSPollNodeStateOp] cannot connect to host 192.0.2.1, please check if the host is still alive")

@@ -26,7 +26,7 @@ import (
 )
 
 type nmaSpreadSecurityOp struct {
-	OpBase
+	opBase
 	catalogPathMap map[string]string
 	keyType        string
 }
@@ -45,7 +45,7 @@ func makeNMASpreadSecurityOp(
 	keyType string,
 ) nmaSpreadSecurityOp {
 	return nmaSpreadSecurityOp{
-		OpBase: OpBase{
+		opBase: opBase{
 			logger: logger.WithName("NMASpreadSecurityOp"),
 			name:   "NMASpreadSecurityOp",
 			hosts:  nil, // We always set this at runtime from read catalog editor
@@ -90,7 +90,7 @@ func (op *nmaSpreadSecurityOp) setupRequestBody() (map[string]string, error) {
 
 func (op *nmaSpreadSecurityOp) setupClusterHTTPRequest(hostRequestBodyMap map[string]string) error {
 	for host, requestBody := range hostRequestBodyMap {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildNMAEndpoint("catalog/spread-security")
 		httpRequest.RequestData = requestBody
@@ -100,7 +100,7 @@ func (op *nmaSpreadSecurityOp) setupClusterHTTPRequest(hostRequestBodyMap map[st
 	return nil
 }
 
-func (op *nmaSpreadSecurityOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaSpreadSecurityOp) prepare(execContext *opEngineExecContext) error {
 	if err := op.setRuntimeParms(execContext); err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (op *nmaSpreadSecurityOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(hostRequestBodyMap)
 }
 
-func (op *nmaSpreadSecurityOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaSpreadSecurityOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -121,11 +121,11 @@ func (op *nmaSpreadSecurityOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *nmaSpreadSecurityOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaSpreadSecurityOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaSpreadSecurityOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaSpreadSecurityOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -141,7 +141,7 @@ func (op *nmaSpreadSecurityOp) processResult(_ *OpEngineExecContext) error {
 }
 
 // setRuntimeParms will set options based on runtime context.
-func (op *nmaSpreadSecurityOp) setRuntimeParms(execContext *OpEngineExecContext) error {
+func (op *nmaSpreadSecurityOp) setRuntimeParms(execContext *opEngineExecContext) error {
 	// Always pull the hosts at runtime using the node with the latest catalog.
 	// Need to use the ones with the latest catalog because those are the hosts
 	// that we copy the spread.conf from during start db.

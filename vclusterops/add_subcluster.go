@@ -210,7 +210,7 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 	}
 
 	// Create a VClusterOpEngine, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
@@ -234,8 +234,8 @@ func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) erro
 //   - Check if the new subcluster is created in database through HTTPS call
 //   - TODO: add new nodes to the subcluster
 func (vcc *VClusterCommands) produceAddSubclusterInstructions(addSubclusterInfo *VAddSubclusterInfo,
-	options *VAddSubclusterOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+	options *VAddSubclusterOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	// when password is specified, we will use username/password to call https endpoints
 	usePassword := false

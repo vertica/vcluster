@@ -23,37 +23,37 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSReloadSpreadOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsReloadSpreadOp struct {
+	opBase
+	opHTTPSBase
 }
 
 func makeHTTPSReloadSpreadOpWithInitiator(logger vlog.Printer, initHosts []string,
 	useHTTPPassword bool,
-	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
-	httpsReloadSpreadOp := HTTPSReloadSpreadOp{}
-	httpsReloadSpreadOp.name = "HTTPSReloadSpreadOp"
-	httpsReloadSpreadOp.logger = logger.WithName(httpsReloadSpreadOp.name)
-	httpsReloadSpreadOp.hosts = initHosts
-	httpsReloadSpreadOp.useHTTPPassword = useHTTPPassword
+	userName string, httpsPassword *string) (httpsReloadSpreadOp, error) {
+	op := httpsReloadSpreadOp{}
+	op.name = "HTTPSReloadSpreadOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = initHosts
+	op.useHTTPPassword = useHTTPPassword
 
-	err := util.ValidateUsernameAndPassword(httpsReloadSpreadOp.name, useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
-		return httpsReloadSpreadOp, err
+		return op, err
 	}
-	httpsReloadSpreadOp.userName = userName
-	httpsReloadSpreadOp.httpsPassword = httpsPassword
-	return httpsReloadSpreadOp, nil
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	return op, nil
 }
 
 func makeHTTPSReloadSpreadOp(logger vlog.Printer, useHTTPPassword bool,
-	userName string, httpsPassword *string) (HTTPSReloadSpreadOp, error) {
+	userName string, httpsPassword *string) (httpsReloadSpreadOp, error) {
 	return makeHTTPSReloadSpreadOpWithInitiator(logger, nil, useHTTPPassword, userName, httpsPassword)
 }
 
-func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("config/spread/reload")
 		if op.useHTTPPassword {
@@ -66,7 +66,7 @@ func (op *HTTPSReloadSpreadOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSReloadSpreadOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsReloadSpreadOp) prepare(execContext *opEngineExecContext) error {
 	// If the host input is an empty string, we find up hosts to update the host input
 	if len(op.hosts) == 0 {
 		op.hosts = execContext.upHosts
@@ -76,7 +76,7 @@ func (op *HTTPSReloadSpreadOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSReloadSpreadOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsReloadSpreadOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (op *HTTPSReloadSpreadOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSReloadSpreadOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsReloadSpreadOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -115,6 +115,6 @@ func (op *HTTPSReloadSpreadOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSReloadSpreadOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsReloadSpreadOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

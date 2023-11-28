@@ -22,38 +22,38 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSCheckSubclusterOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsCheckSubclusterOp struct {
+	opBase
+	opHTTPSBase
 	scName      string
 	isSecondary bool
 	ctlSetSize  int
 }
 
 func makeHTTPSCheckSubclusterOp(logger vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
-	scName string, isPrimary bool, ctlSetSize int) (HTTPSCheckSubclusterOp, error) {
-	httpsCheckSubclusterOp := HTTPSCheckSubclusterOp{}
-	httpsCheckSubclusterOp.name = "HTTPSCheckSubclusterOp"
-	httpsCheckSubclusterOp.logger = logger.WithName(httpsCheckSubclusterOp.name)
-	httpsCheckSubclusterOp.scName = scName
-	httpsCheckSubclusterOp.isSecondary = !isPrimary
-	httpsCheckSubclusterOp.ctlSetSize = ctlSetSize
+	scName string, isPrimary bool, ctlSetSize int) (httpsCheckSubclusterOp, error) {
+	op := httpsCheckSubclusterOp{}
+	op.name = "HTTPSCheckSubclusterOp"
+	op.logger = logger.WithName(op.name)
+	op.scName = scName
+	op.isSecondary = !isPrimary
+	op.ctlSetSize = ctlSetSize
 
-	httpsCheckSubclusterOp.useHTTPPassword = useHTTPPassword
+	op.useHTTPPassword = useHTTPPassword
 	if useHTTPPassword {
-		err := util.ValidateUsernameAndPassword(httpsCheckSubclusterOp.name, useHTTPPassword, userName)
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 		if err != nil {
-			return httpsCheckSubclusterOp, err
+			return op, err
 		}
-		httpsCheckSubclusterOp.userName = userName
-		httpsCheckSubclusterOp.httpsPassword = httpsPassword
+		op.userName = userName
+		op.httpsPassword = httpsPassword
 	}
-	return httpsCheckSubclusterOp, nil
+	return op, nil
 }
 
-func (op *HTTPSCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName)
 		if op.useHTTPPassword {
@@ -66,7 +66,7 @@ func (op *HTTPSCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) error 
 	return nil
 }
 
-func (op *HTTPSCheckSubclusterOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsCheckSubclusterOp) prepare(execContext *opEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
@@ -75,7 +75,7 @@ func (op *HTTPSCheckSubclusterOp) prepare(execContext *OpEngineExecContext) erro
 	return op.setupClusterHTTPRequest(execContext.upHosts)
 }
 
-func (op *HTTPSCheckSubclusterOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsCheckSubclusterOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -84,13 +84,13 @@ func (op *HTTPSCheckSubclusterOp) execute(execContext *OpEngineExecContext) erro
 }
 
 // the following struct will store a subcluster's information for this op
-type SCInfo struct {
+type scInfo struct {
 	SCName      string `json:"subcluster_name"`
 	IsSecondary bool   `json:"is_secondary"`
 	CtlSetSize  int    `json:"control_set_size"`
 }
 
-func (op *HTTPSCheckSubclusterOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsCheckSubclusterOp) processResult(_ *opEngineExecContext) error {
 	var err error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -117,23 +117,23 @@ func (op *HTTPSCheckSubclusterOp) processResult(_ *OpEngineExecContext) error {
 			    "sandbox": ""
 			}
 		*/
-		scInfo := SCInfo{}
-		err = op.parseAndCheckResponse(host, result.content, &scInfo)
+		subclusterInfo := scInfo{}
+		err = op.parseAndCheckResponse(host, result.content, &subclusterInfo)
 		if err != nil {
 			return fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 		}
 
-		if scInfo.SCName != op.scName {
-			return fmt.Errorf(`[%s] new subcluster name should be '%s' but got '%s'`, op.name, op.scName, scInfo.SCName)
+		if subclusterInfo.SCName != op.scName {
+			return fmt.Errorf(`[%s] new subcluster name should be '%s' but got '%s'`, op.name, op.scName, subclusterInfo.SCName)
 		}
-		if scInfo.IsSecondary != op.isSecondary {
+		if subclusterInfo.IsSecondary != op.isSecondary {
 			if op.isSecondary {
 				return fmt.Errorf(`[%s] new subcluster should be a secondary subcluster but got a primary subcluster`, op.name)
 			}
 			return fmt.Errorf(`[%s] new subcluster should be a primary subcluster but got a secondary subcluster`, op.name)
 		}
-		if scInfo.CtlSetSize != op.ctlSetSize {
-			return fmt.Errorf(`[%s] new subcluster should have control set size as %d but got %d`, op.name, op.ctlSetSize, scInfo.CtlSetSize)
+		if subclusterInfo.CtlSetSize != op.ctlSetSize {
+			return fmt.Errorf(`[%s] new subcluster should have control set size as %d but got %d`, op.name, op.ctlSetSize, subclusterInfo.CtlSetSize)
 		}
 
 		return nil
@@ -142,6 +142,6 @@ func (op *HTTPSCheckSubclusterOp) processResult(_ *OpEngineExecContext) error {
 	return err
 }
 
-func (op *HTTPSCheckSubclusterOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsCheckSubclusterOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

@@ -29,7 +29,7 @@ type VReIPOptions struct {
 	DatabaseOptions
 
 	// re-ip list
-	ReIPList []ReIPInfo
+	ReIPList []reIPInfo
 
 	/* hidden option */
 
@@ -152,7 +152,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// give the instructions to the VClusterOpEngine to run
@@ -170,8 +170,8 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 //   - Read database info from catalog editor
 //     (now we should know which hosts have the latest catalog)
 //   - Run re-ip on the target nodes
-func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	if len(options.ReIPList) == 0 {
 		return instructions, errors.New("the re-ip information is not provided")
@@ -274,7 +274,7 @@ func (opt *VReIPOptions) ReadReIPFile(path string) error {
 
 	ipv6 := opt.Ipv6.ToBool()
 	for _, row := range reIPRows {
-		var info ReIPInfo
+		var info reIPInfo
 		info.NodeAddress = row.CurrentAddress
 		if e := addressCheck(row.CurrentAddress, ipv6); e != nil {
 			return e

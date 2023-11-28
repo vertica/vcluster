@@ -23,8 +23,8 @@ import (
 )
 
 type httpsDropSubclusterOp struct {
-	OpBase
-	OpHTTPSBase
+	opBase
+	opHTTPSBase
 	scName string
 }
 
@@ -51,7 +51,7 @@ func makeHTTPSDropSubclusterOp(hosts []string, scName string,
 
 func (op *httpsDropSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/drop")
 		if op.useHTTPPassword {
@@ -65,13 +65,13 @@ func (op *httpsDropSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *httpsDropSubclusterOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsDropSubclusterOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsDropSubclusterOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsDropSubclusterOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (op *httpsDropSubclusterOp) execute(execContext *OpEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *httpsDropSubclusterOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsDropSubclusterOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -101,6 +101,6 @@ func (op *httpsDropSubclusterOp) processResult(_ *OpEngineExecContext) error {
 	return appendHTTPSFailureError(allErrs)
 }
 
-func (op *httpsDropSubclusterOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsDropSubclusterOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

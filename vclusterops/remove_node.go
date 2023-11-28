@@ -171,7 +171,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 
 	remainingHosts := util.SliceDiff(vdb.HostList, options.HostsToRemove)
 
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
 		// If the machines of the to-be-removed nodes crashed or get killed,
@@ -228,7 +228,7 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 	vdb.DepotPrefix = *o.DepotPrefix
 	hostNodeMap := makeVHostNodeMap()
 	// we set the depot path manually because there is not yet an https endpoint for
-	// that(VER-88122). This is useful for NMADeleteDirectoriesOp.
+	// that(VER-88122). This is useful for nmaDeleteDirectoriesOp.
 	for h, vnode := range vdb.HostNodeMap {
 		vnode.DepotPath = vdb.genDepotPath(vnode.Name)
 		hostNodeMap[h] = vnode
@@ -251,8 +251,8 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 //   - Reload spread
 //   - Delete catalog and data directories
 //   - Sync catalog (eon only)
-func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	var initiatorHost []string
 	initiatorHost = append(initiatorHost, options.Initiator)
@@ -296,13 +296,13 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 		}
 		instructions = append(instructions, &httpsPollSubscriptionStateOp)
 	} else {
-		var httpsRebalanceClusterOp HTTPSRebalanceClusterOp
-		httpsRebalanceClusterOp, err = makeHTTPSRebalanceClusterOp(vcc.Log, initiatorHost, usePassword, username,
+		var httpsRBCOp httpsRebalanceClusterOp
+		httpsRBCOp, err = makeHTTPSRebalanceClusterOp(vcc.Log, initiatorHost, usePassword, username,
 			password)
 		if err != nil {
 			return instructions, err
 		}
-		instructions = append(instructions, &httpsRebalanceClusterOp)
+		instructions = append(instructions, &httpsRBCOp)
 	}
 
 	// only remove secondary nodes from spread
@@ -344,7 +344,7 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 
 // produceMarkEphemeralNodeOps gets a slice of target hosts and for each of them
 // produces an HTTPSMarkEphemeralNodeOp.
-func (vcc *VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
+func (vcc *VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]clusterOp, targetHosts, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	hostNodeMap vHostNodeMap) error {
 	for _, host := range targetHosts {
@@ -360,7 +360,7 @@ func (vcc *VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]Cluster
 
 // produceRebalanceSubclusterShardsOps gets a slice of subclusters and for each of them
 // produces an HTTPSRebalanceSubclusterShardsOp.
-func (vcc *VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[]ClusterOp, initiatorHost, scNames []string,
+func (vcc *VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[]clusterOp, initiatorHost, scNames []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) error {
 	for _, scName := range scNames {
 		op, err := makeHTTPSRebalanceSubclusterShardsOp(vcc.Log,
@@ -376,7 +376,7 @@ func (vcc *VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[
 
 // produceDropNodeOps produces an HTTPSDropNodeOp for each node to drop.
 // This is because we must drop node one by one to avoid losing quorum.
-func (vcc *VClusterCommands) produceDropNodeOps(instructions *[]ClusterOp, targetHosts, hosts []string,
+func (vcc *VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, targetHosts, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	hostNodeMap vHostNodeMap, isEon bool) error {
 	for _, host := range targetHosts {
@@ -393,7 +393,7 @@ func (vcc *VClusterCommands) produceDropNodeOps(instructions *[]ClusterOp, targe
 
 // produceSpreadRemoveNodeOp calls HTTPSSpreadRemoveNodeOp
 // when there is at least one secondary node to remove
-func (vcc *VClusterCommands) produceSpreadRemoveNodeOp(instructions *[]ClusterOp, hostsToRemove []string,
+func (vcc *VClusterCommands) produceSpreadRemoveNodeOp(instructions *[]clusterOp, hostsToRemove []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	initiatorHost []string, hostNodeMap vHostNodeMap) error {
 	// find secondary nodes from HostsToRemove
@@ -444,14 +444,14 @@ func (vcc *VClusterCommands) findRemovedNodesInCatalog(options *VRemoveNodeOptio
 	fetchNodeStateOpt.Password = options.Password
 	*fetchNodeStateOpt.HonorUserInput = true
 
-	var nodesInfo NodesInfo
+	var nodesInformation nodesInfo
 	res, err := vcc.VFetchNodeState(&fetchNodeStateOpt)
 	if err != nil {
 		vcc.Log.PrintWarning("Fail to fetch states of the nodes, detail: %v", err)
 		return false
 	}
-	nodesInfo.NodeList = res
+	nodesInformation.NodeList = res
 
 	// return true if the target (to-be-removed) nodes are still in catalog
-	return nodesInfo.findHosts(options.HostsToRemove)
+	return nodesInformation.findHosts(options.HostsToRemove)
 }

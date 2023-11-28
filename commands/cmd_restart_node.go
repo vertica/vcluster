@@ -16,7 +16,7 @@ import (
  */
 type CmdRestartNodes struct {
 	CmdBase
-	restartNodesOptions *vclusterops.VRestartNodesOptions
+	restartNodesOptions *vclusterops.VStartNodesOptions
 
 	// Comma-separated list of vnode=host
 	vnodeListStr *string
@@ -28,7 +28,7 @@ func makeCmdRestartNodes() *CmdRestartNodes {
 
 	// parser, used to parse command-line flags
 	newCmd.parser = flag.NewFlagSet("restart_node", flag.ExitOnError)
-	restartNodesOptions := vclusterops.VRestartNodesOptionsFactory()
+	restartNodesOptions := vclusterops.VStartNodesOptionsFactory()
 
 	// require flags
 	restartNodesOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to restart nodes")
@@ -114,7 +114,7 @@ func (c *CmdRestartNodes) Run(vcc vclusterops.VClusterCommands) error {
 	options.Config = config
 
 	// this is the instruction that will be used by both CLI and operator
-	err = vcc.VRestartNodes(options)
+	err = vcc.VStartNodes(options)
 	if err != nil {
 		return err
 	}

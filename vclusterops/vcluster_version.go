@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-type SemVer struct {
+type semVer struct {
 	Ver   string `json:"ver"`
 	Major string `json:"-"`
 	Minor string `json:"-"`
@@ -31,28 +31,28 @@ type SemVer struct {
 
 type VclusterOpVersion struct {
 	Origin string `json:"origin"`
-	SemVer SemVer
+	SemVer semVer
 }
 
-func (semVer *SemVer) parseComponentsIfNecessary() error {
-	cleanSize := strings.TrimSpace(semVer.Ver)
+func (semVersion *semVer) parseComponentsIfNecessary() error {
+	cleanSize := strings.TrimSpace(semVersion.Ver)
 	r := regexp.MustCompile(`^(\d+)\.(\d+).(\d+)$`)
 	matches := r.FindAllStringSubmatch(cleanSize, -1)
 	if len(matches) != 1 {
-		return fmt.Errorf("parse error for version %s: It is not a valid version", semVer.Ver)
+		return fmt.Errorf("parse error for version %s: It is not a valid version", semVersion.Ver)
 	}
-	semVer.Major = matches[0][1]
-	semVer.Minor = matches[0][2]
-	semVer.Patch = matches[0][3]
+	semVersion.Major = matches[0][1]
+	semVersion.Minor = matches[0][2]
+	semVersion.Patch = matches[0][3]
 	return nil
 }
 
-func (semVer *SemVer) incompatibleVersion(otherVer *SemVer) (bool, error) {
-	err := semVer.parseComponentsIfNecessary()
+func (semVersion *semVer) incompatibleVersion(otherVer *semVer) (bool, error) {
+	err := semVersion.parseComponentsIfNecessary()
 	if err != nil {
 		return false, err
 	}
-	majorStr := semVer.Major
+	majorStr := semVersion.Major
 	err = otherVer.parseComponentsIfNecessary()
 	if err != nil {
 		return false, err
@@ -61,8 +61,8 @@ func (semVer *SemVer) incompatibleVersion(otherVer *SemVer) (bool, error) {
 	return majorStr == majorOtherVerStr, nil
 }
 
-func (semVer *SemVer) equalVersion(otherVer *SemVer) bool {
-	return otherVer.Ver == semVer.Ver
+func (semVersion *semVer) equalVersion(otherVer *semVer) bool {
+	return otherVer.Ver == semVersion.Ver
 }
 
 func (opVersion *VclusterOpVersion) equalVclusterVersion(otherVer *VclusterOpVersion) bool {
@@ -70,7 +70,7 @@ func (opVersion *VclusterOpVersion) equalVclusterVersion(otherVer *VclusterOpVer
 }
 
 func (opVersion *VclusterOpVersion) convertVclusterVersionToJSON() (string, error) {
-	SemVer := &SemVer{Ver: opVersion.SemVer.Ver}
+	SemVer := &semVer{Ver: opVersion.SemVer.Ver}
 	vclusterVersionData := map[string]any{
 		"origin": opVersion.Origin,
 		"semver": SemVer,
@@ -89,5 +89,5 @@ func vclusterVersionFromDict(vclusterVersionDict map[string]string) (VclusterOpV
 			return VclusterOpVersion{}, fmt.Errorf("%s is missing one or more required fields", vclusterVersionDict)
 		}
 	}
-	return VclusterOpVersion{Origin: vclusterVersionDict["origin"], SemVer: SemVer{Ver: vclusterVersionDict["semver"]}}, nil
+	return VclusterOpVersion{Origin: vclusterVersionDict["origin"], SemVer: semVer{Ver: vclusterVersionDict["semver"]}}, nil
 }

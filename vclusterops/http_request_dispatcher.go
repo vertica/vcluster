@@ -17,13 +17,13 @@ package vclusterops
 
 import "github.com/vertica/vcluster/vclusterops/vlog"
 
-type HTTPRequestDispatcher struct {
-	OpBase
-	pool AdapterPool
+type requestDispatcher struct {
+	opBase
+	pool adapterPool
 }
 
-func makeHTTPRequestDispatcher(logger vlog.Printer) HTTPRequestDispatcher {
-	newHTTPRequestDispatcher := HTTPRequestDispatcher{}
+func makeHTTPRequestDispatcher(logger vlog.Printer) requestDispatcher {
+	newHTTPRequestDispatcher := requestDispatcher{}
 	newHTTPRequestDispatcher.name = "HTTPRequestDispatcher"
 	newHTTPRequestDispatcher.logger = logger.WithName(newHTTPRequestDispatcher.name)
 
@@ -31,10 +31,10 @@ func makeHTTPRequestDispatcher(logger vlog.Printer) HTTPRequestDispatcher {
 }
 
 // set up the pool connection for each host
-func (dispatcher *HTTPRequestDispatcher) setup(hosts []string) {
+func (dispatcher *requestDispatcher) setup(hosts []string) {
 	dispatcher.pool = getPoolInstance(dispatcher.logger)
 
-	dispatcher.pool.connections = make(map[string]Adapter)
+	dispatcher.pool.connections = make(map[string]adapter)
 	for _, host := range hosts {
 		adapter := makeHTTPAdapter(dispatcher.logger)
 		adapter.host = host
@@ -43,7 +43,7 @@ func (dispatcher *HTTPRequestDispatcher) setup(hosts []string) {
 }
 
 // set up the pool connection for each host to download a file
-func (dispatcher *HTTPRequestDispatcher) setupForDownload(hosts []string,
+func (dispatcher *requestDispatcher) setupForDownload(hosts []string,
 	hostToFilePathsMap map[string]string) {
 	dispatcher.pool = getPoolInstance(dispatcher.logger)
 
@@ -54,7 +54,7 @@ func (dispatcher *HTTPRequestDispatcher) setupForDownload(hosts []string,
 	}
 }
 
-func (dispatcher *HTTPRequestDispatcher) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) error {
+func (dispatcher *requestDispatcher) sendRequest(httpRequest *clusterHTTPRequest) error {
 	dispatcher.logger.Info("HTTP request dispatcher's sendRequest is called")
-	return dispatcher.pool.sendRequest(clusterHTTPRequest)
+	return dispatcher.pool.sendRequest(httpRequest)
 }

@@ -25,16 +25,16 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type OpType int
+type opType int
 
 const (
-	CreateDB OpType = iota
+	CreateDB opType = iota
 	StopDB
 	StartDB
 	ReviveDB
 )
 
-func (op OpType) String() string {
+func (op opType) String() string {
 	switch op {
 	case CreateDB:
 		return "Create DB"
@@ -48,36 +48,36 @@ func (op OpType) String() string {
 	return "unknown operation"
 }
 
-type HTTPCheckRunningDBOp struct {
-	OpBase
-	OpHTTPSBase
-	opType OpType
+type httpsCheckRunningDBOp struct {
+	opBase
+	opHTTPSBase
+	opType opType
 }
 
-func makeHTTPCheckRunningDBOp(logger vlog.Printer, hosts []string,
+func makeHTTPSCheckRunningDBOp(logger vlog.Printer, hosts []string,
 	useHTTPPassword bool, userName string,
-	httpsPassword *string, opType OpType,
-) (HTTPCheckRunningDBOp, error) {
-	runningDBChecker := HTTPCheckRunningDBOp{}
-	runningDBChecker.name = "HTTPCheckDBRunningOp"
-	runningDBChecker.logger = logger.WithName(runningDBChecker.name)
-	runningDBChecker.hosts = hosts
-	runningDBChecker.useHTTPPassword = useHTTPPassword
+	httpsPassword *string, operationType opType,
+) (httpsCheckRunningDBOp, error) {
+	op := httpsCheckRunningDBOp{}
+	op.name = "HTTPCheckDBRunningOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
 
-	err := util.ValidateUsernameAndPassword(runningDBChecker.name, useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
-		return runningDBChecker, err
+		return op, err
 	}
 
-	runningDBChecker.userName = userName
-	runningDBChecker.httpsPassword = httpsPassword
-	runningDBChecker.opType = opType
-	return runningDBChecker, nil
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	op.opType = operationType
+	return op, nil
 }
 
-func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
@@ -90,17 +90,17 @@ func (op *HTTPCheckRunningDBOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPCheckRunningDBOp) logPrepare() {
+func (op *httpsCheckRunningDBOp) logPrepare() {
 	op.logger.Info("prepare() called", "opType", op.opType)
 }
 
-func (op *HTTPCheckRunningDBOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsCheckRunningDBOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-/* HTTPNodeStateResponse example:
+/* httpsNodeStateResponse example:
    {
 	"details": null,
     "node_list":[{
@@ -125,11 +125,11 @@ func (op *HTTPCheckRunningDBOp) prepare(execContext *OpEngineExecContext) error 
 // or a message if the endpoint doesn't return a well-structured JSON, examples:
 // {"message": "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n"}
 // {"message": "Wrong password\n"}
-type NodeList []map[string]any
-type HTTPNodeStateResponse map[string]NodeList
+type nodeList []map[string]any
+type httpsNodeStateResponse map[string]nodeList
 
-func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
-	responseObj HTTPNodeStateResponse) (running bool, msg string, err error) {
+func (op *httpsCheckRunningDBOp) isDBRunningOnHost(host string,
+	responseObj httpsNodeStateResponse) (running bool, msg string, err error) {
 	// parse and log the results
 	msg = ""
 	nodeList, ok := responseObj["node_list"]
@@ -166,7 +166,7 @@ func (op *HTTPCheckRunningDBOp) isDBRunningOnHost(host string,
 // processResult will look at all of the results that come back from the hosts.
 // We don't return an error if all of the nodes are down. Otherwise, an error is
 // returned.
-func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	// golang doesn't have set data structure,
 	// so use maps for caching distinct up and down hosts
@@ -190,7 +190,7 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 
 		upHosts[host] = true
 		// a passing result means that the db isn't down
-		var responseObj HTTPNodeStateResponse
+		var responseObj httpsNodeStateResponse
 		err := op.parseAndCheckResponse(host, result.content, &responseObj)
 
 		// don't return, as an error here could just mean a node not being up
@@ -235,7 +235,7 @@ func (op *HTTPCheckRunningDBOp) processResult(_ *OpEngineExecContext) error {
 	return errors.Join(allErrs, errors.New(msg))
 }
 
-func (op *HTTPCheckRunningDBOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsCheckRunningDBOp) execute(execContext *opEngineExecContext) error {
 	op.logger.Info("Execute() called", "opType", op.opType)
 	switch op.opType {
 	case CreateDB, StartDB, ReviveDB:
@@ -247,7 +247,7 @@ func (op *HTTPCheckRunningDBOp) execute(execContext *OpEngineExecContext) error 
 	return fmt.Errorf("unknown operation found in HTTPCheckRunningDBOp")
 }
 
-func (op *HTTPCheckRunningDBOp) pollForDBDown(execContext *OpEngineExecContext) error {
+func (op *httpsCheckRunningDBOp) pollForDBDown(execContext *opEngineExecContext) error {
 	// start the polling
 	startTime := time.Now()
 	// for tests
@@ -291,7 +291,7 @@ func (op *HTTPCheckRunningDBOp) pollForDBDown(execContext *OpEngineExecContext) 
 	return errors.New(msg)
 }
 
-func (op *HTTPCheckRunningDBOp) checkDBConnection(execContext *OpEngineExecContext) error {
+func (op *httpsCheckRunningDBOp) checkDBConnection(execContext *opEngineExecContext) error {
 	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
 	if err != nil {
 		return fmt.Errorf("fail to dispatch request %v: %w", op.clusterHTTPRequest, err)
@@ -299,6 +299,6 @@ func (op *HTTPCheckRunningDBOp) checkDBConnection(execContext *OpEngineExecConte
 	return op.processResult(execContext)
 }
 
-func (op *HTTPCheckRunningDBOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsCheckRunningDBOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

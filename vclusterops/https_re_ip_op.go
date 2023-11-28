@@ -23,10 +23,10 @@ import (
 )
 
 type httpsReIPOp struct {
-	OpBase
-	OpHTTPSBase
+	opBase
+	opHTTPSBase
 	hostToReIP    []string
-	reIPList      map[string]ReIPInfo
+	reIPList      map[string]reIPInfo
 	nodeNamesList []string
 	upHosts       []string
 }
@@ -54,7 +54,7 @@ func makeHTTPSReIPOp(nodeNamesList, hostToReIP []string,
 
 func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
 	for i, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PutMethod
 		nodesInfo, ok := op.reIPList[host]
 		if !ok {
@@ -76,8 +76,8 @@ func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *httpsReIPOp) prepare(execContext *OpEngineExecContext) error {
-	op.reIPList = make(map[string]ReIPInfo)
+func (op *httpsReIPOp) prepare(execContext *opEngineExecContext) error {
+	op.reIPList = make(map[string]reIPInfo)
 	// update reIPList from input node names and execContext.networkProfiles
 	for i := 0; i < len(op.nodeNamesList); i++ {
 		nodeNameToReIP := op.nodeNamesList[i]
@@ -86,7 +86,7 @@ func (op *httpsReIPOp) prepare(execContext *OpEngineExecContext) error {
 		if !ok {
 			return fmt.Errorf("[%s] unable to find network profile for address %s", op.name, targetAddress)
 		}
-		info := ReIPInfo{
+		info := reIPInfo{
 			NodeName:               nodeNameToReIP,
 			TargetAddress:          targetAddress,
 			TargetControlAddress:   profile.Address,
@@ -101,7 +101,7 @@ func (op *httpsReIPOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.nodeNamesList)
 }
 
-func (op *httpsReIPOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsReIPOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (op *httpsReIPOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *httpsReIPOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsReIPOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -150,6 +150,6 @@ func (op *httpsReIPOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *httpsReIPOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsReIPOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

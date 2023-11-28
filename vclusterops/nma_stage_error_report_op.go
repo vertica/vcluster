@@ -22,8 +22,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAStageErrorReportOp struct {
-	ScrutinizeOpBase
+type nmaStageErrorReportOp struct {
+	scrutinizeOpBase
 }
 
 type stageErrorReportRequestData struct {
@@ -40,9 +40,9 @@ func makeNMAStageErrorReportOp(logger vlog.Printer,
 	id string,
 	hosts []string,
 	hostNodeNameMap map[string]string,
-	hostCatPathMap map[string]string) (NMAStageErrorReportOp, error) {
+	hostCatPathMap map[string]string) (nmaStageErrorReportOp, error) {
 	// base members
-	op := NMAStageErrorReportOp{}
+	op := nmaStageErrorReportOp{}
 	op.name = "NMAStageErrorReportOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
@@ -60,7 +60,7 @@ func makeNMAStageErrorReportOp(logger vlog.Printer,
 	return op, err
 }
 
-func (op *NMAStageErrorReportOp) setupRequestBody(hosts []string) error {
+func (op *nmaStageErrorReportOp) setupRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string, len(hosts))
 	for _, host := range hosts {
 		stageErrorReportData := stageErrorReportRequestData{}
@@ -77,7 +77,7 @@ func (op *NMAStageErrorReportOp) setupRequestBody(hosts []string) error {
 	return nil
 }
 
-func (op *NMAStageErrorReportOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaStageErrorReportOp) prepare(execContext *opEngineExecContext) error {
 	err := op.setupRequestBody(op.hosts)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (op *NMAStageErrorReportOp) prepare(execContext *OpEngineExecContext) error
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAStageErrorReportOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaStageErrorReportOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -95,11 +95,11 @@ func (op *NMAStageErrorReportOp) execute(execContext *OpEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *NMAStageErrorReportOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaStageErrorReportOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAStageErrorReportOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaStageErrorReportOp) processResult(_ *opEngineExecContext) error {
 	fileList := make([]stageErrorReportResponseData, 0)
-	return processStagedFilesResult(&op.ScrutinizeOpBase, fileList)
+	return processStagedFilesResult(&op.scrutinizeOpBase, fileList)
 }

@@ -34,8 +34,8 @@ const (
 	expirationStringLayout = "2006-01-02 15:04:05.999999"
 )
 
-type NMADownloadFileOp struct {
-	OpBase
+type nmaDownloadFileOp struct {
+	opBase
 	hostRequestBodyMap map[string]string
 	// vdb will be used to save downloaded file info for revive_db
 	vdb *VCoordinationDatabase
@@ -57,35 +57,35 @@ type downloadFileRequestData struct {
 
 // ClusterLeaseNotExpiredFailure is returned when an attempt is made to use a
 // communal storage before the lease for it has expired.
-type ClusterLeaseNotExpiredError struct {
+type clusterLeaseNotExpiredError struct {
 	Expiration string
 }
 
-func (e *ClusterLeaseNotExpiredError) Error() string {
+func (e *clusterLeaseNotExpiredError) Error() string {
 	return fmt.Sprintf("revive database cannot continue because the communal storage location might still be in use."+
 		" The cluster lease will expire at %s(UTC)."+
 		" Please ensure that the other cluster has stopped and try revive_db after the cluster lease expiration",
 		e.Expiration)
 }
 
-// ReviveDBNodeCountMismatchError is returned when the number of nodes in new cluster
+// reviveDBNodeCountMismatchError is returned when the number of nodes in new cluster
 // does not match the number of nodes in original cluster
-type ReviveDBNodeCountMismatchError struct {
+type reviveDBNodeCountMismatchError struct {
 	ReviveDBStep  string
 	FailureHost   string
 	NumOfNewNodes int
 	NumOfOldNodes int
 }
 
-func (e *ReviveDBNodeCountMismatchError) Error() string {
+func (e *reviveDBNodeCountMismatchError) Error() string {
 	return fmt.Sprintf(`[%s] nodes mismatch found on host %s: the number of the new nodes in --hosts is %d,`+
 		` but the number of the old nodes in description file is %d`,
 		e.ReviveDBStep, e.FailureHost, e.NumOfNewNodes, e.NumOfOldNodes)
 }
 
 func makeNMADownloadFileOp(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
-	configurationParameters map[string]string, vdb *VCoordinationDatabase) (NMADownloadFileOp, error) {
-	op := NMADownloadFileOp{}
+	configurationParameters map[string]string, vdb *VCoordinationDatabase) (nmaDownloadFileOp, error) {
+	op := nmaDownloadFileOp{}
 	op.name = "NMADownloadFileOp"
 	op.logger = logger.WithName(op.name)
 	initiator := getInitiator(newNodes)
@@ -114,7 +114,7 @@ func makeNMADownloadFileOp(logger vlog.Printer, newNodes []string, sourceFilePat
 }
 
 func makeNMADownloadFileOpForRevive(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
-	configurationParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (NMADownloadFileOp, error) {
+	configurationParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (nmaDownloadFileOp, error) {
 	op, err := makeNMADownloadFileOp(logger, newNodes, sourceFilePath, destinationFilePath,
 		catalogPath, configurationParameters, vdb)
 	if err != nil {
@@ -127,9 +127,9 @@ func makeNMADownloadFileOpForRevive(logger vlog.Printer, newNodes []string, sour
 	return op, nil
 }
 
-func (op *NMADownloadFileOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaDownloadFileOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildNMAEndpoint("vertica/download-file")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
@@ -140,12 +140,12 @@ func (op *NMADownloadFileOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *NMADownloadFileOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaDownloadFileOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMADownloadFileOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaDownloadFileOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (op *NMADownloadFileOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMADownloadFileOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaDownloadFileOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
@@ -177,7 +177,7 @@ type fileContent struct {
 	} `json:"StorageLocation"`
 }
 
-func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) error {
+func (op *nmaDownloadFileOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -221,7 +221,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 				}
 
 				if len(descFileContent.NodeList) != len(op.newNodes) {
-					err := &ReviveDBNodeCountMismatchError{
+					err := &reviveDBNodeCountMismatchError{
 						ReviveDBStep:  op.name,
 						FailureHost:   host,
 						NumOfNewNodes: len(op.newNodes),
@@ -244,7 +244,7 @@ func (op *NMADownloadFileOp) processResult(execContext *OpEngineExecContext) err
 }
 
 // buildVDBFromClusterConfig can build a vdb using cluster_config.json
-func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileContent) error {
+func (op *nmaDownloadFileOp) buildVDBFromClusterConfig(descFileContent fileContent) error {
 	op.vdb.HostNodeMap = makeVHostNodeMap()
 	for _, node := range descFileContent.NodeList {
 		vNode := makeVCoordinationNode()
@@ -287,7 +287,7 @@ func (op *NMADownloadFileOp) buildVDBFromClusterConfig(descFileContent fileConte
 	return nil
 }
 
-func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) error {
+func (op *nmaDownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) error {
 	if op.ignoreClusterLease {
 		op.logger.PrintWarning("Skipping cluster lease check\n")
 		return nil
@@ -302,7 +302,7 @@ func (op *NMADownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) er
 
 	// current time < expire time, it means that the cluster lease is not expired
 	if utcNow.Before(utcExpiration) {
-		return &ClusterLeaseNotExpiredError{Expiration: clusterLeaseExpiration}
+		return &clusterLeaseNotExpiredError{Expiration: clusterLeaseExpiration}
 	}
 
 	op.logger.PrintInfo("Cluster lease check has passed. We proceed to revive the database")

@@ -24,8 +24,8 @@ import (
 )
 
 type httpsGetClusterInfoOp struct {
-	OpBase
-	OpHTTPSBase
+	opBase
+	opHTTPSBase
 	dbName string
 	vdb    *VCoordinationDatabase
 }
@@ -55,7 +55,7 @@ func makeHTTPSGetClusterInfoOp(logger vlog.Printer, dbName string, hosts []strin
 
 func (op *httpsGetClusterInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildHTTPSEndpoint("cluster")
 		if op.useHTTPPassword {
@@ -69,13 +69,13 @@ func (op *httpsGetClusterInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *httpsGetClusterInfoOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsGetClusterInfoOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsGetClusterInfoOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsGetClusterInfoOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -83,13 +83,13 @@ func (op *httpsGetClusterInfoOp) execute(execContext *OpEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-type ClusterStateInfo struct {
+type clusterStateInfo struct {
 	IsEon                    bool     `json:"is_eon"`
 	DBName                   string   `json:"db_name"`
 	CommunalStorageLocations []string `json:"commnual_storage_locations"`
 }
 
-func (op *httpsGetClusterInfoOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsGetClusterInfoOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -101,24 +101,24 @@ func (op *httpsGetClusterInfoOp) processResult(_ *OpEngineExecContext) error {
 
 		if result.isPassing() {
 			// unmarshal the response content
-			clusterStateInfo := ClusterStateInfo{}
-			err := op.parseAndCheckResponse(host, result.content, &clusterStateInfo)
+			clusterState := clusterStateInfo{}
+			err := op.parseAndCheckResponse(host, result.content, &clusterState)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 				return appendHTTPSFailureError(allErrs)
 			}
 
 			// save cluster info to vdb
-			op.vdb.IsEon = clusterStateInfo.IsEon
-			op.vdb.UseDepot = clusterStateInfo.IsEon
-			op.vdb.Name = clusterStateInfo.DBName
+			op.vdb.IsEon = clusterState.IsEon
+			op.vdb.UseDepot = clusterState.IsEon
+			op.vdb.Name = clusterState.DBName
 			if op.vdb.Name != op.dbName {
 				err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, op.vdb.Name, host, op.dbName)
 				allErrs = errors.Join(allErrs, err)
 				break
 			}
-			if len(clusterStateInfo.CommunalStorageLocations) > 0 {
-				op.vdb.CommunalStorageLocation = clusterStateInfo.CommunalStorageLocations[0]
+			if len(clusterState.CommunalStorageLocations) > 0 {
+				op.vdb.CommunalStorageLocation = clusterState.CommunalStorageLocations[0]
 			}
 			return nil
 		}
@@ -127,6 +127,6 @@ func (op *httpsGetClusterInfoOp) processResult(_ *OpEngineExecContext) error {
 	return appendHTTPSFailureError(allErrs)
 }
 
-func (op *httpsGetClusterInfoOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsGetClusterInfoOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

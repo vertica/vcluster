@@ -189,7 +189,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 		return vdb, fmt.Errorf("fail to produce add node instructions, %w", err)
 	}
 
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
 		return vdb, fmt.Errorf("fail to complete add node operation, %w", runError)
@@ -275,7 +275,7 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	// pick any up host as intiator
 	initiator := aliveHosts[:1]
 
-	var instructions []ClusterOp
+	var instructions []clusterOp
 
 	// mark k-safety
 	if len(aliveHosts) < ksafetyThreshold {
@@ -298,7 +298,7 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 		instructions = append(instructions, &httpsDropNodeOp)
 	}
 
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 	err := clusterOpEngine.run(vcc.Log)
 	if err != nil {
@@ -333,8 +333,8 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 //   - Sync catalog
 //   - Rebalance shards on subcluster (Eon mode only)
 func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabase,
-	options *VAddNodeOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+	options *VAddNodeOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 	initiatorHost := []string{options.Initiator}
 	newHosts := options.NewHosts
 	allExistingHosts := util.SliceDiff(vdb.HostList, options.NewHosts)
@@ -411,9 +411,9 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 
 func (vcc *VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions,
-	instructions []ClusterOp,
+	instructions []clusterOp,
 	username string, usePassword bool,
-	initiatorHost, newHosts []string) ([]ClusterOp, error) {
+	initiatorHost, newHosts []string) ([]clusterOp, error) {
 	if vdb.UseDepot {
 		httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vcc.Log, vdb,
 			newHosts, usePassword, username, options.Password)

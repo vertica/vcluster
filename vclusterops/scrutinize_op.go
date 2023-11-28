@@ -23,10 +23,10 @@ import (
 // top level handler for scrutinize operations
 const scrutinizeURLPrefix = "scrutinize/"
 
-// ScrutinizeOpBase, in addition to embedding the standard OpBase, wraps some
+// scrutinizeOpBase, in addition to embedding the standard OpBase, wraps some
 // common data and functionality for scrutinize-specific ops
-type ScrutinizeOpBase struct {
-	OpBase
+type scrutinizeOpBase struct {
+	opBase
 	id                 string
 	batch              string
 	urlSuffix          string
@@ -36,11 +36,11 @@ type ScrutinizeOpBase struct {
 	hostRequestBodyMap map[string]string // should be nil if not used
 }
 
-func (op *ScrutinizeOpBase) setupClusterHTTPRequest(hosts []string) error {
+func (op *scrutinizeOpBase) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		nodeName := op.hostNodeNameMap[host]
 
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = op.httpMethod
 		httpRequest.buildNMAEndpoint(scrutinizeURLPrefix + op.id + "/" + nodeName + "/" + op.batch + op.urlSuffix)
 		if op.hostRequestBodyMap != nil {
@@ -54,7 +54,7 @@ func (op *ScrutinizeOpBase) setupClusterHTTPRequest(hosts []string) error {
 
 // processeStagedFilesResult is a parameterized function which contains common logic
 // for processing the results of staging various types of files, e.g. vertica.log
-func processStagedFilesResult[T any](op *ScrutinizeOpBase, fileList []T) error {
+func processStagedFilesResult[T any](op *scrutinizeOpBase, fileList []T) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

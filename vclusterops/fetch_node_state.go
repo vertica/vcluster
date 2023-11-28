@@ -69,7 +69,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
@@ -81,8 +81,8 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 
 // produceListAllNodesInstructions will build a list of instructions to execute for
 // the fetch node state operation.
-func (vcc *VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+func (vcc *VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	// get hosts
 	hosts := options.Hosts
@@ -97,7 +97,7 @@ func (vcc *VClusterCommands) produceListAllNodesInstructions(options *VFetchNode
 		}
 	}
 
-	httpsCheckNodeStateOp, err := makeHTTPCheckNodeStateOp(vcc.Log, hosts,
+	httpsCheckNodeStateOp, err := makeHTTPSCheckNodeStateOp(vcc.Log, hosts,
 		usePassword, *options.UserName, options.Password)
 	if err != nil {
 		return instructions, err

@@ -33,16 +33,16 @@ import (
 /* Op and host http result status
  */
 
-// ResultStatus is the data type for the status of
-// ClusterOpResult and HostHTTPResult
-type ResultStatus int
+// resultStatus is the data type for the status of
+// ClusterOpResult and hostHTTPResult
+type resultStatus int
 
 var wrongCredentialErrMsg = []string{"Wrong password", "Wrong certificate"}
 
 const (
-	SUCCESS   ResultStatus = 0
-	FAILURE   ResultStatus = 1
-	EXCEPTION ResultStatus = 2
+	SUCCESS   resultStatus = 0
+	FAILURE   resultStatus = 1
+	EXCEPTION resultStatus = 2
 )
 
 const (
@@ -73,10 +73,10 @@ const (
 	InternalErrorCode  = 500
 )
 
-// HostHTTPResult is used to save result of an Adapter's sendRequest(...) function
+// hostHTTPResult is used to save result of an Adapter's sendRequest(...) function
 // it is the element of the adapter pool's channel
-type HostHTTPResult struct {
-	status     ResultStatus
+type hostHTTPResult struct {
+	status     resultStatus
 	statusCode int
 	host       string
 	content    string
@@ -95,17 +95,17 @@ const respSuccStatusCode = 0
 // 3. The local node has not yet joined the cluster; the HTTP server will accept connections once the node joins the cluster.
 // HTTPCheckDBRunningOp in create_db need to check all scenarios to see any HTTP running
 // For HTTPSPollNodeStateOp in start_db, it requires only handling the first and second scenarios
-func (hostResult *HostHTTPResult) isUnauthorizedRequest() bool {
+func (hostResult *hostHTTPResult) isUnauthorizedRequest() bool {
 	return hostResult.statusCode == UnauthorizedCode
 }
 
 // isSuccess returns true if status code is 200
-func (hostResult *HostHTTPResult) isSuccess() bool {
+func (hostResult *hostHTTPResult) isSuccess() bool {
 	return hostResult.statusCode == SuccessCode
 }
 
 // check only password and certificate for start_db
-func (hostResult *HostHTTPResult) isPasswordAndCertificateError(logger vlog.Printer) bool {
+func (hostResult *hostHTTPResult) isPasswordAndCertificateError(logger vlog.Printer) bool {
 	if !hostResult.isUnauthorizedRequest() {
 		return false
 	}
@@ -119,30 +119,30 @@ func (hostResult *HostHTTPResult) isPasswordAndCertificateError(logger vlog.Prin
 	return false
 }
 
-func (hostResult *HostHTTPResult) isInternalError() bool {
+func (hostResult *hostHTTPResult) isInternalError() bool {
 	return hostResult.statusCode == InternalErrorCode
 }
 
-func (hostResult *HostHTTPResult) isHTTPRunning() bool {
+func (hostResult *hostHTTPResult) isHTTPRunning() bool {
 	if hostResult.isPassing() || hostResult.isUnauthorizedRequest() || hostResult.isInternalError() {
 		return true
 	}
 	return false
 }
 
-func (hostResult *HostHTTPResult) isPassing() bool {
+func (hostResult *hostHTTPResult) isPassing() bool {
 	return hostResult.err == nil
 }
 
-func (hostResult *HostHTTPResult) isFailing() bool {
+func (hostResult *hostHTTPResult) isFailing() bool {
 	return hostResult.status == FAILURE
 }
 
-func (hostResult *HostHTTPResult) isException() bool {
+func (hostResult *hostHTTPResult) isException() bool {
 	return hostResult.status == EXCEPTION
 }
 
-func (hostResult *HostHTTPResult) isTimeout() bool {
+func (hostResult *hostHTTPResult) isTimeout() bool {
 	if hostResult.err != nil {
 		var netErr net.Error
 		if errors.As(hostResult.err, &netErr) && netErr.Timeout() {
@@ -153,7 +153,7 @@ func (hostResult *HostHTTPResult) isTimeout() bool {
 }
 
 // getStatusString converts ResultStatus to string
-func (status ResultStatus) getStatusString() string {
+func (status resultStatus) getStatusString() string {
 	if status == FAILURE {
 		return FailureResult
 	} else if status == EXCEPTION {
@@ -165,44 +165,44 @@ func (status ResultStatus) getStatusString() string {
 /* Cluster ops interface
  */
 
-// ClusterOp interface requires that all ops implements
+// clusterOp interface requires that all ops implements
 // the following functions
 // log* implemented by embedding OpBase, but overrideable
-type ClusterOp interface {
+type clusterOp interface {
 	getName() string
-	prepare(execContext *OpEngineExecContext) error
-	execute(execContext *OpEngineExecContext) error
-	finalize(execContext *OpEngineExecContext) error
-	processResult(execContext *OpEngineExecContext) error
-	logResponse(host string, result HostHTTPResult)
+	prepare(execContext *opEngineExecContext) error
+	execute(execContext *opEngineExecContext) error
+	finalize(execContext *opEngineExecContext) error
+	processResult(execContext *opEngineExecContext) error
+	logResponse(host string, result hostHTTPResult)
 	logPrepare()
 	logExecute()
 	logFinalize()
 	setupBasicInfo()
-	loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) error
+	loadCertsIfNeeded(certs *httpsCerts, findCertsInOptions bool) error
 	isSkipExecute() bool
 }
 
 /* Cluster ops basic fields and functions
  */
 
-// OpBase defines base fields and implements basic functions
+// opBase defines base fields and implements basic functions
 // for all ops
-type OpBase struct {
+type opBase struct {
 	logger             vlog.Printer
 	name               string
 	hosts              []string
-	clusterHTTPRequest ClusterHTTPRequest
+	clusterHTTPRequest clusterHTTPRequest
 	skipExecute        bool // This can be set during prepare if we determine no work is needed
 }
 
-type OpResponseMap map[string]string
+type opResponseMap map[string]string
 
-func (op *OpBase) getName() string {
+func (op *opBase) getName() string {
 	return op.name
 }
 
-func (op *OpBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
+func (op *opBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
 	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name, op.logger)
 	if err != nil {
 		op.logger.Error(err, "fail to parse response on host, detail", "host", host)
@@ -212,29 +212,29 @@ func (op *OpBase) parseAndCheckResponse(host, responseContent string, responseOb
 	return nil
 }
 
-func (op *OpBase) parseAndCheckMapResponse(host, responseContent string) (OpResponseMap, error) {
-	var responseObj OpResponseMap
+func (op *opBase) parseAndCheckMapResponse(host, responseContent string) (opResponseMap, error) {
+	var responseObj opResponseMap
 	err := op.parseAndCheckResponse(host, responseContent, &responseObj)
 
 	return responseObj, err
 }
 
-func (op *OpBase) setClusterHTTPRequestName() {
+func (op *opBase) setClusterHTTPRequestName() {
 	op.clusterHTTPRequest.Name = op.name
 }
 
-func (op *OpBase) setVersionToSemVar() {
-	op.clusterHTTPRequest.SemVar = SemVer{Ver: "1.0.0"}
+func (op *opBase) setVersionToSemVar() {
+	op.clusterHTTPRequest.SemVar = semVer{Ver: "1.0.0"}
 }
 
-func (op *OpBase) setupBasicInfo() {
-	op.clusterHTTPRequest = ClusterHTTPRequest{}
-	op.clusterHTTPRequest.RequestCollection = make(map[string]HostHTTPRequest)
+func (op *opBase) setupBasicInfo() {
+	op.clusterHTTPRequest = clusterHTTPRequest{}
+	op.clusterHTTPRequest.RequestCollection = make(map[string]hostHTTPRequest)
 	op.setClusterHTTPRequestName()
 	op.setVersionToSemVar()
 }
 
-func (op *OpBase) logResponse(host string, result HostHTTPResult) {
+func (op *opBase) logResponse(host string, result hostHTTPResult) {
 	if result.err != nil {
 		op.logger.PrintError("[%s] result from host %s summary %s, details: %+v",
 			op.name, host, result.status.getStatusString(), result.err)
@@ -244,20 +244,20 @@ func (op *OpBase) logResponse(host string, result HostHTTPResult) {
 	}
 }
 
-func (op *OpBase) logPrepare() {
+func (op *opBase) logPrepare() {
 	op.logger.Info("Prepare() called", "name", op.name)
 }
 
-func (op *OpBase) logExecute() {
+func (op *opBase) logExecute() {
 	op.logger.Info("Execute() called", "name", op.name)
 	op.logger.PrintInfo("[%s] is running", op.name)
 }
 
-func (op *OpBase) logFinalize() {
+func (op *opBase) logFinalize() {
 	op.logger.Info("Finalize() called", "name", op.name)
 }
 
-func (op *OpBase) runExecute(execContext *OpEngineExecContext) error {
+func (op *opBase) runExecute(execContext *opEngineExecContext) error {
 	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
 	if err != nil {
 		op.logger.Error(err, "Fail to dispatch request, detail", "dispatch request", op.clusterHTTPRequest)
@@ -267,7 +267,7 @@ func (op *OpBase) runExecute(execContext *OpEngineExecContext) error {
 }
 
 // if found certs in the options, we add the certs to http requests of each instruction
-func (op *OpBase) loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) error {
+func (op *opBase) loadCertsIfNeeded(certs *httpsCerts, findCertsInOptions bool) error {
 	if !findCertsInOptions {
 		return nil
 	}
@@ -293,13 +293,13 @@ func (op *OpBase) loadCertsIfNeeded(certs *HTTPSCerts, findCertsInOptions bool) 
 // they can only determine at runtime where the operation is needed. One
 // instance of this is the nma_upload_config.go. If all nodes already have the
 // latest catalog information, there is nothing to be done during execution.
-func (op *OpBase) isSkipExecute() bool {
+func (op *opBase) isSkipExecute() bool {
 	return op.skipExecute
 }
 
 // hasQuorum checks if we have enough working primary nodes to maintain data integrity
 // quorumCount = (1/2 * number of primary nodes) + 1
-func (op *OpBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
+func (op *opBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
 	quorumCount := (primaryNodeCount + 1) / 2
 	if hostCount < quorumCount {
 		op.logger.PrintError("[%s] Quorum check failed: "+
@@ -313,7 +313,7 @@ func (op *OpBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
 }
 
 // checkResponseStatusCode will verify if the status code in https response is a successful code
-func (op *OpBase) checkResponseStatusCode(resp httpsResponseStatus, host string) (err error) {
+func (op *opBase) checkResponseStatusCode(resp httpsResponseStatus, host string) (err error) {
 	if resp.StatusCode != respSuccStatusCode {
 		err = fmt.Errorf(`[%s] fail to execute HTTPS request on host %s, status code in HTTPS response is %d`, op.name, host, resp.StatusCode)
 		op.logger.Error(err, "fail to execute HTTPS request, detail")
@@ -324,14 +324,14 @@ func (op *OpBase) checkResponseStatusCode(resp httpsResponseStatus, host string)
 
 /* Sensitive fields in request body
  */
-type SensitiveFields struct {
+type sensitiveFields struct {
 	DBPassword         string            `json:"db_password"`
 	AWSAccessKeyID     string            `json:"aws_access_key_id"`
 	AWSSecretAccessKey string            `json:"aws_secret_access_key"`
 	Parameters         map[string]string `json:"parameters"`
 }
 
-func (maskedData *SensitiveFields) maskSensitiveInfo() {
+func (maskedData *sensitiveFields) maskSensitiveInfo() {
 	const maskedValue = "******"
 	sensitiveKeyParams := map[string]bool{
 		"awsauth":                 true,
@@ -357,7 +357,7 @@ func (maskedData *SensitiveFields) maskSensitiveInfo() {
  * for the case where users do not specify a password, e.g., create db
  * we need the empty password "" string
  */
-type OpHTTPSBase struct {
+type opHTTPSBase struct {
 	useHTTPPassword bool
 	httpsPassword   *string
 	userName        string
@@ -365,7 +365,7 @@ type OpHTTPSBase struct {
 
 // we may add some common functions for OpHTTPSBase here
 
-func (opb *OpHTTPSBase) validateAndSetUsernameAndPassword(opName string, useHTTPPassword bool,
+func (opb *opHTTPSBase) validateAndSetUsernameAndPassword(opName string, useHTTPPassword bool,
 	userName string, httpsPassword *string) error {
 	opb.useHTTPPassword = useHTTPPassword
 	if opb.useHTTPPassword {

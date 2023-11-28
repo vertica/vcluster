@@ -22,8 +22,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAStageVerticaLogsOp struct {
-	ScrutinizeOpBase
+type nmaStageVerticaLogsOp struct {
+	scrutinizeOpBase
 	logSizeLimitBytes int64
 	logAgeHours       int // The maximum age of archieved logs in hours to retrieve
 }
@@ -46,9 +46,9 @@ func makeNMAStageVerticaLogsOp(logger vlog.Printer,
 	hostNodeNameMap map[string]string,
 	hostCatPathMap map[string]string,
 	logSizeLimitBytes int64,
-	logAgeHours int) (NMAStageVerticaLogsOp, error) {
+	logAgeHours int) (nmaStageVerticaLogsOp, error) {
 	// base members
-	op := NMAStageVerticaLogsOp{}
+	op := nmaStageVerticaLogsOp{}
 	op.name = "NMAStageVerticaLogsOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
@@ -70,7 +70,7 @@ func makeNMAStageVerticaLogsOp(logger vlog.Printer,
 	return op, err
 }
 
-func (op *NMAStageVerticaLogsOp) setupRequestBody(hosts []string) error {
+func (op *nmaStageVerticaLogsOp) setupRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string, len(hosts))
 	for _, host := range hosts {
 		stageVerticaLogsData := stageVerticaLogsRequestData{}
@@ -89,7 +89,7 @@ func (op *NMAStageVerticaLogsOp) setupRequestBody(hosts []string) error {
 	return nil
 }
 
-func (op *NMAStageVerticaLogsOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaStageVerticaLogsOp) prepare(execContext *opEngineExecContext) error {
 	err := op.setupRequestBody(op.hosts)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (op *NMAStageVerticaLogsOp) prepare(execContext *OpEngineExecContext) error
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAStageVerticaLogsOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaStageVerticaLogsOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -107,11 +107,11 @@ func (op *NMAStageVerticaLogsOp) execute(execContext *OpEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *NMAStageVerticaLogsOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaStageVerticaLogsOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAStageVerticaLogsOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaStageVerticaLogsOp) processResult(_ *opEngineExecContext) error {
 	fileList := make([]stageVerticaLogsResponseData, 0)
-	return processStagedFilesResult(&op.ScrutinizeOpBase, fileList)
+	return processStagedFilesResult(&op.scrutinizeOpBase, fileList)
 }

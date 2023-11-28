@@ -23,9 +23,9 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAReIPOp struct {
-	OpBase
-	reIPList             []ReIPInfo
+type nmaReIPOp struct {
+	opBase
+	reIPList             []reIPInfo
 	vdb                  *VCoordinationDatabase
 	primaryNodeCount     uint
 	hostRequestBodyMap   map[string]string
@@ -35,10 +35,10 @@ type NMAReIPOp struct {
 }
 
 func makeNMAReIPOp(logger vlog.Printer,
-	reIPList []ReIPInfo,
+	reIPList []reIPInfo,
 	vdb *VCoordinationDatabase,
-	trimReIPData bool) NMAReIPOp {
-	op := NMAReIPOp{}
+	trimReIPData bool) nmaReIPOp {
+	op := nmaReIPOp{}
 	op.name = "NMAReIPOp"
 	op.logger = logger.WithName(op.name)
 	op.reIPList = reIPList
@@ -47,7 +47,7 @@ func makeNMAReIPOp(logger vlog.Printer,
 	return op
 }
 
-type ReIPInfo struct {
+type reIPInfo struct {
 	NodeName               string `json:"node_name"`
 	NodeAddress            string `json:"-"`
 	TargetAddress          string `json:"address"`
@@ -57,10 +57,10 @@ type ReIPInfo struct {
 
 type reIPParams struct {
 	CatalogPath  string     `json:"catalog_path"`
-	ReIPInfoList []ReIPInfo `json:"re_ip_list"`
+	ReIPInfoList []reIPInfo `json:"re_ip_list"`
 }
 
-func (op *NMAReIPOp) updateRequestBody(_ *OpEngineExecContext) error {
+func (op *nmaReIPOp) updateRequestBody(_ *opEngineExecContext) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range op.hosts {
@@ -79,9 +79,9 @@ func (op *NMAReIPOp) updateRequestBody(_ *OpEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAReIPOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaReIPOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PutMethod
 		httpRequest.buildNMAEndpoint("catalog/re-ip")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
@@ -93,7 +93,7 @@ func (op *NMAReIPOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 // updateReIPList is used for the vcluster CLI to update node names
-func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
+func (op *nmaReIPOp) updateReIPList(execContext *opEngineExecContext) error {
 	hostNodeMap := execContext.nmaVDatabase.HostNodeMap
 
 	for i := 0; i < len(op.reIPList); i++ {
@@ -128,14 +128,14 @@ func (op *NMAReIPOp) updateReIPList(execContext *OpEngineExecContext) error {
 
 // trimReIPList removes nodes, based on catalog editor info,
 // which are not among the nodes with latest catalog
-func (op *NMAReIPOp) trimReIPList(execContext *OpEngineExecContext) error {
+func (op *nmaReIPOp) trimReIPList(execContext *opEngineExecContext) error {
 	nodeNamesWithLatestCatalog := make(map[string]struct{})
 	for i := range execContext.nmaVDatabase.Nodes {
 		vnode := execContext.nmaVDatabase.Nodes[i]
 		nodeNamesWithLatestCatalog[vnode.Name] = struct{}{}
 	}
 
-	var trimmedReIPList []ReIPInfo
+	var trimmedReIPList []reIPInfo
 	nodesToTrim := make(map[string]string)
 	for _, reIPInfo := range op.reIPList {
 		if _, exist := nodeNamesWithLatestCatalog[reIPInfo.NodeName]; exist {
@@ -163,7 +163,7 @@ func (op *NMAReIPOp) trimReIPList(execContext *OpEngineExecContext) error {
 // whetherSkipReIP decides whether skip calling the re-ip endpoint; skip it in case that
 // the target addresses in the re-ip list match the node addresses in catalog.
 // Return true if skip.
-func (op *NMAReIPOp) whetherSkipReIP(execContext *OpEngineExecContext) bool {
+func (op *nmaReIPOp) whetherSkipReIP(execContext *opEngineExecContext) bool {
 	// node name to address map retrieved from catalog
 	nodeAddressMap := make(map[string]string)
 	for h, n := range execContext.nmaVDatabase.HostNodeMap {
@@ -186,7 +186,7 @@ func (op *NMAReIPOp) whetherSkipReIP(execContext *OpEngineExecContext) bool {
 	return true
 }
 
-func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 	// build mapHostToNodeName and catalogPathMap from vdb
 	op.mapHostToNodeName = make(map[string]string)
 	op.mapHostToCatalogPath = make(map[string]string)
@@ -252,7 +252,7 @@ func (op *NMAReIPOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAReIPOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaReIPOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -260,18 +260,18 @@ func (op *NMAReIPOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMAReIPOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaReIPOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAReIPOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaReIPOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	var successCount uint
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			var reIPResult []ReIPInfo
+			var reIPResult []reIPInfo
 			err := op.parseAndCheckResponse(host, result.content, &reIPResult)
 			if err != nil {
 				err = fmt.Errorf("[%s] fail to parse result on host %s, details: %w",

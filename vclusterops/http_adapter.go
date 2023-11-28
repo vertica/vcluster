@@ -32,14 +32,14 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPAdapter struct {
-	OpBase
+type httpAdapter struct {
+	opBase
 	host            string
 	respBodyHandler responseBodyHandler
 }
 
-func makeHTTPAdapter(logger vlog.Printer) HTTPAdapter {
-	newHTTPAdapter := HTTPAdapter{}
+func makeHTTPAdapter(logger vlog.Printer) httpAdapter {
+	newHTTPAdapter := httpAdapter{}
 	newHTTPAdapter.name = "HTTPAdapter"
 	newHTTPAdapter.logger = logger.WithName(newHTTPAdapter.name)
 	newHTTPAdapter.respBodyHandler = &responseBodyReader{}
@@ -50,7 +50,7 @@ func makeHTTPAdapter(logger vlog.Printer) HTTPAdapter {
 // download a response body to a file via streaming read and
 // buffered write, rather than copying the body to memory.
 func makeHTTPDownloadAdapter(logger vlog.Printer,
-	destFilePath string) HTTPAdapter {
+	destFilePath string) httpAdapter {
 	newHTTPAdapter := makeHTTPAdapter(logger)
 	newHTTPAdapter.respBodyHandler = &responseBodyDownloader{
 		logger,
@@ -85,7 +85,7 @@ type certificatePaths struct {
 	caFile   string
 }
 
-func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel chan<- HostHTTPResult) {
+func (adapter *httpAdapter) sendRequest(request *hostHTTPRequest, resultChannel chan<- hostHTTPResult) {
 	// build query params
 	queryParams := buildQueryParamString(request.QueryParams)
 
@@ -155,7 +155,7 @@ func (adapter *HTTPAdapter) sendRequest(request *HostHTTPRequest, resultChannel 
 	resultChannel <- adapter.generateResult(resp)
 }
 
-func (adapter *HTTPAdapter) generateResult(resp *http.Response) HostHTTPResult {
+func (adapter *httpAdapter) generateResult(resp *http.Response) hostHTTPResult {
 	bodyString, err := adapter.respBodyHandler.readResponseBody(resp)
 	if err != nil {
 		return adapter.makeExceptionResult(err)
@@ -196,10 +196,10 @@ func (downloader *responseBodyDownloader) downloadFile(resp *http.Response) (byt
 	return io.Copy(file, resp.Body)
 }
 
-// makeSuccessResult is a factory method for HostHTTPResult when a success
+// makeSuccessResult is a factory method for hostHTTPResult when a success
 // response comes back from a REST endpoints.
-func (adapter *HTTPAdapter) makeSuccessResult(content string, statusCode int) HostHTTPResult {
-	return HostHTTPResult{
+func (adapter *httpAdapter) makeSuccessResult(content string, statusCode int) hostHTTPResult {
+	return hostHTTPResult{
 		host:       adapter.host,
 		status:     SUCCESS,
 		statusCode: statusCode,
@@ -207,22 +207,22 @@ func (adapter *HTTPAdapter) makeSuccessResult(content string, statusCode int) Ho
 	}
 }
 
-// makeExceptionResult is a factory method for HostHTTPResult when an error
+// makeExceptionResult is a factory method for hostHTTPResult when an error
 // during the process of communicating with a REST endpoint. It won't refer to
 // the error received over the wire, but usually some error that occurred in the
 // process of communicating.
-func (adapter *HTTPAdapter) makeExceptionResult(err error) HostHTTPResult {
-	return HostHTTPResult{
+func (adapter *httpAdapter) makeExceptionResult(err error) hostHTTPResult {
+	return hostHTTPResult{
 		host:   adapter.host,
 		status: EXCEPTION,
 		err:    err,
 	}
 }
 
-// makeFailResult is a factory method for HostHTTPResult when an error response
+// makeFailResult is a factory method for hostHTTPResult when an error response
 // is received from a REST endpoint.
-func (adapter *HTTPAdapter) makeFailResult(header http.Header, respBody string, statusCode int) HostHTTPResult {
-	return HostHTTPResult{
+func (adapter *httpAdapter) makeFailResult(header http.Header, respBody string, statusCode int) hostHTTPResult {
+	return hostHTTPResult{
 		host:       adapter.host,
 		status:     FAILURE,
 		statusCode: statusCode,
@@ -234,14 +234,14 @@ func (adapter *HTTPAdapter) makeFailResult(header http.Header, respBody string, 
 // extractErrorFromResponse is called when we get a failed response from a REST
 // call. We will look at the headers and response body to decide what error
 // object to create.
-func (adapter *HTTPAdapter) extractErrorFromResponse(header http.Header, respBody string, statusCode int) error {
+func (adapter *httpAdapter) extractErrorFromResponse(header http.Header, respBody string, statusCode int) error {
 	if header.Get("Content-Type") == rfc7807.ContentType {
 		return rfc7807.GenerateErrorFromResponse(respBody)
 	}
 	return fmt.Errorf("status code %d returned from host %s: %s", statusCode, adapter.host, respBody)
 }
 
-func whetherUsePassword(request *HostHTTPRequest) (bool, error) {
+func whetherUsePassword(request *hostHTTPRequest) (bool, error) {
 	if request.IsNMACommand {
 		return false, nil
 	}
@@ -270,7 +270,7 @@ func whetherUsePassword(request *HostHTTPRequest) (bool, error) {
 // this variable is for unit test, be careful to modify it
 var getCertFilePathsFn = getCertFilePaths
 
-func (adapter *HTTPAdapter) buildCertsFromFile() (tls.Certificate, *x509.CertPool, error) {
+func (adapter *httpAdapter) buildCertsFromFile() (tls.Certificate, *x509.CertPool, error) {
 	certPaths, err := getCertFilePathsFn()
 	if err != nil {
 		return tls.Certificate{}, nil, fmt.Errorf("fail to get paths for certificates, details %w", err)
@@ -291,7 +291,7 @@ func (adapter *HTTPAdapter) buildCertsFromFile() (tls.Certificate, *x509.CertPoo
 	return cert, caCertPool, nil
 }
 
-func (adapter *HTTPAdapter) buildCertsFromMemory(key, cert, caCert string) (tls.Certificate, *x509.CertPool, error) {
+func (adapter *httpAdapter) buildCertsFromMemory(key, cert, caCert string) (tls.Certificate, *x509.CertPool, error) {
 	certificate, err := tls.X509KeyPair([]byte(cert), []byte(key))
 	if err != nil {
 		return certificate, nil, fmt.Errorf("fail to load HTTPS certificates, details %w", err)
@@ -306,10 +306,10 @@ func (adapter *HTTPAdapter) buildCertsFromMemory(key, cert, caCert string) (tls.
 	return certificate, caCertPool, nil
 }
 
-func (adapter *HTTPAdapter) setupHTTPClient(
-	request *HostHTTPRequest,
+func (adapter *httpAdapter) setupHTTPClient(
+	request *hostHTTPRequest,
 	usePassword bool,
-	_ chan<- HostHTTPResult) (*http.Client, error) {
+	_ chan<- hostHTTPResult) (*http.Client, error) {
 	var client *http.Client
 
 	// set up request timeout

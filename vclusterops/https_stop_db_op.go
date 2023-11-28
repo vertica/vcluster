@@ -25,39 +25,39 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSStopDBOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsStopDBOp struct {
+	opBase
+	opHTTPSBase
 	RequestParams map[string]string
 }
 
 func makeHTTPSStopDBOp(logger vlog.Printer, useHTTPPassword bool, userName string,
-	httpsPassword *string, timeout *int) (HTTPSStopDBOp, error) {
-	httpsStopDBOp := HTTPSStopDBOp{}
-	httpsStopDBOp.name = "HTTPSStopDBOp"
-	httpsStopDBOp.logger = logger.WithName(httpsStopDBOp.name)
-	httpsStopDBOp.useHTTPPassword = useHTTPPassword
+	httpsPassword *string, timeout *int) (httpsStopDBOp, error) {
+	op := httpsStopDBOp{}
+	op.name = "HTTPSStopDBOp"
+	op.logger = logger.WithName(op.name)
+	op.useHTTPPassword = useHTTPPassword
 
 	// set the query params, "timeout" is optional
-	httpsStopDBOp.RequestParams = make(map[string]string)
+	op.RequestParams = make(map[string]string)
 	if timeout != nil {
-		httpsStopDBOp.RequestParams["timeout"] = strconv.Itoa(*timeout)
+		op.RequestParams["timeout"] = strconv.Itoa(*timeout)
 	}
 
 	if useHTTPPassword {
-		err := util.ValidateUsernameAndPassword(httpsStopDBOp.name, useHTTPPassword, userName)
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 		if err != nil {
-			return httpsStopDBOp, err
+			return op, err
 		}
-		httpsStopDBOp.userName = userName
-		httpsStopDBOp.httpsPassword = httpsPassword
+		op.userName = userName
+		op.httpsPassword = httpsPassword
 	}
-	return httpsStopDBOp, nil
+	return op, nil
 }
 
-func (op *HTTPSStopDBOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsStopDBOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("cluster/shutdown")
 		if op.useHTTPPassword {
@@ -71,7 +71,7 @@ func (op *HTTPSStopDBOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSStopDBOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsStopDBOp) prepare(execContext *opEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
@@ -82,7 +82,7 @@ func (op *HTTPSStopDBOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(hosts)
 }
 
-func (op *HTTPSStopDBOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsStopDBOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (op *HTTPSStopDBOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSStopDBOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	re := regexp.MustCompile(`Set subcluster \(.*\) to draining state.*`)
 
@@ -135,6 +135,6 @@ func (op *HTTPSStopDBOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSStopDBOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsStopDBOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

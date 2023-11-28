@@ -23,31 +23,31 @@ import (
 )
 
 func TestFindHosts(t *testing.T) {
-	var nodesInfo NodesInfo
+	var nodesInformation nodesInfo
 
 	for i := 1; i <= 3; i++ {
 		var n NodeInfo
 		n.Address = fmt.Sprintf("vnode%d", i)
-		nodesInfo.NodeList = append(nodesInfo.NodeList, n)
+		nodesInformation.NodeList = append(nodesInformation.NodeList, n)
 	}
 
 	// positive case: single input
-	found := nodesInfo.findHosts([]string{"vnode3"})
+	found := nodesInformation.findHosts([]string{"vnode3"})
 	assert.True(t, found)
 
 	// positive case: input multiple hosts
-	found = nodesInfo.findHosts([]string{"vnode3", "vnode4"})
+	found = nodesInformation.findHosts([]string{"vnode3", "vnode4"})
 	assert.True(t, found)
 
 	// negative case
-	found = nodesInfo.findHosts([]string{"vnode4"})
+	found = nodesInformation.findHosts([]string{"vnode4"})
 	assert.False(t, found)
 
 	// negative case: input multiple hosts
-	found = nodesInfo.findHosts([]string{"vnode4", "vnode5"})
+	found = nodesInformation.findHosts([]string{"vnode4", "vnode5"})
 	assert.False(t, found)
 
 	// negative case: empty input
-	found = nodesInfo.findHosts([]string{})
+	found = nodesInformation.findHosts([]string{})
 	assert.False(t, found)
 }

@@ -17,10 +17,10 @@ package vclusterops
 
 import "github.com/vertica/vcluster/vclusterops/vlog"
 
-type OpEngineExecContext struct {
-	dispatcher             HTTPRequestDispatcher
-	networkProfiles        map[string]NetworkProfile
-	nmaVDatabase           NmaVDatabase
+type opEngineExecContext struct {
+	dispatcher             requestDispatcher
+	networkProfiles        map[string]networkProfile
+	nmaVDatabase           nmaVDatabase
 	upHosts                []string // a sorted host list that contains all up nodes
 	nodesInfo              []NodeInfo
 	defaultSCName          string // store the default subcluster name of the database
@@ -29,8 +29,8 @@ type OpEngineExecContext struct {
 	dbInfo                 string              // store the db info that retrieved from communal storage
 }
 
-func makeOpEngineExecContext(logger vlog.Printer) OpEngineExecContext {
-	newOpEngineExecContext := OpEngineExecContext{}
+func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {
+	newOpEngineExecContext := opEngineExecContext{}
 	newOpEngineExecContext.dispatcher = makeHTTPRequestDispatcher(logger)
 
 	return newOpEngineExecContext

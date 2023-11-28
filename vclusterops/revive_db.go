@@ -128,7 +128,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	}
 
 	// generate clusterOpEngine certs
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	// feed the pre-revive db instructions to the VClusterOpEngine
 	clusterOpEngine := makeClusterOpEngine(preReviveDBInstructions, &certs)
 	err = clusterOpEngine.run(vcc.Log)
@@ -168,12 +168,12 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 //   - Check any DB running on the hosts
 //   - Download and read the description file from communal storage on the initiator
 func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveDatabaseOptions,
-	vdb *VCoordinationDatabase) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+	vdb *VCoordinationDatabase) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
 
-	checkDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, options.Hosts, false, /*use password auth*/
+	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, options.Hosts, false, /*use password auth*/
 		"" /*username for https call*/, nil /*password for https call*/, ReviveDB)
 	if err != nil {
 		return instructions, err
@@ -201,8 +201,8 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 //   - Prepare database directories for all the hosts
 //   - Get network profiles for all the hosts
 //   - Load remote catalog from communal storage on all the hosts
-func (vcc *VClusterCommands) produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordinationDatabase) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+func (vcc *VClusterCommands) produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	newVDB, oldHosts, err := options.generateReviveVDB(vdb)
 	if err != nil {

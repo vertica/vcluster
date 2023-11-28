@@ -24,7 +24,7 @@ import (
 )
 
 type nmaLoadRemoteCatalogOp struct {
-	OpBase
+	opBase
 	hostRequestBodyMap      map[string]string
 	configurationParameters map[string]string
 	oldHosts                []string
@@ -68,7 +68,7 @@ func makeNMALoadRemoteCatalogOp(logger vlog.Printer, oldHosts []string, configur
 }
 
 // make https json data
-func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *OpEngineExecContext) error {
+func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecContext) error {
 	if len(execContext.networkProfiles) != len(op.hosts) {
 		return fmt.Errorf("[%s] the number of hosts in networkProfiles does not match"+
 			" the number of hosts that will load remote catalogs", op.name)
@@ -112,7 +112,7 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *OpEngineExecCont
 
 func (op *nmaLoadRemoteCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildNMAEndpoint("catalog/revive")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
@@ -124,7 +124,7 @@ func (op *nmaLoadRemoteCatalogOp) setupClusterHTTPRequest(hosts []string) error 
 	return nil
 }
 
-func (op *nmaLoadRemoteCatalogOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaLoadRemoteCatalogOp) prepare(execContext *opEngineExecContext) error {
 	err := op.setupRequestBody(execContext)
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (op *nmaLoadRemoteCatalogOp) prepare(execContext *OpEngineExecContext) erro
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *nmaLoadRemoteCatalogOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaLoadRemoteCatalogOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -142,11 +142,11 @@ func (op *nmaLoadRemoteCatalogOp) execute(execContext *OpEngineExecContext) erro
 	return op.processResult(execContext)
 }
 
-func (op *nmaLoadRemoteCatalogOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaLoadRemoteCatalogOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaLoadRemoteCatalogOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaLoadRemoteCatalogOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	var successPrimaryNodeCount uint
 

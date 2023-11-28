@@ -447,7 +447,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	// step 1: get node names by calling NMA /nodes on input hosts
 	// this step can map input hosts with node names
 	vdb1 := VCoordinationDatabase{}
-	var instructions1 []ClusterOp
+	var instructions1 []clusterOp
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, opt.Hosts)
 	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, opt.Hosts, *opt.DBName, *opt.CatalogPrefix,
 		false /* report all errors */, &vdb1)
@@ -456,7 +456,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 		&nmaGetNodesInfoOp,
 	)
 
-	certs := HTTPSCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
+	certs := httpsCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions1, &certs)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
@@ -466,7 +466,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 
 	// step 2: get node details from cluster_config.json
 	vdb2 := VCoordinationDatabase{}
-	var instructions2 []ClusterOp
+	var instructions2 []clusterOp
 	sourceFilePath := opt.getDescriptionFilePath()
 	nmaDownLoadFileOp, err := makeNMADownloadFileOp(vcc.Log, opt.Hosts, sourceFilePath, destinationFilePath, catalogPath,
 		opt.ConfigurationParameters, &vdb2)
@@ -534,9 +534,9 @@ func (opt *DatabaseOptions) isSpreadEncryptionEnabled() (enabled bool, encryptio
 	return false, ""
 }
 
-func (opt *DatabaseOptions) runClusterOpEngine(log vlog.Printer, instructions []ClusterOp) error {
+func (opt *DatabaseOptions) runClusterOpEngine(log vlog.Printer, instructions []clusterOp) error {
 	// Create a VClusterOpEngine, and add certs to the engine
-	certs := HTTPSCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
+	certs := httpsCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run

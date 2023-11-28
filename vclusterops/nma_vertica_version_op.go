@@ -28,54 +28,54 @@ const (
 	DefaultSC = "default_subcluster"
 )
 
-type HostVersionMap map[string]string
+type hostVersionMap map[string]string
 
-type NMAVerticaVersionOp struct {
-	OpBase
+type nmaVerticaVersionOp struct {
+	opBase
 	IsEon              bool
 	RequireSameVersion bool
 	HasIncomingSCNames bool
-	SCToHostVersionMap map[string]HostVersionMap
+	SCToHostVersionMap map[string]hostVersionMap
 	vdb                *VCoordinationDatabase
 }
 
-func makeHostVersionMap() HostVersionMap {
-	return make(HostVersionMap)
+func makeHostVersionMap() hostVersionMap {
+	return make(hostVersionMap)
 }
 
-func makeSCToHostVersionMap() map[string]HostVersionMap {
-	return make(map[string]HostVersionMap)
+func makeSCToHostVersionMap() map[string]hostVersionMap {
+	return make(map[string]hostVersionMap)
 }
 
 // makeNMAVerticaVersionOp is used when db has not been created
-func makeNMAVerticaVersionOp(logger vlog.Printer, hosts []string, sameVersion, isEon bool) NMAVerticaVersionOp {
-	nmaVerticaVersionOp := NMAVerticaVersionOp{}
-	nmaVerticaVersionOp.name = "NMAVerticaVersionOp"
-	nmaVerticaVersionOp.logger = logger.WithName(nmaVerticaVersionOp.name)
-	nmaVerticaVersionOp.hosts = hosts
-	nmaVerticaVersionOp.RequireSameVersion = sameVersion
-	nmaVerticaVersionOp.IsEon = isEon
-	nmaVerticaVersionOp.SCToHostVersionMap = makeSCToHostVersionMap()
-	return nmaVerticaVersionOp
+func makeNMAVerticaVersionOp(logger vlog.Printer, hosts []string, sameVersion, isEon bool) nmaVerticaVersionOp {
+	op := nmaVerticaVersionOp{}
+	op.name = "NMAVerticaVersionOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	op.RequireSameVersion = sameVersion
+	op.IsEon = isEon
+	op.SCToHostVersionMap = makeSCToHostVersionMap()
+	return op
 }
 
 // makeNMAVerticaVersionOpWithoutHosts is used when db is down
-func makeNMAVerticaVersionOpWithoutHosts(logger vlog.Printer, sameVersion bool) NMAVerticaVersionOp {
+func makeNMAVerticaVersionOpWithoutHosts(logger vlog.Printer, sameVersion bool) nmaVerticaVersionOp {
 	// We set hosts to nil and isEon to false temporarily, and they will get the correct value from execute context in prepare()
 	return makeNMAVerticaVersionOp(logger, nil /*hosts*/, sameVersion, false /*isEon*/)
 }
 
 // makeNMAVerticaVersionOpWithVDB is used when db is up
-func makeNMAVerticaVersionOpWithVDB(logger vlog.Printer, sameVersion bool, vdb *VCoordinationDatabase) NMAVerticaVersionOp {
+func makeNMAVerticaVersionOpWithVDB(logger vlog.Printer, sameVersion bool, vdb *VCoordinationDatabase) nmaVerticaVersionOp {
 	// We set hosts to nil temporarily, and it will get the correct value from vdb in prepare()
 	op := makeNMAVerticaVersionOp(logger, nil /*hosts*/, sameVersion, vdb.IsEon)
 	op.vdb = vdb
 	return op
 }
 
-func (op *NMAVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildNMAEndpoint("vertica/version")
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -84,7 +84,7 @@ func (op *NMAVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *NMAVerticaVersionOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaVerticaVersionOp) prepare(execContext *opEngineExecContext) error {
 	/*
 		 *	 Initialize SCToHostVersionMap in three cases:
 		 *	 - when db is up, we initialize SCToHostVersionMap using vdb content (from Vertica https service)
@@ -150,7 +150,7 @@ func (op *NMAVerticaVersionOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAVerticaVersionOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaVerticaVersionOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -158,17 +158,17 @@ func (op *NMAVerticaVersionOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMAVerticaVersionOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaVerticaVersionOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type NMAVerticaVersionOpResponse map[string]string
+type nmaVerticaVersionOpResponse map[string]string
 
-func (op *NMAVerticaVersionOp) parseAndCheckResponse(host, resultContent string) error {
+func (op *nmaVerticaVersionOp) parseAndCheckResponse(host, resultContent string) error {
 	// each result is a pair {"vertica_version": <vertica version string>}
 	// example result:
 	// {"vertica_version": "Vertica Analytic Database v12.0.3"}
-	var responseObj NMAVerticaVersionOpResponse
+	var responseObj nmaVerticaVersionOpResponse
 	err := util.GetJSONLogErrors(resultContent, &responseObj, op.name, op.logger)
 	if err != nil {
 		return err
@@ -190,7 +190,7 @@ func (op *NMAVerticaVersionOp) parseAndCheckResponse(host, resultContent string)
 	return nil
 }
 
-func (op *NMAVerticaVersionOp) logResponseCollectVersions() error {
+func (op *nmaVerticaVersionOp) logResponseCollectVersions() error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
@@ -208,7 +208,7 @@ func (op *NMAVerticaVersionOp) logResponseCollectVersions() error {
 	return nil
 }
 
-func (op *NMAVerticaVersionOp) logCheckVersionMatch() error {
+func (op *nmaVerticaVersionOp) logCheckVersionMatch() error {
 	/*   An example of SCToHostVersionMap:
 	    {
 			"default_subcluster" : {"192.168.0.101": "Vertica Analytic Database v24.1.0", "192.168.0.102": "Vertica Analytic Database v24.1.0"},
@@ -247,7 +247,7 @@ func (op *NMAVerticaVersionOp) logCheckVersionMatch() error {
 	return nil
 }
 
-func (op *NMAVerticaVersionOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaVerticaVersionOp) processResult(_ *opEngineExecContext) error {
 	err := op.logResponseCollectVersions()
 	if err != nil {
 		return err

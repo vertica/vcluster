@@ -75,7 +75,7 @@ func TestScrutinCmd(t *testing.T) {
 	assert.ErrorContains(t, err, "unable to get database name from environment variable")
 }
 
-func TestUpdateCertTextsFromK8s(t *testing.T) {
+func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	const randomBytes = "123"
 	c := makeCmdScrutinize()
 	c.k8secretRetreiver = TestK8sSecretRetriever{
@@ -92,8 +92,9 @@ func TestUpdateCertTextsFromK8s(t *testing.T) {
 
 	// Case 2: when the certs are configured correctly
 
-	err := c.updateCertTextsFromk8s(vlog.Printer{})
+	ok, err := c.nmaCertLookupFromK8sSecret(vlog.Printer{})
 	assert.NoError(t, err)
+	assert.True(t, ok)
 	assert.Equal(t, "test cert 1", c.sOptions.CaCert)
 	assert.Equal(t, "test cert 2", c.sOptions.Cert)
 	assert.Equal(t, "test cert 3", c.sOptions.Key)
@@ -106,19 +107,93 @@ func TestUpdateCertTextsFromK8s(t *testing.T) {
 		cert:    "test cert 2",
 		key:     "", // Missing
 	}
-	err = c.updateCertTextsFromk8s(vlog.Printer{})
+	ok, err = c.nmaCertLookupFromK8sSecret(vlog.Printer{})
 	assert.Error(t, err)
+	assert.False(t, ok)
 
 	// Failure to retrieve the secret should fail the request
 	c = makeCmdScrutinize()
 	c.k8secretRetreiver = TestK8sSecretRetriever{success: false}
-	err = c.updateCertTextsFromk8s(vlog.Printer{})
+	ok, err = c.nmaCertLookupFromK8sSecret(vlog.Printer{})
 	assert.Error(t, err)
+	assert.False(t, ok)
 
 	// If the nma env vars aren't set, then we go onto the next retrieval method
 	os.Clearenv()
 	os.Setenv("KUBERNETES_PORT", randomBytes)
 	c = makeCmdScrutinize()
-	err = c.updateCertTextsFromk8s(vlog.Printer{})
+	ok, err = c.nmaCertLookupFromK8sSecret(vlog.Printer{})
 	assert.NoError(t, err)
+	assert.False(t, ok)
+}
+
+func TestNMACertLookupFromEnv(t *testing.T) {
+	sampleRootCA := "== sample root CA =="
+	sampleCert := "== sample cert =="
+	sampleKey := "== sample key =="
+
+	frootCA, err := os.CreateTemp("", "root-ca-")
+	assert.NoError(t, err)
+	defer frootCA.Close()
+	defer os.Remove(frootCA.Name())
+	_, err = frootCA.WriteString(sampleRootCA)
+	assert.NoError(t, err)
+	frootCA.Close()
+
+	var fcert *os.File
+	fcert, err = os.CreateTemp("", "cert-")
+	assert.NoError(t, err)
+	defer fcert.Close()
+	defer os.Remove(fcert.Name())
+	_, err = fcert.WriteString(sampleCert)
+	assert.NoError(t, err)
+	fcert.Close()
+
+	var fkeyEmpty *os.File
+	fkeyEmpty, err = os.CreateTemp("", "key-")
+	assert.NoError(t, err)
+	// Omit writing any data to test code path
+	fkeyEmpty.Close()
+	defer os.Remove(fkeyEmpty.Name())
+
+	os.Setenv(nmaRootCAPathEnvVar, frootCA.Name())
+	os.Setenv(nmaCertPathEnvVar, fcert.Name())
+	// intentionally omit key path env var to test error path
+
+	// Should fail because only 2 of 3 env vars are set
+	c := makeCmdScrutinize()
+	ok, err := c.nmaCertLookupFromEnv(vlog.Printer{})
+	assert.Error(t, err)
+	assert.False(t, ok)
+
+	// Set 3rd env var
+	os.Setenv(nmaKeyPathEnvVar, fkeyEmpty.Name())
+
+	// Should fail because one of the files is empty
+	c = makeCmdScrutinize()
+	ok, err = c.nmaCertLookupFromEnv(vlog.Printer{})
+	assert.Error(t, err)
+	assert.False(t, ok)
+
+	// Populate empty file with contents
+	var fkey *os.File
+	fkey, err = os.CreateTemp("", "key-")
+	assert.NoError(t, err)
+	defer fkey.Close()
+	defer os.Remove(fkey.Name())
+	_, err = fkey.WriteString(sampleKey)
+	assert.NoError(t, err)
+	fkey.Close()
+
+	// Point to key that is non-empty
+	os.Setenv(nmaKeyPathEnvVar, fkey.Name())
+
+	// Should succeed now as everything is setup properly
+	c = makeCmdScrutinize()
+	ok, err = c.nmaCertLookupFromEnv(vlog.Printer{})
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, sampleRootCA, c.sOptions.CaCert)
+	assert.Equal(t, sampleCert, c.sOptions.Cert)
+	assert.Equal(t, sampleKey, c.sOptions.Key)
 }

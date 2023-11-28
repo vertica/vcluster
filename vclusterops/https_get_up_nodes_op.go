@@ -24,41 +24,41 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSGetUpNodesOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsGetUpNodesOp struct {
+	opBase
+	opHTTPSBase
 	DBName      string
 	noUpHostsOk bool
 }
 
 func makeHTTPSGetUpNodesOp(logger vlog.Printer, dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-) (HTTPSGetUpNodesOp, error) {
-	httpsGetUpNodesOp := HTTPSGetUpNodesOp{}
-	httpsGetUpNodesOp.name = "HTTPSGetUpNodesOp"
-	httpsGetUpNodesOp.logger = logger.WithName(httpsGetUpNodesOp.name)
-	httpsGetUpNodesOp.hosts = hosts
-	httpsGetUpNodesOp.useHTTPPassword = useHTTPPassword
-	httpsGetUpNodesOp.DBName = dbName
+) (httpsGetUpNodesOp, error) {
+	op := httpsGetUpNodesOp{}
+	op.name = "HTTPSGetUpNodesOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
+	op.DBName = dbName
 
 	if useHTTPPassword {
-		err := util.ValidateUsernameAndPassword(httpsGetUpNodesOp.name, useHTTPPassword, userName)
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 		if err != nil {
-			return httpsGetUpNodesOp, err
+			return op, err
 		}
-		httpsGetUpNodesOp.userName = userName
-		httpsGetUpNodesOp.httpsPassword = httpsPassword
+		op.userName = userName
+		op.httpsPassword = httpsPassword
 	}
-	return httpsGetUpNodesOp, nil
+	return op, nil
 }
 
-func (op *HTTPSGetUpNodesOp) allowNoUpHosts() {
+func (op *httpsGetUpNodesOp) allowNoUpHosts() {
 	op.noUpHostsOk = true
 }
 
-func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsGetUpNodesOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildHTTPSEndpoint("nodes")
 		if op.useHTTPPassword {
@@ -71,13 +71,13 @@ func (op *HTTPSGetUpNodesOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSGetUpNodesOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsGetUpNodesOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSGetUpNodesOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsGetUpNodesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (op *HTTPSGetUpNodesOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-/* HTTPNodeStateResponse example:
+/* httpsNodeStateResponse example:
    {'details':[]
 	'node_list':[{ 'name': 'v_test_db_running_node0001',
 	               'node_id':'45035996273704982',
@@ -110,7 +110,7 @@ func (op *HTTPSGetUpNodesOp) execute(execContext *OpEngineExecContext) error {
     }
 */
 
-func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) error {
+func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	// golang does not have set data structure, use a map to simulate it
 	upHosts := make(map[string]struct{})
@@ -137,8 +137,8 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 			continue
 		}
 
-		nodesStateInfo := NodesStateInfo{}
-		err := op.parseAndCheckResponse(host, result.content, &nodesStateInfo)
+		nodesStates := nodesStateInfo{}
+		err := op.parseAndCheckResponse(host, result.content, &nodesStates)
 		if err != nil {
 			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 			allErrs = errors.Join(allErrs, err)
@@ -146,7 +146,7 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 		}
 
 		// collect all the up hosts
-		for _, node := range nodesStateInfo.NodeList {
+		for _, node := range nodesStates.NodeList {
 			if node.Database != op.DBName {
 				err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
 				allErrs = errors.Join(allErrs, err)
@@ -170,15 +170,15 @@ func (op *HTTPSGetUpNodesOp) processResult(execContext *OpEngineExecContext) err
 	return errors.Join(allErrs, fmt.Errorf("no up nodes detected"))
 }
 
-func (op *HTTPSGetUpNodesOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
 // processHostLists stashes the up hosts, and if there are no up hosts, prints and logs
 // down or erratic hosts.  Additionally, it determines if the op should fail or not.
-func (op *HTTPSGetUpNodesOp) processHostLists(upHosts map[string]struct{},
+func (op *httpsGetUpNodesOp) processHostLists(upHosts map[string]struct{},
 	exceptionHosts, downHosts []string,
-	execContext *OpEngineExecContext) (ignoreErrors bool) {
+	execContext *opEngineExecContext) (ignoreErrors bool) {
 	if len(upHosts) > 0 {
 		for host := range upHosts {
 			execContext.upHosts = append(execContext.upHosts, host)

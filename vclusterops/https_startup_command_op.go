@@ -24,8 +24,8 @@ import (
 )
 
 type httpsStartUpCommandOp struct {
-	OpBase
-	OpHTTPSBase
+	opBase
+	opHTTPSBase
 	vdb *VCoordinationDatabase
 }
 
@@ -52,7 +52,7 @@ func makeHTTPSStartUpCommandOp(logger vlog.Printer, useHTTPPassword bool, userNa
 
 func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 
 		httpRequest.buildHTTPSEndpoint("startup/commands")
@@ -68,7 +68,7 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *httpsStartUpCommandOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsStartUpCommandOp) prepare(execContext *opEngineExecContext) error {
 	// Use the /v1/startup/command endpoint for a primary Up host to view every start command of existing nodes
 	var primaryUpHosts []string
 	for host, vnode := range op.vdb.HostNodeMap {
@@ -83,7 +83,7 @@ func (op *httpsStartUpCommandOp) prepare(execContext *OpEngineExecContext) error
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsStartUpCommandOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsStartUpCommandOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (op *httpsStartUpCommandOp) execute(execContext *OpEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *httpsStartUpCommandOp) processResult(execContext *OpEngineExecContext) error {
+func (op *httpsStartUpCommandOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -152,6 +152,6 @@ func (op *httpsStartUpCommandOp) processResult(execContext *OpEngineExecContext)
 	return nil
 }
 
-func (op *httpsStartUpCommandOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsStartUpCommandOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

@@ -166,7 +166,7 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	}
 
 	// Create a VClusterOpEngine, and add certs to the engine
-	certs := HTTPSCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
 	// Give the instructions to the VClusterOpEngine to run
@@ -189,8 +189,8 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 //   - Check there is not any database running
 func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabaseInfo,
 	options *VStopDatabaseOptions,
-) ([]ClusterOp, error) {
-	var instructions []ClusterOp
+) ([]clusterOp, error) {
+	var instructions []clusterOp
 
 	// when password is specified, we will use username/password to call https endpoints
 	usePassword := false
@@ -224,7 +224,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 		return instructions, err
 	}
 
-	httpsCheckDBRunningOp, err := makeHTTPCheckRunningDBOp(vcc.Log, stopDBInfo.Hosts,
+	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, stopDBInfo.Hosts,
 		usePassword, *options.UserName, stopDBInfo.Password, StopDB)
 	if err != nil {
 		return instructions, err

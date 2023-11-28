@@ -199,7 +199,7 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 	vdb *VCoordinationDatabase) error {
 	// get nodes where NMA is running and only use those for NMA ops
 	nmaGetHealthyNodesOp := makeNMAGetHealthyNodesOp(logger, options.Hosts, vdb)
-	err := options.runClusterOpEngine(logger, []ClusterOp{&nmaGetHealthyNodesOp})
+	err := options.runClusterOpEngine(logger, []clusterOp{&nmaGetHealthyNodesOp})
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 	// get map of host to node name and fully qualified catalog path
 	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(logger, vdb.HostList, *options.DBName,
 		*options.CatalogPrefix, true /* ignore internal errors */, vdb)
-	err = options.runClusterOpEngine(logger, []ClusterOp{&nmaGetNodesInfoOp})
+	err = options.runClusterOpEngine(logger, []clusterOp{&nmaGetNodesInfoOp})
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 //   - TODO (If applicable) Poll for system table staging completion on task node
 //   - TODO (If applicable) Tar and retrieve system tables from task node (batch system_tables)
 func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeOptions,
-	vdb *VCoordinationDatabase) (instructions []ClusterOp, err error) {
+	vdb *VCoordinationDatabase) (instructions []clusterOp, err error) {
 	// extract needed info from vdb
 	hostNodeNameMap, hostCatPathMap, err := getNodeInfoForScrutinize(options.Hosts, vdb)
 	if err != nil {

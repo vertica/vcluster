@@ -23,15 +23,15 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSSpreadRemoveNodeOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsSpreadRemoveNodeOp struct {
+	opBase
+	opHTTPSBase
 	RequestParams map[string]string
 }
 
 func makeHTTPSSpreadRemoveNodeOp(logger vlog.Printer, hostsToRemove []string, initiatorHost []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, hostNodeMap vHostNodeMap) (HTTPSSpreadRemoveNodeOp, error) {
-	op := HTTPSSpreadRemoveNodeOp{}
+	userName string, httpsPassword *string, hostNodeMap vHostNodeMap) (httpsSpreadRemoveNodeOp, error) {
+	op := httpsSpreadRemoveNodeOp{}
 	op.name = "HTTPSSpreadRemoveNodeOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = initiatorHost
@@ -52,9 +52,9 @@ func makeHTTPSSpreadRemoveNodeOp(logger vlog.Printer, hostsToRemove []string, in
 	return op, nil
 }
 
-func (op *HTTPSSpreadRemoveNodeOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsSpreadRemoveNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("config/spread/remove")
 		if op.useHTTPPassword {
@@ -67,12 +67,12 @@ func (op *HTTPSSpreadRemoveNodeOp) setupClusterHTTPRequest(hosts []string) error
 	return nil
 }
 
-func (op *HTTPSSpreadRemoveNodeOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsSpreadRemoveNodeOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSSpreadRemoveNodeOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsSpreadRemoveNodeOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (op *HTTPSSpreadRemoveNodeOp) execute(execContext *OpEngineExecContext) err
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSSpreadRemoveNodeOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsSpreadRemoveNodeOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -112,6 +112,6 @@ func (op *HTTPSSpreadRemoveNodeOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSSpreadRemoveNodeOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsSpreadRemoveNodeOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

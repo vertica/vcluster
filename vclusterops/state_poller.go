@@ -28,14 +28,14 @@ const (
 	PollingInterval       = 3 * OneSecond
 )
 
-type StatePoller interface {
+type statePoller interface {
 	getPollingTimeout() int
 	shouldStopPolling() (bool, error)
-	runExecute(execContext *OpEngineExecContext) error
+	runExecute(execContext *opEngineExecContext) error
 }
 
-// pollState is a helper function to poll state for all ops that implement the StatePoller interface
-func pollState(poller StatePoller, execContext *OpEngineExecContext) error {
+// pollState is a helper function to poll state for all ops that implement the statePoller interface
+func pollState(poller statePoller, execContext *opEngineExecContext) error {
 	startTime := time.Now()
 	timeout := poller.getPollingTimeout()
 	duration := time.Duration(timeout) * time.Second

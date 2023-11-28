@@ -24,8 +24,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAUploadConfigOp struct {
-	OpBase
+type nmaUploadConfigOp struct {
+	opBase
 	catalogPathMap     map[string]string
 	endpoint           string
 	fileContent        *string
@@ -57,21 +57,21 @@ func makeNMAUploadConfigOp(
 	endpoint string,
 	fileContent *string,
 	vdb *VCoordinationDatabase,
-) NMAUploadConfigOp {
-	nmaUploadConfigOp := NMAUploadConfigOp{}
-	nmaUploadConfigOp.name = opName
-	nmaUploadConfigOp.logger = logger.WithName(nmaUploadConfigOp.name)
-	nmaUploadConfigOp.endpoint = endpoint
-	nmaUploadConfigOp.fileContent = fileContent
-	nmaUploadConfigOp.catalogPathMap = make(map[string]string)
-	nmaUploadConfigOp.sourceConfigHost = sourceConfigHost
-	nmaUploadConfigOp.destHosts = targetHosts
-	nmaUploadConfigOp.vdb = vdb
+) nmaUploadConfigOp {
+	op := nmaUploadConfigOp{}
+	op.name = opName
+	op.logger = logger.WithName(op.name)
+	op.endpoint = endpoint
+	op.fileContent = fileContent
+	op.catalogPathMap = make(map[string]string)
+	op.sourceConfigHost = sourceConfigHost
+	op.destHosts = targetHosts
+	op.vdb = vdb
 
-	return nmaUploadConfigOp
+	return op
 }
 
-func (op *NMAUploadConfigOp) setupRequestBody(hosts []string) error {
+func (op *nmaUploadConfigOp) setupRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range hosts {
@@ -90,9 +90,9 @@ func (op *NMAUploadConfigOp) setupRequestBody(hosts []string) error {
 	return nil
 }
 
-func (op *NMAUploadConfigOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaUploadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildNMAEndpoint(op.endpoint)
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
@@ -102,7 +102,7 @@ func (op *NMAUploadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaUploadConfigOp) prepare(execContext *opEngineExecContext) error {
 	op.catalogPathMap = make(map[string]string)
 	// If any node's info is available, we set catalogPathMap from node's info.
 	// This case is used for restarting nodes operation.
@@ -152,7 +152,7 @@ func (op *NMAUploadConfigOp) prepare(execContext *OpEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAUploadConfigOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaUploadConfigOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -160,11 +160,11 @@ func (op *NMAUploadConfigOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMAUploadConfigOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaUploadConfigOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAUploadConfigOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaUploadConfigOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

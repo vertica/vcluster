@@ -15,7 +15,7 @@
 
 package vclusterops
 
-type HostHTTPRequest struct {
+type hostHTTPRequest struct {
 	Method       string
 	Endpoint     string
 	IsNMACommand bool
@@ -28,29 +28,29 @@ type HostHTTPRequest struct {
 
 	// optional, for calling NMA/Vertica HTTPS endpoints. If Username/Password is set, that takes precedence over this for HTTPS calls.
 	UseCertsInOptions bool
-	Certs             HTTPSCerts
+	Certs             httpsCerts
 }
 
-type HTTPSCerts struct {
+type httpsCerts struct {
 	key    string
 	cert   string
 	caCert string
 }
 
-func (req *HostHTTPRequest) buildNMAEndpoint(url string) {
+func (req *hostHTTPRequest) buildNMAEndpoint(url string) {
 	req.IsNMACommand = true
 	req.Endpoint = NMACurVersion + url
 }
 
-func (req *HostHTTPRequest) buildHTTPSEndpoint(url string) {
+func (req *hostHTTPRequest) buildHTTPSEndpoint(url string) {
 	req.IsNMACommand = false
 	req.Endpoint = HTTPCurVersion + url
 }
 
 // this is used as the "ATModuleBase" in Admintools
-type ClusterHTTPRequest struct {
-	RequestCollection map[string]HostHTTPRequest
-	ResultCollection  map[string]HostHTTPResult
-	SemVar            SemVer
+type clusterHTTPRequest struct {
+	RequestCollection map[string]hostHTTPRequest
+	ResultCollection  map[string]hostHTTPResult
+	SemVar            semVer
 	Name              string
 }

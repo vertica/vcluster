@@ -25,46 +25,46 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSCreateDepotOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsCreateDepotOp struct {
+	opBase
+	opHTTPSBase
 	NodeDepotPaths map[string]string
 	RequestParams  map[string]string
 }
 
 func makeHTTPSCreateClusterDepotOp(logger vlog.Printer, vdb *VCoordinationDatabase, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) (HTTPSCreateDepotOp, error) {
-	httpsCreateDepotOp := HTTPSCreateDepotOp{}
-	httpsCreateDepotOp.name = "HTTPSCreateDepotOp"
-	httpsCreateDepotOp.logger = logger.WithName(httpsCreateDepotOp.name)
-	httpsCreateDepotOp.hosts = hosts
-	httpsCreateDepotOp.useHTTPPassword = useHTTPPassword
+	useHTTPPassword bool, userName string, httpsPassword *string) (httpsCreateDepotOp, error) {
+	op := httpsCreateDepotOp{}
+	op.name = "HTTPSCreateDepotOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
 
 	// store nodeName-depotPath values for later http response verification
-	httpsCreateDepotOp.NodeDepotPaths = make(map[string]string)
+	op.NodeDepotPaths = make(map[string]string)
 	for _, vnode := range vdb.HostNodeMap {
-		httpsCreateDepotOp.NodeDepotPaths[vnode.Name] = vnode.DepotPath
+		op.NodeDepotPaths[vnode.Name] = vnode.DepotPath
 	}
 
 	// set the query params, "path" is required, "size" is optional
-	httpsCreateDepotOp.RequestParams = make(map[string]string)
-	httpsCreateDepotOp.RequestParams["path"] = vdb.DepotPrefix
+	op.RequestParams = make(map[string]string)
+	op.RequestParams["path"] = vdb.DepotPrefix
 	if vdb.DepotSize != "" {
-		httpsCreateDepotOp.RequestParams["size"] = vdb.DepotSize
+		op.RequestParams["size"] = vdb.DepotSize
 	}
 
-	err := util.ValidateUsernameAndPassword(httpsCreateDepotOp.name, useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
-		return httpsCreateDepotOp, err
+		return op, err
 	}
-	httpsCreateDepotOp.userName = userName
-	httpsCreateDepotOp.httpsPassword = httpsPassword
-	return httpsCreateDepotOp, nil
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	return op, nil
 }
 
-func (op *HTTPSCreateDepotOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsCreateDepotOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("cluster/depot")
 		if op.useHTTPPassword {
@@ -78,13 +78,13 @@ func (op *HTTPSCreateDepotOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSCreateDepotOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsCreateDepotOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSCreateDepotOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsCreateDepotOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -93,16 +93,16 @@ func (op *HTTPSCreateDepotOp) execute(execContext *OpEngineExecContext) error {
 }
 
 // this struct is for parsing http response
-type CreateDepotNodeRsp struct {
+type createDepotNodeRsp struct {
 	NodeName  string `json:"node"`
 	DepotPath string `json:"depot_location"`
 }
 
-type CreateDepotClusterRsp struct {
-	ClusterRsp []CreateDepotNodeRsp `json:"depots"`
+type createDepotClusterRsp struct {
+	ClusterRsp []createDepotNodeRsp `json:"depots"`
 }
 
-func (op *HTTPSCreateDepotOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsCreateDepotOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -131,8 +131,8 @@ func (op *HTTPSCreateDepotOp) processResult(_ *OpEngineExecContext) error {
 		    }
 		  ]
 		} */
-		createDepotClusterRsp := CreateDepotClusterRsp{}
-		err := op.parseAndCheckResponse(host, result.content, &createDepotClusterRsp)
+		response := createDepotClusterRsp{}
+		err := op.parseAndCheckResponse(host, result.content, &response)
 		if err != nil {
 			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 			allErrs = errors.Join(allErrs, err)
@@ -141,7 +141,7 @@ func (op *HTTPSCreateDepotOp) processResult(_ *OpEngineExecContext) error {
 
 		// verify if the node name and the depot location are correct
 		for nodeName, depotPath := range op.NodeDepotPaths {
-			idx := slices.IndexFunc(createDepotClusterRsp.ClusterRsp, func(rsp CreateDepotNodeRsp) bool {
+			idx := slices.IndexFunc(response.ClusterRsp, func(rsp createDepotNodeRsp) bool {
 				return rsp.NodeName == nodeName && rsp.DepotPath == depotPath
 			})
 			if idx == -1 {
@@ -151,7 +151,7 @@ func (op *HTTPSCreateDepotOp) processResult(_ *OpEngineExecContext) error {
 			}
 		}
 		// verify if https response contains some nodes/depots not in the required ones
-		for _, nodeRsp := range createDepotClusterRsp.ClusterRsp {
+		for _, nodeRsp := range response.ClusterRsp {
 			if depotPath, ok := op.NodeDepotPaths[nodeRsp.NodeName]; !ok || depotPath != nodeRsp.DepotPath {
 				err = fmt.Errorf(`[%s] an unwanted depot %s gets created for node %s on host %s`,
 					op.name, nodeRsp.DepotPath, nodeRsp.NodeName, host)
@@ -164,6 +164,6 @@ func (op *HTTPSCreateDepotOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSCreateDepotOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsCreateDepotOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

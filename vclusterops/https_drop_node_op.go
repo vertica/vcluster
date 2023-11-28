@@ -22,9 +22,9 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSDropNodeOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsDropNodeOp struct {
+	opBase
+	opHTTPSBase
 	targetHost    string
 	RequestParams map[string]string
 }
@@ -34,31 +34,31 @@ func makeHTTPSDropNodeOp(logger vlog.Printer, vnode string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,
-	isEon bool) (HTTPSDropNodeOp, error) {
-	dropNodeOp := HTTPSDropNodeOp{}
-	dropNodeOp.name = "HTTPSDropNodeOp"
-	dropNodeOp.logger = logger.WithName(dropNodeOp.name)
-	dropNodeOp.hosts = initiatorHost
-	dropNodeOp.targetHost = vnode
-	dropNodeOp.useHTTPPassword = useHTTPPassword
-	err := util.ValidateUsernameAndPassword(dropNodeOp.name, useHTTPPassword, userName)
+	isEon bool) (httpsDropNodeOp, error) {
+	op := httpsDropNodeOp{}
+	op.name = "HTTPSDropNodeOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = initiatorHost
+	op.targetHost = vnode
+	op.useHTTPPassword = useHTTPPassword
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
-		return dropNodeOp, err
+		return op, err
 	}
-	dropNodeOp.userName = userName
-	dropNodeOp.httpsPassword = httpsPassword
-	dropNodeOp.RequestParams = make(map[string]string)
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	op.RequestParams = make(map[string]string)
 	if isEon {
-		dropNodeOp.RequestParams["cascade"] = "true"
-		return dropNodeOp, nil
+		op.RequestParams["cascade"] = "true"
+		return op, nil
 	}
-	dropNodeOp.RequestParams["cascade"] = "false"
-	return dropNodeOp, nil
+	op.RequestParams["cascade"] = "false"
+	return op, nil
 }
 
-func (op *HTTPSDropNodeOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsDropNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("nodes/" + op.targetHost + "/drop")
 		if op.useHTTPPassword {
@@ -71,12 +71,12 @@ func (op *HTTPSDropNodeOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSDropNodeOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsDropNodeOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSDropNodeOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsDropNodeOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (op *HTTPSDropNodeOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSDropNodeOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsDropNodeOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -98,6 +98,6 @@ func (op *HTTPSDropNodeOp) processResult(_ *OpEngineExecContext) error {
 	return allErrs
 }
 
-func (op *HTTPSDropNodeOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsDropNodeOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

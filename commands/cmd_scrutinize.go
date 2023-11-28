@@ -33,9 +33,14 @@ import (
 )
 
 const (
-	// Environment variable names storing paths to PEM text.
+	// Environment variable names storing name of k8s secret that has NMA cert
 	secretNameSpaceEnvVar = "NMA_SECRET_NAMESPACE"
 	secretNameEnvVar      = "NMA_SECRET_NAME"
+
+	// Environment variable names for locating the NMA certs located in the file system
+	nmaRootCAPathEnvVar = "NMA_ROOTCA_PATH"
+	nmaCertPathEnvVar   = "NMA_CERT_PATH"
+	nmaKeyPathEnvVar    = "NMA_KEY_PATH"
 )
 
 const (
@@ -137,8 +142,8 @@ func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
 func (c *CmdScrutinize) Analyze(logger vlog.Printer) error {
 	logger.Info("Called method Analyze()")
 
-	// set cert/key values from env k8s
-	err := c.updateCertTextsFromk8s(logger)
+	// Read the NMA certs into the options struct
+	err := c.readNMACerts(logger)
 	if err != nil {
 		return err
 	}
@@ -224,12 +229,27 @@ func (k8sSecretRetrieverStruct) RetrieveSecret(namespace, secretName string) (ca
 	return caCertVal, tlsCertVal, tlsKeyVal, nil
 }
 
-// updateCertTextsFromk8s retrieves PEM-encoded text of CA certs, the server cert, and
-// the server key from kubernetes.
-func (c *CmdScrutinize) updateCertTextsFromk8s(logger vlog.Printer) error {
+func (c *CmdScrutinize) readNMACerts(logger vlog.Printer) error {
+	loaderFuncs := []func(vlog.Printer) (bool, error){
+		c.nmaCertLookupFromK8sSecret,
+		c.nmaCertLookupFromEnv,
+	}
+	for _, fnc := range loaderFuncs {
+		certsLoaded, err := fnc(logger)
+		if err != nil || certsLoaded {
+			return err
+		}
+	}
+	logger.Info("failed to retrieve the NMA certs from any source")
+	return nil
+}
+
+// nmaCertLookupFromK8sSecret retrieves PEM-encoded text of CA certs, the server cert, and
+// the server key directly from kubernetes secrets.
+func (c *CmdScrutinize) nmaCertLookupFromK8sSecret(logger vlog.Printer) (bool, error) {
 	_, portSet := os.LookupEnv(kubernetesPort)
 	if !portSet {
-		return nil
+		return false, nil
 	}
 	logger.Info("K8s environment")
 	secretNameSpace, nameSpaceSet := os.LookupEnv(secretNameSpaceEnvVar)
@@ -237,32 +257,86 @@ func (c *CmdScrutinize) updateCertTextsFromk8s(logger vlog.Printer) error {
 
 	// either secret namespace/name must be set, or none at all
 	if !((nameSpaceSet && nameSet) || (!nameSpaceSet && !nameSet)) {
-		missingParamError := constructMissingParamsMsg([]bool{nameSpaceSet, nameSet}, []string{kubernetesPort,
-			secretNameSpaceEnvVar, secretNameEnvVar})
-		return fmt.Errorf("all or none of the environment variables %s and %s must be set. %s",
+		missingParamError := constructMissingParamsMsg([]bool{nameSpaceSet, nameSet},
+			[]string{secretNameSpaceEnvVar, secretNameEnvVar})
+		return false, fmt.Errorf("all or none of the environment variables %s and %s must be set. %s",
 			secretNameSpaceEnvVar, secretNameEnvVar, missingParamError)
 	}
 
 	if !nameSpaceSet {
 		logger.Info("Secret name not set in env. Failback to other cert retieval methods.")
-		return nil
+		return false, nil
 	}
 
 	caCert, cert, key, err := c.k8secretRetreiver.RetrieveSecret(secretNameSpace, secretName)
 	if err != nil {
-		return fmt.Errorf("failed to read certs from k8s secret %s in namespace %s: %w", secretName, secretNameSpace, err)
+		return false, fmt.Errorf("failed to read certs from k8s secret %s in namespace %s: %w", secretName, secretNameSpace, err)
 	}
 	if len(caCert) != 0 && len(cert) != 0 && len(key) != 0 {
 		logger.Info("Successfully read cert from k8s secret ", "secretName", secretName, "secretNameSpace", secretNameSpace)
 	} else {
-		return fmt.Errorf("failed to read CA, cert or key (sizes = %d/%d/%d)",
+		return false, fmt.Errorf("failed to read CA, cert or key (sizes = %d/%d/%d)",
 			len(caCert), len(cert), len(key))
 	}
 	c.sOptions.CaCert = string(caCert)
 	c.sOptions.Cert = string(cert)
 	c.sOptions.Key = string(key)
 
-	return nil
+	return true, nil
+}
+
+// nmaCertLookupFromEnv retrieves the NMA certs from plaintext file identified
+// by an environment variable.
+func (c *CmdScrutinize) nmaCertLookupFromEnv(logger vlog.Printer) (bool, error) {
+	rootCAPath, rootCAPathSet := os.LookupEnv(nmaRootCAPathEnvVar)
+	certPath, certPathSet := os.LookupEnv(nmaCertPathEnvVar)
+	keyPath, keyPathSet := os.LookupEnv(nmaKeyPathEnvVar)
+
+	// either all env vars are set or none at all
+	if !((rootCAPathSet && certPathSet && keyPathSet) || (!rootCAPathSet && !certPathSet && !keyPathSet)) {
+		missingParamError := constructMissingParamsMsg([]bool{rootCAPathSet, certPathSet, keyPathSet},
+			[]string{nmaRootCAPathEnvVar, nmaCertPathEnvVar, nmaKeyPathEnvVar})
+		return false, fmt.Errorf("all or none of the environment variables %s, %s and %s must be set. %s",
+			nmaRootCAPathEnvVar, nmaCertPathEnvVar, nmaKeyPathEnvVar, missingParamError)
+	}
+
+	if !rootCAPathSet {
+		logger.Info("NMA cert location paths not set in env")
+		return false, nil
+	}
+
+	var err error
+
+	c.sOptions.CaCert, err = readNonEmptyFile(rootCAPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read root CA from %s: %w", rootCAPath, err)
+	}
+
+	c.sOptions.Cert, err = readNonEmptyFile(certPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read cert from %s: %w", certPath, err)
+	}
+
+	c.sOptions.Key, err = readNonEmptyFile(keyPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read key from %s: %w", keyPath, err)
+	}
+
+	logger.Info("Successfully read certs from file", "rootCAPath", rootCAPath, "certPath", certPath, "keyPath", keyPath)
+	return true, nil
+}
+
+// readNonEmptyFile is a helper that reads the contents of a file into a string.
+// It returns an error if the file is empty.
+func readNonEmptyFile(filename string) (string, error) {
+	contents, err := os.ReadFile(filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to read from %s: %w", filename, err)
+	}
+	if len(contents) == 0 {
+		return "", fmt.Errorf("%s is empty", filename)
+	}
+	return string(contents), nil
 }
 
 // constructMissingParamsMsg builds a warning string listing each

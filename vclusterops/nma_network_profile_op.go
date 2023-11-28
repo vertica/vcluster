@@ -23,21 +23,21 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMANetworkProfileOp struct {
-	OpBase
+type nmaNetworkProfileOp struct {
+	opBase
 }
 
-func makeNMANetworkProfileOp(logger vlog.Printer, hosts []string) NMANetworkProfileOp {
-	nmaNetworkProfileOp := NMANetworkProfileOp{}
-	nmaNetworkProfileOp.name = "NMANetworkProfileOp"
-	nmaNetworkProfileOp.logger = logger.WithName(nmaNetworkProfileOp.name)
-	nmaNetworkProfileOp.hosts = hosts
-	return nmaNetworkProfileOp
+func makeNMANetworkProfileOp(logger vlog.Printer, hosts []string) nmaNetworkProfileOp {
+	op := nmaNetworkProfileOp{}
+	op.name = "NMANetworkProfileOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	return op
 }
 
-func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaNetworkProfileOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildNMAEndpoint("network-profiles")
 		httpRequest.QueryParams = map[string]string{"broadcast-hint": host}
@@ -48,12 +48,12 @@ func (op *NMANetworkProfileOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *NMANetworkProfileOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaNetworkProfileOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMANetworkProfileOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaNetworkProfileOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -61,11 +61,11 @@ func (op *NMANetworkProfileOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *NMANetworkProfileOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaNetworkProfileOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type NetworkProfile struct {
+type networkProfile struct {
 	Name      string
 	Address   string
 	Subnet    string
@@ -73,10 +73,10 @@ type NetworkProfile struct {
 	Broadcast string
 }
 
-func (op *NMANetworkProfileOp) processResult(execContext *OpEngineExecContext) error {
+func (op *nmaNetworkProfileOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 
-	allNetProfiles := make(map[string]NetworkProfile)
+	allNetProfiles := make(map[string]networkProfile)
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -100,8 +100,8 @@ func (op *NMANetworkProfileOp) processResult(execContext *OpEngineExecContext) e
 	return allErrs
 }
 
-func (op *NMANetworkProfileOp) parseResponse(host, resultContent string) (NetworkProfile, error) {
-	var responseObj NetworkProfile
+func (op *nmaNetworkProfileOp) parseResponse(host, resultContent string) (networkProfile, error) {
+	var responseObj networkProfile
 
 	// the response_obj will be a dictionary like the following:
 	// {

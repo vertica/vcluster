@@ -22,7 +22,7 @@ import (
 )
 
 func TestHasQuorum(t *testing.T) {
-	op := OpBase{name: "test_op"}
+	op := opBase{name: "test_op"}
 
 	// positive case 1:
 	hostCount := uint(2)

@@ -24,7 +24,7 @@ import (
 // nmaGetNodesInfoOp get nodes info from the NMA /v1/nodes endpoint.
 // The result will be saved into a VCoordinationDatabase object.
 type nmaGetNodesInfoOp struct {
-	OpBase
+	opBase
 	dbName               string
 	catalogPrefix        string
 	ignoreInternalErrors bool // e.g. in scrutinize, continue even if host has issues
@@ -49,7 +49,7 @@ func makeNMAGetNodesInfoOp(logger vlog.Printer, hosts []string,
 
 func (op *nmaGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildNMAEndpoint("nodes")
 		httpRequest.QueryParams = map[string]string{"db_name": op.dbName, "catalog_prefix": op.catalogPrefix}
@@ -59,13 +59,13 @@ func (op *nmaGetNodesInfoOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *nmaGetNodesInfoOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaGetNodesInfoOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *nmaGetNodesInfoOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaGetNodesInfoOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -73,11 +73,11 @@ func (op *nmaGetNodesInfoOp) execute(execContext *OpEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *nmaGetNodesInfoOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaGetNodesInfoOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaGetNodesInfoOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)

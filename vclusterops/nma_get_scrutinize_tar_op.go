@@ -24,16 +24,16 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMAGetScrutinizeTarOp struct {
-	ScrutinizeOpBase
+type nmaGetScrutinizeTarOp struct {
+	scrutinizeOpBase
 }
 
 func makeNMAGetScrutinizeTarOp(logger vlog.Printer,
 	id, batch string,
 	hosts []string,
-	hostNodeNameMap map[string]string) (NMAGetScrutinizeTarOp, error) {
+	hostNodeNameMap map[string]string) (nmaGetScrutinizeTarOp, error) {
 	// base members
-	op := NMAGetScrutinizeTarOp{}
+	op := nmaGetScrutinizeTarOp{}
 	op.name = "NMAGetScrutinizeTarOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
@@ -58,7 +58,7 @@ func makeNMAGetScrutinizeTarOp(logger vlog.Printer,
 // may also be created by this function.  the "remote" subdirectory is created to
 // separate local scrutinize data staged by the NMA (placed in /tmp/scrutinize/) from
 // data gathered by vcluster from all reachable hosts.
-func (op *NMAGetScrutinizeTarOp) createOutputDir() error {
+func (op *nmaGetScrutinizeTarOp) createOutputDir() error {
 	const OwnerReadWriteExecute = 0700
 	outputDir := fmt.Sprintf("%s/%s/", scrutinizeRemoteOutputPath, op.id)
 	if err := os.MkdirAll(outputDir, OwnerReadWriteExecute); err != nil {
@@ -74,7 +74,7 @@ func (op *NMAGetScrutinizeTarOp) createOutputDir() error {
 	return nil
 }
 
-func (op *NMAGetScrutinizeTarOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaGetScrutinizeTarOp) prepare(execContext *opEngineExecContext) error {
 	hostToFilePathsMap := map[string]string{}
 	for _, host := range op.hosts {
 		hostToFilePathsMap[host] = fmt.Sprintf("%s/%s/%s-%s.tgz",
@@ -88,7 +88,7 @@ func (op *NMAGetScrutinizeTarOp) prepare(execContext *OpEngineExecContext) error
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAGetScrutinizeTarOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaGetScrutinizeTarOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -96,11 +96,11 @@ func (op *NMAGetScrutinizeTarOp) execute(execContext *OpEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *NMAGetScrutinizeTarOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaGetScrutinizeTarOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAGetScrutinizeTarOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaGetScrutinizeTarOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

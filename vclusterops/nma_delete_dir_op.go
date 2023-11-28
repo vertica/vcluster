@@ -9,8 +9,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type NMADeleteDirectoriesOp struct {
-	OpBase
+type nmaDeleteDirectoriesOp struct {
+	opBase
 	hostRequestBodyMap map[string]string
 }
 
@@ -24,21 +24,21 @@ func makeNMADeleteDirectoriesOp(
 	logger vlog.Printer,
 	vdb *VCoordinationDatabase,
 	forceDelete bool,
-) (NMADeleteDirectoriesOp, error) {
-	nmaDeleteDirectoriesOp := NMADeleteDirectoriesOp{}
-	nmaDeleteDirectoriesOp.name = "NMADeleteDirectoriesOp"
-	nmaDeleteDirectoriesOp.logger = logger.WithName(nmaDeleteDirectoriesOp.name)
-	nmaDeleteDirectoriesOp.hosts = vdb.HostList
+) (nmaDeleteDirectoriesOp, error) {
+	op := nmaDeleteDirectoriesOp{}
+	op.name = "NMADeleteDirectoriesOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = vdb.HostList
 
-	err := nmaDeleteDirectoriesOp.buildRequestBody(vdb, forceDelete)
+	err := op.buildRequestBody(vdb, forceDelete)
 	if err != nil {
-		return nmaDeleteDirectoriesOp, err
+		return op, err
 	}
 
-	return nmaDeleteDirectoriesOp, nil
+	return op, nil
 }
 
-func (op *NMADeleteDirectoriesOp) buildRequestBody(
+func (op *nmaDeleteDirectoriesOp) buildRequestBody(
 	vdb *VCoordinationDatabase,
 	forceDelete bool,
 ) error {
@@ -77,9 +77,9 @@ func (op *NMADeleteDirectoriesOp) buildRequestBody(
 	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaDeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildNMAEndpoint("directories/delete")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
@@ -89,13 +89,13 @@ func (op *NMADeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) error 
 	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaDeleteDirectoriesOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMADeleteDirectoriesOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaDeleteDirectoriesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -103,11 +103,11 @@ func (op *NMADeleteDirectoriesOp) execute(execContext *OpEngineExecContext) erro
 	return op.processResult(execContext)
 }
 
-func (op *NMADeleteDirectoriesOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaDeleteDirectoriesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMADeleteDirectoriesOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaDeleteDirectoriesOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

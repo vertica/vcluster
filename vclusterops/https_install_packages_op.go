@@ -23,32 +23,32 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSInstallPackagesOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsInstallPackagesOp struct {
+	opBase
+	opHTTPSBase
 }
 
 func makeHTTPSInstallPackagesOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string,
-) (HTTPSInstallPackagesOp, error) {
-	installPackagesOp := HTTPSInstallPackagesOp{}
-	installPackagesOp.name = "HTTPSInstallPackagesOp"
-	installPackagesOp.logger = logger.WithName(installPackagesOp.name)
-	installPackagesOp.hosts = hosts
+) (httpsInstallPackagesOp, error) {
+	op := httpsInstallPackagesOp{}
+	op.name = "HTTPSInstallPackagesOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
 
-	err := util.ValidateUsernameAndPassword(installPackagesOp.name, useHTTPPassword, userName)
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
-		return installPackagesOp, err
+		return op, err
 	}
-	installPackagesOp.useHTTPPassword = useHTTPPassword
-	installPackagesOp.userName = userName
-	installPackagesOp.httpsPassword = httpsPassword
-	return installPackagesOp, nil
+	op.useHTTPPassword = useHTTPPassword
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	return op, nil
 }
 
-func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint("packages")
 		if op.useHTTPPassword {
@@ -61,13 +61,13 @@ func (op *HTTPSInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error 
 	return nil
 }
 
-func (op *HTTPSInstallPackagesOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsInstallPackagesOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSInstallPackagesOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsInstallPackagesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -75,12 +75,12 @@ func (op *HTTPSInstallPackagesOp) execute(execContext *OpEngineExecContext) erro
 	return op.processResult(execContext)
 }
 
-func (op *HTTPSInstallPackagesOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsInstallPackagesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
 /*
-	HTTPSInstallPackagesResponse example:
+	httpsInstallPackagesResponse example:
 
 {'packages': [
 
@@ -96,9 +96,9 @@ func (op *HTTPSInstallPackagesOp) finalize(_ *OpEngineExecContext) error {
 	           ]
 	}
 */
-type HTTPSInstallPackagesResponse map[string][]map[string]string
+type httpsInstallPackagesResponse map[string][]map[string]string
 
-func (op *HTTPSInstallPackagesOp) processResult(_ *OpEngineExecContext) error {
+func (op *httpsInstallPackagesOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -109,7 +109,7 @@ func (op *HTTPSInstallPackagesOp) processResult(_ *OpEngineExecContext) error {
 			continue
 		}
 
-		var responseObj HTTPSInstallPackagesResponse
+		var responseObj httpsInstallPackagesResponse
 		err := op.parseAndCheckResponse(host, result.content, &responseObj)
 
 		if err != nil {

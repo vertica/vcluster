@@ -24,19 +24,19 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type AdapterPool struct {
+type adapterPool struct {
 	logger vlog.Printer
 	// map from host to HTTPAdapter
-	connections map[string]Adapter
+	connections map[string]adapter
 }
 
 var (
-	poolInstance AdapterPool
+	poolInstance adapterPool
 	once         sync.Once
 )
 
 // return a singleton instance of the AdapterPool
-func getPoolInstance(logger vlog.Printer) AdapterPool {
+func getPoolInstance(logger vlog.Printer) adapterPool {
 	/* if once.Do(f) is called multiple times,
 	 * only the first call will invoke f,
 	 * even if f has a different value in each invocation.
@@ -49,43 +49,43 @@ func getPoolInstance(logger vlog.Printer) AdapterPool {
 	return poolInstance
 }
 
-func makeAdapterPool(logger vlog.Printer) AdapterPool {
-	newAdapterPool := AdapterPool{}
-	newAdapterPool.connections = make(map[string]Adapter)
+func makeAdapterPool(logger vlog.Printer) adapterPool {
+	newAdapterPool := adapterPool{}
+	newAdapterPool.connections = make(map[string]adapter)
 	newAdapterPool.logger = logger.WithName("AdapterPool")
 	return newAdapterPool
 }
 
 type adapterToRequest struct {
-	adapter Adapter
-	request HostHTTPRequest
+	adapter adapter
+	request hostHTTPRequest
 }
 
-func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) error {
+func (pool *adapterPool) sendRequest(httpRequest *clusterHTTPRequest) error {
 	// build a collection of adapter to request
 	// we need this step as a host may not be in the pool
 	// in that case, we should not proceed
 	var adapterToRequestCollection []adapterToRequest
-	for host := range clusterHTTPRequest.RequestCollection {
-		request := clusterHTTPRequest.RequestCollection[host]
-		adapter, ok := pool.connections[host]
+	for host := range httpRequest.RequestCollection {
+		request := httpRequest.RequestCollection[host]
+		adpt, ok := pool.connections[host]
 		if !ok {
 			return fmt.Errorf("host %s is not found in the adapter pool", host)
 		}
-		ar := adapterToRequest{adapter: adapter, request: request}
+		ar := adapterToRequest{adapter: adpt, request: request}
 		adapterToRequestCollection = append(adapterToRequestCollection, ar)
 	}
 
 	hostCount := len(adapterToRequestCollection)
 
 	// result channel to collect result from each host
-	resultChannel := make(chan HostHTTPResult, hostCount)
+	resultChannel := make(chan hostHTTPResult, hostCount)
 
 	// only track the progress of HTTP requests for vcluster CLI
 	if pool.logger.ForCli {
 		// use context to check whether a step has completed
 		ctx, cancelCtx := context.WithCancel(context.Background())
-		go progressCheck(ctx, clusterHTTPRequest.Name)
+		go progressCheck(ctx, httpRequest.Name)
 		// cancel the progress check context when the result channel is closed
 		defer cancelCtx()
 	}
@@ -101,11 +101,11 @@ func (pool *AdapterPool) sendRequest(clusterHTTPRequest *ClusterHTTPRequest) err
 	// handle results
 	// we expect to receive the same number of results from the channel as the number of hosts
 	// before proceeding to the next steps
-	clusterHTTPRequest.ResultCollection = make(map[string]HostHTTPResult)
+	httpRequest.ResultCollection = make(map[string]hostHTTPResult)
 	for i := 0; i < hostCount; i++ {
 		result, ok := <-resultChannel
 		if ok {
-			clusterHTTPRequest.ResultCollection[result.host] = result
+			httpRequest.ResultCollection[result.host] = result
 		}
 	}
 	close(resultChannel)

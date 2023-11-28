@@ -22,9 +22,9 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type HTTPSFindSubclusterOp struct {
-	OpBase
-	OpHTTPSBase
+type httpsFindSubclusterOp struct {
+	opBase
+	opHTTPSBase
 	scName         string
 	ignoreNotFound bool
 }
@@ -36,8 +36,8 @@ type HTTPSFindSubclusterOp struct {
 func makeHTTPSFindSubclusterOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, scName string,
 	ignoreNotFound bool,
-) (HTTPSFindSubclusterOp, error) {
-	op := HTTPSFindSubclusterOp{}
+) (httpsFindSubclusterOp, error) {
+	op := httpsFindSubclusterOp{}
 	op.name = "HTTPSFindSubclusterOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
@@ -50,9 +50,9 @@ func makeHTTPSFindSubclusterOp(logger vlog.Printer, hosts []string, useHTTPPassw
 	return op, err
 }
 
-func (op *HTTPSFindSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsFindSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildHTTPSEndpoint("subclusters")
 		if op.useHTTPPassword {
@@ -65,13 +65,13 @@ func (op *HTTPSFindSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *HTTPSFindSubclusterOp) prepare(execContext *OpEngineExecContext) error {
+func (op *httpsFindSubclusterOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *HTTPSFindSubclusterOp) execute(execContext *OpEngineExecContext) error {
+func (op *httpsFindSubclusterOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -80,16 +80,16 @@ func (op *HTTPSFindSubclusterOp) execute(execContext *OpEngineExecContext) error
 }
 
 // the following struct will store a subcluster's information for this op
-type SubclusterInfo struct {
+type subclusterInfo struct {
 	SCName    string `json:"subcluster_name"`
 	IsDefault bool   `json:"is_default"`
 }
 
-type SCResp struct {
-	SCInfoList []SubclusterInfo `json:"subcluster_list"`
+type scResp struct {
+	SCInfoList []subclusterInfo `json:"subcluster_list"`
 }
 
-func (op *HTTPSFindSubclusterOp) processResult(execContext *OpEngineExecContext) error {
+func (op *httpsFindSubclusterOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -127,8 +127,8 @@ func (op *HTTPSFindSubclusterOp) processResult(execContext *OpEngineExecContext)
 				]
 			}
 		*/
-		scResp := SCResp{}
-		err := op.parseAndCheckResponse(host, result.content, &scResp)
+		subclusterResp := scResp{}
+		err := op.parseAndCheckResponse(host, result.content, &subclusterResp)
 		if err != nil {
 			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 			allErrs = errors.Join(allErrs, err)
@@ -140,7 +140,7 @@ func (op *HTTPSFindSubclusterOp) processResult(execContext *OpEngineExecContext)
 		// 2. look for the default subcluster, error out if not found
 		foundNamedSc := false
 		foundDefaultSc := false
-		for _, scInfo := range scResp.SCInfoList {
+		for _, scInfo := range subclusterResp.SCInfoList {
 			if scInfo.SCName == op.scName {
 				foundNamedSc = true
 				op.logger.Info(`subcluster exists in the database`, "subcluster", scInfo.SCName, "dbName", op.name)
@@ -175,6 +175,6 @@ func (op *HTTPSFindSubclusterOp) processResult(execContext *OpEngineExecContext)
 	return allErrs
 }
 
-func (op *HTTPSFindSubclusterOp) finalize(_ *OpEngineExecContext) error {
+func (op *httpsFindSubclusterOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }

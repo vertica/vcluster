@@ -25,25 +25,25 @@ import (
 // don't block 6 minutes because of one down node.
 const healthRequestTimeoutSeconds = 20
 
-type NMAGetHealthyNodesOp struct {
-	OpBase
+type nmaGetHealthyNodesOp struct {
+	opBase
 	vdb *VCoordinationDatabase
 }
 
 func makeNMAGetHealthyNodesOp(logger vlog.Printer, hosts []string,
-	vdb *VCoordinationDatabase) NMAGetHealthyNodesOp {
-	nmaGetHealthyNodesOp := NMAGetHealthyNodesOp{}
-	nmaGetHealthyNodesOp.name = "NMAGetHealthyNodesOp"
-	nmaGetHealthyNodesOp.logger = logger.WithName(nmaGetHealthyNodesOp.name)
-	nmaGetHealthyNodesOp.hosts = hosts
-	nmaGetHealthyNodesOp.vdb = vdb
-	return nmaGetHealthyNodesOp
+	vdb *VCoordinationDatabase) nmaGetHealthyNodesOp {
+	op := nmaGetHealthyNodesOp{}
+	op.name = "NMAGetHealthyNodesOp"
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	op.vdb = vdb
+	return op
 }
 
-func (op *NMAGetHealthyNodesOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaGetHealthyNodesOp) setupClusterHTTPRequest(hosts []string) error {
 	op.vdb.HostList = []string{}
 	for _, host := range hosts {
-		httpRequest := HostHTTPRequest{}
+		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = healthRequestTimeoutSeconds
 		httpRequest.buildNMAEndpoint("health")
@@ -53,13 +53,13 @@ func (op *NMAGetHealthyNodesOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *NMAGetHealthyNodesOp) prepare(execContext *OpEngineExecContext) error {
+func (op *nmaGetHealthyNodesOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *NMAGetHealthyNodesOp) execute(execContext *OpEngineExecContext) error {
+func (op *nmaGetHealthyNodesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -67,11 +67,11 @@ func (op *NMAGetHealthyNodesOp) execute(execContext *OpEngineExecContext) error 
 	return op.processResult(execContext)
 }
 
-func (op *NMAGetHealthyNodesOp) finalize(_ *OpEngineExecContext) error {
+func (op *nmaGetHealthyNodesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *NMAGetHealthyNodesOp) processResult(_ *OpEngineExecContext) error {
+func (op *nmaGetHealthyNodesOp) processResult(_ *opEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 

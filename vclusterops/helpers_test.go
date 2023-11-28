@@ -25,11 +25,11 @@ import (
 // positive test case for updateCatalogPathMapFromCatalogEditor
 func TestForupdateCatalogPathMapFromCatalogEditorPositive(t *testing.T) {
 	// prepare data for nmaVDB
-	mockNmaVNode1 := &NmaVNode{CatalogPath: "/data/test_db/v_test_db_node0001_catalog/Catalog", Address: "192.168.1.101"}
-	mockNmaVNode2 := &NmaVNode{CatalogPath: "/Catalog/data/test_db/v_test_db_node0002_catalog/Catalog", Address: "192.168.1.102"}
-	mockNmaVNode3 := &NmaVNode{CatalogPath: "/data/test_db/v_test_db_node0003_catalog/Catalog", Address: "192.168.1.103"}
-	mockHostNodeMap := map[string]*NmaVNode{"192.168.1.101": mockNmaVNode1, "192.168.1.102": mockNmaVNode2, "192.168.1.103": mockNmaVNode3}
-	mockNmaVDB := &NmaVDatabase{HostNodeMap: mockHostNodeMap}
+	mockNmaVNode1 := &nmaVNode{CatalogPath: "/data/test_db/v_test_db_node0001_catalog/Catalog", Address: "192.168.1.101"}
+	mockNmaVNode2 := &nmaVNode{CatalogPath: "/Catalog/data/test_db/v_test_db_node0002_catalog/Catalog", Address: "192.168.1.102"}
+	mockNmaVNode3 := &nmaVNode{CatalogPath: "/data/test_db/v_test_db_node0003_catalog/Catalog", Address: "192.168.1.103"}
+	mockHostNodeMap := map[string]*nmaVNode{"192.168.1.101": mockNmaVNode1, "192.168.1.102": mockNmaVNode2, "192.168.1.103": mockNmaVNode3}
+	mockNmaVDB := &nmaVDatabase{HostNodeMap: mockHostNodeMap}
 	host := []string{"192.168.1.101", "192.168.1.102", "192.168.1.103"}
 	mockCatalogPath := make(map[string]string)
 	err := updateCatalogPathMapFromCatalogEditor(host, mockNmaVDB, mockCatalogPath)
@@ -42,10 +42,10 @@ func TestForupdateCatalogPathMapFromCatalogEditorPositive(t *testing.T) {
 // negative test case for updateCatalogPathMapFromCatalogEditor
 func TestForupdateCatalogPathMapFromCatalogEditorNegative(t *testing.T) {
 	// prepare data for nmaVDB
-	mockNmaVNode1 := &NmaVNode{CatalogPath: "/data/test_db/v_test_db_node0001_catalog/Catalog", Address: "192.168.1.101"}
-	mockNmaVNode2 := &NmaVNode{CatalogPath: "/data/test_db/v_test_db_node0002_catalog/Catalog", Address: "192.168.1.102"}
-	mockHostNodeMap := map[string]*NmaVNode{"192.168.1.101": mockNmaVNode1, "192.168.1.102": mockNmaVNode2}
-	mockNmaVDB := &NmaVDatabase{HostNodeMap: mockHostNodeMap}
+	mockNmaVNode1 := &nmaVNode{CatalogPath: "/data/test_db/v_test_db_node0001_catalog/Catalog", Address: "192.168.1.101"}
+	mockNmaVNode2 := &nmaVNode{CatalogPath: "/data/test_db/v_test_db_node0002_catalog/Catalog", Address: "192.168.1.102"}
+	mockHostNodeMap := map[string]*nmaVNode{"192.168.1.101": mockNmaVNode1, "192.168.1.102": mockNmaVNode2}
+	mockNmaVDB := &nmaVDatabase{HostNodeMap: mockHostNodeMap}
 	host := []string{"192.168.1.101", "192.168.1.103"}
 	mockCatalogPath := make(map[string]string)
 	err := updateCatalogPathMapFromCatalogEditor(host, mockNmaVDB, mockCatalogPath)
