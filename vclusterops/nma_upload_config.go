@@ -108,12 +108,24 @@ func (op *nmaUploadConfigOp) prepare(execContext *opEngineExecContext) error {
 	// This case is used for restarting nodes operation.
 	// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
 	if op.vdb == nil || len(op.vdb.HostNodeMap) == 0 {
+		nmaVDB := execContext.nmaVDatabase
 		if op.sourceConfigHost == nil {
-			//  if the host with the highest catalog version for starting a database or starting nodes is nil value
-			// 	we identify the hosts that need to be synchronized.
-			hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
-			if len(hostsWithLatestCatalog) == 0 {
-				return fmt.Errorf("could not find at least one host with the latest catalog")
+			var hostsWithLatestCatalog []string
+			// If SpreadEncryption is enabled, synchronize the catalog of the primary node with
+			// the latest catalog to the rest of the nodes (both primary and secondary nodes).
+			if nmaVDB.SpreadEncryption != "" {
+				hostsWithLatestCatalog = getPrimaryHostsWithLatestCatalog(&nmaVDB, execContext.hostsWithLatestCatalog, execContext)
+				if len(hostsWithLatestCatalog) == 0 {
+					return fmt.Errorf("could not find at least one primary host with the latest catalog")
+				}
+				hostsWithLatestCatalog = hostsWithLatestCatalog[:1]
+			} else {
+				//  if the host with the highest catalog version for starting a database or starting nodes is nil value
+				// 	we identify the hosts that need to be synchronized.
+				hostsWithLatestCatalog = execContext.hostsWithLatestCatalog
+				if len(hostsWithLatestCatalog) == 0 {
+					return fmt.Errorf("could not find at least one host with the latest catalog")
+				}
 			}
 			hostsNeedCatalogSync := util.SliceDiff(op.destHosts, hostsWithLatestCatalog)
 			// Update the hosts that need to synchronize the catalog
@@ -129,7 +141,6 @@ func (op *nmaUploadConfigOp) prepare(execContext *opEngineExecContext) error {
 			op.hosts = util.SliceDiff(op.destHosts, op.sourceConfigHost)
 		}
 		// Update the catalogPathMap for next upload operation's steps from information of catalog editor
-		nmaVDB := execContext.nmaVDatabase
 		err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
 		if err != nil {
 			return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)

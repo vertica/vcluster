@@ -178,8 +178,8 @@ func (vcc *VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
 }
 
 func tarAndRemoveDirectory(id string, log vlog.Printer) (err error) {
-	tarballPath := "/tmp/scrutinize/" + id + ".tgz"
-	cmd := exec.Command("tar", "czf", tarballPath, "-C", "/tmp/scrutinize/remote", id)
+	tarballPath := "/tmp/scrutinize/" + id + ".tar"
+	cmd := exec.Command("tar", "cf", tarballPath, "-C", "/tmp/scrutinize/remote", id)
 	log.Info("running command %s with args %v", cmd.Path, cmd.Args)
 	if err = cmd.Run(); err != nil {
 		return

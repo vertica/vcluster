@@ -10,8 +10,8 @@ If you find a bug, [submit an issue](https://github.com/vertica/vcluster/issues)
 with a complete and reproducible bug report.
 
 For issues that are **not suitable** to be reported publicly on the GitHub
-issue system (e.g. security related issues), report your issues to [Vertica
-open source team](mailto:vertica-opensrc@microfocus.com) directly or file a
+issue system (e.g., security related issues), report your issues to [Vertica
+open source team](mailto:vertica-opensrc@opentext.com) directly or file a
 case with Vertica support, if you have a support account.
 
 # Feature Requests

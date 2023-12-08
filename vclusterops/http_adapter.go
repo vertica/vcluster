@@ -60,7 +60,7 @@ func makeHTTPDownloadAdapter(logger vlog.Printer,
 }
 
 type responseBodyHandler interface {
-	readResponseBody(resp *http.Response) (string, error)
+	processResponseBody(resp *http.Response) (string, error)
 }
 
 // empty struct for default behavior of reading response body into memory
@@ -156,17 +156,46 @@ func (adapter *httpAdapter) sendRequest(request *hostHTTPRequest, resultChannel 
 }
 
 func (adapter *httpAdapter) generateResult(resp *http.Response) hostHTTPResult {
-	bodyString, err := adapter.respBodyHandler.readResponseBody(resp)
+	bodyString, err := adapter.respBodyHandler.processResponseBody(resp)
 	if err != nil {
 		return adapter.makeExceptionResult(err)
 	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if isSuccess(resp) {
 		return adapter.makeSuccessResult(bodyString, resp.StatusCode)
 	}
 	return adapter.makeFailResult(resp.Header, bodyString, resp.StatusCode)
 }
 
-func (reader *responseBodyReader) readResponseBody(resp *http.Response) (bodyString string, err error) {
+func (*responseBodyReader) processResponseBody(resp *http.Response) (bodyString string, err error) {
+	return readResponseBody(resp)
+}
+
+func (downloader *responseBodyDownloader) processResponseBody(resp *http.Response) (bodyString string, err error) {
+	if isSuccess(resp) {
+		bytesWritten, err := downloader.downloadFile(resp)
+		if err != nil {
+			err = fmt.Errorf("fail to stream the response body to file %s: %w", downloader.destFilePath, err)
+		} else {
+			downloader.logger.Info("File downloaded", "File", downloader.destFilePath, "Bytes", bytesWritten)
+		}
+		return "", err
+	}
+	// in case of error, we get an RFC7807 error, not a file
+	return readResponseBody(resp)
+}
+
+// downloadFile uses buffered read/writes to download the http response body to a file
+func (downloader *responseBodyDownloader) downloadFile(resp *http.Response) (bytesWritten int64, err error) {
+	file, err := os.Create(downloader.destFilePath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+	return io.Copy(file, resp.Body)
+}
+
+// readResponseBody attempts to read the entire contents of the http response into bodyString
+func readResponseBody(resp *http.Response) (bodyString string, err error) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("fail to read the response body: %w", err)
@@ -177,23 +206,8 @@ func (reader *responseBodyReader) readResponseBody(resp *http.Response) (bodyStr
 	return bodyString, nil
 }
 
-func (downloader *responseBodyDownloader) readResponseBody(resp *http.Response) (bodyString string, err error) {
-	bytesWritten, err := downloader.downloadFile(resp)
-	if err != nil {
-		err = fmt.Errorf("fail to stream the response body to file %s: %w", downloader.destFilePath, err)
-	} else {
-		downloader.logger.Info("File downloaded", "File", downloader.destFilePath, "Bytes", bytesWritten)
-	}
-	return "", err
-}
-
-func (downloader *responseBodyDownloader) downloadFile(resp *http.Response) (bytesWritten int64, err error) {
-	file, err := os.Create(downloader.destFilePath)
-	if err != nil {
-		return 0, err
-	}
-	defer file.Close()
-	return io.Copy(file, resp.Body)
+func isSuccess(resp *http.Response) bool {
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
 // makeSuccessResult is a factory method for hostHTTPResult when a success

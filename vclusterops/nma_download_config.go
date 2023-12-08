@@ -73,12 +73,22 @@ func (op *nmaDownloadConfigOp) prepare(execContext *opEngineExecContext) error {
 	// vdb is built by calling /cluster and /nodes endpoints of a running db.
 	// If nodes' info is not available in vdb, we will get the host from execContext.nmaVDatabase which is build by reading the catalog editor
 	if op.vdb == nil || len(op.vdb.HostNodeMap) == 0 {
+		nmaVDB := execContext.nmaVDatabase
 		if op.hosts == nil {
-			// If the host input is a nil value, we find the host with the latest catalog version to update the host input.
-			// Otherwise, we use the host input.
-			hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
-			if len(hostsWithLatestCatalog) == 0 {
-				return fmt.Errorf("could not find at least one host with the latest catalog")
+			var hostsWithLatestCatalog []string
+			// If SpreadEncryption is enabled, the primary node with the latest catalog will be the sourceConfigHost.
+			if nmaVDB.SpreadEncryption != "" {
+				hostsWithLatestCatalog = getPrimaryHostsWithLatestCatalog(&nmaVDB, execContext.hostsWithLatestCatalog, execContext)
+				if len(hostsWithLatestCatalog) == 0 {
+					return fmt.Errorf("could not find at least one primary host with the latest catalog")
+				}
+			} else {
+				// If the host input is a nil value, we find the host with the latest catalog version to update the host input.
+				// Otherwise, we use the host input.
+				hostsWithLatestCatalog = execContext.hostsWithLatestCatalog
+				if len(hostsWithLatestCatalog) == 0 {
+					return fmt.Errorf("could not find at least one host with the latest catalog")
+				}
 			}
 			hostWithLatestCatalog := hostsWithLatestCatalog[:1]
 			// update the host with the latest catalog
@@ -86,7 +96,6 @@ func (op *nmaDownloadConfigOp) prepare(execContext *opEngineExecContext) error {
 		}
 		// For createDb and AddNodes, sourceConfigHost input is the bootstrap host.
 		// we update the catalogPathMap for next download operation's steps from information of catalog editor
-		nmaVDB := execContext.nmaVDatabase
 		err := updateCatalogPathMapFromCatalogEditor(op.hosts, &nmaVDB, op.catalogPathMap)
 		if err != nil {
 			return fmt.Errorf("failed to get catalog paths from catalog editor: %w", err)

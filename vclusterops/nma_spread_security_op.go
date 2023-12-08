@@ -142,11 +142,21 @@ func (op *nmaSpreadSecurityOp) processResult(_ *opEngineExecContext) error {
 
 // setRuntimeParms will set options based on runtime context.
 func (op *nmaSpreadSecurityOp) setRuntimeParms(execContext *opEngineExecContext) error {
-	// Always pull the hosts at runtime using the node with the latest catalog.
+	// A core dump can happen if we send the /v1/catalog/spread-security settings to a secondary node.
+	// Need to use the primary node because fetching global settings to perform a catalog lookup isn't available on a secondary node.
+	// Always pull the hosts at runtime using the primary node with the latest catalog.
 	// Need to use the ones with the latest catalog because those are the hosts
 	// that we copy the spread.conf from during start db.
-	op.hosts = execContext.hostsWithLatestCatalog
-
+	hostsWithLatestCatalog := execContext.hostsWithLatestCatalog
+	if len(hostsWithLatestCatalog) == 0 {
+		return fmt.Errorf("could not find at least one host with the latest catalog")
+	}
+	// Use only a primary host with the latest catalog as the sourceConfigHost
+	primaryHostsWithLatestCatalog := getPrimaryHostsWithLatestCatalog(&execContext.nmaVDatabase, hostsWithLatestCatalog, execContext)
+	if len(primaryHostsWithLatestCatalog) == 0 {
+		return fmt.Errorf("could not find at least one primary host with the latest catalog")
+	}
+	op.hosts = []string{primaryHostsWithLatestCatalog[0]}
 	op.catalogPathMap = make(map[string]string, len(op.hosts))
 	err := updateCatalogPathMapFromCatalogEditor(op.hosts, &execContext.nmaVDatabase, op.catalogPathMap)
 	if err != nil {

@@ -21,6 +21,7 @@ import (
 	"path"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -71,6 +72,28 @@ func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *nmaVDatabase,
 		catalogPathMap[host] = path.Dir(vnode.CatalogPath)
 	}
 	return nil
+}
+
+// Get primary nodes with latest catalog from catalog editor if the primaryHostsWithLatestCatalog info doesn't exist in execContext
+func getPrimaryHostsWithLatestCatalog(nmaVDB *nmaVDatabase, hostsWithLatestCatalog []string, execContext *opEngineExecContext) []string {
+	if len(execContext.primaryHostsWithLatestCatalog) > 0 {
+		return execContext.primaryHostsWithLatestCatalog
+	}
+	emptyPrimaryHostsString := []string{}
+	primaryHostsSet := mapset.NewSet[string]()
+	for host, vnode := range nmaVDB.HostNodeMap {
+		if vnode.IsPrimary {
+			primaryHostsSet.Add(host)
+		}
+	}
+	hostsWithLatestCatalogSet := mapset.NewSet(hostsWithLatestCatalog...)
+	primaryHostsWithLatestCatalog := hostsWithLatestCatalogSet.Intersect(primaryHostsSet)
+	primaryHostsWithLatestCatalogList := primaryHostsWithLatestCatalog.ToSlice()
+	if len(primaryHostsWithLatestCatalogList) == 0 {
+		return emptyPrimaryHostsString
+	}
+	execContext.primaryHostsWithLatestCatalog = primaryHostsWithLatestCatalogList // save the primaryHostsWithLatestCatalog to execContext
+	return primaryHostsWithLatestCatalogList
 }
 
 // The following structs will store hosts' necessary information for https_get_up_nodes_op,

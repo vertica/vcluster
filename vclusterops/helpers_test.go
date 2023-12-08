@@ -55,6 +55,22 @@ func TestForupdateCatalogPathMapFromCatalogEditorNegative(t *testing.T) {
 	assert.ErrorContains(t, err, "fail to get host with highest catalog version")
 }
 
+func TestForGetPrimaryHostsWithLatestCatalog(t *testing.T) {
+	// prepare data for nmaVDB
+	mockNmaVNode1 := &nmaVNode{CatalogPath: "/data/test_db/v_test_db_node0001_catalog/Catalog", Address: "192.168.1.101", IsPrimary: false}
+	mockNmaVNode2 := &nmaVNode{CatalogPath: "/data/test_db/v_test_db_node0002_catalog/Catalog", Address: "192.168.1.102", IsPrimary: true}
+	mockHostNodeMap := map[string]*nmaVNode{"192.168.1.101": mockNmaVNode1, "192.168.1.102": mockNmaVNode2}
+	mockNmaVDB := &nmaVDatabase{HostNodeMap: mockHostNodeMap}
+	hostsWithLatestCatalog := []string{"192.168.1.101", "192.168.1.102", "192.168.1.104"}
+	// successfully get a primary host with latest catalog
+	primaryHostsWithLatestCatalog := getPrimaryHostsWithLatestCatalog(mockNmaVDB, hostsWithLatestCatalog, &opEngineExecContext{})
+	assert.Equal(t, primaryHostsWithLatestCatalog, []string{"192.168.1.102"})
+	// Unable to find any primary hosts with the latest catalog
+	hostsWithLatestCatalog = []string{}
+	primaryHostsWithLatestCatalog = getPrimaryHostsWithLatestCatalog(mockNmaVDB, hostsWithLatestCatalog, &opEngineExecContext{})
+	assert.Equal(t, primaryHostsWithLatestCatalog, []string{})
+}
+
 func TestForgetInitiatorHost(t *testing.T) {
 	nodesList1 := []string{"10.0.0.0", "10.0.0.1", "10.0.0.2"}
 	hostsToSkip1 := []string{"10.0.0.10", "10.0.0.11"}
