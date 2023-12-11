@@ -17,11 +17,10 @@ package vclusterops
 
 import mapset "github.com/deckarep/golang-set/v2"
 
-// the following structs only hosts necessary information for this op
+// NodeInfo represents information to identify a node.
 type NodeInfo struct {
 	Address string `json:"address"`
-	// vnode name, e.g., v_dbname_node0001
-	Name        string `json:"name"`
+	Name        string `json:"name"`  // vnode name, e.g., v_dbname_node0001	
 	State       string `json:"state"`
 	CatalogPath string `json:"catalog_path"`
 }
