@@ -24,16 +24,13 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// VRemoveNodeOptions are the option arguments for the VRemoveNode API
+// VRemoveNodeOptions represents the available options to remove one or more nodes from 
+// the database.
 type VRemoveNodeOptions struct {
 	DatabaseOptions
-	// Hosts to remove from database
-	HostsToRemove []string
-	// A primary up host that will be used to execute
-	// remove_node operations.
-	Initiator string
-	// whether force delete directories
-	ForceDelete *bool
+	HostsToRemove []string  // Hosts to remove from database
+	Initiator string 	// A primary up host that will be used to execute remove_node operations.
+	ForceDelete *bool	// whether force delete directories
 }
 
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
