@@ -248,8 +248,8 @@ func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 	return nil
 }
 
-// ParseHostList converts a string into a slice of host names. The hosts are
-// comma-separated and converted to lowercase.
+// ParseHostList converts a comma-separated string of hosts into a slice of host names. During parsing, 
+// the hosts names are converted to lowercase.
 // It returns any parsing error encountered.
 func (opt *DatabaseOptions) ParseHostList(hosts string) error {
 	inputHostList, err := util.SplitHosts(hosts)
