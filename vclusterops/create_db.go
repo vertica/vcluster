@@ -25,8 +25,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// A good rule of thumb is to use normal strings unless you need nil.
-// Normal strings are easier and safer to use in Go.
+// VCreateDatabaseOptions represents the available options when you create a database with 
+// VCreateDatabase.
 type VCreateDatabaseOptions struct {
 	/* part 1: basic db info */
 	DatabaseOptions
