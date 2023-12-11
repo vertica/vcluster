@@ -24,13 +24,12 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// VRemoveScOptions are the option arguments for the VRemoveSubcluster API
+// VRemoveScOptions represents the available options when you remove a subcluster from a
+// database.
 type VRemoveScOptions struct {
 	DatabaseOptions
-	// Subcluster to remove from database
-	SubclusterToRemove *string
-	// whether force delete directories
-	ForceDelete *bool
+	SubclusterToRemove *string  // subcluster to remove from database
+	ForceDelete *bool	    // whether force delete directories
 }
 
 func VRemoveScOptionsFactory() VRemoveScOptions {
