@@ -237,7 +237,8 @@ type reIPRow struct {
 	NewControlBroadcast string `json:"to_control_broadcast,omitempty"`
 }
 
-// ReadReIPFile reads the re-ip file and build a list of ReIPInfo
+// ReadReIPFile reads the re-IP file and builds a slice of ReIPInfo.
+// It returns any errors encountered.
 func (opt *VReIPOptions) ReadReIPFile(path string) error {
 	if err := util.AbsPathCheck(path); err != nil {
 		return fmt.Errorf("must specify an absolute path for the re-ip file")
