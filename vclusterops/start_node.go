@@ -82,8 +82,8 @@ func (options *VStartNodesOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-// ParseNodesList builds and returns a map from a comma-separated list of nodes.
-// Ex: vnodeName1=host1,vnodeName2=host2 ---> map[string]string{vnodeName1: host1, vnodeName2: host2}
+// ParseNodesList builds and returns a map of nodes from a comma-separated list of nodes.
+// For example, vnodeName1=host1,vnodeName2=host2 is converted to map[string]string{vnodeName1: host1, vnodeName2: host2}
 func (options *VStartNodesOptions) ParseNodesList(nodeListStr string) error {
 	nodes, err := util.ParseKeyValueListStr(nodeListStr, "restart")
 	if err != nil {
