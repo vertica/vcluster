@@ -111,7 +111,8 @@ func (o *VAddNodeOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	return o.analyzeOptions()
 }
 
-// VAddNode is the top-level API for adding node(s) to an existing database.
+// VAddNode adds one or more nodes to an existing database.
+// It returns a VCoordinationDatabase that contains catalog information and any error encountered.
 func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 
