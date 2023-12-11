@@ -23,7 +23,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// VAddNodeOptions represents the option arugments for VAddNode.
+// VAddNodeOptions represents the available options for VAddNode.
 type VAddNodeOptions struct {
 	DatabaseOptions
 	NewHosts []string  	    // Hosts to add to database
