@@ -22,8 +22,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-// A good rule of thumb is to use normal strings unless you need nil.
-// Normal strings are easier and safer to use in Go.
+// VDropDatabaseOptions adds to VCreateDatabaseOptions the option to force delete directories.
 type VDropDatabaseOptions struct {
 	VCreateDatabaseOptions
 	ForceDelete *bool // whether force delete directories
