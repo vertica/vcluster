@@ -48,8 +48,9 @@ func (o *VRemoveNodeOptions) setDefaultValues() {
 	*o.ForceDelete = true
 }
 
-// ParseHostToRemoveList converts the string list of hosts, to remove, into a slice of strings.
-// The hosts should be separated by comma, and will be converted to lower case.
+// ParseHostToRemoveList converts a comma-separated string list of hosts into a slice of host names 
+// to remove from the database. During parsing, the hosts are converted to lowercase.
+// It returns any parsing error encountered.
 func (o *VRemoveNodeOptions) ParseHostToRemoveList(hosts string) error {
 	inputHostList, err := util.SplitHosts(hosts)
 	if err != nil {
