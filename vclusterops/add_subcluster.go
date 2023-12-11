@@ -176,7 +176,8 @@ func (options *VAddSubclusterOptions) validateAnalyzeOptions(config *ClusterConf
 	return options.analyzeOptions()
 }
 
-// VAddSubcluster can add a new subcluster to a running database
+// VAddSubcluster adds to a running database a new subcluster with provided options.
+// It returns any error encountered.
 func (vcc *VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error {
 	/*
 	 *   - Produce Instructions
