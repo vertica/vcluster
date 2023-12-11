@@ -67,7 +67,7 @@ func MakeDatabaseConfig() DatabaseConfig {
 }
 
 // ReadConfig reads cluster configuration information from a YAML-formatted file in configDirectory.
-// It returns the a ClusterConfig and any error encountered when reading and parsing the file.
+// It returns a ClusterConfig and any error encountered when reading and parsing the file.
 func ReadConfig(configDirectory string, logger vlog.Printer) (ClusterConfig, error) {
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBytes, err := os.ReadFile(configFilePath)
