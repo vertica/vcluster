@@ -114,7 +114,7 @@ func (opt *VReIPOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	return nil
 }
 
-// VReIP changes nodes addresses (node address, control address, and control broadcast)
+// VReIP changes the node address, control address, and control broadcast for a node.
 func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	/*
 	 *   - Produce Instructions
