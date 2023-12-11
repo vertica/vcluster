@@ -386,7 +386,7 @@ func (opt *DatabaseOptions) getDepotAndDataPrefix(
 	return depotPrefix, dataPrefix, nil
 }
 
-// GetDBConfig reads database configurations from vertica_cluster.yaml into the ClusterConfig struct.
+// GetDBConfig reads database configurations from vertica_cluster.yaml into a ClusterConfig struct.
 // It returns the ClusterConfig and any error encountered.
 func (opt *DatabaseOptions) GetDBConfig(vcc VClusterCommands) (config *ClusterConfig, e error) {
 	var configDir string
