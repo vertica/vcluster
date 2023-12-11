@@ -340,11 +340,7 @@ func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
 	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 
-/* VCoordinationNode contains a copy of the some of CAT::Node information
- * from the database catalog (visible in the vs_nodes table). It is similar
- * to the admintools VNode object.
- *
- */
+// VCoordinationNode represents node information from the database catalog. 
 type VCoordinationNode struct {
 	Name    string `json:"name"`
 	Address string
