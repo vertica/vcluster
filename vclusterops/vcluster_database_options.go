@@ -248,8 +248,9 @@ func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 	return nil
 }
 
-// ParseHostList converts a string into a list of hosts.
-// The hosts should be separated by comma, and will be converted to lower case
+// ParseHostList converts a string into a slice of host names. The hosts are
+// comma-separated and converted to lowercase.
+// It returns any parsing error encountered.
 func (opt *DatabaseOptions) ParseHostList(hosts string) error {
 	inputHostList, err := util.SplitHosts(hosts)
 	if err != nil {
@@ -385,7 +386,8 @@ func (opt *DatabaseOptions) getDepotAndDataPrefix(
 	return depotPrefix, dataPrefix, nil
 }
 
-// GetDBConfig can read database configurations from vertica_cluster.yaml to the struct ClusterConfig
+// GetDBConfig reads database configurations from vertica_cluster.yaml into the ClusterConfig struct.
+// It returns the ClusterConfig and any error encountered.
 func (opt *DatabaseOptions) GetDBConfig(vcc VClusterCommands) (config *ClusterConfig, e error) {
 	var configDir string
 
