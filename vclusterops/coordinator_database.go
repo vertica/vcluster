@@ -422,7 +422,7 @@ func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *V
 	}
 }
 
-// WriteClusterConfig updates cluster configuration with the YAML-formatted file stored in configDir
+// WriteClusterConfig updates cluster configuration with the YAML-formatted file in configDir
 // and writes to the log and stdout.
 // It returns any error encountered.
 func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, logger vlog.Printer) error {
