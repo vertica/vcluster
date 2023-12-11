@@ -55,8 +55,8 @@ type downloadFileRequestData struct {
 	Parameters          map[string]string `json:"parameters,omitempty"`
 }
 
-// ClusterLeaseNotExpiredFailure is returned when an attempt is made to use a
-// communal storage before the lease for it has expired.
+// ClusterLeaseNotExpiredError is returned when you attempt to access a
+// communal storage location when there is an active cluster lease on it.
 type ClusterLeaseNotExpiredError struct {
 	Expiration string
 }
