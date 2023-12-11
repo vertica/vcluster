@@ -36,7 +36,8 @@ func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	return opt
 }
 
-// TODO: call this func when honor-user-input is implemented
+// AnalyzeOptions verifies the host options for the VDropDatabaseOptions struct and 
+// returns any error encountered.
 func (options *VDropDatabaseOptions) AnalyzeOptions() error {
 	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
 	if err != nil {
