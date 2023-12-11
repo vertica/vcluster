@@ -68,8 +68,8 @@ func (e *ClusterLeaseNotExpiredError) Error() string {
 		e.Expiration)
 }
 
-// ReviveDBNodeCountMismatchError is returned when the number of nodes in new cluster
-// does not match the number of nodes in original cluster
+// ReviveDBNodeCountMismatchError is the error that is returned when the number of
+// nodes in the new cluster does not match the number of nodes in the original cluster.
 type ReviveDBNodeCountMismatchError struct {
 	ReviveDBStep  string
 	FailureHost   string
