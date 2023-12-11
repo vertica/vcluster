@@ -105,12 +105,11 @@ func (o *VRemoveScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	return o.setUsePassword(logger)
 }
 
-/*
-VRemoveSubcluster has three major phases:
- 1. pre-check (check the subcluster name and get nodes for the subcluster)
- 2. run VRemoveNode (refer to the instructions in VRemoveNode; Optional: if there are any nodes still associated with the subcluster)
- 3. run drop subcluster (i.e., remove the subcluster name from catalog)
-*/
+// VRemoveSubcluster removes a subcluster. It returns updated database catalog information and any error encountered.
+// VRemoveSubcluster has three major phases:
+//  1. Pre-check: check the subcluster name and get nodes for the subcluster.
+//  2. Removes nodes: Optional. If there are any nodes still associated with the subcluster, runs VRemoveNode.
+//  3. Drop the subcluster: Remove the subcluster name from the database catalog.
 func (vcc *VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 
