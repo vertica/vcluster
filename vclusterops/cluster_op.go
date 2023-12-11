@@ -380,8 +380,8 @@ func (opb *opHTTPSBase) validateAndSetUsernameAndPassword(opName string, useHTTP
 	return nil
 }
 
-// VClusterCommands passes state around for all top-level admin commands (e.g. create db,
-// add node, etc.). We also use it for mocking in unit tests.
+// VClusterCommands passes state around for all top-level administrator commands 
+// (e.g. create db, add node, etc.).
 type VClusterCommands struct {
 	Log vlog.Printer
 }
