@@ -239,7 +239,7 @@ type reIPRow struct {
 }
 
 // ReadReIPFile reads the re-IP file and builds a slice of ReIPInfo.
-// It returns any errors encountered.
+// It returns any error encountered.
 func (opt *VReIPOptions) ReadReIPFile(path string) error {
 	if err := util.AbsPathCheck(path); err != nil {
 		return fmt.Errorf("must specify an absolute path for the re-ip file")
