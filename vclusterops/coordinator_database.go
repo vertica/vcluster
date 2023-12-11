@@ -26,14 +26,9 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-/* VCoordinationDatabase contains a copy of some of the CAT::Database
- * information from the catalog. It also contains a list of VCoordinationNodes.
- * It is similar to the admintools VDatabase object.
- *
- * The create database command produces a VCoordinationDatabase.
- * Start database, for example, consumes a VCoordinationDatabase.
- *
- */
+// VCoordinationDatabase represents catalog and node information for a database. The
+// VCreateDatabase command returns a VCoordinationDatabase struct. Operations on 
+// an existing database (e.g. VStartDatabase) consume a VCoordinationDatabase struct.
 type VCoordinationDatabase struct {
 	Name string
 	// processed path prefixes
