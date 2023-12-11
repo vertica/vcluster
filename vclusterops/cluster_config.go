@@ -39,7 +39,7 @@ type Config struct {
 	Databases ClusterConfig `yaml:"databases"`
 }
 
-// ClusterConfig holds information of the databases in the cluster
+// ClusterConfig stores configuration information for each database in the cluster.
 type ClusterConfig map[string]DatabaseConfig
 
 type DatabaseConfig struct {
