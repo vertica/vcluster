@@ -22,14 +22,12 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// Normal strings are easier and safer to use in Go.
+// VStartNodesOptions represents the available options when you start one or more nodes
+// with VStartNodes.
 type VStartNodesOptions struct {
-	// basic db info
-	DatabaseOptions
-	// A set of nodes(nodename - host) that we want to start in the database
-	Nodes map[string]string
-	// timeout for polling nodes that we want to start in httpsPollNodeStateOp
-	StatePollingTimeout int
+	DatabaseOptions		// basic db info
+	Nodes map[string]string // A set of nodes(nodename - host) that we want to start in the database
+	StatePollingTimeout int // timeout for polling nodes that we want to start in httpsPollNodeStateOp
 }
 
 type VStartNodesInfo struct {
