@@ -109,9 +109,10 @@ func (options *VStartNodesOptions) validateAnalyzeOptions(logger vlog.Printer) e
 	return options.analyzeOptions()
 }
 
-// VStartNodes will start the given nodes for a cluster that has not yet lost
-// cluster quorum. This will handle updating of the nodes IP in the vertica
-// catalog if necessary. Use VStartDatabase if cluster quorum is lost.
+// VStartNodes starts the given nodes for a cluster that has not yet lost 
+// cluster quorum and returns any error encountered. If necessary, it updates 
+// the node's IP in the Vertica catalog.
+// If cluster quorum is already lost, use VStartDatabase.
 func (vcc *VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	/*
 	 *   - Produce Instructions
