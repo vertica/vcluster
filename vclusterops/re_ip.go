@@ -114,7 +114,8 @@ func (opt *VReIPOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	return nil
 }
 
-// VReIP changes nodes addresses (node address, control address, and control broadcast)
+// VReIP changes the node address, control address, and control broadcast for a node.
+// It returns any error encountered.
 func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	/*
 	 *   - Produce Instructions
@@ -237,7 +238,8 @@ type reIPRow struct {
 	NewControlBroadcast string `json:"to_control_broadcast,omitempty"`
 }
 
-// ReadReIPFile reads the re-ip file and build a list of ReIPInfo
+// ReadReIPFile reads the re-IP file and builds a slice of ReIPInfo.
+// It returns any error encountered.
 func (opt *VReIPOptions) ReadReIPFile(path string) error {
 	if err := util.AbsPathCheck(path); err != nil {
 		return fmt.Errorf("must specify an absolute path for the re-ip file")

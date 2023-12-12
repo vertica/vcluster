@@ -105,7 +105,8 @@ func (options *VReviveDatabaseOptions) validateAnalyzeOptions() error {
 	return options.analyzeOptions()
 }
 
-// VReviveDatabase can revive a database which has been terminated but its communal storage data still exists
+// VReviveDatabase revives a database that was terminated but whose communal storage data still exists.
+// It returns the database information retrieved from communal storage and any error encountered.
 func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, err error) {
 	/*
 	 *   - Validate options

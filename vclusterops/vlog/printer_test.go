@@ -16,10 +16,27 @@
 package vlog
 
 import (
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// CaptureStdout returns the stdout of the function f as a string
+func CaptureStdout(f func()) string {
+	originalStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	f()
+
+	w.Close()
+	out, _ := io.ReadAll(r)
+	os.Stdout = originalStdout
+
+	return string(out)
+}
 
 func TestPasswordRedaction(t *testing.T) {
 	// test pw redaction
@@ -34,4 +51,25 @@ func TestPasswordRedaction(t *testing.T) {
 	unmaskedArgs := logMaskedArgParseHelper(argv)
 	assert.Len(t, unmaskedArgs, 2)
 	assert.Equal(t, pw, unmaskedArgs[1])
+}
+
+func TestPrintWithIndent(t *testing.T) {
+	var p Printer
+
+	const testMessage = "test message"
+
+	// when ForCli is false, PrintWithIndent() should not output to stdout
+	p.ForCli = false
+	output := CaptureStdout(func() {
+		p.PrintWithIndent(testMessage)
+	})
+	assert.Empty(t, output)
+
+	// when ForCli is true,
+	// PrintWithIndent() should output the message to stdout with indentation
+	p.ForCli = true
+	output = CaptureStdout(func() {
+		p.PrintWithIndent(testMessage)
+	})
+	assert.Equal(t, output, "  "+testMessage+"\n")
 }

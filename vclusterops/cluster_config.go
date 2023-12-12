@@ -39,7 +39,7 @@ type Config struct {
 	Databases ClusterConfig `yaml:"databases"`
 }
 
-// ClusterConfig holds information of the databases in the cluster
+// ClusterConfig is a map that stores configuration information for each database in the cluster.
 type ClusterConfig map[string]DatabaseConfig
 
 type DatabaseConfig struct {
@@ -66,7 +66,8 @@ func MakeDatabaseConfig() DatabaseConfig {
 	return DatabaseConfig{}
 }
 
-// read config information from the YAML file
+// ReadConfig reads cluster configuration information from a YAML-formatted file in configDirectory.
+// It returns a ClusterConfig and any error encountered when reading and parsing the file.
 func ReadConfig(configDirectory string, logger vlog.Printer) (ClusterConfig, error) {
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBytes, err := os.ReadFile(configFilePath)
@@ -103,7 +104,8 @@ func ReadConfig(configDirectory string, logger vlog.Printer) (ClusterConfig, err
 	return clusterConfig, nil
 }
 
-// write config information to the YAML file
+// WriteConfig writes configuration information to configFilePath.
+// It returns any write error encountered.
 func (c *ClusterConfig) WriteConfig(configFilePath string) error {
 	var config Config
 	config.Version = CurrentConfigFileVersion

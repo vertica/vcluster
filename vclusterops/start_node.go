@@ -22,14 +22,12 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// Normal strings are easier and safer to use in Go.
+// VStartNodesOptions represents the available options when you start one or more nodes
+// with VStartNodes.
 type VStartNodesOptions struct {
-	// basic db info
-	DatabaseOptions
-	// A set of nodes(nodename - host) that we want to start in the database
-	Nodes map[string]string
-	// timeout for polling nodes that we want to start in httpsPollNodeStateOp
-	StatePollingTimeout int
+	DatabaseOptions                       // basic db info
+	Nodes               map[string]string // A set of nodes(nodename - host) that we want to start in the database
+	StatePollingTimeout int               // timeout for polling nodes that we want to start in httpsPollNodeStateOp
 }
 
 type VStartNodesInfo struct {
@@ -84,8 +82,8 @@ func (options *VStartNodesOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-// ParseNodesList builds and returns a map from a comma-separated list of nodes.
-// Ex: vnodeName1=host1,vnodeName2=host2 ---> map[string]string{vnodeName1: host1, vnodeName2: host2}
+// ParseNodesList builds and returns a map of nodes from a comma-separated list of nodes.
+// For example, vnodeName1=host1,vnodeName2=host2 is converted to map[string]string{vnodeName1: host1, vnodeName2: host2}
 func (options *VStartNodesOptions) ParseNodesList(nodeListStr string) error {
 	nodes, err := util.ParseKeyValueListStr(nodeListStr, "restart")
 	if err != nil {
@@ -109,9 +107,10 @@ func (options *VStartNodesOptions) validateAnalyzeOptions(logger vlog.Printer) e
 	return options.analyzeOptions()
 }
 
-// VStartNodes will start the given nodes for a cluster that has not yet lost
-// cluster quorum. This will handle updating of the nodes IP in the vertica
-// catalog if necessary. Use VStartDatabase if cluster quorum is lost.
+// VStartNodes starts the given nodes for a cluster that has not yet lost
+// cluster quorum and returns any error encountered.
+// If necessary, it updates the node's IP in the Vertica catalog.
+// If cluster quorum is already lost, use VStartDatabase.
 func (vcc *VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	/*
 	 *   - Produce Instructions

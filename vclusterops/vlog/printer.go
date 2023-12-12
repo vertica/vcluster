@@ -218,8 +218,10 @@ func (p *Printer) SetupOrDie(logFile string) {
 }
 
 // PrintWithIndent prints message to console only with an indentation
-func PrintWithIndent(msg string, v ...any) {
-	// the indent level may be adjusted
-	const indentLevel = 2
-	fmt.Printf("%*s%s\n", indentLevel, "", fmt.Sprintf(msg, v...))
+func (p *Printer) PrintWithIndent(msg string, v ...any) {
+	if p.ForCli {
+		// the indent level may be adjusted
+		const indentLevel = 2
+		fmt.Printf("%*s%s\n", indentLevel, "", fmt.Sprintf(msg, v...))
+	}
 }

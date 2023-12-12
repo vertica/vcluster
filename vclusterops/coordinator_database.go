@@ -26,14 +26,9 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-/* VCoordinationDatabase contains a copy of some of the CAT::Database
- * information from the catalog. It also contains a list of VCoordinationNodes.
- * It is similar to the admintools VDatabase object.
- *
- * The create database command produces a VCoordinationDatabase.
- * Start database, for example, consumes a VCoordinationDatabase.
- *
- */
+// VCoordinationDatabase represents catalog and node information for a database. The
+// VCreateDatabase command returns a VCoordinationDatabase struct. Operations on
+// an existing database (e.g. VStartDatabase) consume a VCoordinationDatabase struct.
 type VCoordinationDatabase struct {
 	Name string
 	// processed path prefixes
@@ -345,11 +340,7 @@ func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
 	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 
-/* VCoordinationNode contains a copy of the some of CAT::Node information
- * from the database catalog (visible in the vs_nodes table). It is similar
- * to the admintools VNode object.
- *
- */
+// VCoordinationNode represents node information from the database catalog.
 type VCoordinationNode struct {
 	Name    string `json:"name"`
 	Address string
@@ -427,7 +418,9 @@ func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *V
 	}
 }
 
-// WriteClusterConfig updates the yaml config file with the given vdb information
+// WriteClusterConfig updates cluster configuration with the YAML-formatted file in configDir
+// and writes to the log and stdout.
+// It returns any error encountered.
 func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, logger vlog.Printer) error {
 	/* build config information
 	 */

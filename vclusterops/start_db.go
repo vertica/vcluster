@@ -22,18 +22,12 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// Normal strings are easier and safer to use in Go.
+// VStartDatabaseOptions represents the available options when you start a database
+// with VStartDatabase.
 type VStartDatabaseOptions struct {
-	// basic db info
-	DatabaseOptions
-
-	// timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
-	StatePollingTimeout *int
-
-	/* hidden option */
-
-	// whether trim the input host list based on the catalog info
-	TrimHostList *bool
+	DatabaseOptions           // basic db info
+	StatePollingTimeout *int  // timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
+	TrimHostList        *bool // whether trim the input host list based on the catalog info
 }
 
 func VStartDatabaseOptionsFactory() VStartDatabaseOptions {

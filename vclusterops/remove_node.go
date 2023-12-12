@@ -24,16 +24,13 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// VRemoveNodeOptions are the option arguments for the VRemoveNode API
+// VRemoveNodeOptions represents the available options to remove one or more nodes from
+// the database.
 type VRemoveNodeOptions struct {
 	DatabaseOptions
-	// Hosts to remove from database
-	HostsToRemove []string
-	// A primary up host that will be used to execute
-	// remove_node operations.
-	Initiator string
-	// whether force delete directories
-	ForceDelete *bool
+	HostsToRemove []string // Hosts to remove from database
+	Initiator     string   // A primary up host that will be used to execute remove_node operations.
+	ForceDelete   *bool    // whether force delete directories
 }
 
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
@@ -51,8 +48,9 @@ func (o *VRemoveNodeOptions) setDefaultValues() {
 	*o.ForceDelete = true
 }
 
-// ParseHostToRemoveList converts the string list of hosts, to remove, into a slice of strings.
-// The hosts should be separated by comma, and will be converted to lower case.
+// ParseHostToRemoveList converts a comma-separated string list of hosts into a slice of host names
+// to remove from the database. During parsing, the hosts are converted to lowercase.
+// It returns any parsing error encountered.
 func (o *VRemoveNodeOptions) ParseHostToRemoveList(hosts string) error {
 	inputHostList, err := util.SplitHosts(hosts)
 	if err != nil {

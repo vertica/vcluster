@@ -140,7 +140,7 @@ func (op *httpsPollNodeStateOp) finalize(_ *opEngineExecContext) error {
 }
 
 func (op *httpsPollNodeStateOp) processResult(execContext *opEngineExecContext) error {
-	vlog.PrintWithIndent("[%s] expecting %d up host(s)", op.name, len(op.hosts))
+	op.logger.PrintWithIndent("[%s] expecting %d up host(s)", op.name, len(op.hosts))
 
 	err := pollState(op, execContext)
 	if err != nil {
@@ -206,11 +206,11 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 	}
 
 	if upNodeCount < len(op.hosts) {
-		vlog.PrintWithIndent("[%s] %d host(s) up", op.name, upNodeCount)
+		op.logger.PrintWithIndent("[%s] %d host(s) up", op.name, upNodeCount)
 		return false, nil
 	}
 
-	vlog.PrintWithIndent("[%s] All nodes are up", op.name)
+	op.logger.PrintWithIndent("[%s] All nodes are up", op.name)
 
 	return true, nil
 }

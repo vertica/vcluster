@@ -55,8 +55,8 @@ type downloadFileRequestData struct {
 	Parameters          map[string]string `json:"parameters,omitempty"`
 }
 
-// ClusterLeaseNotExpiredFailure is returned when an attempt is made to use a
-// communal storage before the lease for it has expired.
+// ClusterLeaseNotExpiredError is returned when you attempt to access a
+// communal storage location when there is an active cluster lease on it.
 type ClusterLeaseNotExpiredError struct {
 	Expiration string
 }
@@ -68,8 +68,8 @@ func (e *ClusterLeaseNotExpiredError) Error() string {
 		e.Expiration)
 }
 
-// ReviveDBNodeCountMismatchError is returned when the number of nodes in new cluster
-// does not match the number of nodes in original cluster
+// ReviveDBNodeCountMismatchError is the error that is returned when the number of
+// nodes in the revived cluster does not match the number of nodes in the original cluster.
 type ReviveDBNodeCountMismatchError struct {
 	ReviveDBStep  string
 	FailureHost   string

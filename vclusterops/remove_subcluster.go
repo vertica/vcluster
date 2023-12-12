@@ -24,13 +24,12 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// VRemoveScOptions are the option arguments for the VRemoveSubcluster API
+// VRemoveScOptions represents the available options when you remove a subcluster from a
+// database.
 type VRemoveScOptions struct {
 	DatabaseOptions
-	// Subcluster to remove from database
-	SubclusterToRemove *string
-	// whether force delete directories
-	ForceDelete *bool
+	SubclusterToRemove *string // subcluster to remove from database
+	ForceDelete        *bool   // whether force delete directories
 }
 
 func VRemoveScOptionsFactory() VRemoveScOptions {
@@ -105,12 +104,11 @@ func (o *VRemoveScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	return o.setUsePassword(logger)
 }
 
-/*
-VRemoveSubcluster has three major phases:
- 1. pre-check (check the subcluster name and get nodes for the subcluster)
- 2. run VRemoveNode (refer to the instructions in VRemoveNode; Optional: if there are any nodes still associated with the subcluster)
- 3. run drop subcluster (i.e., remove the subcluster name from catalog)
-*/
+// VRemoveSubcluster removes a subcluster. It returns updated database catalog information and any error encountered.
+// VRemoveSubcluster has three major phases:
+//  1. Pre-check: check the subcluster name and get nodes for the subcluster.
+//  2. Removes nodes: Optional. If there are any nodes still associated with the subcluster, runs VRemoveNode.
+//  3. Drop the subcluster: Remove the subcluster name from the database catalog.
 func (vcc *VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 

@@ -23,25 +23,17 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// VAddNodeOptions are the option arguments for the VAddNode API
+// VAddNodeOptions represents the available options for VAddNode.
 type VAddNodeOptions struct {
 	DatabaseOptions
-	// Hosts to add to database
-	NewHosts []string
-	// Name of the subcluster that the new nodes will be added to
-	SCName *string
-	// A primary up host that will be used to execute
-	// add_node operations.
-	Initiator string
-	DepotSize *string // like 10G
-	// Skip rebalance shards if true
-	SkipRebalanceShards *bool
-	// Use force remove if true
-	ForceRemoval *bool
-
-	// Names of the existing nodes in the cluster.
-	// This options can be used to remove partially added nodes from catalog.
-	ExpectedNodeNames []string
+	NewHosts            []string // Hosts to add to database
+	SCName              *string  // Name of the subcluster that the new nodes will be added to
+	Initiator           string   // A primary up host that will be used to execute add_node operations.
+	DepotSize           *string  // Depot size, e.g. 10G
+	SkipRebalanceShards *bool    // Skip rebalance shards if true
+	ForceRemoval        *bool    // Use force remove if true
+	ExpectedNodeNames   []string // Names of the existing nodes in the cluster. This option can be
+	// used to remove partially added nodes from catalog.
 }
 
 func VAddNodeOptionsFactory() VAddNodeOptions {
@@ -119,7 +111,8 @@ func (o *VAddNodeOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	return o.analyzeOptions()
 }
 
-// VAddNode is the top-level API for adding node(s) to an existing database.
+// VAddNode adds one or more nodes to an existing database.
+// It returns a VCoordinationDatabase that contains catalog information and any error encountered.
 func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 

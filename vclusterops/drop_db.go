@@ -22,8 +22,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-// A good rule of thumb is to use normal strings unless you need nil.
-// Normal strings are easier and safer to use in Go.
+// VDropDatabaseOptions adds to VCreateDatabaseOptions the option to force delete directories.
 type VDropDatabaseOptions struct {
 	VCreateDatabaseOptions
 	ForceDelete *bool // whether force delete directories
@@ -37,7 +36,8 @@ func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	return opt
 }
 
-// TODO: call this func when honor-user-input is implemented
+// AnalyzeOptions verifies the host options for the VDropDatabaseOptions struct and
+// returns any error encountered.
 func (options *VDropDatabaseOptions) AnalyzeOptions() error {
 	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
 	if err != nil {

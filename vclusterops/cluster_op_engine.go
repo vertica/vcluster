@@ -72,7 +72,7 @@ func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
 			return fmt.Errorf("finalize failed %w", err)
 		}
 
-		vlog.PrintWithIndent("[%s] is successfully completed", op.getName())
+		logger.PrintWithIndent("[%s] is successfully completed", op.getName())
 	}
 
 	return nil
