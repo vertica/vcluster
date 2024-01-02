@@ -25,21 +25,29 @@ import (
 
 type nmaStartNodeOp struct {
 	opBase
+	startupConf        string
 	hostRequestBodyMap map[string]string
 	vdb                *VCoordinationDatabase
 }
 
+type startNodeRequestData struct {
+	StartCommand []string `json:"start_command"`
+	StartupConf  string   `json:"startup_conf"`
+}
+
 func makeNMAStartNodeOp(logger vlog.Printer,
-	hosts []string) nmaStartNodeOp {
+	hosts []string, startupConf string) nmaStartNodeOp {
 	startNodeOp := nmaStartNodeOp{}
 	startNodeOp.name = "NMAStartNodeOp"
 	startNodeOp.logger = logger.WithName(startNodeOp.name)
 	startNodeOp.hosts = hosts
+	startNodeOp.startupConf = startupConf
 	return startNodeOp
 }
 
-func makeNMAStartNodeOpWithVDB(logger vlog.Printer, hosts []string, vdb *VCoordinationDatabase) nmaStartNodeOp {
-	startNodeOp := makeNMAStartNodeOp(logger, hosts)
+func makeNMAStartNodeOpWithVDB(logger vlog.Printer,
+	hosts []string, startupConf string, vdb *VCoordinationDatabase) nmaStartNodeOp {
+	startNodeOp := makeNMAStartNodeOp(logger, hosts, startupConf)
 	startNodeOp.vdb = vdb
 	return startNodeOp
 }
@@ -85,15 +93,16 @@ func (op *nmaStartNodeOp) updateRequestBody(execContext *opEngineExecContext) er
 }
 
 func (op *nmaStartNodeOp) updateHostRequestBodyMapFromNodeStartCommand(host string, hostStartCommand []string) error {
-	type NodeStartCommand struct {
-		StartCommand []string `json:"start_command"`
+	startNodeData := startNodeRequestData{
+		StartCommand: hostStartCommand,
+		StartupConf:  op.startupConf,
 	}
-	nodeStartCommand := NodeStartCommand{StartCommand: hostStartCommand}
-	marshaledCommand, err := json.Marshal(nodeStartCommand)
+
+	dataBytes, err := json.Marshal(startNodeData)
 	if err != nil {
-		return fmt.Errorf("[%s] fail to marshal start command to JSON string %w", op.name, err)
+		return fmt.Errorf("[%s] fail to marshal request data to JSON string %w", op.name, err)
 	}
-	op.hostRequestBodyMap[host] = string(marshaledCommand)
+	op.hostRequestBodyMap[host] = string(dataBytes)
 	return nil
 }
 

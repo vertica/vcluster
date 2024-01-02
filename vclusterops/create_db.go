@@ -58,6 +58,11 @@ type VCreateDatabaseOptions struct {
 
 	SkipStartupPolling *bool // whether skip startup polling
 	GenerateHTTPCerts  *bool // whether generate http certificates
+	// If the path is set, the NMA will store the Vertica start command at the path
+	// instead of executing it. This is useful in containerized environments where
+	// you may not want to have both the NMA and Vertica server in the same container.
+	// This feature requires version 24.2.0+.
+	StartUpConf *string
 
 	/* hidden options (which cache information only) */
 
@@ -91,6 +96,7 @@ func (opt *VCreateDatabaseOptions) setDefaultValues() {
 	opt.ForceRemovalAtCreation = new(bool)
 	opt.SkipPackageInstall = new(bool)
 	opt.GenerateHTTPCerts = new(bool)
+	opt.StartUpConf = new(string)
 
 	defaultTimeoutNodeStartupSeconds := util.DefaultTimeoutSeconds
 	opt.TimeoutNodeStartupSeconds = &defaultTimeoutNodeStartupSeconds
@@ -531,7 +537,7 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 		)
 	}
 
-	nmaStartNodeOp := makeNMAStartNodeOp(vcc.Log, bootstrapHost)
+	nmaStartNodeOp := makeNMAStartNodeOp(vcc.Log, bootstrapHost, *options.StartUpConf)
 
 	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, bootstrapHost, true, /* useHTTPPassword */
 		*options.UserName, options.Password)
@@ -598,7 +604,7 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 			bootstrapHost,
 			vdb.HostList,
 			vdb /*db configurations retrieved from a running db*/)
-		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, newNodeHosts, vdb)
+		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, newNodeHosts, *options.StartUpConf, vdb)
 		instructions = append(instructions, &nmaStartNewNodesOp)
 	}
 

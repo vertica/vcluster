@@ -42,12 +42,16 @@ func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
 	execContext := makeOpEngineExecContext(logger)
 	opEngine.execContext = &execContext
 
+	return opEngine.runWithExecContext(logger, &execContext)
+}
+
+func (opEngine *VClusterOpEngine) runWithExecContext(logger vlog.Printer, execContext *opEngineExecContext) error {
 	findCertsInOptions := opEngine.shouldGetCertsFromOptions()
 
 	for _, op := range opEngine.instructions {
 		op.setupBasicInfo()
 		op.logPrepare()
-		err := op.prepare(&execContext)
+		err := op.prepare(execContext)
 		if err != nil {
 			return fmt.Errorf("prepare %s failed, details: %w", op.getName(), err)
 		}
@@ -60,14 +64,14 @@ func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
 
 			// execute an instruction
 			op.logExecute()
-			err = op.execute(&execContext)
+			err = op.execute(execContext)
 			if err != nil {
 				return fmt.Errorf("execute %s failed, details: %w", op.getName(), err)
 			}
 		}
 
 		op.logFinalize()
-		err = op.finalize(&execContext)
+		err = op.finalize(execContext)
 		if err != nil {
 			return fmt.Errorf("finalize failed %w", err)
 		}

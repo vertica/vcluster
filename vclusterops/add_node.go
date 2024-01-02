@@ -26,14 +26,26 @@ import (
 // VAddNodeOptions represents the available options for VAddNode.
 type VAddNodeOptions struct {
 	DatabaseOptions
-	NewHosts            []string // Hosts to add to database
-	SCName              *string  // Name of the subcluster that the new nodes will be added to
-	Initiator           string   // A primary up host that will be used to execute add_node operations.
-	DepotSize           *string  // Depot size, e.g. 10G
-	SkipRebalanceShards *bool    // Skip rebalance shards if true
-	ForceRemoval        *bool    // Use force remove if true
-	ExpectedNodeNames   []string // Names of the existing nodes in the cluster. This option can be
+	// Hosts to add to database
+	NewHosts []string
+	// Name of the subcluster that the new nodes will be added to
+	SCName *string
+	// A primary up host that will be used to execute add_node operations
+	Initiator string
+	// Depot size, e.g. 10G
+	DepotSize *string
+	// Skip rebalance shards if true
+	SkipRebalanceShards *bool
+	// Use force remove if true
+	ForceRemoval *bool
+	// If the path is set, the NMA will store the Vertica start command at the path
+	// instead of executing it. This is useful in containerized environments where
+	// you may not want to have both the NMA and Vertica server in the same container.
+	// This feature requires version 24.2.0+.
+	StartUpConf *string
+	// Names of the existing nodes in the cluster. This option can be
 	// used to remove partially added nodes from catalog.
+	ExpectedNodeNames []string
 }
 
 func VAddNodeOptionsFactory() VAddNodeOptions {
@@ -51,6 +63,7 @@ func (o *VAddNodeOptions) setDefaultValues() {
 	o.SkipRebalanceShards = new(bool)
 	o.DepotSize = new(string)
 	o.ForceRemoval = new(bool)
+	o.StartUpConf = new(string)
 }
 
 func (o *VAddNodeOptions) validateEonOptions() error {
@@ -388,7 +401,7 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 		vdb.HostList,
 		vdb /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, newHosts, vdb)
+	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, newHosts, *options.StartUpConf, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, newHosts, usePassword, username, password)
 	if err != nil {
 		return instructions, err

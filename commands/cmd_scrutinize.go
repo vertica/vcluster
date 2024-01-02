@@ -23,13 +23,12 @@ import (
 	"os"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 )
 
 const (
@@ -51,11 +50,13 @@ const (
 
 // secretRetriever is an interface for retrieving secrets.
 type secretRetriever interface {
-	RetrieveSecret(namespace, secretName string) ([]byte, []byte, []byte, error)
+	RetrieveSecret(logger vlog.Printer, namespace, secretName string) ([]byte, []byte, []byte, error)
 }
 
-// k8sSecretRetrieverStruct is an implementation of secretRetriever.
-type k8sSecretRetrieverStruct struct {
+// secretStoreRetrieverStruct is an implementation of secretRetriever. It
+// handles reading secrets from k8s and external sources like GSM, AWS, etc.
+type secretStoreRetrieverStruct struct {
+	Log vlog.Printer
 }
 
 /* CmdScrutinize
@@ -68,15 +69,15 @@ type k8sSecretRetrieverStruct struct {
  */
 type CmdScrutinize struct {
 	CmdBase
-	k8secretRetreiver secretRetriever
-	sOptions          vclusterops.VScrutinizeOptions
+	secretStoreRetriever secretRetriever
+	sOptions             vclusterops.VScrutinizeOptions
 }
 
 func makeCmdScrutinize() *CmdScrutinize {
 	newCmd := &CmdScrutinize{}
 	newCmd.parser = flag.NewFlagSet("scrutinize", flag.ExitOnError)
 	newCmd.sOptions = vclusterops.VScrutinizOptionsFactory()
-	newCmd.k8secretRetreiver = k8sSecretRetrieverStruct{}
+	newCmd.secretStoreRetriever = secretStoreRetrieverStruct{}
 	// required flags
 	newCmd.sOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to run scrutinize.  May be omitted on k8s.")
 
@@ -194,35 +195,40 @@ func (c *CmdScrutinize) Run(vcc vclusterops.VClusterCommands) error {
 	return err
 }
 
-// RetrieveSecret retrieves a secret from Kubernetes and returns its data.
-func (k8sSecretRetrieverStruct) RetrieveSecret(namespace, secretName string) (ca, cert, key []byte, err error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, nil, nil, err
+// RetrieveSecret retrieves a secret from a secret store, such as Kubernetes or
+// GSM, and returns its data.
+func (k secretStoreRetrieverStruct) RetrieveSecret(logger vlog.Printer, namespace, secretName string) (ca, cert, key []byte, err error) {
+	// We use MultiSourceSecretFetcher since it will use the correct client
+	// depending on the secret path reference of the secret name. This can
+	// handle reading clients from the k8s-apiserver using a k8s client, or from
+	// external sources such as Google Secret Manager (GSM).
+	fetcher := secrets.MultiSourceSecretFetcher{
+		Log: &logger,
 	}
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, nil, nil, err
+	ctx := context.Background()
+	var certData map[string][]byte
+	fetchName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      secretName,
 	}
-	secretsClient := clientset.CoreV1().Secrets(namespace)
-	certData, err := secretsClient.Get(context.Background(), secretName, metav1.GetOptions{})
+	certData, err = fetcher.Fetch(ctx, fetchName)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("failed to fetch secret: %w", err)
 	}
 	const (
 		CACertName  = "ca.crt"
 		TLSCertName = "tls.crt"
 		TLSKeyName  = "tls.key"
 	)
-	caCertVal, exists := certData.Data[CACertName]
+	caCertVal, exists := certData[CACertName]
 	if !exists {
 		return nil, nil, nil, fmt.Errorf("missing key %s in secret", CACertName)
 	}
-	tlsCertVal, exists := certData.Data[TLSCertName]
+	tlsCertVal, exists := certData[TLSCertName]
 	if !exists {
 		return nil, nil, nil, fmt.Errorf("missing key %s in secret", TLSCertName)
 	}
-	tlsKeyVal, exists := certData.Data[TLSKeyName]
+	tlsKeyVal, exists := certData[TLSKeyName]
 	if !exists {
 		return nil, nil, nil, fmt.Errorf("missing key %s in secret", TLSKeyName)
 	}
@@ -231,7 +237,7 @@ func (k8sSecretRetrieverStruct) RetrieveSecret(namespace, secretName string) (ca
 
 func (c *CmdScrutinize) readNMACerts(logger vlog.Printer) error {
 	loaderFuncs := []func(vlog.Printer) (bool, error){
-		c.nmaCertLookupFromK8sSecret,
+		c.nmaCertLookupFromSecretStore,
 		c.nmaCertLookupFromEnv,
 	}
 	for _, fnc := range loaderFuncs {
@@ -244,9 +250,9 @@ func (c *CmdScrutinize) readNMACerts(logger vlog.Printer) error {
 	return nil
 }
 
-// nmaCertLookupFromK8sSecret retrieves PEM-encoded text of CA certs, the server cert, and
-// the server key directly from kubernetes secrets.
-func (c *CmdScrutinize) nmaCertLookupFromK8sSecret(logger vlog.Printer) (bool, error) {
+// nmaCertLookupFromSecretStore retrieves PEM-encoded text of CA certs, the server cert, and
+// the server key directly from a secret store.
+func (c *CmdScrutinize) nmaCertLookupFromSecretStore(logger vlog.Printer) (bool, error) {
 	_, portSet := os.LookupEnv(kubernetesPort)
 	if !portSet {
 		return false, nil
@@ -268,12 +274,12 @@ func (c *CmdScrutinize) nmaCertLookupFromK8sSecret(logger vlog.Printer) (bool, e
 		return false, nil
 	}
 
-	caCert, cert, key, err := c.k8secretRetreiver.RetrieveSecret(secretNameSpace, secretName)
+	caCert, cert, key, err := c.secretStoreRetriever.RetrieveSecret(logger, secretNameSpace, secretName)
 	if err != nil {
-		return false, fmt.Errorf("failed to read certs from k8s secret %s in namespace %s: %w", secretName, secretNameSpace, err)
+		return false, fmt.Errorf("failed to read certs from secret store with name %s in namespace %s: %w", secretName, secretNameSpace, err)
 	}
 	if len(caCert) != 0 && len(cert) != 0 && len(key) != 0 {
-		logger.Info("Successfully read cert from k8s secret ", "secretName", secretName, "secretNameSpace", secretNameSpace)
+		logger.Info("Successfully read cert from secret store", "secretName", secretName, "secretNameSpace", secretNameSpace)
 	} else {
 		return false, fmt.Errorf("failed to read CA, cert or key (sizes = %d/%d/%d)",
 			len(caCert), len(cert), len(key))

@@ -92,6 +92,11 @@ var (
 		"Internal error while persisting spread encryption key",
 		http.StatusInternalServerError,
 	)
+	GenericShowRestorePointsFailure = newProblemID(
+		path.Join(errorEndpointsPrefix, "internal-show-restore-points-failure"),
+		"Internal error while showing restore points",
+		http.StatusInternalServerError,
+	)
 	SubclusterNotFound = newProblemID(
 		path.Join(errorEndpointsPrefix, "subcluster-not-found"),
 		"Subcluster is not found",

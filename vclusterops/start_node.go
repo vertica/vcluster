@@ -25,9 +25,17 @@ import (
 // VStartNodesOptions represents the available options when you start one or more nodes
 // with VStartNodes.
 type VStartNodesOptions struct {
-	DatabaseOptions                       // basic db info
-	Nodes               map[string]string // A set of nodes(nodename - host) that we want to start in the database
-	StatePollingTimeout int               // timeout for polling nodes that we want to start in httpsPollNodeStateOp
+	// basic db info
+	DatabaseOptions
+	// A set of nodes(nodename - host) that we want to start in the database
+	Nodes map[string]string
+	// timeout for polling nodes that we want to start in httpsPollNodeStateOp
+	StatePollingTimeout int
+	// If the path is set, the NMA will store the Vertica start command at the path
+	// instead of executing it. This is useful in containerized environments where
+	// you may not want to have both the NMA and Vertica server in the same container.
+	// This feature requires version 24.2.0+.
+	StartUpConf *string
 }
 
 type VStartNodesInfo struct {
@@ -51,6 +59,7 @@ func VStartNodesOptionsFactory() VStartNodesOptions {
 
 func (options *VStartNodesOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
+	options.StartUpConf = new(string)
 }
 
 func (options *VStartNodesOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -277,7 +286,7 @@ func (vcc *VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStart
 	if err != nil {
 		return instructions, err
 	}
-	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, startNodeInfo.HostsToStart, vdb)
+	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, startNodeInfo.HostsToStart, *options.StartUpConf, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vcc.Log, startNodeInfo.HostsToStart,
 		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout, StartNodeCmd)
 	if err != nil {

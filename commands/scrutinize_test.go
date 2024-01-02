@@ -16,11 +16,14 @@
 package commands
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,8 +40,12 @@ type TestK8sSecretRetriever struct {
 	ca, cert, key string
 }
 
+func (t TestK8sSecretRetriever) GetSecret(_ context.Context, _ types.NamespacedName) (*corev1.Secret, error) {
+	return nil, nil
+}
+
 // RetrieveSecret retrieves a secret and returns mock values.
-func (t TestK8sSecretRetriever) RetrieveSecret(_, _ string) (caBytes []byte, certBytes []byte,
+func (t TestK8sSecretRetriever) RetrieveSecret(_ vlog.Printer, _, _ string) (caBytes []byte, certBytes []byte,
 	keyBytes []byte, err error) {
 	if !t.success { // Allow for dependency injection
 		return nil, nil, nil, errors.New("failed to retrieve secrets")
@@ -78,7 +85,7 @@ func TestScrutinCmd(t *testing.T) {
 func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	const randomBytes = "123"
 	c := makeCmdScrutinize()
-	c.k8secretRetreiver = TestK8sSecretRetriever{
+	c.secretStoreRetriever = TestK8sSecretRetriever{
 		success: true,
 		ca:      "test cert 1",
 		cert:    "test cert 2",
@@ -92,7 +99,7 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 
 	// Case 2: when the certs are configured correctly
 
-	ok, err := c.nmaCertLookupFromK8sSecret(vlog.Printer{})
+	ok, err := c.nmaCertLookupFromSecretStore(vlog.Printer{})
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, "test cert 1", c.sOptions.CaCert)
@@ -101,20 +108,20 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 
 	// If some of the keys are missing
 	c = makeCmdScrutinize()
-	c.k8secretRetreiver = TestK8sSecretRetriever{
+	c.secretStoreRetriever = TestK8sSecretRetriever{
 		success: true,
 		ca:      "test cert 1",
 		cert:    "test cert 2",
 		key:     "", // Missing
 	}
-	ok, err = c.nmaCertLookupFromK8sSecret(vlog.Printer{})
+	ok, err = c.nmaCertLookupFromSecretStore(vlog.Printer{})
 	assert.Error(t, err)
 	assert.False(t, ok)
 
 	// Failure to retrieve the secret should fail the request
 	c = makeCmdScrutinize()
-	c.k8secretRetreiver = TestK8sSecretRetriever{success: false}
-	ok, err = c.nmaCertLookupFromK8sSecret(vlog.Printer{})
+	c.secretStoreRetriever = TestK8sSecretRetriever{success: false}
+	ok, err = c.nmaCertLookupFromSecretStore(vlog.Printer{})
 	assert.Error(t, err)
 	assert.False(t, ok)
 
@@ -122,7 +129,7 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("KUBERNETES_PORT", randomBytes)
 	c = makeCmdScrutinize()
-	ok, err = c.nmaCertLookupFromK8sSecret(vlog.Printer{})
+	ok, err = c.nmaCertLookupFromSecretStore(vlog.Printer{})
 	assert.NoError(t, err)
 	assert.False(t, ok)
 }

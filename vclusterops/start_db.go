@@ -25,9 +25,17 @@ import (
 // VStartDatabaseOptions represents the available options when you start a database
 // with VStartDatabase.
 type VStartDatabaseOptions struct {
-	DatabaseOptions           // basic db info
-	StatePollingTimeout *int  // timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
-	TrimHostList        *bool // whether trim the input host list based on the catalog info
+	// basic db info
+	DatabaseOptions
+	// timeout for polling the states of all nodes in the database in HTTPSPollNodeStateOp
+	StatePollingTimeout *int
+	// whether trim the input host list based on the catalog info
+	TrimHostList *bool
+	// If the path is set, the NMA will store the Vertica start command at the path
+	// instead of executing it. This is useful in containerized environments where
+	// you may not want to have both the NMA and Vertica server in the same container.
+	// This feature requires version 24.2.0+.
+	StartUpConf *string
 }
 
 func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
@@ -38,6 +46,7 @@ func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
 
 	opt.StatePollingTimeout = new(int)
 	opt.TrimHostList = new(bool)
+	opt.StartUpConf = new(string)
 
 	return opt
 }
@@ -297,7 +306,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 		options.Hosts,
 		nil /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOp(vcc.Log, options.Hosts)
+	nmaStartNewNodesOp := makeNMAStartNodeOp(vcc.Log, options.Hosts, *options.StartUpConf)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vcc.Log, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, *options.StatePollingTimeout, StartDBCmd)
 	if err != nil {
