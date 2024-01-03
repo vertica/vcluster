@@ -102,6 +102,8 @@ func constructCmds(_ vlog.Printer) []ClusterCommand {
 		// sc-scope cmds
 		makeCmdAddSubcluster(),
 		makeCmdRemoveSubcluster(),
+		makeCmdSandboxSubcluster(),
+		makeCmdUnsandboxSubcluster(),
 		// node-scope cmds
 		makeCmdAddNode(),
 		makeCmdRemoveNode(),

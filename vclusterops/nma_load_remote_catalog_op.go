@@ -31,23 +31,27 @@ type nmaLoadRemoteCatalogOp struct {
 	vdb                     *VCoordinationDatabase
 	timeout                 uint
 	primaryNodeCount        uint
+	restorePoint            *RestorePointPolicy
 }
 
 type loadRemoteCatalogRequestData struct {
-	DBName             string              `json:"db_name"`
-	StorageLocations   []string            `json:"storage_locations"`
-	CommunalLocation   string              `json:"communal_location"`
-	CatalogPath        string              `json:"catalog_path"`
-	Host               string              `json:"host"`
-	NodeName           string              `json:"node_name"`
-	AWSAccessKeyID     string              `json:"aws_access_key_id,omitempty"`
-	AWSSecretAccessKey string              `json:"aws_secret_access_key,omitempty"`
-	NodeAddresses      map[string][]string `json:"node_addresses"`
-	Parameters         map[string]string   `json:"parameters,omitempty"`
+	DBName              string              `json:"db_name"`
+	StorageLocations    []string            `json:"storage_locations"`
+	CommunalLocation    string              `json:"communal_location"`
+	CatalogPath         string              `json:"catalog_path"`
+	Host                string              `json:"host"`
+	NodeName            string              `json:"node_name"`
+	AWSAccessKeyID      string              `json:"aws_access_key_id,omitempty"`
+	AWSSecretAccessKey  string              `json:"aws_secret_access_key,omitempty"`
+	NodeAddresses       map[string][]string `json:"node_addresses"`
+	Parameters          map[string]string   `json:"parameters,omitempty"`
+	RestorePointArchive string              `json:"restore_point_archive,omitempty"`
+	RestorePointIndex   int                 `json:"restore_point_index,omitempty"`
+	RestorePointID      string              `json:"restore_point_id,omitempty"`
 }
 
 func makeNMALoadRemoteCatalogOp(logger vlog.Printer, oldHosts []string, configurationParameters map[string]string,
-	vdb *VCoordinationDatabase, timeout uint) nmaLoadRemoteCatalogOp {
+	vdb *VCoordinationDatabase, timeout uint, restorePoint *RestorePointPolicy) nmaLoadRemoteCatalogOp {
 	op := nmaLoadRemoteCatalogOp{}
 	op.name = "NMALoadRemoteCatalogOp"
 	op.logger = logger.WithName(op.name)
@@ -56,6 +60,7 @@ func makeNMALoadRemoteCatalogOp(logger vlog.Printer, oldHosts []string, configur
 	op.configurationParameters = configurationParameters
 	op.vdb = vdb
 	op.timeout = timeout
+	op.restorePoint = restorePoint
 
 	op.primaryNodeCount = 0
 	for _, vnode := range vdb.HostNodeMap {
@@ -98,6 +103,17 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 		requestData.StorageLocations = vNode.StorageLocations
 		requestData.NodeAddresses = nodeAddresses
 		requestData.Parameters = op.configurationParameters
+		if op.restorePoint != nil {
+			if op.restorePoint.Archive != nil {
+				requestData.RestorePointArchive = *op.restorePoint.Archive
+			}
+			if op.restorePoint.Index != nil {
+				requestData.RestorePointIndex = *op.restorePoint.Index
+			}
+			if op.restorePoint.ID != nil {
+				requestData.RestorePointID = *op.restorePoint.ID
+			}
+		}
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {

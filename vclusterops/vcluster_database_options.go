@@ -89,11 +89,13 @@ const (
 )
 
 const (
-	commandCreateDB   = "create_db"
-	commandDropDB     = "drop_db"
-	commandStopDB     = "stop_db"
-	commandStartDB    = "start_db"
-	commandAddCluster = "db_add_subcluster"
+	commandCreateDB    = "create_db"
+	commandDropDB      = "drop_db"
+	commandStopDB      = "stop_db"
+	commandStartDB     = "start_db"
+	commandAddCluster  = "db_add_subcluster"
+	commandSandboxSC   = "sandbox_subcluster"
+	commandUnsandboxSC = "unsandbox_subcluster"
 )
 
 func (opt *DatabaseOptions) setDefaultValues() {
@@ -235,7 +237,8 @@ func (opt *DatabaseOptions) validateCatalogPath() error {
 func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
-	commands := []string{commandCreateDB, commandDropDB, commandStopDB, commandStartDB, commandAddCluster}
+	commands := []string{commandCreateDB, commandDropDB, commandStopDB, commandStartDB, commandAddCluster, commandSandboxSC,
+		commandUnsandboxSC}
 	if slices.Contains(commands, commandName) {
 		return nil
 	}

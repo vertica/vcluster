@@ -47,6 +47,12 @@ func makeCmdReviveDB() *CmdReviveDB {
 	reviveDBOptions.IgnoreClusterLease = newCmd.parser.Bool("ignore-cluster-lease", false,
 		util.GetOptionalFlagMsg("Ignore the check of other clusters running on the same communal storage."+
 			" The communal storage can be corrupted when two clusters modified it at the same time. Proceed with caution"))
+	reviveDBOptions.RestorePoint.Archive = newCmd.parser.String("restore-point-archive", "", util.GetOptionalFlagMsg(
+		"Name of the restore archive to use for bootstrapping"))
+	reviveDBOptions.RestorePoint.Index = newCmd.parser.Int("restore-point-index", 0, util.GetOptionalFlagMsg(
+		"The (1-based) index of the restore point in the restore archive to restore from"))
+	reviveDBOptions.RestorePoint.ID = newCmd.parser.String("restore-point-id", "", util.GetOptionalFlagMsg(
+		"The identifier of the restore point in the restore archive to restore from"))
 
 	newCmd.reviveDBOptions = &reviveDBOptions
 

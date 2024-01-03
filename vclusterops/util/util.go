@@ -37,12 +37,44 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+type FetchAllEnvVars interface {
+	SetK8Secrets(port, secretNameSpace, secretName string)
+	SetK8Certs(rootCAPath, certPath, keyPath string)
+	TypeName() string
+}
+
 const (
 	keyValueArrayLen = 2
 	ipv4Str          = "IPv4"
 	ipv6Str          = "IPv6"
 	AWSAuthKey       = "awsauth"
+	kubernetesPort   = "KUBERNETES_PORT"
+
+	// Environment variable names storing name of k8s secret that has NMA cert
+	secretNameSpaceEnvVar = "NMA_SECRET_NAMESPACE"
+	secretNameEnvVar      = "NMA_SECRET_NAME"
+
+	// Environment variable names for locating the NMA certs located in the file system
+	nmaRootCAPathEnvVar = "NMA_ROOTCA_PATH"
+	nmaCertPathEnvVar   = "NMA_CERT_PATH"
+	nmaKeyPathEnvVar    = "NMA_KEY_PATH"
 )
+
+// NmaSecretLookup retrieves kubernetes secrets.
+func NmaSecretLookup(f FetchAllEnvVars) {
+	k8port, _ := os.LookupEnv(kubernetesPort)
+	secretNameSpace, _ := os.LookupEnv(secretNameSpaceEnvVar)
+	secretName, _ := os.LookupEnv(secretNameEnvVar)
+	f.SetK8Secrets(k8port, secretNameSpace, secretName)
+}
+
+// NmaCertsLookup retrieves kubernetes certs.
+func NmaCertsLookup(f FetchAllEnvVars) {
+	rootCAPath, _ := os.LookupEnv(nmaRootCAPathEnvVar)
+	certPath, _ := os.LookupEnv(nmaCertPathEnvVar)
+	keyPath, _ := os.LookupEnv(nmaKeyPathEnvVar)
+	f.SetK8Certs(rootCAPath, certPath, keyPath)
+}
 
 func GetJSONLogErrors(responseContent string, responseObj any, opName string, logger vlog.Printer) error {
 	err := json.Unmarshal([]byte(responseContent), responseObj)
@@ -57,6 +89,28 @@ func GetJSONLogErrors(responseContent string, responseObj any, opName string, lo
 	}
 
 	return nil
+}
+
+func CheckNotEmpty(a string) bool {
+	return a != ""
+}
+
+func CheckAllEmptyOrNonEmpty(vars ...string) bool {
+	// Initialize flags for empty and non-empty conditions
+	allEmpty := true
+	allNonEmpty := true
+
+	// Check each string variable
+	for _, v := range vars {
+		if v != "" {
+			allEmpty = false
+		} else {
+			allNonEmpty = false
+		}
+	}
+
+	// Return true if either all are empty or all are non-empty
+	return allEmpty || allNonEmpty
 }
 
 // calculate array diff: m-n

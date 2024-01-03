@@ -36,6 +36,17 @@ type VReviveDatabaseOptions struct {
 	DisplayOnly *bool
 	// whether ignore the cluster lease
 	IgnoreClusterLease *bool
+	// the restore policy
+	RestorePoint *RestorePointPolicy
+}
+
+type RestorePointPolicy struct {
+	// Name of the restore archive to use for bootstrapping
+	Archive *string
+	// The (1-based) index of the restore point in the restore archive to restore from
+	Index *int
+	// The identifier of the restore point in the restore archive to restore from
+	ID *string
 }
 
 func VReviveDBOptionsFactory() VReviveDatabaseOptions {
@@ -56,6 +67,10 @@ func (options *VReviveDatabaseOptions) setDefaultValues() {
 	options.ForceRemoval = new(bool)
 	options.DisplayOnly = new(bool)
 	options.IgnoreClusterLease = new(bool)
+	options.RestorePoint = new(RestorePointPolicy)
+	options.RestorePoint.Archive = new(string)
+	options.RestorePoint.Index = new(int)
+	options.RestorePoint.ID = new(string)
 }
 
 func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
@@ -239,7 +254,7 @@ func (vcc *VClusterCommands) produceReviveDBInstructions(options *VReviveDatabas
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(vcc.Log, options.Hosts)
 
 	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(vcc.Log, oldHosts, options.ConfigurationParameters,
-		&newVDB, *options.LoadCatalogTimeout)
+		&newVDB, *options.LoadCatalogTimeout, options.RestorePoint)
 
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,
