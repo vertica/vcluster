@@ -48,6 +48,19 @@ func (op opType) String() string {
 	return "unknown operation"
 }
 
+// DBIsRunningError is an error to indicate we found the database still running.
+// This is emitted from this op. Callers can do type checking to perform an
+// action based on the error.
+type DBIsRunningError struct {
+	Detail string
+}
+
+// Error returns the message details. This is added so that it is compatible
+// with the error interface.
+func (e *DBIsRunningError) Error() string {
+	return e.Detail
+}
+
 type httpsCheckRunningDBOp struct {
 	opBase
 	opHTTPSBase
@@ -232,7 +245,7 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 	}
 
 	// when db is running, append an error to allErrs for stopping VClusterOpEngine
-	return errors.Join(allErrs, errors.New(msg))
+	return errors.Join(allErrs, &DBIsRunningError{Detail: msg})
 }
 
 func (op *httpsCheckRunningDBOp) execute(execContext *opEngineExecContext) error {
