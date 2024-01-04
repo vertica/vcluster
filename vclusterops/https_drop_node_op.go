@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -29,12 +30,14 @@ type httpsDropNodeOp struct {
 	RequestParams map[string]string
 }
 
+// makeHTTPSDropNodeOp is a constructor for httpsDropNodeOp. The cascade option
+// should be true if an EON deployment and the node we are dropping is down.
 func makeHTTPSDropNodeOp(logger vlog.Printer, vnode string,
 	initiatorHost []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,
-	isEon bool) (httpsDropNodeOp, error) {
+	cascade bool) (httpsDropNodeOp, error) {
 	op := httpsDropNodeOp{}
 	op.name = "HTTPSDropNodeOp"
 	op.logger = logger.WithName(op.name)
@@ -48,11 +51,7 @@ func makeHTTPSDropNodeOp(logger vlog.Printer, vnode string,
 	op.userName = userName
 	op.httpsPassword = httpsPassword
 	op.RequestParams = make(map[string]string)
-	if isEon {
-		op.RequestParams["cascade"] = "true"
-		return op, nil
-	}
-	op.RequestParams["cascade"] = "false"
+	op.RequestParams["cascade"] = strconv.FormatBool(cascade)
 	return op, nil
 }
 

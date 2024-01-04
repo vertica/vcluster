@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 	"golang.org/x/exp/maps"
@@ -264,21 +265,22 @@ func (vdb *VCoordinationDatabase) getSCNames() []string {
 	return scNames
 }
 
-// containNodes returns the number of input nodes contained in the vdb.
-func (vdb *VCoordinationDatabase) containNodes(nodes []string) []string {
-	hostSet := make(map[string]struct{})
-	for _, n := range nodes {
-		hostSet[n] = struct{}{}
-	}
-	dupHosts := []string{}
+// containNodes determines which nodes are in the vdb and which ones are not.
+// The node is determined by looking up the host address.
+func (vdb *VCoordinationDatabase) containNodes(nodes []string) (nodesInDB, nodesNotInDB []string) {
+	hostSet := mapset.NewSet(nodes...)
+	nodesInDB = []string{}
 	for _, vnode := range vdb.HostNodeMap {
 		address := vnode.Address
-		if _, exist := hostSet[address]; exist {
-			dupHosts = append(dupHosts, address)
+		if exist := hostSet.Contains(address); exist {
+			nodesInDB = append(nodesInDB, address)
 		}
 	}
 
-	return dupHosts
+	if len(nodesInDB) == len(nodes) {
+		return nodesInDB, nil
+	}
+	return nodesInDB, util.SliceDiff(nodes, nodesInDB)
 }
 
 // hasAtLeastOneDownNode returns true if the current VCoordinationDatabase instance

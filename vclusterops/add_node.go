@@ -207,7 +207,7 @@ func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDa
 // to add already exists in db.
 func checkAddNodeRequirements(vdb *VCoordinationDatabase, hostsToAdd []string) error {
 	// we don't want any of the new host to be part of the db.
-	if nodes := vdb.containNodes(hostsToAdd); len(nodes) != 0 {
+	if nodes, _ := vdb.containNodes(hostsToAdd); len(nodes) != 0 {
 		return fmt.Errorf("%s already exist in the database", strings.Join(nodes, ","))
 	}
 

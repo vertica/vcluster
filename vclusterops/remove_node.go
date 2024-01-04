@@ -18,7 +18,6 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -135,8 +134,12 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 
 	options.DBName = &dbName
 	options.Hosts = hosts
-	// get depot and data prefix from config file or options
+	// get depot, data and catalog prefix from config file or options
 	*options.DepotPrefix, *options.DataPrefix, err = options.getDepotAndDataPrefix(options.Config)
+	if err != nil {
+		return vdb, err
+	}
+	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
 	if err != nil {
 		return vdb, err
 	}
@@ -151,20 +154,46 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 		return vdb, err
 	}
 
-	// remove_node is aborted if requirements are not met
-	err = checkRemoveNodeRequirements(&vdb, options.HostsToRemove)
+	// remove_node is aborted if requirements are not met.
+	err = checkRemoveNodeRequirements(&vdb)
 	if err != nil {
 		return vdb, err
 	}
+	// Figure out if the nodes to remove exist in the catalog. We follow
+	// *normal* remove node logic if it still exists in the catalog. We tolerate
+	// requests for nodes that aren't in the catalog because the caller may not
+	// know (e.g. previous attempt to remove node didn't come back successful).
+	// We have a simplified remove process for those requests to remove state
+	// that the caller may be checking.
+	var hostsNotInCatalog []string
+	options.HostsToRemove, hostsNotInCatalog = vdb.containNodes(options.HostsToRemove)
 
-	err = options.setInitiator(vdb.PrimaryUpNodes)
-	if err != nil {
+	vdb, err = vcc.removeNodesInCatalog(options, &vdb)
+	if err != nil || len(hostsNotInCatalog) == 0 {
 		return vdb, err
 	}
 
-	instructions, err := vcc.produceRemoveNodeInstructions(&vdb, options)
+	return vcc.handleRemoveNodeForHostsNotInCatalog(&vdb, options, hostsNotInCatalog)
+}
+
+// removeNodesInCatalog will perform the steps to remove nodes. The node list in
+// options.HostsToRemove has already been verified that each node is in the
+// catalog.
+func (vcc *VClusterCommands) removeNodesInCatalog(options *VRemoveNodeOptions, vdb *VCoordinationDatabase) (VCoordinationDatabase, error) {
+	if len(options.HostsToRemove) == 0 {
+		vcc.Log.Info("Exit early because there are no hosts to remove")
+		return *vdb, nil
+	}
+	vcc.Log.V(1).Info("validated input hosts", "HostsToRemove", options.HostsToRemove)
+
+	err := options.setInitiator(vdb.PrimaryUpNodes)
 	if err != nil {
-		return vdb, fmt.Errorf("fail to produce remove node instructions, %w", err)
+		return *vdb, err
+	}
+
+	instructions, err := vcc.produceRemoveNodeInstructions(vdb, options)
+	if err != nil {
+		return *vdb, fmt.Errorf("fail to produce remove node instructions, %w", err)
 	}
 
 	remainingHosts := util.SliceDiff(vdb.HostList, options.HostsToRemove)
@@ -177,7 +206,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 		// Here we check whether the to-be-removed nodes are still in the catalog.
 		// If they have been removed from catalog, we let remove_node succeed.
 		if vcc.findRemovedNodesInCatalog(options, remainingHosts) {
-			return vdb, fmt.Errorf("fail to complete remove node operation, %w", runError)
+			return *vdb, fmt.Errorf("fail to complete remove node operation, %w", runError)
 		}
 		// If the target nodes have already been removed from catalog,
 		// show a warning about the run error for users to trouble shoot their machines
@@ -189,20 +218,57 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 	return vdb.copy(remainingHosts), nil
 }
 
-// checkRemoveNodeRequirements validates  the following remove_node requirements:
-//   - Check the existence of the nodes to remove
-//   - Check if all nodes are up or standby (enterprise only)
-func checkRemoveNodeRequirements(vdb *VCoordinationDatabase, hostsToRemove []string) error {
-	if nodes := vdb.containNodes(hostsToRemove); len(nodes) != len(hostsToRemove) {
-		notFoundHosts := util.SliceDiff(hostsToRemove, nodes)
-		return fmt.Errorf("%s do not exist in the database", strings.Join(notFoundHosts, ","))
+// handleRemoveNodeForHostsNotInCatalog will build and execute a list of
+// instructions to do remove of hosts that aren't present in the catalog. We
+// will do basic cleanup logic for this needed by the operator.
+func (vcc *VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinationDatabase, options *VRemoveNodeOptions,
+	missingHosts []string) (VCoordinationDatabase, error) {
+	vcc.Log.Info("Doing cleanup of hosts missing from database", "hostsNotInCatalog", missingHosts)
+
+	// We need to find the paths for the hosts we are removing.
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, missingHosts, *options.DBName, *options.CatalogPrefix,
+		false /* report all errors */, vdb)
+	instructions := []clusterOp{&nmaGetNodesInfoOp}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	opEng := makeClusterOpEngine(instructions, &certs)
+	err := opEng.run(vcc.Log)
+	if err != nil {
+		return *vdb, fmt.Errorf("failed to get node info for missing hosts: %w", err)
 	}
+
+	// Make a vdb of just the missing hosts. The host list for
+	// nmaDeleteDirectoriesOp uses the host list from the vdb.
+	vdbForDeleteDir := vdb.copy(missingHosts)
+	err = options.completeVDBSetting(&vdbForDeleteDir)
+	if err != nil {
+		return *vdb, err
+	}
+
+	// Using the paths fetched earlier, we can now build the list of directories
+	// that the NMA should remove.
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vcc.Log, &vdbForDeleteDir, *options.ForceDelete)
+	if err != nil {
+		return *vdb, err
+	}
+	instructions = []clusterOp{&nmaDeleteDirectoriesOp}
+	opEng = makeClusterOpEngine(instructions, &certs)
+	err = opEng.run(vcc.Log)
+	if err != nil {
+		return *vdb, fmt.Errorf("failed to delete directories for missing hosts: %w", err)
+	}
+
+	remainingHosts := util.SliceDiff(vdb.HostList, missingHosts)
+	return vdb.copy(remainingHosts), nil
+}
+
+// checkRemoveNodeRequirements validates any remove_node requirements. It will
+// return an error if a requirement isn't met.
+func checkRemoveNodeRequirements(vdb *VCoordinationDatabase) error {
 	if !vdb.IsEon {
 		if vdb.hasAtLeastOneDownNode() {
 			return errors.New("all nodes must be up or standby")
 		}
 	}
-
 	return nil
 }
 
@@ -379,7 +445,8 @@ func (vcc *VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, targe
 	hostNodeMap vHostNodeMap, isEon bool) error {
 	for _, host := range targetHosts {
 		httpsDropNodeOp, err := makeHTTPSDropNodeOp(vcc.Log, hostNodeMap[host].Name, hosts,
-			useHTTPPassword, userName, httpsPassword, isEon)
+			useHTTPPassword, userName, httpsPassword,
+			isEon && hostNodeMap[host].State == util.NodeDownState)
 		if err != nil {
 			return err
 		}

@@ -189,7 +189,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 
 func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) error {
 	// pre-instruction to perform basic checks and get basic information
-	preInstructions, err := vcc.produceStartDBPreCheck(options, vdb)
+	preInstructions, err := vcc.produceStartDBPreCheck(options, vdb, *options.TrimHostList)
 	if err != nil {
 		return fmt.Errorf("fail to production instructions: %w", err)
 	}
@@ -202,28 +202,35 @@ func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, 
 		return fmt.Errorf("fail to start database pre-checks: %w", runError)
 	}
 
-	// if TrimHostList is true,
-	// update the host list as some provided hosts may not exist in the catalog
+	// If requested, remove any provided hosts that are not in the catalog. Use
+	// the vdb that we just fetched by the catalog editor. It will be the from
+	// the latest catalog.
 	if *options.TrimHostList {
-		var trimmedHostList []string
-		var extraHosts []string
-
-		for _, h := range options.Hosts {
-			if _, exist := vdb.HostNodeMap[h]; exist {
-				trimmedHostList = append(trimmedHostList, h)
-			} else {
-				extraHosts = append(extraHosts, h)
-			}
-		}
-
-		if len(extraHosts) > 0 {
-			vcc.Log.PrintInfo("The following hosts will be trimmed as they are not found in catalog: %+v",
-				extraHosts)
-			options.Hosts = trimmedHostList
-		}
+		options.Hosts = vcc.removeHostsNotInCatalog(&clusterOpEngine.execContext.nmaVDatabase, options.Hosts)
 	}
 
 	return nil
+}
+
+func (vcc *VClusterCommands) removeHostsNotInCatalog(vdb *nmaVDatabase, hosts []string) []string {
+	var trimmedHostList []string
+	var extraHosts []string
+
+	vcc.Log.Info("checking if any input hosts can be removed",
+		"hosts", hosts, "hostNodeMap", vdb.HostNodeMap)
+	for _, h := range hosts {
+		if _, exist := vdb.HostNodeMap[h]; exist {
+			trimmedHostList = append(trimmedHostList, h)
+		} else {
+			extraHosts = append(extraHosts, h)
+		}
+	}
+
+	if len(extraHosts) > 0 {
+		vcc.Log.PrintInfo("The following hosts will be trimmed as they are not found in catalog: %+v",
+			extraHosts)
+	}
+	return trimmedHostList
 }
 
 // produceStartDBPreCheck will build a list of pre-check instructions to execute for
@@ -234,7 +241,9 @@ func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, 
 //   - Check NMA connectivity
 //   - Check to see if any dbs run
 //   - Get nodes' information by calling the NMA /nodes endpoint
-func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+//   - Find latest catalog to use for removal of nodes not in the catalog
+func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase,
+	findLatestCatalog bool) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
@@ -259,6 +268,14 @@ func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptio
 		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, options.Hosts, *options.DBName, *options.CatalogPrefix,
 			true /* ignore internal errors */, vdb)
 		instructions = append(instructions, &nmaGetNodesInfoOp)
+	}
+
+	if findLatestCatalog {
+		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdb)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaReadCatalogEditorOp)
 	}
 
 	return instructions, nil
