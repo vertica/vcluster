@@ -112,14 +112,13 @@ func (op *httpsGetUpNodesOp) execute(execContext *opEngineExecContext) error {
 
 func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
-	// golang does not have set data structure, use a map to simulate it
 	upHosts := make(map[string]struct{})
+	upScInfo := make(map[string]string)
 	exceptionHosts := []string{}
 	downHosts := []string{}
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
-
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 		}
@@ -154,15 +153,12 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 			}
 			if node.State == util.NodeUpState {
 				upHosts[node.Address] = struct{}{}
+				upScInfo[node.Address] = node.Subcluster
 			}
-		}
-
-		if len(upHosts) > 0 {
-			break
 		}
 	}
 
-	ignoreErrors := op.processHostLists(upHosts, exceptionHosts, downHosts, execContext)
+	ignoreErrors := op.processHostLists(upHosts, upScInfo, exceptionHosts, downHosts, execContext)
 	if ignoreErrors {
 		return nil
 	}
@@ -176,9 +172,10 @@ func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
 
 // processHostLists stashes the up hosts, and if there are no up hosts, prints and logs
 // down or erratic hosts.  Additionally, it determines if the op should fail or not.
-func (op *httpsGetUpNodesOp) processHostLists(upHosts map[string]struct{},
+func (op *httpsGetUpNodesOp) processHostLists(upHosts map[string]struct{}, upScInfo map[string]string,
 	exceptionHosts, downHosts []string,
 	execContext *opEngineExecContext) (ignoreErrors bool) {
+	execContext.upScInfo = upScInfo
 	if len(upHosts) > 0 {
 		for host := range upHosts {
 			execContext.upHosts = append(execContext.upHosts, host)

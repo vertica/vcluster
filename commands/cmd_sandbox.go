@@ -72,20 +72,29 @@ func (c *CmdSandboxSubcluster) CommandType() string {
 
 func (c *CmdSandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	// from now on we use the internal copy of argv
+	err := c.ValidateParseArgv(c.CommandType(), logger)
+	if err != nil {
+		return err
+	}
 	return c.parseInternal(logger)
 }
 
 func (c *CmdSandboxSubcluster) parseInternal(logger vlog.Printer) error {
+	logger.Info("Called parseInternal()")
 	if c.parser == nil {
 		return fmt.Errorf("unexpected nil for CmdSandboxSubcluster.parser")
 	}
-	logger.PrintInfo("Parsing sandboxing command input")
-	parseError := c.ParseArgv()
-	if parseError != nil {
-		return parseError
+	if !util.IsOptionSet(c.parser, "password") {
+		c.sbOptions.Password = nil
 	}
-	return nil
+	if !util.IsOptionSet(c.parser, "ipv6") {
+		c.CmdBase.ipv6 = nil
+	}
+	if !util.IsOptionSet(c.parser, "config-directory") {
+		c.sbOptions.ConfigDirectory = nil
+	}
+
+	return c.ValidateParseBaseOptions(&c.sbOptions.DatabaseOptions)
 }
 
 func (c *CmdSandboxSubcluster) Analyze(logger vlog.Printer) error {

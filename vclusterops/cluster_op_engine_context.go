@@ -18,12 +18,17 @@ package vclusterops
 import "github.com/vertica/vcluster/vclusterops/vlog"
 
 type opEngineExecContext struct {
-	dispatcher                    requestDispatcher
-	networkProfiles               map[string]networkProfile
-	nmaVDatabase                  nmaVDatabase
-	upHosts                       []string // a sorted host list that contains all up nodes
-	nodesInfo                     []NodeInfo
-	defaultSCName                 string // store the default subcluster name of the database
+	dispatcher      requestDispatcher
+	networkProfiles map[string]networkProfile
+	nmaVDatabase    nmaVDatabase
+	upHosts         []string // a sorted host list that contains all up nodes
+	nodesInfo       []NodeInfo
+
+	// This field is specifically used for sandboxing
+	// as sandboxing requires all nodes in the subcluster to be sandboxed to be UP.
+	upScInfo                      map[string]string // map with UP hosts as keys and their subcluster names as values.
+	sandboxingHosts               []string          // List of hosts that should run sandboxing command
+	defaultSCName                 string            // store the default subcluster name of the database
 	hostsWithLatestCatalog        []string
 	primaryHostsWithLatestCatalog []string
 	startupCommandMap             map[string][]string // store start up command map to restart nodes
