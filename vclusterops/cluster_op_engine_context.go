@@ -31,8 +31,9 @@ type opEngineExecContext struct {
 	defaultSCName                 string            // store the default subcluster name of the database
 	hostsWithLatestCatalog        []string
 	primaryHostsWithLatestCatalog []string
-	startupCommandMap             map[string][]string // store start up command map to restart nodes
+	startupCommandMap             map[string][]string // store start up command map to start nodes
 	dbInfo                        string              // store the db info that retrieved from communal storage
+	restorePoints                 []RestorePoint      // store list existing restore points that queried from an archive
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {

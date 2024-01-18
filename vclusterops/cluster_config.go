@@ -140,6 +140,15 @@ func (c *ClusterConfig) getPathPrefix(dbName string) (catalogPrefix string,
 		dbConfig.Nodes[0].DepotPath, nil
 }
 
+func (c *ClusterConfig) getCommunalStorageLocation(dbName string) (communalStorageLocation string,
+	err error) {
+	dbConfig, ok := (*c)[dbName]
+	if !ok {
+		return "", cannotFindDBFromConfigErr(dbName)
+	}
+	return dbConfig.CommunalStorageLocation, nil
+}
+
 func (c *DatabaseConfig) getHosts() []string {
 	var hostList []string
 

@@ -89,13 +89,14 @@ const (
 )
 
 const (
-	commandCreateDB    = "create_db"
-	commandDropDB      = "drop_db"
-	commandStopDB      = "stop_db"
-	commandStartDB     = "start_db"
-	commandAddCluster  = "db_add_subcluster"
-	commandSandboxSC   = "sandbox_subcluster"
-	commandUnsandboxSC = "unsandbox_subcluster"
+	commandCreateDB          = "create_db"
+	commandDropDB            = "drop_db"
+	commandStopDB            = "stop_db"
+	commandStartDB           = "start_db"
+	commandAddCluster        = "db_add_subcluster"
+	commandSandboxSC         = "sandbox_subcluster"
+	commandUnsandboxSC       = "unsandbox_subcluster"
+	commandShowRestorePoints = "show_restore_points"
 )
 
 func (opt *DatabaseOptions) setDefaultValues() {
@@ -238,7 +239,7 @@ func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
 	commands := []string{commandCreateDB, commandDropDB, commandStopDB, commandStartDB, commandAddCluster, commandSandboxSC,
-		commandUnsandboxSC}
+		commandUnsandboxSC, commandShowRestorePoints}
 	if slices.Contains(commands, commandName) {
 		return nil
 	}
@@ -362,6 +363,27 @@ func (opt *DatabaseOptions) getCatalogPrefix(clusterConfig *ClusterConfig) (cata
 		catalogPrefix = opt.CatalogPrefix
 	}
 	return catalogPrefix, nil
+}
+
+// getCommunalStorageLocation can choose the right communal storage location from user input and config file
+func (opt *DatabaseOptions) getCommunalStorageLocation(clusterConfig *ClusterConfig) (communalStorageLocation *string, err error) {
+	// when config file is not available, we use user input
+	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
+	if clusterConfig == nil {
+		return opt.CommunalStorageLocation, nil
+	}
+
+	communalStorageLocation = new(string)
+	*communalStorageLocation, err = clusterConfig.getCommunalStorageLocation(*opt.DBName)
+	if err != nil {
+		return communalStorageLocation, err
+	}
+
+	// if HonorUserInput is set, we choose the user input
+	if *opt.CommunalStorageLocation != "" && *opt.HonorUserInput {
+		communalStorageLocation = opt.CommunalStorageLocation
+	}
+	return communalStorageLocation, nil
 }
 
 // getDepotAndDataPrefix chooses the right depot/data prefix from user input and config file.
