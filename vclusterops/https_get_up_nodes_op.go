@@ -24,15 +24,26 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+const (
+	SandboxCmd = iota
+	StartNodeCommand
+	StopDBCmd
+	ScrutinizeCmd
+	DBAddSubclusterCmd
+)
+
+type CommandType int
+
 type httpsGetUpNodesOp struct {
 	opBase
 	opHTTPSBase
 	DBName      string
 	noUpHostsOk bool
+	cmdType     CommandType
 }
 
 func makeHTTPSGetUpNodesOp(logger vlog.Printer, dbName string, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string,
+	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CommandType,
 ) (httpsGetUpNodesOp, error) {
 	op := httpsGetUpNodesOp{}
 	op.name = "HTTPSGetUpNodesOp"
@@ -40,6 +51,7 @@ func makeHTTPSGetUpNodesOp(logger vlog.Printer, dbName string, hosts []string,
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.DBName = dbName
+	op.cmdType = cmdType
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -155,6 +167,9 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 				upHosts[node.Address] = struct{}{}
 				upScInfo[node.Address] = node.Subcluster
 			}
+		}
+		if len(upHosts) > 0 && op.cmdType != SandboxCmd {
+			break
 		}
 	}
 

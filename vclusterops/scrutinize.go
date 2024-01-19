@@ -251,7 +251,7 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 
 	// Get up database nodes for the system table task
 	getUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, *options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password)
+		options.usePassword, *options.UserName, options.Password, ScrutinizeCmd)
 	if err != nil {
 		return nil, err
 	}

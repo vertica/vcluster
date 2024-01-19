@@ -250,7 +250,7 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(addSubclusterInfo 
 
 	username := *options.UserName
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, addSubclusterInfo.DBName, addSubclusterInfo.Hosts,
-		usePassword, username, addSubclusterInfo.Password)
+		usePassword, username, addSubclusterInfo.Password, DBAddSubclusterCmd)
 	if err != nil {
 		return instructions, err
 	}

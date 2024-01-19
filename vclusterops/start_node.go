@@ -242,7 +242,7 @@ func (vcc *VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStart
 	}
 
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, *options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password)
+		options.usePassword, *options.UserName, options.Password, StartNodeCommand)
 	if err != nil {
 		return instructions, err
 	}

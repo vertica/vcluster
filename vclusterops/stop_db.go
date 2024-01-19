@@ -203,7 +203,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	}
 
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, stopDBInfo.DBName, stopDBInfo.Hosts,
-		usePassword, *options.UserName, stopDBInfo.Password)
+		usePassword, *options.UserName, stopDBInfo.Password, StopDBCmd)
 	if err != nil {
 		return instructions, err
 	}

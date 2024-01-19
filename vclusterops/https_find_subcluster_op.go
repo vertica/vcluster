@@ -83,6 +83,7 @@ func (op *httpsFindSubclusterOp) execute(execContext *opEngineExecContext) error
 type subclusterInfo struct {
 	SCName    string `json:"subcluster_name"`
 	IsDefault bool   `json:"is_default"`
+	Sandbox   string `json:"sandbox"`
 }
 
 type scResp struct {
@@ -135,44 +136,59 @@ func (op *httpsFindSubclusterOp) processResult(execContext *opEngineExecContext)
 			return allErrs
 		}
 
-		// 1. when subcluster name is given, look for the name in the database
-		//    error out if not found
-		// 2. look for the default subcluster, error out if not found
-		foundNamedSc := false
-		foundDefaultSc := false
-		for _, scInfo := range subclusterResp.SCInfoList {
-			if scInfo.SCName == op.scName {
-				foundNamedSc = true
-				op.logger.Info(`subcluster exists in the database`, "subcluster", scInfo.SCName, "dbName", op.name)
-			}
-			if scInfo.IsDefault {
-				// store the default sc name into execContext
-				foundDefaultSc = true
-				execContext.defaultSCName = scInfo.SCName
-				op.logger.Info(`found default subcluster in the database`, "subcluster", scInfo.SCName, "dbName", op.name)
-			}
-			if foundNamedSc && foundDefaultSc {
-				break
-			}
-		}
-
-		if op.scName != "" && !op.ignoreNotFound {
-			if !foundNamedSc {
-				err = fmt.Errorf(`[%s] subcluster '%s' does not exist in the database`, op.name, op.scName)
-				allErrs = errors.Join(allErrs, err)
-				return allErrs
-			}
-		}
-
-		if !foundDefaultSc {
-			err = fmt.Errorf(`[%s] cannot find a default subcluster in the database`, op.name)
+		// Process subclusters
+		if err := op.processSubclusters(subclusterResp, execContext); err != nil {
 			allErrs = errors.Join(allErrs, err)
 			return allErrs
 		}
-
-		return nil
 	}
 	return allErrs
+}
+
+func (op *httpsFindSubclusterOp) processSubclusters(subclusterResp scResp, execContext *opEngineExecContext) error {
+	// 1. when subcluster name is given, look for the name in the database
+	//    error out if not found
+	// 2. look for the default subcluster, error out if not found
+	foundNamedSc := false
+	foundDefaultSc := false
+	isSandboxed := false
+
+	for _, scInfo := range subclusterResp.SCInfoList {
+		if scInfo.SCName == op.scName {
+			foundNamedSc = true
+			if scInfo.Sandbox != "" {
+				isSandboxed = true
+			}
+			op.logger.Info(`subcluster exists in the database`, "subcluster", scInfo.SCName, "dbName", op.name, "sandbox", scInfo.Sandbox)
+		}
+
+		if scInfo.IsDefault {
+			// Store the default sc name into execContext
+			foundDefaultSc = true
+			execContext.defaultSCName = scInfo.SCName
+			op.logger.Info(`found default subcluster in the database`, "subcluster", scInfo.SCName, "dbName", op.name)
+		}
+
+		if foundNamedSc && foundDefaultSc {
+			break
+		}
+	}
+
+	if op.scName != "" && !op.ignoreNotFound {
+		if !foundNamedSc {
+			return fmt.Errorf(`[%s] subcluster '%s' does not exist in the database`, op.name, op.scName)
+		}
+	}
+
+	if !foundDefaultSc {
+		return fmt.Errorf(`[%s] cannot find a default subcluster in the database`, op.name)
+	}
+
+	if isSandboxed {
+		return fmt.Errorf(`[%s] cannot add node into a sandboxed subcluster`, op.name)
+	}
+
+	return nil
 }
 
 func (op *httpsFindSubclusterOp) finalize(_ *opEngineExecContext) error {
