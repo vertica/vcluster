@@ -106,6 +106,7 @@ type nodeStateInfo struct {
 	Subcluster  string `json:"subcluster_name"`
 	IsPrimary   bool   `json:"is_primary"`
 	Name        string `json:"name"`
+	Sandbox     string `json:"sandbox_name"`
 }
 
 type nodesStateInfo struct {

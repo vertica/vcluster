@@ -359,6 +359,8 @@ type VCoordinationNode struct {
 	State                string
 	// empty string if it is not an eon db
 	Subcluster string
+	// empty string if it is not in a sandbox
+	Sandbox string
 }
 
 func makeVCoordinationNode() VCoordinationNode {
