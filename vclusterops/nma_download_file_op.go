@@ -26,6 +26,14 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+type leaseCheckOption int
+
+const (
+	leaseCheckOnly leaseCheckOption = iota
+	skipLeaseCheck
+	normalLeaseCheck
+)
+
 const (
 	respSuccResult         = "Download successful"
 	userStorageType        = 4
@@ -44,6 +52,7 @@ type nmaDownloadFileOp struct {
 	displayOnly        bool
 	ignoreClusterLease bool
 	forRevive          bool
+	leaseCheckOption   leaseCheckOption
 }
 
 type downloadFileRequestData struct {
@@ -123,6 +132,32 @@ func makeNMADownloadFileOpForRevive(logger vlog.Printer, newNodes []string, sour
 	op.displayOnly = displayOnly
 	op.ignoreClusterLease = ignoreClusterLease
 	op.forRevive = true
+	op.leaseCheckOption = normalLeaseCheck
+
+	return op, nil
+}
+
+func makeNMADownloadFileOpForRestore(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+	configurationParameters map[string]string, vdb *VCoordinationDatabase, displayOnly bool) (nmaDownloadFileOp, error) {
+	op, err := makeNMADownloadFileOpForRevive(logger, newNodes, sourceFilePath, destinationFilePath,
+		catalogPath, configurationParameters, vdb, displayOnly, true)
+	if err != nil {
+		return op, err
+	}
+	op.leaseCheckOption = skipLeaseCheck
+
+	return op, nil
+}
+
+func makeNMADownloadFileOpForRestoreLeaseCheck(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath,
+	catalogPath string, configurationParameters map[string]string,
+	vdb *VCoordinationDatabase, ignoreClusterLease bool) (nmaDownloadFileOp, error) {
+	op, err := makeNMADownloadFileOpForRevive(logger, newNodes, sourceFilePath, destinationFilePath,
+		catalogPath, configurationParameters, vdb, false, ignoreClusterLease)
+	if err != nil {
+		return op, err
+	}
+	op.leaseCheckOption = leaseCheckOnly
 
 	return op, nil
 }
@@ -214,10 +249,16 @@ func (op *nmaDownloadFileOp) processResult(execContext *opEngineExecContext) err
 			}
 
 			if op.forRevive {
-				err = op.clusterLeaseCheck(descFileContent.ClusterLeaseExpiration)
-				if err != nil {
-					allErrs = errors.Join(allErrs, err)
-					break
+				if op.leaseCheckOption != skipLeaseCheck {
+					err = op.clusterLeaseCheck(descFileContent.ClusterLeaseExpiration)
+					if err != nil {
+						allErrs = errors.Join(allErrs, err)
+						break
+					}
+				}
+
+				if op.leaseCheckOption == leaseCheckOnly {
+					return nil
 				}
 
 				if len(descFileContent.NodeList) != len(op.newNodes) {

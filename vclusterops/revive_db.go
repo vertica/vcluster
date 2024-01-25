@@ -49,6 +49,64 @@ type RestorePointPolicy struct {
 	ID *string
 }
 
+func (options *VReviveDatabaseOptions) isRestoreEnabled() bool {
+	return options.RestorePoint != nil && options.RestorePoint.Archive != nil && *options.RestorePoint.Archive != ""
+}
+
+func (options *VReviveDatabaseOptions) hasValidRestorePointID() bool {
+	return options.RestorePoint != nil && options.RestorePoint.ID != nil && *options.RestorePoint.ID != ""
+}
+
+func (options *VReviveDatabaseOptions) hasValidRestorePointIndex() bool {
+	return options.RestorePoint != nil && options.RestorePoint.Index != nil && *options.RestorePoint.Index > 0
+}
+
+func (options *VReviveDatabaseOptions) findSpecifiedRestorePoint(allRestorePoints []RestorePoint) (string, error) {
+	foundRestorePoints := make([]RestorePoint, 0)
+	for _, restorePoint := range allRestorePoints {
+		if restorePoint.Archive != *options.RestorePoint.Archive {
+			continue
+		}
+		if restorePoint.ID == *options.RestorePoint.ID || restorePoint.Index == *options.RestorePoint.Index {
+			foundRestorePoints = append(foundRestorePoints, restorePoint)
+		}
+	}
+	if len(foundRestorePoints) == 0 {
+		err := &ReviveDBRestorePointNotFoundError{Archive: *options.RestorePoint.Archive}
+		if options.hasValidRestorePointID() {
+			err.InvalidID = *options.RestorePoint.ID
+		} else {
+			err.InvalidIndex = *options.RestorePoint.Index
+		}
+		return "", err
+	}
+	if len(foundRestorePoints) == 1 {
+		return foundRestorePoints[0].ID, nil // #nosec G602
+	}
+	return "", fmt.Errorf("found %d restore points instead of 1: %+v", len(foundRestorePoints), foundRestorePoints)
+}
+
+// ReviveDBRestorePointNotFoundError is the error that is returned when the retore point specified by the user
+// either via index or id is not found among all restore points in the specified archive. Either InvalidID or
+// InvalidIndex will be set depending on whether the user specified the retore point by index or id.
+type ReviveDBRestorePointNotFoundError struct {
+	Archive      string
+	InvalidID    string
+	InvalidIndex int
+}
+
+func (e *ReviveDBRestorePointNotFoundError) Error() string {
+	var indicator, value string
+	if e.InvalidID != "" {
+		indicator = "ID"
+		value = e.InvalidID
+	} else {
+		indicator = "index"
+		value = fmt.Sprintf("%d", e.InvalidIndex)
+	}
+	return fmt.Sprintf("restore point with %s %s not found in archive %s", indicator, value, e.Archive)
+}
+
 func VReviveDBOptionsFactory() VReviveDatabaseOptions {
 	opt := VReviveDatabaseOptions{}
 
@@ -93,8 +151,23 @@ func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 	return util.ValidateCommunalStorageLocation(*options.CommunalStorageLocation)
 }
 
+func (options *VReviveDatabaseOptions) validateRestoreOptions() error {
+	if options.isRestoreEnabled() &&
+		options.hasValidRestorePointID() == options.hasValidRestorePointIndex() {
+		return fmt.Errorf("for a restore, must specify exactly one of (1-based) restore point index or id, " +
+			"not both or none")
+	}
+
+	return nil
+}
+
 func (options *VReviveDatabaseOptions) validateParseOptions() error {
-	return options.validateRequiredOptions()
+	err := options.validateRequiredOptions()
+	if err != nil {
+		return err
+	}
+
+	return options.validateRestoreOptions()
 }
 
 // analyzeOptions will modify some options based on what is chosen
@@ -152,6 +225,25 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 		return dbInfo, fmt.Errorf("fail to collect the information of database in revive_db %w", err)
 	}
 
+	if options.isRestoreEnabled() {
+		validatedRestorePointID, findErr := options.findSpecifiedRestorePoint(clusterOpEngine.execContext.restorePoints)
+		if findErr != nil {
+			return dbInfo, fmt.Errorf("fail to find a restore point as specified %w", findErr)
+		}
+
+		restoreDBSpecificInstructions, produceErr := vcc.produceRestoreDBSpecificInstructions(options, &vdb, validatedRestorePointID)
+		if produceErr != nil {
+			return dbInfo, fmt.Errorf("fail to produce restore-specific instructions %w", produceErr)
+		}
+
+		// feed the restore db specific instructions to the VClusterOpEngine
+		clusterOpEngine = makeClusterOpEngine(restoreDBSpecificInstructions, &certs)
+		runErr := clusterOpEngine.run(vcc.Log)
+		if runErr != nil {
+			return dbInfo, fmt.Errorf("fail to collect the restore-specific information of database in revive_db %w", runErr)
+		}
+	}
+
 	if *options.DisplayOnly {
 		dbInfo = clusterOpEngine.execContext.dbInfo
 		return dbInfo, nil
@@ -178,11 +270,12 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 // The reason of using two set of instructions is: the second set of instructions needs the database info
 // to initialize, but that info can only be retrieved after we ran first set of instructions in clusterOpEngine
 //
-// producePreReviveDBInstructions will build the first half of revive_db instructions
+// producePreReviveDBInstructions will build the majority of first half of revive_db instructions
 // The generated instructions will later perform the following operations
 //   - Check NMA connectivity
 //   - Check any DB running on the hosts
-//   - Download and read the description file from communal storage on the initiator
+//   - (Optionally) download and read the current description file from communal storage on the initiator
+//   - (Optionally) list all restore points
 func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveDatabaseOptions,
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -194,18 +287,71 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 	if err != nil {
 		return instructions, err
 	}
+	instructions = append(instructions,
+		&nmaHealthOp,
+		&checkDBRunningOp,
+	)
 
-	// use description file path as source file path
-	sourceFilePath := options.getDescriptionFilePath()
-	nmaDownLoadFileOp, err := makeNMADownloadFileOpForRevive(vcc.Log, options.Hosts, sourceFilePath, destinationFilePath, catalogPath,
-		options.ConfigurationParameters, vdb, *options.DisplayOnly, *options.IgnoreClusterLease)
+	// use current description file path as source file path
+	currConfigFileSrcPath := options.getCurrConfigFilePath()
+
+	if !options.isRestoreEnabled() {
+		// perform revive, either display-only or not
+		nmaDownloadFileOpForRevive, err := makeNMADownloadFileOpForRevive(vcc.Log, options.Hosts,
+			currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
+			options.ConfigurationParameters, vdb, *options.DisplayOnly, *options.IgnoreClusterLease)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions,
+			&nmaDownloadFileOpForRevive,
+		)
+	} else {
+		// perform restore
+		if !*options.DisplayOnly {
+			// if not display-only, do a lease check first using current cluster config
+			nmaDownloadFileOpForRestoreLeaseCheck, err := makeNMADownloadFileOpForRestoreLeaseCheck(vcc.Log, options.Hosts,
+				currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
+				options.ConfigurationParameters, vdb, *options.IgnoreClusterLease)
+			if err != nil {
+				return instructions, err
+			}
+			instructions = append(instructions,
+				&nmaDownloadFileOpForRestoreLeaseCheck,
+			)
+		}
+		// no matter display-only or not, list all restore points for later use
+		hosts := options.Hosts
+		initiator := getInitiator(hosts)
+		bootstrapHost := []string{initiator}
+		nmaShowRestorePointsOp := makeNMAShowRestorePointsOp(vcc.Log, bootstrapHost, *options.DBName,
+			*options.CommunalStorageLocation, options.ConfigurationParameters)
+		instructions = append(instructions,
+			&nmaShowRestorePointsOp,
+		)
+	}
+
+	return instructions, nil
+}
+
+// produceRestoreDBSpecificInstructions will complete building the first half of revive_db instructions when a restore is enabled
+// The generated instructions will later perform the following operations
+//   - Download and read the description file corresponding to the restore point from communal storage on the initiator
+func (vcc *VClusterCommands) produceRestoreDBSpecificInstructions(options *VReviveDatabaseOptions,
+	vdb *VCoordinationDatabase, validatedRestorePointID string) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	restorePointConfigFileSrcPath := options.getRestorePointConfigFilePath(validatedRestorePointID)
+
+	nmaDownLoadFileOp, err := makeNMADownloadFileOpForRestore(vcc.Log, options.Hosts,
+		restorePointConfigFileSrcPath, restorePointConfigFileDestPath, catalogPath,
+		options.ConfigurationParameters, vdb, *options.DisplayOnly)
+
 	if err != nil {
 		return instructions, err
 	}
 
 	instructions = append(instructions,
-		&nmaHealthOp,
-		&checkDBRunningOp,
 		&nmaDownLoadFileOp,
 	)
 

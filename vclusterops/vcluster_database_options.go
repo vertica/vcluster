@@ -82,8 +82,10 @@ type DatabaseOptions struct {
 }
 
 const (
-	descriptionFileName = "cluster_config.json"
-	destinationFilePath = "/tmp/desc.json"
+	descriptionFileName            = "cluster_config.json"
+	descriptionFileMetadataFolder  = "metadata"
+	currConfigFileDestPath         = "/tmp/curr_config.json"
+	restorePointConfigFileDestPath = "/tmp/restore_point_config.json"
 	// catalogPath is not used for now, will implement it in VER-88884
 	catalogPath = ""
 )
@@ -494,8 +496,8 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	// step 2: get node details from cluster_config.json
 	vdb2 := VCoordinationDatabase{}
 	var instructions2 []clusterOp
-	sourceFilePath := opt.getDescriptionFilePath()
-	nmaDownLoadFileOp, err := makeNMADownloadFileOp(vcc.Log, opt.Hosts, sourceFilePath, destinationFilePath, catalogPath,
+	currConfigFileSrcPath := opt.getCurrConfigFilePath()
+	nmaDownLoadFileOp, err := makeNMADownloadFileOp(vcc.Log, opt.Hosts, currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
 		opt.ConfigurationParameters, &vdb2)
 	if err != nil {
 		return vdb, err
@@ -535,14 +537,29 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	return vdb, nil
 }
 
-// getDescriptionFilePath can make the description file path using db name and communal storage location in the options
-func (opt *DatabaseOptions) getDescriptionFilePath() string {
-	const (
-		descriptionFileMetadataFolder = "metadata"
-	)
-	// description file will be in the location: {communalStorageLocation}/metadata/{db_name}/cluster_config.json
+// getCurrConfigFilePath can make the current description file path using db name and communal storage location in the options
+func (opt *DatabaseOptions) getCurrConfigFilePath() string {
+	// description file will be in the location: {communal_storage_location}/metadata/{db_name}/cluster_config.json
 	// an example: s3://tfminio/test_loc/metadata/test_db/cluster_config.json
 	descriptionFilePath := filepath.Join(*opt.CommunalStorageLocation, descriptionFileMetadataFolder, *opt.DBName, descriptionFileName)
+	// filepath.Join() will change "://" of the remote communal storage path to ":/"
+	// as a result, we need to change the separator back to url format
+	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)
+
+	return descriptionFilePath
+}
+
+// getRestorePointConfigFilePath can make the restore point description file path using db name, archive name, restore point id,
+// and communal storage location in the options
+func (options *VReviveDatabaseOptions) getRestorePointConfigFilePath(validatedRestorePointID string) string {
+	const (
+		archivesFolder = "archives"
+	)
+	// description file will be in the location:
+	// {communal_storage_location}/metadata/{db_name}/archives/{archive_name}/{restore_point_id}/cluster_config.json
+	// an example: s3://tfminio/test_loc/metadata/test_db/archives/test_archive_name/2251e5cc-3e16-4fb1-8cd0-e4b8651f5779/cluster_config.json
+	descriptionFilePath := filepath.Join(*options.CommunalStorageLocation, descriptionFileMetadataFolder,
+		*options.DBName, archivesFolder, *options.RestorePoint.Archive, validatedRestorePointID, descriptionFileName)
 	// filepath.Join() will change "://" of the remote communal storage path to ":/"
 	// as a result, we need to change the separator back to url format
 	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)
