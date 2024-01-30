@@ -22,21 +22,33 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
+// ReIPNoClusterQuorumError is an error to indicate
+// that cluster quorum was lost before a re-ip.
+// This is emitted from this op. Callers can do type checking to perform an
+// action based on the error.
+type ReIPNoClusterQuorumError struct {
+	Detail string
+}
+
+func (e *ReIPNoClusterQuorumError) Error() string {
+	return e.Detail
+}
+
 type httpsReIPOp struct {
 	opBase
 	opHTTPSBase
-	hostToReIP    []string
-	reIPList      map[string]ReIPInfo
-	nodeNamesList []string
-	upHosts       []string
+	hostToReIP      []string
+	reIPList        map[string]ReIPInfo
+	nodeNamesToReIP []string
+	upHosts         []string
 }
 
-func makeHTTPSReIPOp(nodeNamesList, hostToReIP []string,
+func makeHTTPSReIPOp(nodeNamesToReIP, hostToReIP []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsReIPOp, error) {
 	op := httpsReIPOp{}
 	op.name = "HTTPSReIpOp"
 	op.useHTTPPassword = useHTTPPassword
-	op.nodeNamesList = nodeNamesList
+	op.nodeNamesToReIP = nodeNamesToReIP
 	op.hostToReIP = hostToReIP
 
 	if useHTTPPassword {
@@ -52,8 +64,16 @@ func makeHTTPSReIPOp(nodeNamesList, hostToReIP []string,
 	return op, nil
 }
 
-func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
-	for i, host := range hosts {
+func (op *httpsReIPOp) setupClusterHTTPRequest(hostsToReIP []string) error {
+	// At this point there must be more up nodes than hosts to re-ip.
+	// Failure to meet that requirement would most likely mean that we have lost
+	// quorum and a cluster restart is needed
+	if len(op.upHosts) < len(hostsToReIP) {
+		return &ReIPNoClusterQuorumError{
+			Detail: fmt.Sprintf("[%s] %d up nodes are not enough for re-ip", op.name, len(op.upHosts)),
+		}
+	}
+	for i, host := range hostsToReIP {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PutMethod
 		nodesInfo, ok := op.reIPList[host]
@@ -79,8 +99,8 @@ func (op *httpsReIPOp) setupClusterHTTPRequest(hosts []string) error {
 func (op *httpsReIPOp) prepare(execContext *opEngineExecContext) error {
 	op.reIPList = make(map[string]ReIPInfo)
 	// update reIPList from input node names and execContext.networkProfiles
-	for i := 0; i < len(op.nodeNamesList); i++ {
-		nodeNameToReIP := op.nodeNamesList[i]
+	for i := 0; i < len(op.nodeNamesToReIP); i++ {
+		nodeNameToReIP := op.nodeNamesToReIP[i]
 		targetAddress := op.hostToReIP[i]
 		profile, ok := execContext.networkProfiles[targetAddress]
 		if !ok {
@@ -98,7 +118,7 @@ func (op *httpsReIPOp) prepare(execContext *opEngineExecContext) error {
 	// use up hosts to execute the HTTP re-IP endpoint
 	op.upHosts = execContext.upHosts
 	execContext.dispatcher.setup(op.upHosts)
-	return op.setupClusterHTTPRequest(op.nodeNamesList)
+	return op.setupClusterHTTPRequest(op.nodeNamesToReIP)
 }
 
 func (op *httpsReIPOp) execute(execContext *opEngineExecContext) error {

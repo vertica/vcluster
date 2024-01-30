@@ -42,7 +42,7 @@ type VStartNodesInfo struct {
 	// The IP address that we intend to re-IP can be obtained from a set of nodes provided as input
 	// within VStartNodesOptions struct
 	ReIPList []string
-	// The node names that we intend to start can be acquired from a set of nodes provided as input
+	// The names of the nodes that we intend to re-IP can be acquired from a set of nodes provided as input
 	// within the VStartNodesOptions struct
 	NodeNamesToStart []string
 	// the hosts that we want to start
