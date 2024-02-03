@@ -180,6 +180,23 @@ func getInitiator(hosts []string) string {
 	return hosts[0]
 }
 
+// getInitiator will pick an initiator from the up host list to execute https calls
+// such that the initiator is also among the user provided host list
+func getInitiatorFromUpHosts(upHosts, userProvidedHosts []string) string {
+	// Create a hash set for user-provided hosts
+	userHostsSet := mapset.NewSet[string](userProvidedHosts...)
+
+	// Iterate through upHosts and check if any host is in the userHostsSet
+	for _, upHost := range upHosts {
+		if userHostsSet.Contains(upHost) {
+			return upHost
+		}
+	}
+
+	// Return an empty string if no matching host is found
+	return ""
+}
+
 func cannotFindDBFromConfigErr(dbName string) error {
 	return fmt.Errorf("database %s cannot be found in the config file", dbName)
 }

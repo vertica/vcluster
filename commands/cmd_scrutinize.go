@@ -98,6 +98,10 @@ func makeCmdScrutinize() *CmdScrutinize {
 
 	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Scrutinize database with IPv6 hosts"))
 
+	// this argument is parsed separately by the cluster command launcher to initialize the logger
+	newCmd.sOptions.LogPath = newCmd.parser.String("log-path", defaultLogPath,
+		util.GetOptionalFlagMsg("File path of the vcluster scrutinize log"))
+
 	return newCmd
 }
 
@@ -149,29 +153,12 @@ func (c *CmdScrutinize) Analyze(logger vlog.Printer) error {
 		return err
 	}
 
-	var allErrs error
-	port, found := os.LookupEnv(kubernetesPort)
-	if found && port != "" && *c.sOptions.HonorUserInput {
-		logger.Info(kubernetesPort, " is set, k8s environment detected", found)
-		dbName, found := os.LookupEnv(databaseName)
-		if !found || dbName == "" {
-			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get database name from environment variable. "))
-		} else {
-			c.sOptions.DBName = &dbName
-			logger.Info("Setting database name from env as", "DBName", *c.sOptions.DBName)
-		}
-
-		catPrefix, found := os.LookupEnv(catalogPathPref)
-		if !found || catPrefix == "" {
-			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get catalog path from environment variable. "))
-		} else {
-			c.sOptions.CatalogPrefix = &catPrefix
-			logger.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
-		}
-		if allErrs != nil {
-			return allErrs
-		}
+	// get extra options direct from env variables
+	err = c.readOptionsFromK8sEnv(logger)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -330,6 +317,31 @@ func (c *CmdScrutinize) nmaCertLookupFromEnv(logger vlog.Printer) (bool, error) 
 
 	logger.Info("Successfully read certs from file", "rootCAPath", rootCAPath, "certPath", certPath, "keyPath", keyPath)
 	return true, nil
+}
+
+// readOptionsFromK8sEnv picks up the catalog path and dbname from the environment when on k8s
+// which otherwise would need to be set at the command line or read from a config file.
+func (c *CmdScrutinize) readOptionsFromK8sEnv(logger vlog.Printer) (allErrs error) {
+	port, found := os.LookupEnv(kubernetesPort)
+	if found && port != "" && *c.sOptions.HonorUserInput {
+		logger.Info(kubernetesPort, " is set, k8s environment detected", found)
+		dbName, found := os.LookupEnv(databaseName)
+		if !found || dbName == "" {
+			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get database name from environment variable. "))
+		} else {
+			c.sOptions.DBName = &dbName
+			logger.Info("Setting database name from env as", "DBName", *c.sOptions.DBName)
+		}
+
+		catPrefix, found := os.LookupEnv(catalogPathPref)
+		if !found || catPrefix == "" {
+			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get catalog path from environment variable. "))
+		} else {
+			c.sOptions.CatalogPrefix = &catPrefix
+			logger.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
+		}
+	}
+	return
 }
 
 // readNonEmptyFile is a helper that reads the contents of a file into a string.

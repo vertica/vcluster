@@ -29,9 +29,10 @@ import (
 // const to sync cmd, options parsing, and this
 const VScrutinizeTypeName = "scrutinize"
 
-// folders used by scrutinize
+// files and folders used by scrutinize
 const scrutinizeOutputBasePath = "/tmp/scrutinize"
 const scrutinizeRemoteOutputPath = scrutinizeOutputBasePath + "/remote"
+const scrutinizeLogFileName = "vcluster.log"
 
 // these could be replaced with options later
 const scrutinizeLogAgeHours = 24            // copy archived logs produced in recent 24 hours
@@ -168,6 +169,9 @@ func (vcc *VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
 		return err
 	}
 
+	// add vcluster log to output
+	options.stageVclusterLog(options.ID, vcc.Log)
+
 	// tar all results
 	if err = tarAndRemoveDirectory(options.ID, vcc.Log); err != nil {
 		vcc.Log.Error(err, "failed to create final scrutinize output tarball")
@@ -177,8 +181,32 @@ func (vcc *VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
 	return nil
 }
 
+// stageVclusterLog attempts to copy the vcluster log to the scrutinize tarball, as
+// that will contain log entries for this scrutinize run.  Any failure shouldn't
+// abort scrutinize, so just prints a warning.
+func (options *VScrutinizeOptions) stageVclusterLog(id string, log vlog.Printer) {
+	// if using vcluster command line, the log path will always be set
+	if options.LogPath == nil {
+		log.PrintWarning("Path to scrutinize log not provided. " +
+			"The log for this scrutinize run will not be included.")
+		return
+	}
+
+	destPath := fmt.Sprintf("%s/%s/%s", scrutinizeRemoteOutputPath, id, scrutinizeLogFileName)
+	sourcePath := *options.LogPath
+
+	// copy the log instead of symlinking to avoid issues with tar
+	log.Info("Copying scrutinize log", "source", sourcePath, "dest", destPath)
+	const logFilePerms = 0700
+	err := util.CopyFile(sourcePath, destPath, logFilePerms)
+	if err != nil {
+		log.PrintWarning("Unable to copy scrutinize log: %s", err.Error())
+	}
+}
+
+// tarAndRemoveDirectory packages the final scrutinize output.
 func tarAndRemoveDirectory(id string, log vlog.Printer) (err error) {
-	tarballPath := "/tmp/scrutinize/" + id + ".tar"
+	tarballPath := scrutinizeOutputBasePath + "/" + id + ".tar"
 	cmd := exec.Command("tar", "cf", tarballPath, "-C", "/tmp/scrutinize/remote", id)
 	log.Info("running command %s with args %v", cmd.Path, cmd.Args)
 	if err = cmd.Run(); err != nil {
@@ -259,8 +287,11 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	instructions = append(instructions, &getUpNodesOp)
 
 	// Initiate system table staging early as it may take significantly longer than other ops
-	stageSystemTablesOp := makeNMAStageSystemTablesOp(vcc.Log, options.ID, *options.UserName,
-		options.Password, hostNodeNameMap)
+	stageSystemTablesOp, err := makeNMAStageSystemTablesOp(vcc.Log, options.ID, *options.UserName,
+		options.Password, hostNodeNameMap, options.Hosts)
+	if err != nil {
+		return nil, err
+	}
 	instructions = append(instructions, &stageSystemTablesOp)
 
 	// stage Vertica logs
@@ -306,7 +337,10 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	instructions = append(instructions, &getContextTarballOp)
 
 	// check for system tables staging completion before continuing
-	checkSystemTablesOp := makeNMACheckSystemTablesOp(vcc.Log, options.ID, hostNodeNameMap)
+	checkSystemTablesOp, err := makeNMACheckSystemTablesOp(vcc.Log, options.ID, hostNodeNameMap, options.Hosts)
+	if err != nil {
+		return nil, err
+	}
 	instructions = append(instructions, &checkSystemTablesOp)
 
 	// get 'system_tables' batch tarball last, as staging systables can take a long time

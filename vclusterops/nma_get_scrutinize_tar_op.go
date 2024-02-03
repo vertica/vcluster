@@ -89,15 +89,15 @@ func (op *nmaGetScrutinizeTarOp) prepare(execContext *opEngineExecContext) error
 			op.skipExecute = true
 			return nil
 		}
-		host := getInitiator(execContext.upHosts)
-		op.hosts = []string{host}
 
-		// the initiator host should have been in the original host list, and already
-		// validated, but let's not assume
-		err := validateHostMaps(op.hosts, op.hostNodeNameMap)
-		if err != nil {
-			return err
+		host := getInitiatorFromUpHosts(execContext.upHosts, op.hosts)
+		if host == "" {
+			op.logger.PrintWarning("no up hosts among user specified hosts to collect system tables from, skipping the operation")
+			op.skipExecute = true
+			return nil
 		}
+
+		op.hosts = []string{host}
 	}
 
 	hostToFilePathsMap := map[string]string{}

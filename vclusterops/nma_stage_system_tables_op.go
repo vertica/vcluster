@@ -37,11 +37,13 @@ type stageSystemTablesRequestData struct {
 func makeNMAStageSystemTablesOp(logger vlog.Printer,
 	id, username string,
 	password *string,
-	hostNodeNameMap map[string]string) nmaStageSystemTablesOp {
+	hostNodeNameMap map[string]string,
+	hosts []string) (nmaStageSystemTablesOp, error) {
 	// base members
 	op := nmaStageSystemTablesOp{}
 	op.name = "NMAStageSystemTablesOp"
 	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
 
 	// scrutinize members
 	op.id = id
@@ -54,7 +56,13 @@ func makeNMAStageSystemTablesOp(logger vlog.Printer,
 	op.username = username
 	op.password = password
 
-	return op
+	// the caller is responsible for making sure hosts and maps match up exactly
+	err := validateHostMaps(hosts, hostNodeNameMap)
+	if err != nil {
+		return op, err
+	}
+
+	return op, nil
 }
 
 func (op *nmaStageSystemTablesOp) setupRequestBody(host string) error {
@@ -83,7 +91,13 @@ func (op *nmaStageSystemTablesOp) prepare(execContext *opEngineExecContext) erro
 		op.skipExecute = true
 		return nil
 	}
-	host := getInitiator(execContext.upHosts)
+
+	host := getInitiatorFromUpHosts(execContext.upHosts, op.hosts)
+	if host == "" {
+		op.logger.PrintWarning("no up hosts among user specified hosts to collect system tables from, skipping the operation")
+		op.skipExecute = true
+		return nil
+	}
 
 	err := op.setupRequestBody(host)
 	if err != nil {
@@ -92,10 +106,6 @@ func (op *nmaStageSystemTablesOp) prepare(execContext *opEngineExecContext) erro
 
 	// construct host list for interface purposes
 	op.hosts = []string{host}
-	err = validateHostMaps(op.hosts, op.hostNodeNameMap)
-	if err != nil {
-		return err
-	}
 
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)

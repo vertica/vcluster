@@ -104,7 +104,7 @@ func (e *ReviveDBRestorePointNotFoundError) Error() string {
 		indicator = "index"
 		value = fmt.Sprintf("%d", e.InvalidIndex)
 	}
-	return fmt.Sprintf("restore point with %s %s not found in archive %s", indicator, value, e.Archive)
+	return fmt.Sprintf("restore point with %s %s not found in archive %q", indicator, value, e.Archive)
 }
 
 func VReviveDBOptionsFactory() VReviveDatabaseOptions {

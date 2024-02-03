@@ -32,11 +32,13 @@ type checkSystemTablesResponseData struct {
 
 func makeNMACheckSystemTablesOp(logger vlog.Printer,
 	id string,
-	hostNodeNameMap map[string]string) nmaCheckSystemTablesOp {
+	hostNodeNameMap map[string]string,
+	hosts []string) (nmaCheckSystemTablesOp, error) {
 	// base members
 	op := nmaCheckSystemTablesOp{}
 	op.name = "NMACheckSystemTablesOp"
 	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
 
 	// scrutinize members
 	op.id = id
@@ -45,7 +47,13 @@ func makeNMACheckSystemTablesOp(logger vlog.Printer,
 	op.httpMethod = GetMethod
 	op.urlSuffix = "/vs-status"
 
-	return op
+	// the caller is responsible for making sure hosts and maps match up exactly
+	err := validateHostMaps(hosts, hostNodeNameMap)
+	if err != nil {
+		return op, err
+	}
+
+	return op, nil
 }
 
 func (op *nmaCheckSystemTablesOp) getPollingTimeout() int {
@@ -60,14 +68,16 @@ func (op *nmaCheckSystemTablesOp) prepare(execContext *opEngineExecContext) erro
 		op.skipExecute = true
 		return nil
 	}
-	host := getInitiator(execContext.upHosts)
+
+	host := getInitiatorFromUpHosts(execContext.upHosts, op.hosts)
+	if host == "" {
+		op.logger.PrintWarning("no up hosts among user specified hosts to collect system tables from, skipping the operation")
+		op.skipExecute = true
+		return nil
+	}
 
 	// construct host list for interface purposes
 	op.hosts = []string{host}
-	err := validateHostMaps(op.hosts, op.hostNodeNameMap)
-	if err != nil {
-		return err
-	}
 
 	// prepare GET request with no params or body
 	execContext.dispatcher.setup(op.hosts)
