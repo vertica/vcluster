@@ -45,7 +45,7 @@ func TestFindSpecifiedRestorePoint(t *testing.T) {
 	*options.RestorePoint.ID = expectedID
 	_, err = options.findSpecifiedRestorePoint(allRestorePoints)
 	expectedErr := fmt.Errorf("found 2 restore points instead of 1: " +
-		"[{Archive:archive1 ID:id3 Index:2 Timestamp:} {Archive:archive1 ID:id3 Index:3 Timestamp:}]")
+		"[{Archive:archive1 ID:id3 Index:2 Timestamp: VerticaVersion:} {Archive:archive1 ID:id3 Index:3 Timestamp: VerticaVersion:}]")
 	assert.EqualError(t, err, expectedErr.Error())
 
 	// Test case: No matching restore points found

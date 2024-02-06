@@ -31,6 +31,7 @@ const httpRequestTimeoutSeconds = 30
 const (
 	StartDBCmd CmdType = iota
 	StartNodeCmd
+	CreateDBCmd
 )
 
 type CmdType int
@@ -41,6 +42,8 @@ func (cmd CmdType) String() string {
 		return "start_db"
 	case StartNodeCmd:
 		return "restart_node"
+	case CreateDBCmd:
+		return "create_db"
 	}
 	return "unknown_operation"
 }
@@ -100,7 +103,6 @@ func makeHTTPSPollNodeStateOp(logger vlog.Printer, hosts []string,
 }
 
 func (op *httpsPollNodeStateOp) getPollingTimeout() int {
-	// a negative value indicates no timeout and should never be used for this op
 	return util.Max(op.timeout, 0)
 }
 
@@ -175,9 +177,10 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 					op.name)
 				return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s, but the nodes' startup have been in progress."+
 					"Please use vsql to check the nodes' status and manually run sync_catalog vsql command 'select sync_catalog()'", op.name, host)
+			case CreateDBCmd:
+				return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
+					op.name, host)
 			}
-			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
-				op.name, host)
 		}
 		if result.isPassing() {
 			// parse the /nodes/{node} endpoint response

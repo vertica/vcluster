@@ -114,6 +114,8 @@ type RestorePoint struct {
 	Index int
 	// The timestamp when the restore point was created.
 	Timestamp string
+	// The version of Vertica running when the restore point was created.
+	VerticaVersion string
 }
 
 func (op *nmaShowRestorePointsOp) processResult(execContext *opEngineExecContext) error {

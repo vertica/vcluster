@@ -539,8 +539,8 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 
 	nmaStartNodeOp := makeNMAStartNodeOp(vcc.Log, bootstrapHost, *options.StartUpConf)
 
-	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, bootstrapHost, true, /* useHTTPPassword */
-		*options.UserName, options.Password)
+	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vcc.Log, bootstrapHost, true, /* useHTTPPassword */
+		*options.UserName, options.Password, *options.TimeoutNodeStartupSeconds, CreateDBCmd)
 	if err != nil {
 		return instructions, err
 	}
@@ -621,7 +621,8 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	username := *options.UserName
 
 	if !*options.SkipStartupPolling {
-		httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, hosts, true, username, options.Password)
+		httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vcc.Log, hosts, true, username, options.Password,
+			*options.TimeoutNodeStartupSeconds, CreateDBCmd)
 		if err != nil {
 			return instructions, err
 		}
