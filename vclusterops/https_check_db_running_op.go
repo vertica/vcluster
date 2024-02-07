@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -72,7 +74,7 @@ func makeHTTPSCheckRunningDBOp(logger vlog.Printer, hosts []string,
 	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
-	op.name = "HTTPCheckDBRunningOp"
+	op.name = "HTTPSCheckDBRunningOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
@@ -113,40 +115,57 @@ func (op *httpsCheckRunningDBOp) prepare(execContext *opEngineExecContext) error
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-/* httpsNodeStateResponse example:
-   {
-	"details": null,
-    "node_list":[{
-				  "name": "v_test_db_running_node0001",
-	          	  "node_id": 45035996273704982,
-		  		  "address": "192.168.1.101",
-		  		  "state" : "UP",
-		  		  "database" : "test_db",
-		  		  "is_primary" : true,
-		  		  "is_readonly" : false,
-		  		  "catalog_path" : "\/data\/test_db\/v_test_db_node0001_catalog\/Catalog",
-		  		  "data_path": ["\/data\/test_db\/v_test_db_node0001_data"],
-      	          "depot_path": "\/data\/test_db\/v_test_db_node0001_depot",
-		          "subcluster_name" : "default_subcluster",
-		          "last_msg_from_node_at":"2023-01-23T15:18:18.44866",
-		          "down_since" : null,
-		          "build_info" : "v12.0.4-7142c8b01f373cc1aa60b1a8feff6c40bfb7afe8"
-                }]
-	}
+/*
+	https v1/nodes endpoint response examples
+	 	- for a response with 200 status code:
+		{
+			'details':[],
+			'node_list':[{
+							'name': 'v_test_db_running_node0001',
+							'node_id':'45035996273704982',
+							'address': '192.168.1.101',
+							'state' : 'UP',
+							'database' : 'test_db',
+							'is_primary' : true,
+							'is_readonly' : false,
+							'catalog_path' : "\/data\/test_db\/v_test_db_node0001_catalog\/Catalog",
+							'subcluster_name' : '',
+							'last_msg_from_node_at':'2023-01-23T15:18:18.44866",
+							'down_since' : null,
+							'build_info' : "v12.0.4-7142c8b01f373cc1aa60b1a8feff6c40bfb7afe8",
+							'sandbox_name' : "sandbox"
+						}]
+		}
+
+		- for a response with non-200 status code
+		(i.e. an rfc error when the endpoint does not return a well-structured node list for some reason)
+			- an example
+			(this specific error indicates that the node is starting and hasn't pulled the latest catalog yet):
+			{
+			"type": "https:\/\/integrators.vertica.com\/rest\/errors\/unauthorized-request",
+			"title": "Unauthorized-request",
+			"detail": "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n",
+			"host": "0.0.0.0",
+			"status": 401
+			}
+			- another example
+			(this specific error indicates that the password provided for authentication is incorrect):
+			{
+			"type": "https:\/\/integrators.vertica.com\/rest\/errors\/unauthorized-request",
+			"title": "Unauthorized-request",
+			"detail": "Wrong password\n",
+			"host": "0.0.0.0",
+			"status": 401
+			}
 */
-//
-// or a message if the endpoint doesn't return a well-structured JSON, examples:
-// {"message": "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster\n"}
-// {"message": "Wrong password\n"}
-type nodeList []map[string]any
-type httpsNodeStateResponse map[string]nodeList
 
 func (op *httpsCheckRunningDBOp) isDBRunningOnHost(host string,
-	responseObj httpsNodeStateResponse) (running bool, msg string, err error) {
-	// parse and log the results
-	msg = ""
-	nodeList, ok := responseObj["node_list"]
-	if !ok {
+	nodesState *nodesStateInfo, result hostHTTPResult) (status, msg string, err error) {
+	runningStatus := "running"
+	startingStatus := "starting/waiting to join cluster"
+	status = runningStatus
+	// check for rfc error
+	if !result.isSuccess() && !result.isPassing() {
 		// hanging HTTPS service thread
 		switch op.opType {
 		case CreateDB:
@@ -155,25 +174,28 @@ func (op *httpsCheckRunningDBOp) isDBRunningOnHost(host string,
 		case StopDB, StartDB, ReviveDB:
 			msg = fmt.Sprintf("[%s] Detected HTTPS service running on host %s", op.name, host)
 		}
-		return false, msg, nil
+		// check whether the node is starting and hasn't pulled the latest catalog yet
+		rfcError := &rfc7807.VProblem{}
+		if ok := errors.As(result.err, &rfcError); ok &&
+			rfcError.ProblemID == rfc7807.AuthenticationError &&
+			strings.Contains(rfcError.Detail, "Local node has not joined cluster yet") {
+			status = startingStatus
+		}
+		return status, msg, nil
 	}
-	// exception, throw an error
+	nodeList := nodesState.NodeList
 	if len(nodeList) == 0 {
+		// exception, throw an error
 		noNodeErr := fmt.Errorf("[%s] Unexpected result from host %s: empty node_list obtained from /nodes endpoint response",
 			op.name, host)
-		return true, "", noNodeErr
+		return status, "", noNodeErr
 	}
 
 	nodeInfo := nodeList[0]
-	runningDBName, ok := nodeInfo["database"]
-	// exception, throw an error
-	if !ok {
-		noDBInfoErr := fmt.Errorf("[%s] Unexpected result from host %s: no database name returned from /nodes endpoint response", op.name, host)
-		return true, "", noDBInfoErr
-	}
+	runningDBName := nodeInfo.Database
 
 	msg = fmt.Sprintf("[%s] Database %s is still running on host %s", op.name, runningDBName, host)
-	return true, msg, nil
+	return status, msg, nil
 }
 
 // processResult will look at all of the results that come back from the hosts.
@@ -190,6 +212,8 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 	// print msg
 	msg := ""
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
+		op.logResponse(host, result)
+
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 		}
@@ -203,34 +227,35 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 
 		upHosts[host] = true
 		// a passing result means that the db isn't down
-		var responseObj httpsNodeStateResponse
-		err := op.parseAndCheckResponse(host, result.content, &responseObj)
-
-		// don't return, as an error here could just mean a node not being up
+		nodesStates := nodesStateInfo{}
+		err := op.parseAndCheckResponse(host, result.content, &nodesStates)
+		// parsing shouldn't fail in normal circumstances (even if response is rfc error), checking for err
+		// here just as a guardrail
 		if err != nil {
-			err = fmt.Errorf("[%s] error happened parsing the response of host %s, error info: %w",
-				op.name, host, err)
+			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
 			allErrs = errors.Join(allErrs, err)
 			msg = result.content
 			continue
 		}
-		dbRunning, checkMsg, err := op.isDBRunningOnHost(host, responseObj)
+		status, checkMsg, err := op.isDBRunningOnHost(host, &nodesStates, result)
 		if err != nil {
 			return fmt.Errorf("[%s] error happened during checking DB running on host %s, details: %w",
 				op.name, host, err)
 		}
-		op.logger.Info("DB running", "host", host, "dbRunning", dbRunning, "checkMsg", checkMsg)
+		op.logger.Info("DB running", "host", host, "status", status, "checkMsg", checkMsg)
 		// return at least one check msg to user
 		msg = checkMsg
 	}
 
-	// log info
+	return op.handleDBRunning(allErrs, msg, upHosts, downHosts, exceptionHosts)
+}
+
+func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHosts, downHosts, exceptionHosts map[string]bool) error {
 	op.logger.Info("check db running results", "up hosts", upHosts, "down hosts", downHosts, "hosts with status unknown", exceptionHosts)
 	// no DB is running on hosts, return a passed result
 	if len(upHosts) == 0 {
 		return nil
 	}
-
 	op.logger.Info("Check DB running", "detail", msg)
 
 	switch op.opType {

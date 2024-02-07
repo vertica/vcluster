@@ -192,4 +192,9 @@ var (
 		"Target path is not an absolute path",
 		http.StatusBadRequest,
 	)
+	AuthenticationError = newProblemID(
+		path.Join(errorEndpointsPrefix, "unauthorized-request"),
+		"Unauthorized-request",
+		http.StatusUnauthorized,
+	)
 )
