@@ -53,6 +53,8 @@ func makeCmdReviveDB() *CmdReviveDB {
 		"The (1-based) index of the restore point in the restore archive to restore from"))
 	reviveDBOptions.RestorePoint.ID = newCmd.parser.String("restore-point-id", "", util.GetOptionalFlagMsg(
 		"The identifier of the restore point in the restore archive to restore from"))
+	reviveDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
+		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
 
 	newCmd.reviveDBOptions = &reviveDBOptions
 
@@ -78,6 +80,9 @@ func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// reset the value of those options to nil
 	if !util.IsOptionSet(c.parser, "ipv6") {
 		c.CmdBase.ipv6 = nil
+	}
+	if !util.IsOptionSet(c.parser, "config-directory") {
+		c.reviveDBOptions.ConfigDirectory = nil
 	}
 
 	return c.validateParse(logger)
@@ -113,7 +118,7 @@ func (c *CmdReviveDB) Analyze(logger vlog.Printer) error {
 
 func (c *CmdReviveDB) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.V(1).Info("Called method Run()")
-	dbInfo, err := vcc.VReviveDatabase(c.reviveDBOptions)
+	dbInfo, vdb, err := vcc.VReviveDatabase(c.reviveDBOptions)
 	if err != nil {
 		vcc.Log.Error(err, "fail to revive database", "DBName", *c.reviveDBOptions.DBName)
 		return err
@@ -122,6 +127,11 @@ func (c *CmdReviveDB) Run(vcc vclusterops.VClusterCommands) error {
 	if *c.reviveDBOptions.DisplayOnly {
 		vcc.Log.PrintInfo("database details:\n%s", dbInfo)
 		return nil
+	}
+
+	err = vdb.WriteClusterConfig(c.reviveDBOptions.ConfigDirectory, vcc.Log)
+	if err != nil {
+		vcc.Log.PrintWarning("fail to write config file, details: %s", err)
 	}
 
 	vcc.Log.PrintInfo("Successfully revived database %s", *c.reviveDBOptions.DBName)

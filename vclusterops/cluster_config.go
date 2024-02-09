@@ -149,6 +149,22 @@ func (c *ClusterConfig) getCommunalStorageLocation(dbName string) (communalStora
 	return dbConfig.CommunalStorageLocation, nil
 }
 
+func (c *ClusterConfig) removeDatabaseFromConfigFile(dbName, configDirectory string, logger vlog.Printer) error {
+	configFilePath := filepath.Join(configDirectory, ConfigFileName)
+
+	// back up the old config file
+	err := backupConfigFile(configFilePath, logger)
+	if err != nil {
+		return err
+	}
+
+	// remove the target database from the cluster config
+	// and overwrite the config file
+	delete(*c, dbName)
+
+	return c.WriteConfig(configFilePath)
+}
+
 func (c *DatabaseConfig) getHosts() []string {
 	var hostList []string
 
@@ -207,7 +223,7 @@ func backupConfigFile(configFilePath string, logger vlog.Printer) error {
 	return nil
 }
 
-func removeConfigFile(configDirectory string, logger vlog.Printer) error {
+func RemoveConfigFile(configDirectory string, logger vlog.Printer) error {
 	configFilePath := filepath.Join(configDirectory, ConfigFileName)
 	configBackupPath := filepath.Join(configDirectory, ConfigBackupName)
 

@@ -35,8 +35,9 @@ const scrutinizeRemoteOutputPath = scrutinizeOutputBasePath + "/remote"
 const scrutinizeLogFileName = "vcluster.log"
 
 // these could be replaced with options later
-const scrutinizeLogAgeHours = 24            // copy archived logs produced in recent 24 hours
-const scrutinizeLogLimitBytes = 10737418240 // 10GB in bytes
+const scrutinizeLogAgeHours = 24                   // copy archived logs produced in recent 24 hours
+const scrutinizeLogLimitBytes = 10737418240        // 10GB in bytes
+const scrutinizeFileLimitBytes = 100 * 1024 * 1024 // 100 MB in bytes
 
 // batches are fixed, top level folders for each node's data
 const scrutinizeBatchNormal = "normal"
@@ -263,7 +264,7 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 //   - Get up nodes through https call
 //   - Initiate system table staging on the first up node, if available
 //   - Stage vertica logs on all nodes
-//   - Stage ErrorReport.txt on all nodes
+//   - Stage files on all nodes
 //   - Stage DC tables on all nodes
 //   - Tar and retrieve vertica logs and DC tables from all nodes (batch normal)
 //   - Tar and retrieve error report from all nodes (batch context)
@@ -312,15 +313,23 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	}
 	instructions = append(instructions, &stageDCTablesOp)
 
-	// stage ErrorReport.txt
-	stageVerticaErrorReportOp, err := makeNMAStageErrorReportOp(vcc.Log, options.ID, options.Hosts,
-		hostNodeNameMap, hostCatPathMap)
+	// stage 'normal' batch files -- see NMA for what files are collected
+	stageVerticaNormalFilesOp, err := makeNMAStageFilesOp(vcc.Log, options.ID, scrutinizeBatchNormal,
+		options.Hosts, hostNodeNameMap, hostCatPathMap, scrutinizeFileLimitBytes)
 	if err != nil {
 		return nil, err
 	}
-	instructions = append(instructions, &stageVerticaErrorReportOp)
+	instructions = append(instructions, &stageVerticaNormalFilesOp)
 
-	// get 'normal' batch tarball (inc. Vertica logs)
+	// stage 'context' batch files -- see NMA for what files are collected
+	stageVerticaContextFilesOp, err := makeNMAStageFilesOp(vcc.Log, options.ID, scrutinizeBatchContext,
+		options.Hosts, hostNodeNameMap, hostCatPathMap, scrutinizeFileLimitBytes)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &stageVerticaContextFilesOp)
+
+	// get 'normal' batch tarball (inc. Vertica logs and 'normal' batch files)
 	getNormalTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchNormal,
 		options.Hosts, hostNodeNameMap)
 	if err != nil {
@@ -328,7 +337,7 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	}
 	instructions = append(instructions, &getNormalTarballOp)
 
-	// get 'context' batch tarball (inc. ErrorReport.txt)
+	// get 'context' batch tarball (inc. 'context' batch files)
 	getContextTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchContext,
 		options.Hosts, hostNodeNameMap)
 	if err != nil {

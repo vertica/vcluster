@@ -195,7 +195,7 @@ func (options *VReviveDatabaseOptions) validateAnalyzeOptions() error {
 
 // VReviveDatabase revives a database that was terminated but whose communal storage data still exists.
 // It returns the database information retrieved from communal storage and any error encountered.
-func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, err error) {
+func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error) {
 	/*
 	 *   - Validate options
 	 *   - Run VClusterOpEngine to get terminated database info
@@ -205,7 +205,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	// validate and analyze options
 	err = options.validateAnalyzeOptions()
 	if err != nil {
-		return dbInfo, err
+		return dbInfo, nil, err
 	}
 
 	vdb := makeVCoordinationDatabase()
@@ -213,7 +213,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	// part 1: produce instructions for getting terminated database info, and save the info to vdb
 	preReviveDBInstructions, err := vcc.producePreReviveDBInstructions(options, &vdb)
 	if err != nil {
-		return dbInfo, fmt.Errorf("fail to produce pre-revive database instructions %w", err)
+		return dbInfo, nil, fmt.Errorf("fail to produce pre-revive database instructions %w", err)
 	}
 
 	// generate clusterOpEngine certs
@@ -222,46 +222,53 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	clusterOpEngine := makeClusterOpEngine(preReviveDBInstructions, &certs)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
-		return dbInfo, fmt.Errorf("fail to collect the information of database in revive_db %w", err)
+		return dbInfo, nil, fmt.Errorf("fail to collect the information of database in revive_db %w", err)
 	}
 
 	if options.isRestoreEnabled() {
 		validatedRestorePointID, findErr := options.findSpecifiedRestorePoint(clusterOpEngine.execContext.restorePoints)
 		if findErr != nil {
-			return dbInfo, fmt.Errorf("fail to find a restore point as specified %w", findErr)
+			return dbInfo, &vdb, fmt.Errorf("fail to find a restore point as specified %w", findErr)
 		}
 
 		restoreDBSpecificInstructions, produceErr := vcc.produceRestoreDBSpecificInstructions(options, &vdb, validatedRestorePointID)
 		if produceErr != nil {
-			return dbInfo, fmt.Errorf("fail to produce restore-specific instructions %w", produceErr)
+			return dbInfo, &vdb, fmt.Errorf("fail to produce restore-specific instructions %w", produceErr)
 		}
 
 		// feed the restore db specific instructions to the VClusterOpEngine
 		clusterOpEngine = makeClusterOpEngine(restoreDBSpecificInstructions, &certs)
 		runErr := clusterOpEngine.run(vcc.Log)
 		if runErr != nil {
-			return dbInfo, fmt.Errorf("fail to collect the restore-specific information of database in revive_db %w", runErr)
+			return dbInfo, &vdb, fmt.Errorf("fail to collect the restore-specific information of database in revive_db %w", runErr)
 		}
 	}
 
 	if *options.DisplayOnly {
 		dbInfo = clusterOpEngine.execContext.dbInfo
-		return dbInfo, nil
+		return dbInfo, &vdb, nil
 	}
 
 	// part 2: produce instructions for reviving database using terminated database info
 	reviveDBInstructions, err := vcc.produceReviveDBInstructions(options, &vdb)
 	if err != nil {
-		return dbInfo, fmt.Errorf("fail to produce revive database instructions %w", err)
+		return dbInfo, &vdb, fmt.Errorf("fail to produce revive database instructions %w", err)
 	}
 
 	// feed revive db instructions to the VClusterOpEngine
 	clusterOpEngine = makeClusterOpEngine(reviveDBInstructions, &certs)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
-		return dbInfo, fmt.Errorf("fail to revive database %w", err)
+		return dbInfo, &vdb, fmt.Errorf("fail to revive database %w", err)
 	}
-	return dbInfo, nil
+
+	// fill vdb with VReviveDatabaseOptions information
+	vdb.Name = *options.DBName
+	vdb.IsEon = true
+	vdb.CommunalStorageLocation = *options.CommunalStorageLocation
+	vdb.Ipv6 = options.Ipv6.ToBool()
+
+	return dbInfo, &vdb, nil
 }
 
 // revive db instructions are split into two parts:

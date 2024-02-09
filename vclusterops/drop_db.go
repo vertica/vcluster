@@ -110,11 +110,12 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 		return fmt.Errorf("fail to drop database: %w", runError)
 	}
 
-	// if the database is successfully dropped, the config file will be removed
+	// if the database is successfully dropped, the database will be removed from the config file
 	// if failed to remove it, we will ask users to manually do it
-	err = removeConfigFile(configDir, vcc.Log)
+	err = clusterConfig.removeDatabaseFromConfigFile(vdb.Name, configDir, vcc.Log)
 	if err != nil {
-		vcc.Log.PrintWarning("Fail to remove the config file(s), please manually clean up under directory %s", configDir)
+		vcc.Log.PrintWarning("Fail to remove the database information from config file, "+
+			"please manually clean up under directory %s. Details: %v", configDir, err)
 	}
 
 	return nil

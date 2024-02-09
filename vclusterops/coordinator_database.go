@@ -439,9 +439,24 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, logger v
 		nodeConfig.Name = vnode.Name
 		nodeConfig.Address = vnode.Address
 		nodeConfig.Subcluster = vnode.Subcluster
-		nodeConfig.CatalogPath = vdb.CatalogPrefix
-		nodeConfig.DataPath = vdb.DataPrefix
-		nodeConfig.DepotPath = vdb.DepotPrefix
+
+		// VER-91869 will replace the path prefixes with full paths
+		if vdb.CatalogPrefix == "" {
+			nodeConfig.CatalogPath = util.GetPathPrefix(vnode.CatalogPath)
+		} else {
+			nodeConfig.CatalogPath = vdb.CatalogPrefix
+		}
+		if vdb.DataPrefix == "" && len(vnode.StorageLocations) > 0 {
+			nodeConfig.DataPath = util.GetPathPrefix(vnode.StorageLocations[0])
+		} else {
+			nodeConfig.DataPath = vdb.DataPrefix
+		}
+		if vdb.IsEon && vdb.DepotPrefix == "" {
+			nodeConfig.DepotPath = util.GetPathPrefix(vnode.DepotPath)
+		} else {
+			nodeConfig.DepotPath = vdb.DepotPrefix
+		}
+
 		dbConfig.Nodes = append(dbConfig.Nodes, &nodeConfig)
 	}
 	dbConfig.IsEon = vdb.IsEon

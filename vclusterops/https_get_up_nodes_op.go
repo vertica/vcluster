@@ -30,6 +30,7 @@ const (
 	StopDBCmd
 	ScrutinizeCmd
 	DBAddSubclusterCmd
+	InstallPackageCmd
 )
 
 type CommandType int

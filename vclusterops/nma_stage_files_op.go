@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023] Open Text.
+ (c) Copyright [2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -22,51 +22,58 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type nmaStageErrorReportOp struct {
+type nmaStageFilesOp struct {
 	scrutinizeOpBase
+	logSizeLimitBytes int64 // maximum file size in bytes for any individual file
 }
 
-type stageErrorReportRequestData struct {
-	CatalogPath string `json:"catalog_path"`
+type stageFilesRequestData struct {
+	CatalogPath       string `json:"catalog_path"`
+	LogSizeLimitBytes int64  `json:"log_size_limit_bytes"`
 }
 
-type stageErrorReportResponseData struct {
+type stageFilesResponseData struct {
 	Name      string `json:"name"`
 	SizeBytes int64  `json:"size_bytes"`
 	ModTime   string `json:"mod_time"`
 }
 
-func makeNMAStageErrorReportOp(logger vlog.Printer,
-	id string,
+func makeNMAStageFilesOp(logger vlog.Printer,
+	id, batch string,
 	hosts []string,
 	hostNodeNameMap map[string]string,
-	hostCatPathMap map[string]string) (nmaStageErrorReportOp, error) {
+	hostCatPathMap map[string]string,
+	logSizeLimitBytes int64) (nmaStageFilesOp, error) {
 	// base members
-	op := nmaStageErrorReportOp{}
-	op.name = "NMAStageErrorReportOp"
+	op := nmaStageFilesOp{}
+	op.name = "NMAStageFilesOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 
 	// scrutinize members
 	op.id = id
-	op.batch = scrutinizeBatchContext
+	op.batch = batch
 	op.hostNodeNameMap = hostNodeNameMap
 	op.hostCatPathMap = hostCatPathMap
 	op.httpMethod = PostMethod
-	op.urlSuffix = "/ErrorReport.txt"
+	op.urlSuffix = "/files"
+
+	// custom members
+	op.logSizeLimitBytes = logSizeLimitBytes
 
 	// the caller is responsible for making sure hosts and maps match up exactly
 	err := validateHostMaps(hosts, hostNodeNameMap, hostCatPathMap)
 	return op, err
 }
 
-func (op *nmaStageErrorReportOp) setupRequestBody(hosts []string) error {
+func (op *nmaStageFilesOp) setupRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string, len(hosts))
 	for _, host := range hosts {
-		stageErrorReportData := stageErrorReportRequestData{}
-		stageErrorReportData.CatalogPath = op.hostCatPathMap[host]
+		stageFilesData := stageFilesRequestData{}
+		stageFilesData.CatalogPath = op.hostCatPathMap[host]
+		stageFilesData.LogSizeLimitBytes = op.logSizeLimitBytes
 
-		dataBytes, err := json.Marshal(stageErrorReportData)
+		dataBytes, err := json.Marshal(stageFilesData)
 		if err != nil {
 			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
 		}
@@ -77,7 +84,7 @@ func (op *nmaStageErrorReportOp) setupRequestBody(hosts []string) error {
 	return nil
 }
 
-func (op *nmaStageErrorReportOp) prepare(execContext *opEngineExecContext) error {
+func (op *nmaStageFilesOp) prepare(execContext *opEngineExecContext) error {
 	err := op.setupRequestBody(op.hosts)
 	if err != nil {
 		return err
@@ -87,7 +94,7 @@ func (op *nmaStageErrorReportOp) prepare(execContext *opEngineExecContext) error
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *nmaStageErrorReportOp) execute(execContext *opEngineExecContext) error {
+func (op *nmaStageFilesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -95,11 +102,11 @@ func (op *nmaStageErrorReportOp) execute(execContext *opEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *nmaStageErrorReportOp) finalize(_ *opEngineExecContext) error {
+func (op *nmaStageFilesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaStageErrorReportOp) processResult(_ *opEngineExecContext) error {
-	fileList := make([]stageErrorReportResponseData, 0)
+func (op *nmaStageFilesOp) processResult(_ *opEngineExecContext) error {
+	fileList := make([]stageFilesResponseData, 0)
 	return processStagedItemsResult(&op.scrutinizeOpBase, fileList)
 }

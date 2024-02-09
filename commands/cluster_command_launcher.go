@@ -100,6 +100,7 @@ func constructCmds(_ vlog.Printer) []ClusterCommand {
 		makeCmdReIP(),
 		makeCmdReviveDB(),
 		makeCmdShowRestorePoints(),
+		makeCmdInstallPackages(),
 		// sc-scope cmds
 		makeCmdAddSubcluster(),
 		makeCmdRemoveSubcluster(),

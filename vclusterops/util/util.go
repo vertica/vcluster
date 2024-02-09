@@ -593,3 +593,8 @@ func Max[T constraints.Ordered](a, b T) T {
 	}
 	return b
 }
+
+// GetPathPrefix returns a path prefix for a (catalog/data/depot) path of a node
+func GetPathPrefix(path string) string {
+	return filepath.Dir(filepath.Dir(path))
+}

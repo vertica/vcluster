@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -26,15 +27,20 @@ import (
 type httpsInstallPackagesOp struct {
 	opBase
 	opHTTPSBase
+	verbose        bool // Include verbose output about package install status
+	forceReinstall bool
+	status         InstallPackageStatus // Filled in once the op completes
 }
 
 func makeHTTPSInstallPackagesOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string,
+	userName string, httpsPassword *string, forceReinstall bool, verbose bool,
 ) (httpsInstallPackagesOp, error) {
 	op := httpsInstallPackagesOp{}
 	op.name = "HTTPSInstallPackagesOp"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
+	op.verbose = verbose
+	op.forceReinstall = forceReinstall
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -55,6 +61,9 @@ func (op *httpsInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error 
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
 		}
+		httpRequest.QueryParams = map[string]string{
+			"force-install": strconv.FormatBool(op.forceReinstall),
+		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -62,6 +71,14 @@ func (op *httpsInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *httpsInstallPackagesOp) prepare(execContext *opEngineExecContext) error {
+	// If no hosts passed in, we will find the hosts from execute-context
+	if len(op.hosts) == 0 {
+		if len(execContext.upHosts) == 0 {
+			return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+		}
+		// use first up host to execute https post request
+		op.hosts = []string{execContext.upHosts[0]}
+	}
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
@@ -80,7 +97,8 @@ func (op *httpsInstallPackagesOp) finalize(_ *opEngineExecContext) error {
 }
 
 /*
-	httpsInstallPackagesResponse example:
+The response from the package endpoint, which are encoded in the next two
+structs, will look like this:
 
 {'packages': [
 
@@ -94,9 +112,22 @@ func (op *httpsInstallPackagesOp) finalize(_ *opEngineExecContext) error {
 	             },
 	           ...
 	           ]
-	}
+}
 */
-type httpsInstallPackagesResponse map[string][]map[string]string
+
+// InstallPackageStatus provides status for each package install attempted.
+type InstallPackageStatus struct {
+	Packages []PackageStatus `json:"packages"`
+}
+
+// PackageStatus has install status for a single package.
+type PackageStatus struct {
+	// Name of the package this status is for
+	PackageName string `json:"package_name"`
+	// One word outcome of the install status:
+	// Skipped, Success or Failure
+	InstallStatus string `json:"install_status"`
+}
 
 func (op *httpsInstallPackagesOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
@@ -109,21 +140,25 @@ func (op *httpsInstallPackagesOp) processResult(_ *opEngineExecContext) error {
 			continue
 		}
 
-		var responseObj httpsInstallPackagesResponse
-		err := op.parseAndCheckResponse(host, result.content, &responseObj)
-
+		err := op.parseAndCheckResponse(host, result.content, &op.status)
 		if err != nil {
 			allErrs = errors.Join(allErrs, err)
 			continue
 		}
 
-		installedPackages, ok := responseObj["packages"]
-		if !ok {
-			err = fmt.Errorf(`[%s] response does not contain field "packages"`, op.name)
+		if len(op.status.Packages) == 0 {
+			err = fmt.Errorf(`[%s] response does not have status for any packages`, op.name)
 			allErrs = errors.Join(allErrs, err)
 		}
 
-		op.logger.PrintInfo("[%s] installed packages: %v", op.name, installedPackages)
+		// Only print out status if verbose output was requested. Otherwise,
+		// just write status to the log.
+		msg := fmt.Sprintf("[%s] installation status of packages: %v", op.name, op.status.Packages)
+		if op.verbose {
+			op.logger.PrintInfo(msg)
+		} else {
+			op.logger.V(1).Info(msg)
+		}
 	}
 	return allErrs
 }

@@ -330,7 +330,7 @@ func (op *nmaDownloadFileOp) buildVDBFromClusterConfig(descFileContent fileConte
 
 func (op *nmaDownloadFileOp) clusterLeaseCheck(clusterLeaseExpiration string) error {
 	if op.ignoreClusterLease {
-		op.logger.PrintWarning("Skipping cluster lease check\n")
+		op.logger.PrintWarning("Skipping cluster lease check")
 		return nil
 	}
 
