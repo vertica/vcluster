@@ -17,6 +17,7 @@ package commands
 
 import (
 	"flag"
+	"fmt"
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops"
@@ -58,6 +59,10 @@ func makeCmdStopDB() *CmdStopDB {
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
 	stopDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
+	stopDBOptions.Sandbox = newCmd.parser.String("sandbox", "",
+		util.GetOptionalFlagMsg("Name of the sandbox where Database has to be stopped"))
+	stopDBOptions.MainCluster = newCmd.parser.Bool("main-cluster-only", false, util.GetOptionalFlagMsg("stop db only on the main cluster"+
+		" Use it when there are sandboxes involved "))
 
 	// Eon flags
 	newCmd.isEon = newCmd.parser.Bool("eon-mode", false, util.GetEonFlagMsg("indicate if the database is an Eon db."+
@@ -110,7 +115,6 @@ func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	if !util.IsOptionSet(c.parser, "config-directory") {
 		c.stopDBOptions.ConfigDirectory = nil
 	}
-
 	return c.validateParse(logger)
 }
 
@@ -142,7 +146,17 @@ func (c *CmdStopDB) Run(vcc vclusterops.VClusterCommands) error {
 		vcc.Log.Error(err, "failed to stop the database")
 		return err
 	}
-
-	vcc.Log.PrintInfo("Stopped a database with name %s", *options.DBName)
+	msg := fmt.Sprintf("Stopped a database with name %s", *options.DBName)
+	if *options.Sandbox != "" {
+		sandboxMsg := fmt.Sprintf(" on sandbox %s", *options.Sandbox)
+		vcc.Log.PrintInfo(msg + sandboxMsg)
+		return nil
+	}
+	if *options.MainCluster {
+		stopMsg := " on main cluster"
+		vcc.Log.PrintInfo(msg + stopMsg)
+		return nil
+	}
+	vcc.Log.PrintInfo(msg)
 	return nil
 }

@@ -28,15 +28,19 @@ import (
 type httpsStopDBOp struct {
 	opBase
 	opHTTPSBase
+	sandbox       string
+	mainCluster   bool
 	RequestParams map[string]string
 }
 
 func makeHTTPSStopDBOp(logger vlog.Printer, useHTTPPassword bool, userName string,
-	httpsPassword *string, timeout *int) (httpsStopDBOp, error) {
+	httpsPassword *string, timeout *int, sandbox string, mainCluster bool) (httpsStopDBOp, error) {
 	op := httpsStopDBOp{}
 	op.name = "HTTPSStopDBOp"
 	op.logger = logger.WithName(op.name)
 	op.useHTTPPassword = useHTTPPassword
+	op.sandbox = sandbox
+	op.mainCluster = mainCluster
 
 	// set the query params, "timeout" is optional
 	op.RequestParams = make(map[string]string)
@@ -72,11 +76,37 @@ func (op *httpsStopDBOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *httpsStopDBOp) prepare(execContext *opEngineExecContext) error {
-	if len(execContext.upHosts) == 0 {
+	// Stop db cases:
+	// case 1: stop db on a sandbox -- send stop db request to one UP host of the sandbox.
+	// case 2: stop db on the main cluster -- send stop db request to on UP host of the main cluster.
+	// case 3: stop db on every host -- send stop db request to one UP host of the given sandbox and to one UP host of the main cluster.
+	if len(execContext.upHostsToSandboxes) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
-	// use first up host to execute https post request
-	hosts := []string{execContext.upHosts[0]}
+	sandboxOnly := false
+	var mainHost string
+	var hosts []string
+	for h, sb := range execContext.upHostsToSandboxes {
+		if sb == op.sandbox && sb != "" {
+			// stop db only on sandbox
+			hosts = []string{h}
+			sandboxOnly = true
+			break
+		}
+		if sb == "" {
+			mainHost = h
+		} else {
+			hosts = append(hosts, h)
+		}
+	}
+	// Main cluster should run the command after sandboxes
+	if !sandboxOnly && op.sandbox == "" {
+		hosts = append(hosts, mainHost)
+	}
+	// Stop db on Main cluster only
+	if op.mainCluster {
+		hosts = []string{mainHost}
+	}
 	execContext.dispatcher.setup(hosts)
 
 	return op.setupClusterHTTPRequest(hosts)

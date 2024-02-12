@@ -29,6 +29,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
@@ -597,4 +598,62 @@ func Max[T constraints.Ordered](a, b T) T {
 // GetPathPrefix returns a path prefix for a (catalog/data/depot) path of a node
 func GetPathPrefix(path string) string {
 	return filepath.Dir(filepath.Dir(path))
+}
+
+// default date time format: this omits nanoseconds but is still able to parse those out
+const DefaultDateTimeFormat = time.DateTime
+
+// default date time format: this includes nanoseconds
+const DefaultDateTimeNanoSecFormat = time.DateTime + ".000000000"
+
+// default date only format: this omits time within a date
+const DefaultDateOnlyFormat = time.DateOnly
+
+// import time package in this util file so other files don't need to import time
+// wrapper function to handle empty input string, returns an error if the time is invalid
+// caller responsible for passing in correct layout
+func IsEmptyOrValidTimeStr(layout string, value *string) (*time.Time, error) {
+	if value == nil || *value == "" {
+		return nil, nil
+	}
+	parsedTime, err := time.Parse(layout, *value)
+	if err != nil {
+		return nil, err
+	}
+	return &parsedTime, nil
+}
+
+func fillInDefaultTimeForTimestampHelper(parsedDate time.Time, hour, minute, second,
+	nanosecond int) (string, time.Time) {
+	year, month, day := parsedDate.Year(), parsedDate.Month(), parsedDate.Day()
+	location := parsedDate.Location() // Extracting the timezone
+	datetime := time.Date(year, month, day, hour, minute, second, nanosecond, location)
+	formatedDatetime := datetime.Format(DefaultDateTimeNanoSecFormat)
+	return formatedDatetime, datetime
+}
+
+// Read date only string from argument, fill in time, overwrite argument by date time string, and return parsed time,
+// the filled in time will indicate the beginning of a day
+func FillInDefaultTimeForStartTimestamp(dateonly *string) *time.Time {
+	parsedDate, _ := time.Parse(DefaultDateOnlyFormat, *dateonly)
+	formatedDatetime, datetime := fillInDefaultTimeForTimestampHelper(parsedDate, 0, 0, 0, 0)
+	*dateonly = formatedDatetime
+	return &datetime
+}
+
+// Read date only string from argument, fill in time, overwrite argument by date time string, and return parsed time,
+// the filled in time will indicate the end of a day (right before the beginning of the following day)
+func FillInDefaultTimeForEndTimestamp(dateonly *string) *time.Time {
+	parsedDate, _ := time.Parse(DefaultDateOnlyFormat, *dateonly)
+	const lastHour = 23
+	const lastMin = 59
+	const lastSec = 59
+	const lastNanoSec = 999999999
+	formatedDatetime, datetime := fillInDefaultTimeForTimestampHelper(parsedDate, lastHour, lastMin, lastSec, lastNanoSec)
+	*dateonly = formatedDatetime
+	return &datetime
+}
+
+func IsTimeEqualOrAfter(start, end time.Time) bool {
+	return end.Equal(start) || end.After(start)
 }

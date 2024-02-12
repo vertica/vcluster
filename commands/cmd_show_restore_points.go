@@ -45,6 +45,17 @@ func makeCmdShowRestorePoints() *CmdShowRestorePoints {
 	showRestorePointsOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
 		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
 
+	showRestorePointsOptions.FilterOptions.ArchiveName = newCmd.parser.String("restore-point-archive", "",
+		util.GetOptionalFlagMsg("Archive name to filter restore points with"))
+	showRestorePointsOptions.FilterOptions.ArchiveID = newCmd.parser.String("restore-point-id", "",
+		util.GetOptionalFlagMsg("ID to filter restore points with"))
+	showRestorePointsOptions.FilterOptions.ArchiveIndex = newCmd.parser.String("restore-point-index", "",
+		util.GetOptionalFlagMsg("Index to filter restore points with"))
+	showRestorePointsOptions.FilterOptions.StartTimestamp = newCmd.parser.String("start-timestamp", "",
+		util.GetOptionalFlagMsg("Only show restores points created no earlier than this"))
+	showRestorePointsOptions.FilterOptions.EndTimestamp = newCmd.parser.String("end-timestamp", "",
+		util.GetOptionalFlagMsg("Only show restores points created no later than this"))
+
 	newCmd.showRestorePointsOptions = &showRestorePointsOptions
 
 	return newCmd

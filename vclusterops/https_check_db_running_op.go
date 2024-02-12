@@ -34,6 +34,8 @@ const (
 	StopDB
 	StartDB
 	ReviveDB
+
+	opName = "HTTPSCheckDBRunningOp"
 )
 
 func (op opType) String() string {
@@ -66,7 +68,9 @@ func (e *DBIsRunningError) Error() string {
 type httpsCheckRunningDBOp struct {
 	opBase
 	opHTTPSBase
-	opType opType
+	opType      opType
+	sandbox     string // check if DB is running on specified sandbox
+	mainCluster bool   // check if DB is running on the main cluster.
 }
 
 func makeHTTPSCheckRunningDBOp(logger vlog.Printer, hosts []string,
@@ -74,11 +78,32 @@ func makeHTTPSCheckRunningDBOp(logger vlog.Printer, hosts []string,
 	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
-	op.name = "HTTPSCheckDBRunningOp"
+	op.name = opName
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
+	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+	if err != nil {
+		return op, err
+	}
 
+	op.userName = userName
+	op.httpsPassword = httpsPassword
+	op.opType = operationType
+	return op, nil
+}
+
+func makeHTTPSCheckRunningDBWithSandboxOp(logger vlog.Printer, hosts []string,
+	useHTTPPassword bool, userName string, sandbox string, mainCluster bool,
+	httpsPassword *string, operationType opType,
+) (httpsCheckRunningDBOp, error) {
+	op := httpsCheckRunningDBOp{}
+	op.name = opName
+	op.logger = logger.WithName(op.name)
+	op.hosts = hosts
+	op.useHTTPPassword = useHTTPPassword
+	op.sandbox = sandbox         // check if DB is running on specified sandbox
+	op.mainCluster = mainCluster // check if DB is running on the main cluster
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
 		return op, err
@@ -198,6 +223,25 @@ func (op *httpsCheckRunningDBOp) isDBRunningOnHost(host string,
 	return status, msg, nil
 }
 
+func (op *httpsCheckRunningDBOp) accumulateSandboxedAndMainHosts(sandboxingHosts map[string]string,
+	mainClusterHosts map[string]struct{}, nodesState *nodesStateInfo) {
+	if op.sandbox == "" || !op.mainCluster {
+		return
+	}
+
+	nodeList := nodesState.NodeList
+	if len(nodeList) > 0 {
+		for _, node := range nodeList {
+			if node.Sandbox == op.sandbox && op.sandbox != "" {
+				sandboxingHosts[node.Address] = node.State
+			}
+			if op.mainCluster && node.Sandbox == "" {
+				mainClusterHosts[node.Address] = struct{}{}
+			}
+		}
+	}
+}
+
 // processResult will look at all of the results that come back from the hosts.
 // We don't return an error if all of the nodes are down. Otherwise, an error is
 // returned.
@@ -209,6 +253,8 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 	upHosts := make(map[string]bool)
 	downHosts := make(map[string]bool)
 	exceptionHosts := make(map[string]bool)
+	sandboxedHosts := make(map[string]string)
+	mainClusterHosts := make(map[string]struct{})
 	// print msg
 	msg := ""
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -226,6 +272,7 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 		}
 
 		upHosts[host] = true
+
 		// a passing result means that the db isn't down
 		nodesStates := nodesStateInfo{}
 		err := op.parseAndCheckResponse(host, result.content, &nodesStates)
@@ -237,6 +284,9 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 			msg = result.content
 			continue
 		}
+
+		op.accumulateSandboxedAndMainHosts(sandboxedHosts, mainClusterHosts, &nodesStates)
+
 		status, checkMsg, err := op.isDBRunningOnHost(host, &nodesStates, result)
 		if err != nil {
 			return fmt.Errorf("[%s] error happened during checking DB running on host %s, details: %w",
@@ -247,13 +297,16 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 		msg = checkMsg
 	}
 
-	return op.handleDBRunning(allErrs, msg, upHosts, downHosts, exceptionHosts)
+	return op.handleDBRunning(allErrs, msg, upHosts, downHosts, exceptionHosts, sandboxedHosts, mainClusterHosts)
 }
 
-func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHosts, downHosts, exceptionHosts map[string]bool) error {
-	op.logger.Info("check db running results", "up hosts", upHosts, "down hosts", downHosts, "hosts with status unknown", exceptionHosts)
-	// no DB is running on hosts, return a passed result
-	if len(upHosts) == 0 {
+func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHosts, downHosts, exceptionHosts map[string]bool,
+	sandboxedHosts map[string]string, mainClusterHosts map[string]struct{}) error {
+	op.logger.Info("check db running results", "up hosts", upHosts, "down hosts", downHosts, "hosts with status unknown", exceptionHosts,
+		"sandboxed hosts", sandboxedHosts)
+
+	dbDown := op.checkProcessedResult(sandboxedHosts, mainClusterHosts, upHosts)
+	if dbDown {
 		return nil
 	}
 	op.logger.Info("Check DB running", "detail", msg)
@@ -271,6 +324,46 @@ func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHo
 
 	// when db is running, append an error to allErrs for stopping VClusterOpEngine
 	return errors.Join(allErrs, &DBIsRunningError{Detail: msg})
+}
+
+func (op *httpsCheckRunningDBOp) checkProcessedResult(sandboxedHosts map[string]string,
+	mainClusterHosts map[string]struct{}, upHosts map[string]bool) bool {
+	// no DB is running on hosts, return a passed result
+	if len(upHosts) == 0 {
+		if op.sandbox != "" || op.mainCluster {
+			op.logger.PrintWarning("All the nodes in the database are down")
+		}
+		return true
+	}
+
+	// Check if any of the sandboxed hosts is UP
+	// sandboxedHosts would be empty if op.sandbox is ""
+	isSandboxUp := false
+	for host := range sandboxedHosts {
+		if _, ok := upHosts[host]; ok {
+			isSandboxUp = true
+			break
+		}
+	}
+
+	isMainHostUp := false
+	for host := range mainClusterHosts {
+		if _, ok := upHosts[host]; ok {
+			isMainHostUp = true
+			break
+		}
+	}
+
+	// If all sandboxed hosts are down, DB is down for the given sandbox
+	if !isSandboxUp && op.sandbox != "" {
+		op.logger.Info("all hosts in the sandbox: " + op.sandbox + " are down")
+		return true
+	}
+	if !isMainHostUp && op.mainCluster {
+		op.logger.Info("all hosts in the main cluster are down")
+		return true
+	}
+	return false
 }
 
 func (op *httpsCheckRunningDBOp) execute(execContext *opEngineExecContext) error {

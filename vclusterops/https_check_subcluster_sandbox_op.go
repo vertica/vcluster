@@ -88,8 +88,8 @@ type scResps struct {
 func (op *httpsCheckSubclusterSandboxOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	keysToRemove := make(map[string]struct{})
-	existingSandboxedHosts := make(map[string]struct{})
-	mainClusterHosts := make(map[string]struct{})
+	existingSandboxedHosts := make(map[string]string)
+	mainClusterHosts := make(map[string]string)
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -136,47 +136,48 @@ func (op *httpsCheckSubclusterSandboxOp) processResult(execContext *opEngineExec
 
 		// Process sandboxing info
 		for _, scInfo := range subclusterResp.SCInfoList {
-			mainHosts, removeHosts, sandboxedHosts := op.processScInfo(scInfo, execContext)
+			mainHosts, sandboxedHosts, removeHosts := op.processScInfo(scInfo, execContext)
 			// Accumulate maincluster hosts, hosts to be removed
 			// and hosts that are sandboxed
-			for _, host := range mainHosts {
-				mainClusterHosts[host] = struct{}{}
+			for host, sb := range mainHosts {
+				mainClusterHosts[host] = sb
 			}
 			for h := range removeHosts {
 				keysToRemove[h] = struct{}{}
 			}
-			for h := range sandboxedHosts {
-				existingSandboxedHosts[h] = struct{}{}
+			for h, sb := range sandboxedHosts {
+				existingSandboxedHosts[h] = sb
 			}
 		}
 	}
 
 	// Use updated scInfo
-	for host := range existingSandboxedHosts {
+	for host, sb := range existingSandboxedHosts {
 		// Just need one up host from the existing sandbox
 		// This will be used to add new subcluster to an existing sandbox
-		execContext.sandboxingHosts = append(execContext.sandboxingHosts, host)
+		execContext.upHostsToSandboxes[host] = sb
 		break
 	}
 
-	for host := range mainClusterHosts {
+	for host, sb := range mainClusterHosts {
 		if _, exists := keysToRemove[host]; !exists {
 			// Just one up host from main cluster
-			execContext.sandboxingHosts = append(execContext.sandboxingHosts, host)
+			execContext.upHostsToSandboxes[host] = sb
 			break
 		}
 	}
 	return allErrs
 }
 func (op *httpsCheckSubclusterSandboxOp) processScInfo(scInfo subclusterSandboxInfo,
-	execContext *opEngineExecContext) (mainClusterHosts []string, keysToRemove, existingSandboxedHosts map[string]struct{}) {
+	execContext *opEngineExecContext) (mainClusterHosts, existingSandboxedHosts map[string]string, keysToRemove map[string]struct{}) {
 	keysToRemove = make(map[string]struct{})
+	mainClusterHosts = make(map[string]string)
 	for host, sc := range execContext.upScInfo {
 		if scInfo.Sandbox != "" && scInfo.SCName == sc {
 			keysToRemove, existingSandboxedHosts = op.processSandboxedSCInfo(scInfo, sc, host)
 		} else {
 			if scInfo.SCName == sc {
-				mainClusterHosts = append(mainClusterHosts, host)
+				mainClusterHosts[host] = scInfo.Sandbox
 			}
 			// We do not want a host from the sc to be sandboxed to be the initiator
 			if sc == op.ScToSandbox {
@@ -188,16 +189,16 @@ func (op *httpsCheckSubclusterSandboxOp) processScInfo(scInfo subclusterSandboxI
 }
 
 func (op *httpsCheckSubclusterSandboxOp) processSandboxedSCInfo(scInfo subclusterSandboxInfo,
-	sc, host string) (keysToRemove, existingSandboxedHosts map[string]struct{}) {
+	sc, host string) (keysToRemove map[string]struct{}, existingSandboxedHosts map[string]string) {
 	keysToRemove = make(map[string]struct{})
-	existingSandboxedHosts = make(map[string]struct{})
+	existingSandboxedHosts = make(map[string]string)
 	if scInfo.Sandbox != op.Sandbox {
 		op.logger.Info("subcluster " + sc + " is sandboxed")
 		if scInfo.SCName == sc {
 			keysToRemove[host] = struct{}{}
 		}
 	} else {
-		existingSandboxedHosts[host] = struct{}{}
+		existingSandboxedHosts[host] = scInfo.Sandbox
 	}
 	return
 }

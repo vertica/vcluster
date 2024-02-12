@@ -28,12 +28,33 @@ type nmaShowRestorePointsOp struct {
 	dbName                  string
 	communalLocation        string
 	configurationParameters map[string]string
+	filterOptions           *ShowRestorePointFilterOptions
+}
+
+// Optional arguments to list only restore points that
+// meet the specified condition(s)
+type ShowRestorePointFilterOptions struct {
+	// Only list restore points with given archive name
+	ArchiveName *string
+	// Only list restore points created no earlier than this timestamp (must be UTC timezone)
+	StartTimestamp *string
+	// Only list restore points created no later than this timestamp (must be UTC timezone)
+	EndTimestamp *string
+	// Only list restore points with given ID
+	ArchiveID *string
+	// Only list restore points with given index
+	ArchiveIndex *string
 }
 
 type showRestorePointsRequestData struct {
 	DBName           string            `json:"db_name"`
 	CommunalLocation string            `json:"communal_location"`
 	Parameters       map[string]string `json:"parameters,omitempty"`
+	ArchiveName      string            `json:"archive_name,omitempty"`
+	StartTimestamp   string            `json:"start_timestamp,omitempty"`
+	EndTimestamp     string            `json:"end_timestamp,omitempty"`
+	ArchiveID        string            `json:"archive_id,omitempty"`
+	ArchiveIndex     string            `json:"archive_index,omitempty"`
 }
 
 // This op is used to show restore points in a database
@@ -48,7 +69,17 @@ func makeNMAShowRestorePointsOp(logger vlog.Printer,
 		dbName:                  dbName,
 		configurationParameters: configurationParameters,
 		communalLocation:        communalLocation,
+		filterOptions:           nil,
 	}
+}
+
+// This op is used to show restore points in a database
+func makeNMAShowRestorePointsOpWithFilterOptions(logger vlog.Printer,
+	hosts []string, dbName, communalLocation string, configurationParameters map[string]string,
+	filterOptions *ShowRestorePointFilterOptions) nmaShowRestorePointsOp {
+	op := makeNMAShowRestorePointsOp(logger, hosts, dbName, communalLocation, configurationParameters)
+	op.filterOptions = filterOptions
+	return op
 }
 
 // make https json data
@@ -59,6 +90,23 @@ func (op *nmaShowRestorePointsOp) setupRequestBody() (map[string]string, error) 
 		requestData.DBName = op.dbName
 		requestData.CommunalLocation = op.communalLocation
 		requestData.Parameters = op.configurationParameters
+		if op.filterOptions != nil {
+			if op.filterOptions.ArchiveName != nil {
+				requestData.ArchiveName = *op.filterOptions.ArchiveName
+			}
+			if op.filterOptions.StartTimestamp != nil {
+				requestData.StartTimestamp = *op.filterOptions.StartTimestamp
+			}
+			if op.filterOptions.EndTimestamp != nil {
+				requestData.EndTimestamp = *op.filterOptions.EndTimestamp
+			}
+			if op.filterOptions.ArchiveID != nil {
+				requestData.ArchiveID = *op.filterOptions.ArchiveID
+			}
+			if op.filterOptions.ArchiveIndex != nil {
+				requestData.ArchiveIndex = *op.filterOptions.ArchiveIndex
+			}
+		}
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {
@@ -118,6 +166,27 @@ type RestorePoint struct {
 	VerticaVersion string `json:"vertica_version,omitempty"`
 }
 
+/*
+Sample response from the NMA restore-points endpoint:
+[
+
+	{
+	    "archive": "db",
+	    "id": "4ee4119b-802c-4bb4-94b0-061c8748b602",
+	    "index": 1,
+	    "timestamp": "2023-05-02 14:10:31.038289",
+	    "vertica_version": "v24.2.0-e6bb47b39502d8f4c6f68619f4d4a4648707fd42"
+	},
+	{
+	    "archive": "db",
+	    "id": "bdaa4764-d8aa-4979-89e5-e642cc58d972",
+	    "index": 2,
+	    "timestamp": "2023-05-02 14:10:28.717667",
+	    "vertica_version": "v24.2.0-e6bb47b39502d8f4c6f68619f4d4a4648707fd42"
+	}
+
+]
+*/
 func (op *nmaShowRestorePointsOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 
@@ -125,21 +194,6 @@ func (op *nmaShowRestorePointsOp) processResult(execContext *opEngineExecContext
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			/*  [
-					{
-						"archive": "db",
-						"id": "4ee4119b-802c-4bb4-94b0-061c8748b602",
-						"index": 1,
-						"timestamp": "2023-05-02 14:10:31.038289"
-					},
-					{
-						"archive": "db",
-						"id": "bdaa4764-d8aa-4979-89e5-e642cc58d972",
-						"index": 2,
-						"timestamp": "2023-05-02 14:10:28.717667"
-					}
-			    ]
-			*/
 			var responseObj []RestorePoint
 			err := op.parseAndCheckResponse(host, result.content, &responseObj)
 			if err != nil {

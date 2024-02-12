@@ -27,7 +27,7 @@ type opEngineExecContext struct {
 	// This field is specifically used for sandboxing
 	// as sandboxing requires all nodes in the subcluster to be sandboxed to be UP.
 	upScInfo                      map[string]string // map with UP hosts as keys and their subcluster names as values.
-	sandboxingHosts               []string          // List of hosts that should run sandboxing command
+	upHostsToSandboxes            map[string]string // map with UP hosts as keys and their corresponding sandbox names as values.
 	defaultSCName                 string            // store the default subcluster name of the database
 	hostsWithLatestCatalog        []string
 	primaryHostsWithLatestCatalog []string

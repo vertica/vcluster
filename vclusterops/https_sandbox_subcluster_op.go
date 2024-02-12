@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsSandboxingOp struct {
@@ -31,10 +32,11 @@ type httpsSandboxingOp struct {
 }
 
 // This op is used to sandbox the given subcluster `scName` as `sandboxName`
-func makeHTTPSandboxingOp(scName, sandboxName string,
+func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsSandboxingOp, error) {
 	op := httpsSandboxingOp{}
 	op.name = "HTTPSSansboxingOp"
+	op.logger = logger.WithName(op.name)
 	op.useHTTPPassword = useHTTPPassword
 	op.scName = scName
 	op.sandboxName = sandboxName
@@ -76,11 +78,20 @@ func (op *httpsSandboxingOp) setupRequestBody() error {
 }
 
 func (op *httpsSandboxingOp) prepare(execContext *opEngineExecContext) error {
-	if len(execContext.sandboxingHosts) == 0 {
+	if len(execContext.upHostsToSandboxes) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
 	// use shortlisted hosts to execute https post request, this host/hosts will be the initiator
-	hosts := execContext.sandboxingHosts
+	var hosts []string
+	var mainHost string
+	for h, sb := range execContext.upHostsToSandboxes {
+		if sb == "" {
+			mainHost = h
+		} else {
+			hosts = append(hosts, h)
+		}
+	}
+	hosts = append(hosts, mainHost)
 	err := op.setupRequestBody()
 	if err != nil {
 		return err

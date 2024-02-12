@@ -16,6 +16,7 @@
 package vclusterops
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -24,6 +25,9 @@ import (
 
 type VShowRestorePointsOptions struct {
 	DatabaseOptions
+	// Optional arguments to list only restore points that
+	// meet the specified condition(s)
+	FilterOptions *ShowRestorePointFilterOptions
 }
 
 func VShowRestorePointsFactory() VShowRestorePointsOptions {
@@ -31,7 +35,76 @@ func VShowRestorePointsFactory() VShowRestorePointsOptions {
 	// set default values to the params
 	opt.setDefaultValues()
 
+	opt.FilterOptions = &ShowRestorePointFilterOptions{
+		ArchiveName:    new(string),
+		StartTimestamp: new(string),
+		EndTimestamp:   new(string),
+		ArchiveID:      new(string),
+		ArchiveIndex:   new(string),
+	}
+
 	return opt
+}
+
+func (p *ShowRestorePointFilterOptions) hasNonEmptyStartTimestamp() bool {
+	return (p.StartTimestamp != nil && *p.StartTimestamp != "")
+}
+
+func (p *ShowRestorePointFilterOptions) hasNonEmptyEndTimestamp() bool {
+	return (p.EndTimestamp != nil && *p.EndTimestamp != "")
+}
+
+// Check that all non-empty timestamps specified have valid date time or date only format,
+// convert date only format to date time format when applicable, and make sure end timestamp
+// is no earlier than start timestamp
+func (p *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIfAny() (err error) {
+	// shortcut of no validation needed
+	if !p.hasNonEmptyStartTimestamp() && !p.hasNonEmptyEndTimestamp() {
+		return nil
+	}
+
+	// check each individual timestamp in terms of format
+	var dateTimeErr, dateOnlyErr error
+
+	// try date time first
+	parsedStartDatetime, dateTimeErr := util.IsEmptyOrValidTimeStr(util.DefaultDateTimeFormat, p.StartTimestamp)
+	if dateTimeErr != nil {
+		// fallback to date only
+		parsedStartDatetime, dateOnlyErr = util.IsEmptyOrValidTimeStr(util.DefaultDateOnlyFormat, p.StartTimestamp)
+		if dateOnlyErr != nil {
+			// give up
+			return fmt.Errorf("start timestamp %q is invalid; cannot parse as a datetime: %w; "+
+				"cannot parse as a date as well: %w", *p.StartTimestamp, dateTimeErr, dateOnlyErr)
+		}
+		// default value of time parsed from date only string is already indicating the start of a day
+		// invoke this function here to only rewrite p.StartTimestamp in date time format
+		util.FillInDefaultTimeForStartTimestamp(p.StartTimestamp)
+	}
+
+	// try date time first
+	parsedEndDatetime, dateTimeErr := util.IsEmptyOrValidTimeStr(util.DefaultDateTimeFormat, p.EndTimestamp)
+	if dateTimeErr != nil {
+		// fallback to date only
+		_, dateOnlyErr = util.IsEmptyOrValidTimeStr(util.DefaultDateOnlyFormat, p.EndTimestamp)
+		if dateOnlyErr != nil {
+			// give up
+			return fmt.Errorf("end timestamp %q is invalid; cannot parse as a datetime: %w; "+
+				"cannot parse as a date as well: %w", *p.EndTimestamp, dateTimeErr, dateOnlyErr)
+		}
+		// fill in default value for time and update the end timestamp
+		parsedEndDatetime = util.FillInDefaultTimeForEndTimestamp(p.EndTimestamp)
+	}
+
+	// check if endTime is after start time if both of them are non-empty
+	if p.hasNonEmptyStartTimestamp() && p.hasNonEmptyEndTimestamp() {
+		validRange := util.IsTimeEqualOrAfter(*parsedStartDatetime, *parsedEndDatetime)
+		if !validRange {
+			return errors.New("start timestamp must be before end timestamp")
+		}
+		return nil
+	}
+
+	return nil
 }
 
 func (opt *VShowRestorePointsOptions) validateParseOptions(logger vlog.Printer) error {
@@ -40,10 +113,15 @@ func (opt *VShowRestorePointsOptions) validateParseOptions(logger vlog.Printer) 
 		return err
 	}
 	if *opt.HonorUserInput {
-		err := util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
+		err = util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
 		if err != nil {
 			return err
 		}
+	}
+
+	err = opt.FilterOptions.ValidateAndStandardizeTimestampsIfAny()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -133,8 +211,8 @@ func (vcc *VClusterCommands) produceShowRestorePointsInstructions(options *VShow
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true, true /*IsEon*/)
 
-	nmaShowRestorePointOp := makeNMAShowRestorePointsOp(vcc.Log, bootstrapHost, *options.DBName,
-		*options.CommunalStorageLocation, options.ConfigurationParameters)
+	nmaShowRestorePointOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.Log, bootstrapHost, *options.DBName,
+		*options.CommunalStorageLocation, options.ConfigurationParameters, options.FilterOptions)
 
 	instructions = append(instructions,
 		&nmaHealthOp,

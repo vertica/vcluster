@@ -140,7 +140,7 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(sandboxSubclus
 	}
 
 	// Run Sandboxing
-	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(sandboxSubclusterInfo.SCName, sandboxSubclusterInfo.SandboxName,
+	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, sandboxSubclusterInfo.SCName, sandboxSubclusterInfo.SandboxName,
 		usePassword, username, sandboxSubclusterInfo.Password)
 	if err != nil {
 		return instructions, err

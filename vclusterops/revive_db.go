@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
@@ -331,8 +332,16 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 		hosts := options.Hosts
 		initiator := getInitiator(hosts)
 		bootstrapHost := []string{initiator}
-		nmaShowRestorePointsOp := makeNMAShowRestorePointsOp(vcc.Log, bootstrapHost, *options.DBName,
-			*options.CommunalStorageLocation, options.ConfigurationParameters)
+		filterOptions := ShowRestorePointFilterOptions{}
+		filterOptions.ArchiveName = options.RestorePoint.Archive
+		if options.hasValidRestorePointID() {
+			filterOptions.ArchiveID = options.RestorePoint.ID
+		} else {
+			indexStr := strconv.Itoa(*options.RestorePoint.Index)
+			filterOptions.ArchiveIndex = &indexStr
+		}
+		nmaShowRestorePointsOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.Log, bootstrapHost, *options.DBName,
+			*options.CommunalStorageLocation, options.ConfigurationParameters, &filterOptions)
 		instructions = append(instructions,
 			&nmaShowRestorePointsOp,
 		)

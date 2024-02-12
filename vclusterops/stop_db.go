@@ -27,10 +27,10 @@ type VStopDatabaseOptions struct {
 	DatabaseOptions
 
 	/* part 2: eon db info */
-	DrainSeconds *int // time in seconds to wait for database users' disconnection
-
+	DrainSeconds *int    // time in seconds to wait for database users' disconnection
+	Sandbox      *string // Stop db on given sandbox
+	MainCluster  *bool   // Stop db on main cluster only
 	/* part 3: hidden info */
-
 	CheckUserConn *bool // whether check user connection
 	ForceKill     *bool // whether force kill connections
 }
@@ -42,6 +42,8 @@ type VStopDatabaseInfo struct {
 	Password     *string
 	DrainSeconds *int
 	IsEon        bool
+	Sandbox      string
+	MainCluster  bool
 }
 
 func VStopDatabaseOptionsFactory() VStopDatabaseOptions {
@@ -54,7 +56,8 @@ func VStopDatabaseOptionsFactory() VStopDatabaseOptions {
 
 func (options *VStopDatabaseOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
-
+	options.Sandbox = new(string)
+	options.MainCluster = new(bool)
 	options.CheckUserConn = new(bool)
 	options.ForceKill = new(bool)
 }
@@ -73,6 +76,9 @@ func (options *VStopDatabaseOptions) validateEonOptions(config *ClusterConfig, l
 	isEon, err := options.isEonMode(config)
 	if err != nil {
 		return err
+	}
+	if *options.Sandbox != "" && *options.MainCluster {
+		return fmt.Errorf("Error: cannot use both --sandbox and --main-cluster-only options together ")
 	}
 
 	if !isEon {
@@ -149,6 +155,8 @@ func (vcc *VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error 
 	stopDBInfo := new(VStopDatabaseInfo)
 	stopDBInfo.UserName = *options.UserName
 	stopDBInfo.Password = options.Password
+	stopDBInfo.Sandbox = *options.Sandbox
+	stopDBInfo.MainCluster = *options.MainCluster
 	stopDBInfo.DrainSeconds = options.DrainSeconds
 	stopDBInfo.DBName, stopDBInfo.Hosts, err = options.getNameAndHosts(options.Config)
 	if err != nil {
@@ -202,8 +210,8 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 		}
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, stopDBInfo.DBName, stopDBInfo.Hosts,
-		usePassword, *options.UserName, stopDBInfo.Password, StopDBCmd)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(vcc.Log, stopDBInfo.DBName, stopDBInfo.Hosts,
+		usePassword, *options.UserName, stopDBInfo.Password, StopDBCmd, *options.Sandbox, *options.MainCluster)
 	if err != nil {
 		return instructions, err
 	}
@@ -219,13 +227,14 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 		vcc.Log.PrintInfo("Skipping sync catalog for an enterprise database")
 	}
 
-	httpsStopDBOp, err := makeHTTPSStopDBOp(vcc.Log, usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds)
+	httpsStopDBOp, err := makeHTTPSStopDBOp(vcc.Log, usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds,
+		*options.Sandbox, *options.MainCluster)
 	if err != nil {
 		return instructions, err
 	}
 
-	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, stopDBInfo.Hosts,
-		usePassword, *options.UserName, stopDBInfo.Password, StopDB)
+	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(vcc.Log, stopDBInfo.Hosts,
+		usePassword, *options.UserName, *options.Sandbox, *options.MainCluster, stopDBInfo.Password, StopDB)
 	if err != nil {
 		return instructions, err
 	}

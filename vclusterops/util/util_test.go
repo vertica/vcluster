@@ -372,3 +372,22 @@ func TestValidateCommunalStorageLocation(t *testing.T) {
 	err = ValidateCommunalStorageLocation("s3://vertica-fleeting///k8s/revive_eon_5")
 	assert.Error(t, err)
 }
+
+func TestIsEmptyOrValidTimeStr(t *testing.T) {
+	const layout = "2006-01-02 15:04:05.000000"
+	testTimeString := new(string)
+
+	// positive cases
+	*testTimeString = ""
+	_, err := IsEmptyOrValidTimeStr(layout, testTimeString)
+	assert.NoError(t, err)
+
+	*testTimeString = "2023-05-02 14:10:31.038289"
+	_, err = IsEmptyOrValidTimeStr(layout, testTimeString)
+	assert.NoError(t, err)
+
+	// negative case
+	*testTimeString = "invalid time"
+	_, err = IsEmptyOrValidTimeStr(layout, testTimeString)
+	assert.ErrorContains(t, err, "cannot parse")
+}

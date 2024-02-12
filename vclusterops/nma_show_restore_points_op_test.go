@@ -26,6 +26,11 @@ func TestShowRestorePointsRequestBody(t *testing.T) {
 	const hostName = "host1"
 	const dbName = "testDB"
 	const communalLocation = "/communal"
+	archiveName := "test_name"
+	archiveID := "test_ID"
+	archiveIndex := "test_index"
+	startTimestamp := "2006-01-02 15:04:05"
+	endTimestamp := "2006-01-02 15:04:06"
 	op := makeNMAShowRestorePointsOp(vlog.Printer{}, []string{hostName}, dbName, communalLocation, nil)
 
 	requestBody, err := op.setupRequestBody()
@@ -35,4 +40,42 @@ func TestShowRestorePointsRequestBody(t *testing.T) {
 	hostReq := requestBody[hostName]
 	assert.Contains(t, hostReq, `"communal_location":"`+communalLocation+`"`)
 	assert.Contains(t, hostReq, `"db_name":"`+dbName+`"`)
+
+	op = makeNMAShowRestorePointsOpWithFilterOptions(vlog.Printer{}, []string{hostName},
+		dbName, communalLocation, nil, &ShowRestorePointFilterOptions{
+			ArchiveName:    &archiveName,
+			ArchiveID:      &archiveID,
+			ArchiveIndex:   &archiveIndex,
+			StartTimestamp: &startTimestamp,
+			EndTimestamp:   &endTimestamp,
+		})
+
+	requestBody, err = op.setupRequestBody()
+	assert.NoError(t, err)
+	assert.Len(t, requestBody, 1)
+	assert.Contains(t, requestBody, hostName)
+	hostReq = requestBody[hostName]
+	assert.Contains(t, hostReq, `"archive_name":"`+archiveName+`"`)
+	assert.Contains(t, hostReq, `"archive_id":"`+archiveID+`"`)
+	assert.Contains(t, hostReq, `"archive_index":"`+archiveIndex+`"`)
+	assert.Contains(t, hostReq, `"start_timestamp":"`+startTimestamp+`"`)
+	assert.Contains(t, hostReq, `"end_timestamp":"`+endTimestamp+`"`)
+
+	op = makeNMAShowRestorePointsOpWithFilterOptions(vlog.Printer{}, []string{hostName},
+		dbName, communalLocation, nil, &ShowRestorePointFilterOptions{
+			ArchiveName:  &archiveName,
+			ArchiveID:    &archiveID,
+			ArchiveIndex: &archiveIndex,
+		})
+
+	requestBody, err = op.setupRequestBody()
+	assert.NoError(t, err)
+	assert.Len(t, requestBody, 1)
+	assert.Contains(t, requestBody, hostName)
+	hostReq = requestBody[hostName]
+	assert.Contains(t, hostReq, `"archive_name":"`+archiveName+`"`)
+	assert.Contains(t, hostReq, `"archive_id":"`+archiveID+`"`)
+	assert.Contains(t, hostReq, `"archive_index":"`+archiveIndex+`"`)
+	assert.NotContains(t, hostReq, `"start_timestamp"`)
+	assert.NotContains(t, hostReq, `"end_timestamp"`)
 }

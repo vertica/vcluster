@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sort"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -31,6 +32,8 @@ const (
 	ScrutinizeCmd
 	DBAddSubclusterCmd
 	InstallPackageCmd
+
+	oper = "HTTPSGetUpNodesOp"
 )
 
 type CommandType int
@@ -41,18 +44,22 @@ type httpsGetUpNodesOp struct {
 	DBName      string
 	noUpHostsOk bool
 	cmdType     CommandType
+	sandbox     string
+	mainCluster bool
 }
 
 func makeHTTPSGetUpNodesOp(logger vlog.Printer, dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CommandType,
 ) (httpsGetUpNodesOp, error) {
 	op := httpsGetUpNodesOp{}
-	op.name = "HTTPSGetUpNodesOp"
+	op.name = oper
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.DBName = dbName
 	op.cmdType = cmdType
+	op.sandbox = ""
+	op.mainCluster = false
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -63,6 +70,15 @@ func makeHTTPSGetUpNodesOp(logger vlog.Printer, dbName string, hosts []string,
 		op.httpsPassword = httpsPassword
 	}
 	return op, nil
+}
+
+func makeHTTPSGetUpNodesWithSandboxOp(logger vlog.Printer, dbName string, hosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CommandType,
+	sandbox string, mainCluster bool) (httpsGetUpNodesOp, error) {
+	op, err := makeHTTPSGetUpNodesOp(logger, dbName, hosts, useHTTPPassword, userName, httpsPassword, cmdType)
+	op.sandbox = sandbox
+	op.mainCluster = mainCluster
+	return op, err
 }
 
 func (op *httpsGetUpNodesOp) allowNoUpHosts() {
@@ -125,11 +141,11 @@ func (op *httpsGetUpNodesOp) execute(execContext *opEngineExecContext) error {
 
 func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
-	upHosts := make(map[string]struct{})
+	upHosts := mapset.NewSet[string]()
 	upScInfo := make(map[string]string)
 	exceptionHosts := []string{}
 	downHosts := []string{}
-
+	sandboxInfo := make(map[string]string)
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 		if !result.isPassing() {
@@ -158,23 +174,17 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 		}
 
 		// collect all the up hosts
-		for _, node := range nodesStates.NodeList {
-			if node.Database != op.DBName {
-				err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
-				allErrs = errors.Join(allErrs, err)
-				break
-			}
-			if node.State == util.NodeUpState {
-				upHosts[node.Address] = struct{}{}
-				upScInfo[node.Address] = node.Subcluster
-			}
+		err = op.collectUpHosts(nodesStates, host, upHosts, upScInfo, sandboxInfo)
+		if err != nil {
+			allErrs = errors.Join(allErrs, err)
+			break
 		}
-		if len(upHosts) > 0 && op.cmdType != SandboxCmd {
+		if upHosts.Cardinality() > 0 && op.cmdType != SandboxCmd && op.cmdType != StopDBCmd {
 			break
 		}
 	}
-
-	ignoreErrors := op.processHostLists(upHosts, upScInfo, exceptionHosts, downHosts, execContext)
+	execContext.upHostsToSandboxes = sandboxInfo
+	ignoreErrors := op.processHostLists(upHosts, upScInfo, exceptionHosts, downHosts, sandboxInfo, execContext)
 	if ignoreErrors {
 		return nil
 	}
@@ -186,21 +196,40 @@ func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
+func (op *httpsGetUpNodesOp) checkSandboxUp(sandboxingInfo map[string]string, sandbox string) bool {
+	for _, sb := range sandboxingInfo {
+		if sb == sandbox {
+			return true
+		}
+	}
+	return false
+}
+
 // processHostLists stashes the up hosts, and if there are no up hosts, prints and logs
 // down or erratic hosts.  Additionally, it determines if the op should fail or not.
-func (op *httpsGetUpNodesOp) processHostLists(upHosts map[string]struct{}, upScInfo map[string]string,
-	exceptionHosts, downHosts []string,
+func (op *httpsGetUpNodesOp) processHostLists(upHosts mapset.Set[string], upScInfo map[string]string,
+	exceptionHosts, downHosts []string, sandboxInfo map[string]string,
 	execContext *opEngineExecContext) (ignoreErrors bool) {
 	execContext.upScInfo = upScInfo
-	if len(upHosts) > 0 {
-		for host := range upHosts {
-			execContext.upHosts = append(execContext.upHosts, host)
+
+	if op.sandbox != "" {
+		upSandbox := op.checkSandboxUp(sandboxInfo, op.sandbox)
+		if !upSandbox {
+			op.logger.PrintError(`[%s] There are no UP nodes in the sandbox %s. The db %s is already down`, op.name, op.sandbox, op.DBName)
 		}
+	}
+	if op.mainCluster {
+		upMainCluster := op.checkSandboxUp(sandboxInfo, "")
+		if !upMainCluster {
+			op.logger.PrintError(`[%s] There are no UP nodes in the main cluster. The db %s is already down`, op.name, op.DBName)
+		}
+	}
+	if upHosts.Cardinality() > 0 {
+		execContext.upHosts = upHosts.ToSlice()
 		// sorting the up hosts will be helpful for picking up the initiator in later instructions
 		sort.Strings(execContext.upHosts)
 		return true
 	}
-
 	if len(exceptionHosts) > 0 {
 		op.logger.PrintError(`[%s] fail to call https endpoint of database %s on hosts %s`, op.name, op.DBName, exceptionHosts)
 	}
@@ -210,4 +239,27 @@ func (op *httpsGetUpNodesOp) processHostLists(upHosts map[string]struct{}, upScI
 	}
 
 	return op.noUpHostsOk
+}
+
+func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host string,
+	upHosts mapset.Set[string], upScInfo, sandboxInfo map[string]string) (err error) {
+	upMainNodeFound := false
+	for _, node := range nodesStates.NodeList {
+		if node.Database != op.DBName {
+			err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
+			return
+		}
+		if node.State == util.NodeUpState {
+			upHosts.Add(node.Address)
+			upScInfo[node.Address] = node.Subcluster
+			if op.cmdType == StopDBCmd {
+				if node.Sandbox != "" || !upMainNodeFound {
+					sandboxInfo[node.Address] = node.Sandbox
+					// We still need one main cluster UP node, when there are sandboxes
+					upMainNodeFound = true
+				}
+			}
+		}
+	}
+	return
 }
