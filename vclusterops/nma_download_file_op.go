@@ -22,8 +22,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type leaseCheckOption int
@@ -92,11 +90,10 @@ func (e *ReviveDBNodeCountMismatchError) Error() string {
 		e.ReviveDBStep, e.FailureHost, e.NumOfNewNodes, e.NumOfOldNodes)
 }
 
-func makeNMADownloadFileOp(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
 	configurationParameters map[string]string, vdb *VCoordinationDatabase) (nmaDownloadFileOp, error) {
 	op := nmaDownloadFileOp{}
 	op.name = "NMADownloadFileOp"
-	op.logger = logger.WithName(op.name)
 	initiator := getInitiator(newNodes)
 	op.hosts = []string{initiator}
 	op.vdb = vdb
@@ -122,9 +119,9 @@ func makeNMADownloadFileOp(logger vlog.Printer, newNodes []string, sourceFilePat
 	return op, nil
 }
 
-func makeNMADownloadFileOpForRevive(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+func makeNMADownloadFileOpForRevive(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
 	configurationParameters map[string]string, vdb *VCoordinationDatabase, displayOnly, ignoreClusterLease bool) (nmaDownloadFileOp, error) {
-	op, err := makeNMADownloadFileOp(logger, newNodes, sourceFilePath, destinationFilePath,
+	op, err := makeNMADownloadFileOp(newNodes, sourceFilePath, destinationFilePath,
 		catalogPath, configurationParameters, vdb)
 	if err != nil {
 		return op, err
@@ -137,9 +134,9 @@ func makeNMADownloadFileOpForRevive(logger vlog.Printer, newNodes []string, sour
 	return op, nil
 }
 
-func makeNMADownloadFileOpForRestore(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
+func makeNMADownloadFileOpForRestore(newNodes []string, sourceFilePath, destinationFilePath, catalogPath string,
 	configurationParameters map[string]string, vdb *VCoordinationDatabase, displayOnly bool) (nmaDownloadFileOp, error) {
-	op, err := makeNMADownloadFileOpForRevive(logger, newNodes, sourceFilePath, destinationFilePath,
+	op, err := makeNMADownloadFileOpForRevive(newNodes, sourceFilePath, destinationFilePath,
 		catalogPath, configurationParameters, vdb, displayOnly, true)
 	if err != nil {
 		return op, err
@@ -149,10 +146,10 @@ func makeNMADownloadFileOpForRestore(logger vlog.Printer, newNodes []string, sou
 	return op, nil
 }
 
-func makeNMADownloadFileOpForRestoreLeaseCheck(logger vlog.Printer, newNodes []string, sourceFilePath, destinationFilePath,
+func makeNMADownloadFileOpForRestoreLeaseCheck(newNodes []string, sourceFilePath, destinationFilePath,
 	catalogPath string, configurationParameters map[string]string,
 	vdb *VCoordinationDatabase, ignoreClusterLease bool) (nmaDownloadFileOp, error) {
-	op, err := makeNMADownloadFileOpForRevive(logger, newNodes, sourceFilePath, destinationFilePath,
+	op, err := makeNMADownloadFileOpForRevive(newNodes, sourceFilePath, destinationFilePath,
 		catalogPath, configurationParameters, vdb, false, ignoreClusterLease)
 	if err != nil {
 		return op, err

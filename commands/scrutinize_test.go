@@ -16,14 +16,11 @@
 package commands
 
 import (
-	"context"
 	"errors"
 	"os"
 	"testing"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -34,24 +31,42 @@ const (
 	catalogPath = "/catalog/path"
 )
 
-// TestK8sSecretRetriever is a test implementation of k8sSecretRetrieverStruct.
-type TestK8sSecretRetriever struct {
+// TestNMASecretRetriever is a test implementation of k8sSecretRetrieverStruct
+// for NMA certs secret
+type TestNMASecretRetriever struct {
 	success       bool
 	ca, cert, key string
 }
 
-func (t TestK8sSecretRetriever) GetSecret(_ context.Context, _ types.NamespacedName) (*corev1.Secret, error) {
-	return nil, nil
+// RetrieveSecret retrieves a secret and returns mock values.
+func (t TestNMASecretRetriever) RetrieveSecret(_ vlog.Printer, _, _ string) (map[string][]byte, error) {
+	if !t.success { // Allow for dependency injection
+		return nil, errors.New("failed to retrieve secrets")
+	}
+	data := map[string][]byte{
+		"ca.crt":  []byte(t.ca),
+		"tls.crt": []byte(t.cert),
+		"tls.key": []byte(t.key),
+	}
+	return data, nil
 }
 
-// RetrieveSecret retrieves a secret and returns mock values.
-func (t TestK8sSecretRetriever) RetrieveSecret(_ vlog.Printer, _, _ string) (caBytes []byte, certBytes []byte,
-	keyBytes []byte, err error) {
+// TestPasswordSecretRetriever is a test implementation of k8sSecretRetrieverStruct
+// for db password secret
+type TestPasswordSecretRetriever struct {
+	success     bool
+	password    string
+	passwordKey string
+}
+
+func (t TestPasswordSecretRetriever) RetrieveSecret(_ vlog.Printer, _, _ string) (map[string][]byte, error) {
 	if !t.success { // Allow for dependency injection
-		return nil, nil, nil, errors.New("failed to retrieve secrets")
+		return nil, errors.New("failed to retrieve secrets")
 	}
-	caBytes, certBytes, keyBytes = []byte(t.ca), []byte(t.cert), []byte(t.key)
-	return caBytes, certBytes, keyBytes, nil
+	data := map[string][]byte{
+		t.passwordKey: []byte(t.password),
+	}
+	return data, nil
 }
 
 func TestScrutinCmd(t *testing.T) {
@@ -85,7 +100,7 @@ func TestScrutinCmd(t *testing.T) {
 func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	const randomBytes = "123"
 	c := makeCmdScrutinize()
-	c.secretStoreRetriever = TestK8sSecretRetriever{
+	c.secretStoreRetriever = TestNMASecretRetriever{
 		success: true,
 		ca:      "test cert 1",
 		cert:    "test cert 2",
@@ -108,7 +123,7 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 
 	// If some of the keys are missing
 	c = makeCmdScrutinize()
-	c.secretStoreRetriever = TestK8sSecretRetriever{
+	c.secretStoreRetriever = TestNMASecretRetriever{
 		success: true,
 		ca:      "test cert 1",
 		cert:    "test cert 2",
@@ -120,7 +135,7 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 
 	// Failure to retrieve the secret should fail the request
 	c = makeCmdScrutinize()
-	c.secretStoreRetriever = TestK8sSecretRetriever{success: false}
+	c.secretStoreRetriever = TestNMASecretRetriever{success: false}
 	ok, err = c.nmaCertLookupFromSecretStore(vlog.Printer{})
 	assert.Error(t, err)
 	assert.False(t, ok)
@@ -203,4 +218,50 @@ func TestNMACertLookupFromEnv(t *testing.T) {
 	assert.Equal(t, sampleRootCA, c.sOptions.CaCert)
 	assert.Equal(t, sampleCert, c.sOptions.Cert)
 	assert.Equal(t, sampleKey, c.sOptions.Key)
+}
+
+func TestDBPassswdLookupFromK8sSecret(t *testing.T) {
+	const randomBytes = "123"
+	c := makeCmdScrutinize()
+	c.sOptions.Password = nil
+	c.secretStoreRetriever = TestPasswordSecretRetriever{
+		success:     true,
+		password:    "passwd",
+		passwordKey: "password",
+	}
+	os.Setenv("KUBERNETES_PORT", randomBytes)
+	os.Setenv(passwordSecretNamespaceEnvVar, randomBytes)
+	os.Setenv(passwordSecretNameEnvVar, randomBytes)
+
+	err := c.dbPassswdLookupFromSecretStore(vlog.Printer{})
+	assert.NoError(t, err)
+	assert.Equal(t, "passwd", *c.sOptions.Password)
+
+	// should fail if secret does not contain
+	// a passwordKey="password"
+	c = makeCmdScrutinize()
+	c.sOptions.Password = nil
+	c.secretStoreRetriever = TestPasswordSecretRetriever{
+		success:     true,
+		password:    "passwd",
+		passwordKey: "wrong-key",
+	}
+	err = c.dbPassswdLookupFromSecretStore(vlog.Printer{})
+	assert.Error(t, err)
+
+	// Failure to retrieve the secret should fail the request
+	c = makeCmdScrutinize()
+	c.sOptions.Password = nil
+	c.secretStoreRetriever = TestPasswordSecretRetriever{success: false}
+	err = c.dbPassswdLookupFromSecretStore(vlog.Printer{})
+	assert.Error(t, err)
+
+	// If the passwd secret env vars aren't set, we return without
+	// error
+	os.Clearenv()
+	os.Setenv("KUBERNETES_PORT", randomBytes)
+	c = makeCmdScrutinize()
+	c.sOptions.Password = nil
+	err = c.dbPassswdLookupFromSecretStore(vlog.Printer{})
+	assert.NoError(t, err)
 }

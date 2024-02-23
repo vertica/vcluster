@@ -246,14 +246,14 @@ func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptio
 	findLatestCatalog bool) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	// need username for https operations
 	err := options.setUsePassword(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}
 
-	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, options.Hosts,
+	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(options.Hosts,
 		options.usePassword, *options.UserName, options.Password, StartDB)
 	if err != nil {
 		return instructions, err
@@ -265,13 +265,13 @@ func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptio
 
 	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
 	if len(vdb.HostNodeMap) == 0 {
-		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, options.Hosts, *options.DBName, *options.CatalogPrefix,
+		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix,
 			true /* ignore internal errors */, vdb)
 		instructions = append(instructions, &nmaGetNodesInfoOp)
 	}
 
 	if findLatestCatalog {
-		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdb)
+		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
 		if err != nil {
 			return instructions, err
 		}
@@ -296,12 +296,12 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	var instructions []clusterOp
 
 	// vdb here should contains only primary nodes
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdb)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
 	if err != nil {
 		return instructions, err
 	}
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithoutHosts(vcc.Log, true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithoutHosts(true)
 	instructions = append(instructions,
 		&nmaReadCatalogEditorOp,
 		&nmaVerticaVersionOp,
@@ -317,14 +317,14 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	// we use information from catalog editor operation to update the sourceConfHost value
 	// after we find host with the highest catalog and hosts that need to synchronize the catalog
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(vcc.Log,
+	produceTransferConfigOps(
 		&instructions,
 		nil, /*source hosts for transferring configuration files*/
 		options.Hosts,
 		nil /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOp(vcc.Log, options.Hosts, *options.StartUpConf)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vcc.Log, options.Hosts,
+	nmaStartNewNodesOp := makeNMAStartNodeOp(options.Hosts, *options.StartUpConf)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(options.Hosts,
 		options.usePassword, *options.UserName, options.Password, *options.StatePollingTimeout, StartDBCmd)
 	if err != nil {
 		return instructions, err
@@ -336,7 +336,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	)
 
 	if options.IsEon.ToBool() {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(vcc.Log, options.Hosts, true, *options.UserName, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password)
 		if err != nil {
 			return instructions, err
 		}

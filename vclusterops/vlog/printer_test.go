@@ -52,24 +52,3 @@ func TestPasswordRedaction(t *testing.T) {
 	assert.Len(t, unmaskedArgs, 2)
 	assert.Equal(t, pw, unmaskedArgs[1])
 }
-
-func TestPrintWithIndent(t *testing.T) {
-	var p Printer
-
-	const testMessage = "test message"
-
-	// when ForCli is false, PrintWithIndent() should not output to stdout
-	p.ForCli = false
-	output := CaptureStdout(func() {
-		p.PrintWithIndent(testMessage)
-	})
-	assert.Empty(t, output)
-
-	// when ForCli is true,
-	// PrintWithIndent() should output the message to stdout with indentation
-	p.ForCli = true
-	output = CaptureStdout(func() {
-		p.PrintWithIndent(testMessage)
-	})
-	assert.Equal(t, output, "  "+testMessage+"\n")
-}

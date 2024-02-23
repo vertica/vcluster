@@ -20,17 +20,15 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaNetworkProfileOp struct {
 	opBase
 }
 
-func makeNMANetworkProfileOp(logger vlog.Printer, hosts []string) nmaNetworkProfileOp {
+func makeNMANetworkProfileOp(hosts []string) nmaNetworkProfileOp {
 	op := nmaNetworkProfileOp{}
 	op.name = "NMANetworkProfileOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	return op
 }

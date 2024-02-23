@@ -22,13 +22,13 @@ type CmdListAllNodes struct {
 
 func makeListAllNodes() *CmdListAllNodes {
 	newCmd := &CmdListAllNodes{}
-	newCmd.parser = flag.NewFlagSet("list_allnodes", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("list_allnodes", flag.ExitOnError)
 
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, "List all nodes with IPv6 hosts")
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated list of hosts to participate in database")
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "List all nodes with IPv6 hosts")
 
 	fetchNodeStateOpt := vclusterops.VFetchNodeStateOptionsFactory()
-	fetchNodeStateOpt.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	fetchNodeStateOpt.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
 
 	newCmd.fetchNodeStateOptions = &fetchNodeStateOpt
 
@@ -49,7 +49,7 @@ func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.fetchNodeStateOptions.Password = nil
 	}
 
@@ -88,10 +88,11 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.VClusterCommands) error {
 		}
 	}
 
-	bytes, err := json.Marshal(nodeStates)
+	bytes, err := json.MarshalIndent(nodeStates, "", "  ")
 	if err != nil {
 		return fmt.Errorf("fail to marshal the node state result, details %w", err)
 	}
-	vcc.Log.PrintInfo("Node states: %s", string(bytes))
+	fmt.Printf("Node states:\n%s", string(bytes))
+
 	return nil
 }

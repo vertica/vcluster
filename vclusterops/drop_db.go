@@ -17,7 +17,6 @@ package vclusterops
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
@@ -70,22 +69,11 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	// Analyze to produce vdb info for drop db use
 	vdb := makeVCoordinationDatabase()
 
-	// TODO: load from options if HonorUserInput is true
+	// TODO: this currently requires a config file to exist. We should allow
+	// drop to proceed with just options provided and no config file.
 
-	// load vdb info from the YAML config file
-	var configDir string
-
-	if options.ConfigDirectory != nil {
-		configDir = *options.ConfigDirectory
-	} else {
-		currentDir, e := os.Getwd()
-		if e != nil {
-			return fmt.Errorf("fail to get current directory")
-		}
-		configDir = currentDir
-	}
-
-	clusterConfig, err := ReadConfig(configDir, vcc.Log)
+	// load vdb info from the YAML config file.
+	clusterConfig, err := ReadConfig(options.ConfigPath, vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -112,10 +100,10 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 
 	// if the database is successfully dropped, the database will be removed from the config file
 	// if failed to remove it, we will ask users to manually do it
-	err = clusterConfig.removeDatabaseFromConfigFile(vdb.Name, configDir, vcc.Log)
+	err = clusterConfig.removeDatabaseFromConfigFile(vdb.Name, options.ConfigPath, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("Fail to remove the database information from config file, "+
-			"please manually clean up under directory %s. Details: %v", configDir, err)
+			"please manually clean up under directory %s. Details: %v", options.ConfigPath, err)
 	}
 
 	return nil
@@ -142,17 +130,17 @@ func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabas
 		}
 	}
 
-	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
+	nmaHealthOp := makeNMAHealthOp(hosts)
 
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
-	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, hosts, usePassword,
+	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, usePassword,
 		*options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err
 	}
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vcc.Log, vdb, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, *options.ForceDelete)
 	if err != nil {
 		return instructions, err
 	}

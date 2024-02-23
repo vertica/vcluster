@@ -29,10 +29,8 @@ this library to perform database actions on Vertica on Kubernetes.
 
 ```
 vcluster/
-├── cmd
-│   └── vcluster
-│       └── main.go
 ├── commands
+├── main.go
 └── vclusterops
     ├── test_data
     ├── util
@@ -40,9 +38,8 @@ vcluster/
     └── vstruct
 ```
 
-- `/cmd/vcluster`: The `/cmd` directory contains executable code. The
-  `/vcluster` directory contains minimal code that sets up and invokes the
-  entry point for the vcluster CLI.
+- `/vcluster` directory contains minimal code that sets up and invokes the
+  entry point (main.go) for the vcluster CLI.
 - `/commands`: Code for parsing command line options. These options are
   translated into arguments for the high-level functions in `/vclusterops`.
 - `/vclusterops`: Library code for high-level operations such as CreateDB,
@@ -50,8 +47,8 @@ vcluster/
 complete these functions. Code in this library should not depend on other
 directories in this project.
   External projects import this library to build custom CLI tools.
-- `/vclusterops/testdata`: Contains code and files for testing purposes. By
-  convention, the go tool ignores the `/testdata` directory.
+- `/vclusterops/test_data`: Contains code and files for testing purposes. By
+  convention, the go tool ignores the `/test_data` directory.
   This directory contains a YAML file that defines a simple three-node [Eon Mode cluster](https://docs.vertica.com/latest/en/architecture/eon-concepts/) for testing.
 - `/vclusterops/util`: Code that is used by more than one library in this
   project and does not fit logically into an existing package.

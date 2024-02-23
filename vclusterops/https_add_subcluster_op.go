@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsAddSubclusterOp struct {
@@ -33,12 +32,11 @@ type httpsAddSubclusterOp struct {
 	ctlSetSize         int
 }
 
-func makeHTTPSAddSubclusterOp(logger vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSAddSubclusterOp(useHTTPPassword bool, userName string, httpsPassword *string,
 	scName string, isPrimary bool, ctlSetSize int) (httpsAddSubclusterOp, error) {
 	op := httpsAddSubclusterOp{}
 	op.name = "HTTPSAddSubclusterOp"
 	op.scName = scName
-	op.logger = logger.WithName(op.name)
 	op.isSecondary = !isPrimary
 	op.ctlSetSize = ctlSetSize
 

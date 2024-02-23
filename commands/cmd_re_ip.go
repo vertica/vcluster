@@ -22,15 +22,15 @@ type CmdReIP struct {
 
 func makeCmdReIP() *CmdReIP {
 	newCmd := &CmdReIP{}
-	newCmd.parser = flag.NewFlagSet("re_ip", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("re_ip", flag.ExitOnError)
 
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts in the database (provide at least one)")
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, "Whether the database hosts use IPv6 addresses")
-	newCmd.reIPFilePath = newCmd.parser.String("re-ip-file", "", "Absolute path of the re-ip file")
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated list of hosts in the database (provide at least one)")
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "Whether the database hosts use IPv6 addresses")
+	newCmd.reIPFilePath = newCmd.oldParser.String("re-ip-file", "", "Absolute path of the re-ip file")
 
 	reIPOpt := vclusterops.VReIPFactory()
-	reIPOpt.DBName = newCmd.parser.String("db-name", "", "The name of the database")
-	reIPOpt.CatalogPrefix = newCmd.parser.String("catalog-path", "", "The catalog path of the database")
+	reIPOpt.DBName = newCmd.oldParser.String("db-name", "", "The name of the database")
+	reIPOpt.CatalogPrefix = newCmd.oldParser.String("catalog-path", "", "The catalog path of the database")
 	newCmd.reIPOptions = &reIPOpt
 
 	return newCmd
@@ -43,7 +43,7 @@ func (c *CmdReIP) CommandType() string {
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
 	logger.LogArgParse(&inputArgv)
 
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 

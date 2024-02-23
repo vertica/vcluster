@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaDownloadConfigOp struct {
@@ -32,7 +31,6 @@ type nmaDownloadConfigOp struct {
 }
 
 func makeNMADownloadConfigOp(
-	logger vlog.Printer,
 	opName string,
 	sourceConfigHost []string,
 	endpoint string,
@@ -41,7 +39,6 @@ func makeNMADownloadConfigOp(
 ) nmaDownloadConfigOp {
 	op := nmaDownloadConfigOp{}
 	op.name = opName
-	op.logger = logger.WithName(op.name)
 	op.hosts = sourceConfigHost
 	op.endpoint = endpoint
 	op.fileContent = fileContent

@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsPollSubclusterNodeStateOp struct {
@@ -30,17 +29,17 @@ type httpsPollSubclusterNodeStateOp struct {
 	currentHost string
 	timeout     int
 	scName      string
+	checkDown   bool
 }
 
 // This op is used to poll for nodes that are a part of the subcluster `scName` to be UP.
 // A default timeout value defined by StartupPollingTimeout is applied. The user can suggest
 // an alternate timeout through the env var NODE_STATE_POLLING_TIMEOUT
-func makeHTTPSPollSubclusterNodeStateOp(logger vlog.Printer, scName string,
+func makeHTTPSPollSubclusterNodeStateOp(scName string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
 	op := httpsPollSubclusterNodeStateOp{}
 	op.name = "HTTPSPollSubclusterNodeStateOp"
-	op.logger = logger.WithName(op.name)
 	op.scName = scName
 	op.useHTTPPassword = useHTTPPassword
 
@@ -59,6 +58,22 @@ func makeHTTPSPollSubclusterNodeStateOp(logger vlog.Printer, scName string,
 	return op, nil
 }
 
+func makeHTTPSPollSubclusterNodeStateUpOp(scName string,
+	useHTTPPassword bool, userName string,
+	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
+	op, err := makeHTTPSPollSubclusterNodeStateOp(scName, useHTTPPassword, userName, httpsPassword)
+	op.checkDown = false
+	return op, err
+}
+
+func makeHTTPSPollSubclusterNodeStateDownOp(scName string,
+	useHTTPPassword bool, userName string,
+	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
+	op, err := makeHTTPSPollSubclusterNodeStateOp(scName, useHTTPPassword, userName, httpsPassword)
+	op.checkDown = true
+	return op, err
+}
+
 func (op *httpsPollSubclusterNodeStateOp) getPollingTimeout() int {
 	// a negative value indicates no timeout and should never be used for this op
 	return util.Max(op.timeout, 0)
@@ -68,7 +83,7 @@ func (op *httpsPollSubclusterNodeStateOp) setupClusterHTTPRequest(hosts []string
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.Timeout = httpRequestTimeoutSeconds
+		httpRequest.Timeout = defaultHTTPRequestTimeoutSeconds
 		httpRequest.buildHTTPSEndpoint("nodes/" + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
@@ -127,7 +142,7 @@ sample https nodes/host endpoint response:
 	}
 */
 func (op *httpsPollSubclusterNodeStateOp) processResult(execContext *opEngineExecContext) error {
-	op.logger.PrintWithIndent("[%s] expecting %d up host(s)", op.name, len(op.hosts))
+	op.logger.PrintInfo("[%s] expecting %d %s host(s)", op.name, len(op.hosts), checkStatusToString(op.checkDown))
 	op.logger.Info("Processing Poll subcluster node state")
 	err := pollState(op, execContext)
 	if err != nil {
@@ -139,7 +154,20 @@ func (op *httpsPollSubclusterNodeStateOp) processResult(execContext *opEngineExe
 	return nil
 }
 
+func checkStatusToString(checkDown bool) string {
+	var checkString string
+	if checkDown {
+		checkString = "down"
+	} else {
+		checkString = "up"
+	}
+	return checkString
+}
+
 func (op *httpsPollSubclusterNodeStateOp) shouldStopPolling() (bool, error) {
+	if op.checkDown {
+		return op.shouldStopPollingForDown()
+	}
 	upNodeCount := 0
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -182,11 +210,53 @@ func (op *httpsPollSubclusterNodeStateOp) shouldStopPolling() (bool, error) {
 	}
 
 	if upNodeCount < len(op.hosts) {
-		op.logger.PrintWithIndent("[%s] %d host(s) up", op.name, upNodeCount)
+		op.logger.PrintInfo("[%s] %d host(s) up", op.name, upNodeCount)
 		return false, nil
 	}
 
-	op.logger.PrintWithIndent("[%s] All nodes are up", op.name)
+	op.logger.PrintInfo("[%s] All nodes are up", op.name)
+
+	return true, nil
+}
+
+func (op *httpsPollSubclusterNodeStateOp) shouldStopPollingForDown() (bool, error) {
+	upNodeCount := 0
+	upHosts := make(map[string]bool)
+	exceptionHosts := make(map[string]bool)
+	downHosts := make(map[string]bool)
+	var allErrs error
+
+	for host, result := range op.clusterHTTPRequest.ResultCollection {
+		op.currentHost = host
+
+		// We don't need to wait until timeout to determine if all nodes are Down or not.
+		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately.
+		// We also need to let user know to wait until all nodes are DOWN
+		if result.isPasswordAndCertificateError(op.logger) {
+			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
+				op.name, host)
+		}
+		if !result.isPassing() {
+			allErrs = errors.Join(allErrs, result.err)
+		}
+		if result.isFailing() && !result.isHTTPRunning() {
+			downHosts[host] = true
+			continue
+		} else if result.isException() {
+			exceptionHosts[host] = true
+			continue
+		}
+
+		upHosts[host] = true
+		upNodeCount++
+	}
+
+	if upNodeCount != 0 {
+		op.logger.PrintInfo("[%s] %d host(s) up", op.name, upNodeCount)
+		return false, nil
+	}
+
+	op.logger.PrintInfo("[%s] All nodes are down", op.name)
 
 	return true, nil
 }

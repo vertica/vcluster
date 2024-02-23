@@ -321,6 +321,7 @@ func AbsPathCheck(dirPath string) error {
 	return nil
 }
 
+// remove this function in VER-92222
 func SplitHosts(hosts string) ([]string, error) {
 	if strings.TrimSpace(hosts) == "" {
 		return []string{}, fmt.Errorf("must specify a host or host list")
@@ -330,6 +331,23 @@ func SplitHosts(hosts string) ([]string, error) {
 		splitRes[i] = strings.TrimSpace(host)
 	}
 	return splitRes, nil
+}
+
+// ParseHostList will trim spaces and convert all chars to lowercase in the hosts
+func ParseHostList(hosts *[]string) error {
+	var parsedHosts []string
+	for _, host := range *hosts {
+		parsedHost := strings.TrimSpace(strings.ToLower(host))
+		if parsedHost != "" {
+			parsedHosts = append(parsedHosts, parsedHost)
+		}
+	}
+	if len(parsedHosts) == 0 {
+		return fmt.Errorf("must specify a host or host list")
+	}
+
+	*hosts = parsedHosts
+	return nil
 }
 
 // get env var with a fallback value

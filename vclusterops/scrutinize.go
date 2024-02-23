@@ -43,6 +43,7 @@ const scrutinizeFileLimitBytes = 100 * 1024 * 1024 // 100 MB in bytes
 const scrutinizeBatchNormal = "normal"
 const scrutinizeBatchContext = "context"
 const scrutinizeBatchSystemTables = "system_tables"
+const scrutinizeSuffixSystemTables = "systables"
 
 type VScrutinizeOptions struct {
 	DatabaseOptions
@@ -228,14 +229,14 @@ func tarAndRemoveDirectory(id string, log vlog.Printer) (err error) {
 func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 	vdb *VCoordinationDatabase) error {
 	// get nodes where NMA is running and only use those for NMA ops
-	getHealthyNodesOp := makeNMAGetHealthyNodesOp(logger, options.Hosts, vdb)
+	getHealthyNodesOp := makeNMAGetHealthyNodesOp(options.Hosts, vdb)
 	err := options.runClusterOpEngine(logger, []clusterOp{&getHealthyNodesOp})
 	if err != nil {
 		return err
 	}
 
 	// get map of host to node name and fully qualified catalog path
-	getNodesInfoOp := makeNMAGetNodesInfoOp(logger, vdb.HostList, *options.DBName,
+	getNodesInfoOp := makeNMAGetNodesInfoOp(vdb.HostList, *options.DBName,
 		*options.CatalogPrefix, true /* ignore internal errors */, vdb)
 	err = options.runClusterOpEngine(logger, []clusterOp{&getNodesInfoOp})
 	if err != nil {
@@ -279,7 +280,7 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	}
 
 	// Get up database nodes for the system table task
-	getUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, *options.DBName, options.Hosts,
+	getUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, ScrutinizeCmd)
 	if err != nil {
 		return nil, err
@@ -287,16 +288,14 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	getUpNodesOp.allowNoUpHosts()
 	instructions = append(instructions, &getUpNodesOp)
 
-	// Initiate system table staging early as it may take significantly longer than other ops
-	stageSystemTablesOp, err := makeNMAStageSystemTablesOp(vcc.Log, options.ID, *options.UserName,
-		options.Password, hostNodeNameMap, options.Hosts)
+	stageSystemTablesInstructions, err := getStageSystemTablesInstructions(vcc.Log, options, hostNodeNameMap)
 	if err != nil {
 		return nil, err
 	}
-	instructions = append(instructions, &stageSystemTablesOp)
+	instructions = append(instructions, stageSystemTablesInstructions...)
 
 	// stage Vertica logs
-	stageVerticaLogsOp, err := makeNMAStageVerticaLogsOp(vcc.Log, options.ID, options.Hosts,
+	stageVerticaLogsOp, err := makeNMAStageVerticaLogsOp(options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap, scrutinizeLogLimitBytes, scrutinizeLogAgeHours)
 	if err != nil {
 		// map invariant assertion failure -- should not occur
@@ -305,7 +304,7 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	instructions = append(instructions, &stageVerticaLogsOp)
 
 	// stage DC Tables
-	stageDCTablesOp, err := makeNMAStageDCTablesOp(vcc.Log, options.ID, options.Hosts,
+	stageDCTablesOp, err := makeNMAStageDCTablesOp(options.ID, options.Hosts,
 		hostNodeNameMap, hostCatPathMap)
 	if err != nil {
 		// map invariant assertion failure -- should not occur
@@ -314,7 +313,7 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	instructions = append(instructions, &stageDCTablesOp)
 
 	// stage 'normal' batch files -- see NMA for what files are collected
-	stageVerticaNormalFilesOp, err := makeNMAStageFilesOp(vcc.Log, options.ID, scrutinizeBatchNormal,
+	stageVerticaNormalFilesOp, err := makeNMAStageFilesOp(options.ID, scrutinizeBatchNormal,
 		options.Hosts, hostNodeNameMap, hostCatPathMap, scrutinizeFileLimitBytes)
 	if err != nil {
 		return nil, err
@@ -322,15 +321,23 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	instructions = append(instructions, &stageVerticaNormalFilesOp)
 
 	// stage 'context' batch files -- see NMA for what files are collected
-	stageVerticaContextFilesOp, err := makeNMAStageFilesOp(vcc.Log, options.ID, scrutinizeBatchContext,
+	stageVerticaContextFilesOp, err := makeNMAStageFilesOp(options.ID, scrutinizeBatchContext,
 		options.Hosts, hostNodeNameMap, hostCatPathMap, scrutinizeFileLimitBytes)
 	if err != nil {
 		return nil, err
 	}
 	instructions = append(instructions, &stageVerticaContextFilesOp)
 
+	// run and stage diagnostic command results -- see NMA for what commands are run
+	stageCommandsOp, err := makeNMAStageCommandsOp(vcc.Log, options.ID, scrutinizeBatchContext,
+		options.Hosts, hostNodeNameMap, hostCatPathMap)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &stageCommandsOp)
+
 	// get 'normal' batch tarball (inc. Vertica logs and 'normal' batch files)
-	getNormalTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchNormal,
+	getNormalTarballOp, err := makeNMAGetScrutinizeTarOp(options.ID, scrutinizeBatchNormal,
 		options.Hosts, hostNodeNameMap)
 	if err != nil {
 		return nil, err
@@ -338,22 +345,15 @@ func (vcc *VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeO
 	instructions = append(instructions, &getNormalTarballOp)
 
 	// get 'context' batch tarball (inc. 'context' batch files)
-	getContextTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchContext,
+	getContextTarballOp, err := makeNMAGetScrutinizeTarOp(options.ID, scrutinizeBatchContext,
 		options.Hosts, hostNodeNameMap)
 	if err != nil {
 		return nil, err
 	}
 	instructions = append(instructions, &getContextTarballOp)
 
-	// check for system tables staging completion before continuing
-	checkSystemTablesOp, err := makeNMACheckSystemTablesOp(vcc.Log, options.ID, hostNodeNameMap, options.Hosts)
-	if err != nil {
-		return nil, err
-	}
-	instructions = append(instructions, &checkSystemTablesOp)
-
 	// get 'system_tables' batch tarball last, as staging systables can take a long time
-	getSystemTablesTarballOp, err := makeNMAGetScrutinizeTarOp(vcc.Log, options.ID, scrutinizeBatchSystemTables,
+	getSystemTablesTarballOp, err := makeNMAGetScrutinizeTarOp(options.ID, scrutinizeBatchSystemTables,
 		options.Hosts, hostNodeNameMap)
 	if err != nil {
 		return nil, err
@@ -391,4 +391,35 @@ func getNodeInfoForScrutinize(hosts []string, vdb *VCoordinationDatabase,
 	}
 
 	return hostNodeNameMap, hostCatPathMap, allErrors
+}
+
+func getStageSystemTablesInstructions(logger vlog.Printer, options *VScrutinizeOptions, hostNodeNameMap map[string]string,
+) (instructions []clusterOp, err error) {
+	// Prepare directories for scrutinizer staging system tables
+	var stagingDir string
+	prepareScrutinizerDirsOp, err := makeNMAPrepareScrutinizerDirectoriesOp(
+		logger, options.ID, hostNodeNameMap, scrutinizeBatchSystemTables, scrutinizeSuffixSystemTables, &stagingDir,
+	)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &prepareScrutinizerDirsOp)
+
+	// Get a list of existing system tables for staging system tables operation
+	getSystemTablesOp, err := makeHTTPSGetSystemTablesOp(logger, options.Hosts,
+		options.usePassword, *options.UserName, options.Password)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &getSystemTablesOp)
+
+	// Stage system tables stored in execContext
+	stageSystemTablesOp, err := makeHTTPSStageSystemTablesOp(logger,
+		options.usePassword, *options.UserName, options.Password, options.ID, hostNodeNameMap, &stagingDir)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &stageSystemTablesOp)
+
+	return instructions, nil
 }

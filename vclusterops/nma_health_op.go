@@ -17,18 +17,15 @@ package vclusterops
 
 import (
 	"errors"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaHealthOp struct {
 	opBase
 }
 
-func makeNMAHealthOp(logger vlog.Printer, hosts []string) nmaHealthOp {
+func makeNMAHealthOp(hosts []string) nmaHealthOp {
 	op := nmaHealthOp{}
 	op.name = "NMAHealthOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	return op
 }

@@ -17,7 +17,6 @@ package vclusterops
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -42,8 +41,8 @@ type DatabaseOptions struct {
 	CatalogPrefix *string
 	// path of data directory
 	DataPrefix *string
-	// directory of the YAML config file
-	ConfigDirectory *string
+	// File path to YAML config file
+	ConfigPath string
 
 	/* part 2: Eon database info */
 
@@ -100,6 +99,14 @@ const (
 	commandUnsandboxSC       = "unsandbox_subcluster"
 	commandShowRestorePoints = "show_restore_points"
 )
+
+func DatabaseOptionsFactory() DatabaseOptions {
+	opt := DatabaseOptions{}
+	// set default values to the params
+	opt.setDefaultValues()
+
+	return opt
+}
 
 func (opt *DatabaseOptions) setDefaultValues() {
 	opt.DBName = new(string)
@@ -246,24 +253,14 @@ func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 		return nil
 	}
 
-	err := util.ValidateAbsPath(opt.ConfigDirectory, "config directory")
+	if opt.ConfigPath == "" {
+		return nil
+	}
+
+	err := util.ValidateAbsPath(&opt.ConfigPath, "config")
 	if err != nil {
 		return err
 	}
-
-	return nil
-}
-
-// ParseHostList converts a comma-separated string of hosts into a slice of host names. During parsing,
-// the hosts names are converted to lowercase.
-// It returns any parsing error encountered.
-func (opt *DatabaseOptions) ParseHostList(hosts string) error {
-	inputHostList, err := util.SplitHosts(hosts)
-	if err != nil {
-		return err
-	}
-
-	opt.RawHosts = inputHostList
 
 	return nil
 }
@@ -413,37 +410,26 @@ func (opt *DatabaseOptions) getDepotAndDataPrefix(
 	return depotPrefix, dataPrefix, nil
 }
 
-// GetDBConfig reads database configurations from vertica_cluster.yaml into a ClusterConfig struct.
+// GetDBConfig reads database configurations from the config file into a ClusterConfig struct.
 // It returns the ClusterConfig and any error encountered.
 func (opt *DatabaseOptions) GetDBConfig(vcc VClusterCommands) (config *ClusterConfig, e error) {
-	var configDir string
-
-	if opt.ConfigDirectory == nil && !*opt.HonorUserInput {
-		return nil, fmt.Errorf("only supported two options: honor-user-input and config-directory")
-	}
-
-	if opt.ConfigDirectory != nil {
-		configDir = *opt.ConfigDirectory
-	} else {
-		currentDir, err := os.Getwd()
-		if err != nil && !*opt.HonorUserInput {
-			return config, fmt.Errorf("fail to get current directory, details: %w", err)
+	if opt.ConfigPath == "" {
+		if !*opt.HonorUserInput {
+			return nil, fmt.Errorf("only supported two options: honor-user-input and config")
 		}
-		configDir = currentDir
+		return nil, nil
 	}
 
-	if configDir != "" {
-		configContent, err := ReadConfig(configDir, vcc.Log)
-		config = &configContent
-		if err != nil {
-			// when we cannot read config file, config points to an empty ClusterConfig with default values
-			// we want to reset config to nil so we will use user input later rather than those default values
-			config = nil
-			vcc.Log.PrintWarning("Failed to read " + filepath.Join(configDir, ConfigFileName))
-			// when the customer wants to use user input, we can ignore config file error
-			if !*opt.HonorUserInput {
-				return config, err
-			}
+	configContent, err := ReadConfig(opt.ConfigPath, vcc.Log)
+	config = &configContent
+	if err != nil {
+		// when we cannot read config file, config points to an empty ClusterConfig with default values
+		// we want to reset config to nil so we will use user input later rather than those default values
+		config = nil
+		vcc.Log.PrintWarning("Failed to read " + opt.ConfigPath)
+		// when the customer wants to use user input, we can ignore config file error
+		if !*opt.HonorUserInput {
+			return config, err
 		}
 	}
 
@@ -477,8 +463,8 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	// this step can map input hosts with node names
 	vdb1 := VCoordinationDatabase{}
 	var instructions1 []clusterOp
-	nmaHealthOp := makeNMAHealthOp(vcc.Log, opt.Hosts)
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, opt.Hosts, *opt.DBName, *opt.CatalogPrefix,
+	nmaHealthOp := makeNMAHealthOp(opt.Hosts)
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(opt.Hosts, *opt.DBName, *opt.CatalogPrefix,
 		false /* report all errors */, &vdb1)
 	instructions1 = append(instructions1,
 		&nmaHealthOp,
@@ -497,7 +483,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoor
 	vdb2 := VCoordinationDatabase{}
 	var instructions2 []clusterOp
 	currConfigFileSrcPath := opt.getCurrConfigFilePath()
-	nmaDownLoadFileOp, err := makeNMADownloadFileOp(vcc.Log, opt.Hosts, currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
+	nmaDownLoadFileOp, err := makeNMADownloadFileOp(opt.Hosts, currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
 		opt.ConfigurationParameters, &vdb2)
 	if err != nil {
 		return vdb, err

@@ -31,47 +31,46 @@ func makeCmdStartDB() *CmdStartDB {
 	newCmd := &CmdStartDB{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("start_db", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("start_db", flag.ExitOnError)
 	startDBOptions := vclusterops.VStartDatabaseOptionsFactory()
 
 	// require flags
-	startDBOptions.DBName = newCmd.parser.String("db-name", "", util.GetOptionalFlagMsg("The name of the database to be started."+
+	startDBOptions.DBName = newCmd.oldParser.String("db-name", "", util.GetOptionalFlagMsg("The name of the database to be started."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
 
 	// optional flags
-	startDBOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	startDBOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", "The catalog path of the database")
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts to participate in database."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, "start database with with IPv6 hosts")
+	startDBOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	startDBOptions.CatalogPrefix = newCmd.oldParser.String("catalog-path", "", "The catalog path of the database")
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg(
+		"Comma-separated list of hosts to participate in database."+" Use it when you do not trust "+vclusterops.ConfigFileName))
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "start database with with IPv6 hosts")
 
-	startDBOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	startDBOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	startDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	startDBOptions.StatePollingTimeout = newCmd.parser.Int("timeout", util.DefaultTimeoutSeconds,
+	newCmd.oldParser.StringVar(&startDBOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
+	startDBOptions.StatePollingTimeout = newCmd.oldParser.Int("timeout", util.DefaultTimeoutSeconds,
 		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
 			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
 	// eon flags
-	newCmd.isEon = newCmd.parser.Bool("eon-mode", false, util.GetEonFlagMsg("Indicate if the database is an Eon database."+
+	newCmd.isEon = newCmd.oldParser.Bool("eon-mode", false, util.GetEonFlagMsg("Indicate if the database is an Eon database."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	startDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
+	startDBOptions.CommunalStorageLocation = newCmd.oldParser.String("communal-storage-location", "",
 		util.GetEonFlagMsg("Location of communal storage"))
-	newCmd.configurationParams = newCmd.parser.String("config-param", "", util.GetOptionalFlagMsg(
+	newCmd.configurationParams = newCmd.oldParser.String("config-param", "", util.GetOptionalFlagMsg(
 		"Comma-separated list of NAME=VALUE pairs for configuration parameters"))
 
 	// hidden options
 	// TODO: the following options will be processed later
-	newCmd.Unsafe = newCmd.parser.Bool("unsafe", false, util.SuppressHelp)
-	newCmd.Force = newCmd.parser.Bool("force", false, util.SuppressHelp)
-	newCmd.AllowFallbackKeygen = newCmd.parser.Bool("allow_fallback_keygen", false, util.SuppressHelp)
-	newCmd.IgnoreClusterLease = newCmd.parser.Bool("ignore_cluster_lease", false, util.SuppressHelp)
-	newCmd.Fast = newCmd.parser.Bool("fast", false, util.SuppressHelp)
-	startDBOptions.TrimHostList = newCmd.parser.Bool("trim-hosts", false, util.SuppressHelp)
+	newCmd.Unsafe = newCmd.oldParser.Bool("unsafe", false, util.SuppressHelp)
+	newCmd.Force = newCmd.oldParser.Bool("force", false, util.SuppressHelp)
+	newCmd.AllowFallbackKeygen = newCmd.oldParser.Bool("allow_fallback_keygen", false, util.SuppressHelp)
+	newCmd.IgnoreClusterLease = newCmd.oldParser.Bool("ignore_cluster_lease", false, util.SuppressHelp)
+	newCmd.Fast = newCmd.oldParser.Bool("fast", false, util.SuppressHelp)
+	startDBOptions.TrimHostList = newCmd.oldParser.Bool("trim-hosts", false, util.SuppressHelp)
 
 	newCmd.startDBOptions = &startDBOptions
-	newCmd.parser.Usage = func() {
-		util.SetParserUsage(newCmd.parser, "start_db")
+	newCmd.oldParser.Usage = func() {
+		util.SetParserUsage(newCmd.oldParser, "start_db")
 	}
 	return newCmd
 }
@@ -81,7 +80,7 @@ func (c *CmdStartDB) CommandType() string {
 }
 
 func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
@@ -94,16 +93,12 @@ func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "eon-mode") {
+	if !util.IsOptionSet(c.oldParser, "eon-mode") {
 		c.CmdBase.isEon = nil
 	}
 
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
-	}
-
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.startDBOptions.ConfigDirectory = nil
 	}
 
 	return c.validateParse(logger)
@@ -121,7 +116,7 @@ func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
 		c.startDBOptions.ConfigurationParameters = configurationParams
 	}
 
-	return c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
 }
 
 func (c *CmdStartDB) Analyze(logger vlog.Printer) error {

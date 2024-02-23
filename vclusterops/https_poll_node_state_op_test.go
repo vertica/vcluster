@@ -29,8 +29,11 @@ func TestTimeoutErrorCase(t *testing.T) {
 	hosts := []string{"192.0.2.1"}
 	username := "testUser"
 	password := "testPwd"
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(vlog.Printer{}, hosts, true, username, &password)
+	// Intentionally pick a low http request timeout to speed up the test.
+	const httpRequestTimeoutForTest = 3
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(hosts, true, username, &password)
 	assert.Nil(t, err)
+	httpsPollNodeStateOp.httpRequestTimeout = httpRequestTimeoutForTest
 	instructions = append(instructions, &httpsPollNodeStateOp)
 
 	// default timeout value for the op
@@ -42,9 +45,10 @@ func TestTimeoutErrorCase(t *testing.T) {
 
 	// negative timeout value for the op (treated as 0, means no polling)
 	instructions = make([]clusterOp, 0)
-	httpsPollNodeStateOp, err = makeHTTPSPollNodeStateOpWithTimeoutAndCommand(vlog.Printer{}, hosts, true, username, &password,
+	httpsPollNodeStateOp, err = makeHTTPSPollNodeStateOpWithTimeoutAndCommand(hosts, true, username, &password,
 		-100, CreateDBCmd)
 	assert.Nil(t, err)
+	httpsPollNodeStateOp.httpRequestTimeout = httpRequestTimeoutForTest
 	instructions = append(instructions, &httpsPollNodeStateOp)
 	clusterOpEngine = makeClusterOpEngine(instructions, &certs)
 	err = clusterOpEngine.run(vlog.Printer{})

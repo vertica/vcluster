@@ -206,10 +206,10 @@ func (vcc *VClusterCommands) produceShowRestorePointsInstructions(options *VShow
 	initiator := getInitiator(hosts)
 	bootstrapHost := []string{initiator}
 
-	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
+	nmaHealthOp := makeNMAHealthOp(hosts)
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(vcc.Log, hosts, true, true /*IsEon*/)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(hosts, true, true /*IsEon*/)
 
 	nmaShowRestorePointOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.Log, bootstrapHost, *options.DBName,
 		*options.CommunalStorageLocation, options.ConfigurationParameters, options.FilterOptions)

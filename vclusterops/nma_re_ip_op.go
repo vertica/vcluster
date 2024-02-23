@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaReIPOp struct {
@@ -34,13 +32,12 @@ type nmaReIPOp struct {
 	trimReIPData         bool
 }
 
-func makeNMAReIPOp(logger vlog.Printer,
+func makeNMAReIPOp(
 	reIPList []ReIPInfo,
 	vdb *VCoordinationDatabase,
 	trimReIPData bool) nmaReIPOp {
 	op := nmaReIPOp{}
 	op.name = "NMAReIPOp"
-	op.logger = logger.WithName(op.name)
 	op.reIPList = reIPList
 	op.vdb = vdb
 	op.trimReIPData = trimReIPData

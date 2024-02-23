@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsSyncCatalogOp struct {
@@ -29,11 +28,10 @@ type httpsSyncCatalogOp struct {
 	opHTTPSBase
 }
 
-func makeHTTPSSyncCatalogOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
+func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string) (httpsSyncCatalogOp, error) {
 	op := httpsSyncCatalogOp{}
 	op.name = "HTTPSSyncCatalogOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 
@@ -47,9 +45,9 @@ func makeHTTPSSyncCatalogOp(logger vlog.Printer, hosts []string, useHTTPPassword
 	return op, nil
 }
 
-func makeHTTPSSyncCatalogOpWithoutHosts(logger vlog.Printer, useHTTPPassword bool,
+func makeHTTPSSyncCatalogOpWithoutHosts(useHTTPPassword bool,
 	userName string, httpsPassword *string) (httpsSyncCatalogOp, error) {
-	return makeHTTPSSyncCatalogOp(logger, nil, useHTTPPassword, userName, httpsPassword)
+	return makeHTTPSSyncCatalogOp(nil, useHTTPPassword, userName, httpsPassword)
 }
 
 func (op *httpsSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {

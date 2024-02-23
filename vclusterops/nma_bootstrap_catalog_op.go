@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaBootstrapCatalogOp struct {
@@ -53,13 +51,11 @@ type bootstrapCatalogRequestData struct {
 }
 
 func makeNMABootstrapCatalogOp(
-	logger vlog.Printer,
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions,
 	bootstrapHosts []string) (nmaBootstrapCatalogOp, error) {
 	op := nmaBootstrapCatalogOp{}
 	op.name = "NMABootstrapCatalogOp"
-	op.logger = logger.WithName(op.name)
 	// usually, only one node need bootstrap catalog
 	op.hosts = bootstrapHosts
 

@@ -126,14 +126,14 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(sandboxSubclus
 	username := *options.UserName
 
 	// Get all up nodes
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, sandboxSubclusterInfo.DBName, sandboxSubclusterInfo.Hosts,
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(sandboxSubclusterInfo.DBName, sandboxSubclusterInfo.Hosts,
 		usePassword, username, sandboxSubclusterInfo.Password, SandboxCmd)
 	if err != nil {
 		return instructions, err
 	}
 
 	// Get subcluster sandboxing information and remove sandboxed nodes from prospective initator hosts list
-	httpsCheckSubclusterSandboxOp, err := makeHTTPSCheckSubclusterSandboxOp(vcc.Log, sandboxSubclusterInfo.Hosts,
+	httpsCheckSubclusterSandboxOp, err := makeHTTPSCheckSubclusterSandboxOp(sandboxSubclusterInfo.Hosts,
 		sandboxSubclusterInfo.SCName, sandboxSubclusterInfo.SandboxName, usePassword, username, sandboxSubclusterInfo.Password)
 	if err != nil {
 		return instructions, err
@@ -147,7 +147,7 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(sandboxSubclus
 	}
 
 	// Poll for sandboxed nodes to be up
-	httpsPollSubclusterNodeOp, err := makeHTTPSPollSubclusterNodeStateOp(vcc.Log, sandboxSubclusterInfo.SCName,
+	httpsPollSubclusterNodeOp, err := makeHTTPSPollSubclusterNodeStateUpOp(sandboxSubclusterInfo.SCName,
 		usePassword, username, sandboxSubclusterInfo.Password)
 	if err != nil {
 		return instructions, err

@@ -17,8 +17,6 @@ package vclusterops
 
 import (
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // nodes being down is not unusual for the purpose of this op.
@@ -30,11 +28,10 @@ type nmaGetHealthyNodesOp struct {
 	vdb *VCoordinationDatabase
 }
 
-func makeNMAGetHealthyNodesOp(logger vlog.Printer, hosts []string,
+func makeNMAGetHealthyNodesOp(hosts []string,
 	vdb *VCoordinationDatabase) nmaGetHealthyNodesOp {
 	op := nmaGetHealthyNodesOp{}
 	op.name = "NMAGetHealthyNodesOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.vdb = vdb
 	return op

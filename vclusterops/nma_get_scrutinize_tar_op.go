@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaGetScrutinizeTarOp struct {
@@ -29,14 +28,13 @@ type nmaGetScrutinizeTarOp struct {
 	useInitiator bool
 }
 
-func makeNMAGetScrutinizeTarOp(logger vlog.Printer,
+func makeNMAGetScrutinizeTarOp(
 	id, batch string,
 	hosts []string,
 	hostNodeNameMap map[string]string) (nmaGetScrutinizeTarOp, error) {
 	// base members
 	op := nmaGetScrutinizeTarOp{}
 	op.name = "NMAGetScrutinizeTarOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 
 	// scrutinize members

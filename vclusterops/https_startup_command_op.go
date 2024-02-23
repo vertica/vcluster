@@ -20,23 +20,43 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
+
+const startupOp = "startupOp"
 
 type httpsStartUpCommandOp struct {
 	opBase
 	opHTTPSBase
-	vdb *VCoordinationDatabase
+	vdb     *VCoordinationDatabase
+	sandbox bool
 }
 
-func makeHTTPSStartUpCommandOp(logger vlog.Printer, useHTTPPassword bool, userName string, httpsPassword *string,
+func makeHTTPSStartUpCommandOp(useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase) (httpsStartUpCommandOp, error) {
 	op := httpsStartUpCommandOp{}
-	op.name = "HTTPSStartUpCommandOp"
-	op.logger = logger.WithName(op.name)
+	op.name = startupOp
 	op.useHTTPPassword = useHTTPPassword
 	op.vdb = vdb
 
+	if useHTTPPassword {
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+		if err != nil {
+			return op, err
+		}
+
+		op.userName = userName
+		op.httpsPassword = httpsPassword
+	}
+
+	return op, nil
+}
+
+func makeHTTPSStartUpCommandOpAfterUnsandbox(useHTTPPassword bool, userName string,
+	httpsPassword *string) (httpsStartUpCommandOp, error) {
+	op := httpsStartUpCommandOp{}
+	op.name = startupOp
+	op.useHTTPPassword = useHTTPPassword
+	op.sandbox = true
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 		if err != nil {
@@ -54,9 +74,7 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
-
 		httpRequest.buildHTTPSEndpoint("startup/commands")
-
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -70,14 +88,24 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 
 func (op *httpsStartUpCommandOp) prepare(execContext *opEngineExecContext) error {
 	// Use the /v1/startup/command endpoint for a primary Up host to view every start command of existing nodes
-	var primaryUpHosts []string
-	for host, vnode := range op.vdb.HostNodeMap {
-		if vnode.IsPrimary && vnode.State == util.NodeUpState {
-			primaryUpHosts = append(primaryUpHosts, host)
-			break
+	// With sandboxes in a cluster, we need to ensure that we pick a main cluster UP host
+	if op.sandbox {
+		for h, sb := range execContext.upHostsToSandboxes {
+			if sb == "" {
+				op.hosts = append(op.hosts, h)
+				break
+			}
 		}
+	} else {
+		var primaryUpHosts []string
+		for host, vnode := range op.vdb.HostNodeMap {
+			if vnode.IsPrimary && vnode.State == util.NodeUpState && vnode.Sandbox == "" {
+				primaryUpHosts = append(primaryUpHosts, host)
+				break
+			}
+		}
+		op.hosts = primaryUpHosts
 	}
-	op.hosts = primaryUpHosts
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)

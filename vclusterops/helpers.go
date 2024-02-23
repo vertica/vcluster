@@ -23,7 +23,6 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const (
@@ -36,18 +35,18 @@ const (
 
 // produceTransferConfigOps generates instructions to transfert some config
 // files from a sourceConfig node to target nodes.
-func produceTransferConfigOps(logger vlog.Printer, instructions *[]clusterOp, sourceConfigHost,
+func produceTransferConfigOps(instructions *[]clusterOp, sourceConfigHost,
 	targetHosts []string, vdb *VCoordinationDatabase) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := makeNMADownloadConfigOp(
-		logger, "NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb)
+		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb)
 	nmaUploadVerticaConfigOp := makeNMAUploadConfigOp(
-		logger, "NMAUploadVerticaConfigOp", sourceConfigHost, targetHosts, "config/vertica", &verticaConfContent, vdb)
+		"NMAUploadVerticaConfigOp", sourceConfigHost, targetHosts, "config/vertica", &verticaConfContent, vdb)
 	var spreadConfContent string
 	nmaDownloadSpreadConfigOp := makeNMADownloadConfigOp(
-		logger, "NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb)
+		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb)
 	nmaUploadSpreadConfigOp := makeNMAUploadConfigOp(
-		logger, "NMAUploadSpreadConfigOp", sourceConfigHost, targetHosts, "config/spread", &spreadConfContent, vdb)
+		"NMAUploadSpreadConfigOp", sourceConfigHost, targetHosts, "config/spread", &spreadConfContent, vdb)
 	*instructions = append(*instructions,
 		&nmaDownloadVerticaConfigOp,
 		&nmaUploadVerticaConfigOp,
@@ -131,13 +130,13 @@ func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, opt
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
 
-	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(vcc.Log, *options.DBName, options.Hosts,
+	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		return fmt.Errorf("fail to produce httpsGetNodesInfo instructions while retrieving database configurations, %w", err)
 	}
 
-	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(vcc.Log, *options.DBName, options.Hosts,
+	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.DBName, options.Hosts,
 		options.usePassword, *options.UserName, options.Password, vdb)
 	if err != nil {
 		return fmt.Errorf("fail to produce httpsGetClusterInfo instructions while retrieving database configurations, %w", err)

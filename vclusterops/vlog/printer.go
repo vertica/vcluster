@@ -113,7 +113,7 @@ func escapeSpecialCharacters(message string) string {
 func (p *Printer) printlnCond(label, msg string) {
 	// Message is only printed if we are logging to a file only. Otherwise, it
 	// would be duplicated in the log.
-	if p.LogToFileOnly {
+	if p.LogToFileOnly && isVerboseOutputEnabled() {
 		fmt.Printf("%s%s\n", label, msg)
 	}
 }
@@ -217,11 +217,6 @@ func (p *Printer) SetupOrDie(logFile string) {
 	p.Log.Info("Successfully started logger", "logFile", logFile)
 }
 
-// PrintWithIndent prints message to console only with an indentation
-func (p *Printer) PrintWithIndent(msg string, v ...any) {
-	if p.ForCli {
-		// the indent level may be adjusted
-		const indentLevel = 2
-		fmt.Printf("%*s%s\n", indentLevel, "", fmt.Sprintf(msg, v...))
-	}
+func isVerboseOutputEnabled() bool {
+	return os.Getenv("VERBOSE_OUTPUT") == "yes"
 }

@@ -180,14 +180,14 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb 
 
 	hosts := options.Hosts
 
-	nmaHealthOp := makeNMAHealthOp(vcc.Log, hosts)
+	nmaHealthOp := makeNMAHealthOp(hosts)
 
 	// get network profiles of the new addresses
 	var newAddresses []string
 	for _, info := range options.ReIPList {
 		newAddresses = append(newAddresses, info.TargetAddress)
 	}
-	nmaNetworkProfileOp := makeNMANetworkProfileOp(vcc.Log, newAddresses)
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(newAddresses)
 
 	instructions = append(instructions,
 		&nmaHealthOp,
@@ -198,10 +198,10 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb 
 	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
 	if vdb == nil {
 		vdb = new(VCoordinationDatabase)
-		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, options.Hosts, *options.DBName, *options.CatalogPrefix,
+		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix,
 			false /* report all errors */, vdb)
 		// read catalog editor to get hosts with latest catalog
-		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdb)
+		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(vdb)
 		if err != nil {
 			return instructions, err
 		}
@@ -214,7 +214,7 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb 
 		*vdbWithPrimaryNodes = *vdb
 		vdbWithPrimaryNodes.filterPrimaryNodes()
 		// read catalog editor to get hosts with latest catalog
-		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(vcc.Log, vdbWithPrimaryNodes)
+		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(vdbWithPrimaryNodes)
 		if err != nil {
 			return instructions, err
 		}
@@ -224,7 +224,7 @@ func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb 
 	// re-ip
 	// at this stage the re-ip info should either by provided by
 	// the re-ip file (for vcluster CLI) or the Kubernetes operator
-	nmaReIPOP := makeNMAReIPOp(vcc.Log, options.ReIPList, vdb, options.TrimReIPList)
+	nmaReIPOP := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList)
 
 	instructions = append(instructions, &nmaReIPOP)
 

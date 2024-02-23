@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsCreateNodesDepotOp struct {
@@ -31,12 +30,11 @@ type httpsCreateNodesDepotOp struct {
 }
 
 // makeHTTPSCreateNodesDepotOp will make an op that call vertica-http service to create depot for the new nodes
-func makeHTTPSCreateNodesDepotOp(logger vlog.Printer, vdb *VCoordinationDatabase, nodes []string,
+func makeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 ) (httpsCreateNodesDepotOp, error) {
 	op := httpsCreateNodesDepotOp{}
 	op.name = "HTTPSCreateNodesDepotOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = nodes
 	op.useHTTPPassword = useHTTPPassword
 	op.HostNodeMap = vdb.HostNodeMap

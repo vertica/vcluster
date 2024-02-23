@@ -39,8 +39,8 @@ type CmdHelp struct {
 
 func makeCmdHelp() *CmdHelp {
 	newCmd := &CmdHelp{}
-	newCmd.parser = flag.NewFlagSet("help", flag.ExitOnError)
-	newCmd.topic = newCmd.parser.String("topic", "", "The topic for more help")
+	newCmd.oldParser = flag.NewFlagSet("help", flag.ExitOnError)
+	newCmd.topic = newCmd.oldParser.String("topic", "", "The topic for more help")
 	return newCmd
 }
 
@@ -51,7 +51,7 @@ func (c CmdHelp) CommandType() string {
 func (c *CmdHelp) Parse(inputArgv []string, logger vlog.Printer) error {
 	logger.LogArgParse(&inputArgv)
 
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 

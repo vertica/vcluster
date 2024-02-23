@@ -156,6 +156,21 @@ func TestSplitHosts(t *testing.T) {
 	assert.Equal(t, res, []string{})
 }
 
+func TestParseHostList(t *testing.T) {
+	// positive case
+	hosts := []string{" vnode1 ", " vnode2", "vnode3 ", "  "}
+	err := ParseHostList(&hosts)
+	expected := []string{"vnode1", "vnode2", "vnode3"}
+	assert.Nil(t, err)
+	assert.Equal(t, hosts, expected)
+
+	// negative case
+	hosts = []string{"  "}
+	err = ParseHostList(&hosts)
+	assert.NotNil(t, err)
+	assert.Equal(t, err.Error(), "must specify a host or host list")
+}
+
 type testStruct struct {
 	Field1 string
 	Field2 int

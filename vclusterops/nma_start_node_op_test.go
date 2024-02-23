@@ -16,7 +16,7 @@ func TestStartNodeOp(t *testing.T) {
 	// makeNMAStartNodeOp is called by create_db, add_node, start_db.
 	// if we pass startupConf to the op initializer, we expect to find
 	// it in the data to be sent to nodes/start
-	op := makeNMAStartNodeOp(vl, hosts, startupConf)
+	op := makeNMAStartNodeOp(hosts, startupConf)
 	op.skipExecute = true
 	instructions := []clusterOp{&op}
 	certs := httpsCerts{}

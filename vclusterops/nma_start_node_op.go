@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaStartNodeOp struct {
@@ -28,6 +26,7 @@ type nmaStartNodeOp struct {
 	startupConf        string
 	hostRequestBodyMap map[string]string
 	vdb                *VCoordinationDatabase
+	sandbox            bool
 }
 
 type startNodeRequestData struct {
@@ -35,19 +34,24 @@ type startNodeRequestData struct {
 	StartupConf  string   `json:"startup_conf"`
 }
 
-func makeNMAStartNodeOp(logger vlog.Printer,
+func makeNMAStartNodeOp(
 	hosts []string, startupConf string) nmaStartNodeOp {
 	startNodeOp := nmaStartNodeOp{}
 	startNodeOp.name = "NMAStartNodeOp"
-	startNodeOp.logger = logger.WithName(startNodeOp.name)
 	startNodeOp.hosts = hosts
 	startNodeOp.startupConf = startupConf
+	startNodeOp.sandbox = false
 	return startNodeOp
 }
 
-func makeNMAStartNodeOpWithVDB(logger vlog.Printer,
-	hosts []string, startupConf string, vdb *VCoordinationDatabase) nmaStartNodeOp {
-	startNodeOp := makeNMAStartNodeOp(logger, hosts, startupConf)
+func makeNMAStartNodeOpAfterUnsandbox(startupConf string) nmaStartNodeOp {
+	startNodeOp := makeNMAStartNodeOp([]string{}, startupConf)
+	startNodeOp.sandbox = true
+	return startNodeOp
+}
+
+func makeNMAStartNodeOpWithVDB(hosts []string, startupConf string, vdb *VCoordinationDatabase) nmaStartNodeOp {
+	startNodeOp := makeNMAStartNodeOp(hosts, startupConf)
 	startNodeOp.vdb = vdb
 	return startNodeOp
 }
@@ -63,10 +67,20 @@ func (op *nmaStartNodeOp) updateRequestBody(execContext *opEngineExecContext) er
 		// {ip1:[/opt/vertica/bin/vertica -D /data/practice_db/v_practice_db_node0001_catalog -C
 		// practice_db -n v_practice_db_node0001 -h 192.168.1.101 -p 5433 -P 4803 -Y ipv4]}
 		hostStartCommandMap := make(map[string][]string)
-		for host, vnode := range op.vdb.HostNodeMap {
-			hoststartCommand, ok := execContext.startupCommandMap[vnode.Name]
-			if ok {
-				hostStartCommandMap[host] = hoststartCommand
+		if !op.sandbox {
+			for host, vnode := range op.vdb.HostNodeMap {
+				hoststartCommand, ok := execContext.startupCommandMap[vnode.Name]
+				if ok {
+					hostStartCommandMap[host] = hoststartCommand
+				}
+			}
+		} else {
+			for _, vnode := range execContext.nodesInfo {
+				op.hosts = append(op.hosts, vnode.Address)
+				hoststartCommand, ok := execContext.startupCommandMap[vnode.Name]
+				if ok {
+					hostStartCommandMap[vnode.Address] = hoststartCommand
+				}
 			}
 		}
 		for _, host := range op.hosts {

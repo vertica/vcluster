@@ -210,7 +210,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 		}
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(vcc.Log, stopDBInfo.DBName, stopDBInfo.Hosts,
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(stopDBInfo.DBName, stopDBInfo.Hosts,
 		usePassword, *options.UserName, stopDBInfo.Password, StopDBCmd, *options.Sandbox, *options.MainCluster)
 	if err != nil {
 		return instructions, err
@@ -218,7 +218,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 	instructions = append(instructions, &httpsGetUpNodesOp)
 
 	if stopDBInfo.IsEon {
-		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(vcc.Log, usePassword, *options.UserName, stopDBInfo.Password)
+		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, *options.UserName, stopDBInfo.Password)
 		if e != nil {
 			return instructions, e
 		}
@@ -227,13 +227,13 @@ func (vcc *VClusterCommands) produceStopDBInstructions(stopDBInfo *VStopDatabase
 		vcc.Log.PrintInfo("Skipping sync catalog for an enterprise database")
 	}
 
-	httpsStopDBOp, err := makeHTTPSStopDBOp(vcc.Log, usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds,
+	httpsStopDBOp, err := makeHTTPSStopDBOp(usePassword, *options.UserName, stopDBInfo.Password, stopDBInfo.DrainSeconds,
 		*options.Sandbox, *options.MainCluster)
 	if err != nil {
 		return instructions, err
 	}
 
-	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(vcc.Log, stopDBInfo.Hosts,
+	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(stopDBInfo.Hosts,
 		usePassword, *options.UserName, *options.Sandbox, *options.MainCluster, stopDBInfo.Password, StopDB)
 	if err != nil {
 		return instructions, err

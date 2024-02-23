@@ -196,10 +196,11 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 	}
 
 	// get default subcluster
-	httpsFindSubclusterOp, err := makeHTTPSFindSubclusterOp(vcc.Log, options.Hosts,
+	// cannot remove sandbox subcluster
+	httpsFindSubclusterOp, err := makeHTTPSFindSubclusterOp(options.Hosts,
 		options.usePassword, *options.UserName, options.Password,
 		*options.SubclusterToRemove,
-		false /*do not ignore not found*/)
+		false /*do not ignore not found*/, RemoveSubclusterCmd)
 	if err != nil {
 		return hostsToRemove, fmt.Errorf("fail to get default subcluster %s, details: %w",
 			preCheckErrMsg, err)

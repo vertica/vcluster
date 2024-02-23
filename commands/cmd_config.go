@@ -39,9 +39,9 @@ type CmdConfig struct {
 
 func makeCmdConfig() *CmdConfig {
 	newCmd := &CmdConfig{}
-	newCmd.parser = flag.NewFlagSet("config", flag.ExitOnError)
-	newCmd.show = newCmd.parser.Bool("show", false, "show the content of the config file")
-	newCmd.directory = newCmd.parser.String(
+	newCmd.oldParser = flag.NewFlagSet("config", flag.ExitOnError)
+	newCmd.show = newCmd.oldParser.Bool("show", false, "show the content of the config file")
+	newCmd.directory = newCmd.oldParser.String(
 		"directory",
 		"",
 		"The directory under which the config file was created. "+
@@ -58,7 +58,7 @@ func (c *CmdConfig) CommandType() string {
 func (c *CmdConfig) Parse(inputArgv []string, logger vlog.Printer) error {
 	logger.LogArgParse(&inputArgv)
 
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 

@@ -42,15 +42,15 @@ type CmdInit struct {
 
 func makeCmdInit() *CmdInit {
 	newCmd := &CmdInit{}
-	newCmd.parser = flag.NewFlagSet("init", flag.ExitOnError)
-	newCmd.directory = newCmd.parser.String(
+	newCmd.oldParser = flag.NewFlagSet("init", flag.ExitOnError)
+	newCmd.directory = newCmd.oldParser.String(
 		"directory",
 		"",
 		"The directory under which the config file will be created. "+
 			"By default the current directory will be used.",
 	)
-	newCmd.DBName = newCmd.parser.String("db-name", "", "Database name")
-	newCmd.Hosts = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
+	newCmd.DBName = newCmd.oldParser.String("db-name", "", "Database name")
+	newCmd.Hosts = newCmd.oldParser.String("hosts", "", "Comma-separated list of hosts to participate in database")
 	return newCmd
 }
 
@@ -61,7 +61,7 @@ func (c *CmdInit) CommandType() string {
 func (c *CmdInit) Parse(inputArgv []string, logger vlog.Printer) error {
 	logger.LogArgParse(&inputArgv)
 
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 

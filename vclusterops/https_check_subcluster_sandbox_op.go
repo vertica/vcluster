@@ -18,8 +18,6 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsCheckSubclusterSandboxOp struct {
@@ -31,11 +29,10 @@ type httpsCheckSubclusterSandboxOp struct {
 
 // makeHTTPSCheckSubclusterSandboxOp initializes an op to find
 // all subclusters and record their sandboxing information.
-func makeHTTPSCheckSubclusterSandboxOp(logger vlog.Printer, hosts []string, scName string, sandbox string,
+func makeHTTPSCheckSubclusterSandboxOp(hosts []string, scName string, sandbox string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsCheckSubclusterSandboxOp, error) {
 	op := httpsCheckSubclusterSandboxOp{}
 	op.name = "HTTPSCheckSubclusterSandboxOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.ScToSandbox = scName
 	op.Sandbox = sandbox

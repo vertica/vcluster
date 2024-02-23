@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/vertica/vcluster/vclusterops/vlog"
 	"golang.org/x/exp/maps"
 )
 
@@ -41,11 +40,10 @@ type prepareDirectoriesRequestData struct {
 	IgnoreParent         bool     `json:"ignore_parent"`
 }
 
-func makeNMAPrepareDirectoriesOp(logger vlog.Printer, hostNodeMap vHostNodeMap,
+func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
 	forceCleanup, forRevive bool) (nmaPrepareDirectoriesOp, error) {
 	op := nmaPrepareDirectoriesOp{}
 	op.name = "NMAPrepareDirectoriesOp"
-	op.logger = logger.WithName(op.name)
 	op.forceCleanup = forceCleanup
 	op.forRevive = forRevive
 

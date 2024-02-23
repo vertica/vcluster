@@ -226,7 +226,7 @@ func (vcc *VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordina
 	vcc.Log.Info("Doing cleanup of hosts missing from database", "hostsNotInCatalog", missingHosts)
 
 	// We need to find the paths for the hosts we are removing.
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(vcc.Log, missingHosts, *options.DBName, *options.CatalogPrefix,
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(missingHosts, *options.DBName, *options.CatalogPrefix,
 		false /* report all errors */, vdb)
 	instructions := []clusterOp{&nmaGetNodesInfoOp}
 	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
@@ -246,7 +246,7 @@ func (vcc *VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordina
 
 	// Using the paths fetched earlier, we can now build the list of directories
 	// that the NMA should remove.
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vcc.Log, &vdbForDeleteDir, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&vdbForDeleteDir, *options.ForceDelete)
 	if err != nil {
 		return *vdb, err
 	}
@@ -326,7 +326,7 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 	password := options.Password
 
 	if (len(vdb.HostList) - len(options.HostsToRemove)) < ksafetyThreshold {
-		httpsMarkDesignKSafeOp, e := makeHTTPSMarkDesignKSafeOp(vcc.Log, initiatorHost, usePassword, username,
+		httpsMarkDesignKSafeOp, e := makeHTTPSMarkDesignKSafeOp(initiatorHost, usePassword, username,
 			password, ksafeValueZero)
 		if e != nil {
 			return instructions, e
@@ -353,7 +353,7 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 
 		// for Eon DB, we check whethter all subscriptions are ACTIVE
 		// after rebalance shards
-		httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(vcc.Log, initiatorHost,
+		httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(initiatorHost,
 			usePassword, username, password)
 		if e != nil {
 			return instructions, e
@@ -361,7 +361,7 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 		instructions = append(instructions, &httpsPollSubscriptionStateOp)
 	} else {
 		var httpsRBCOp httpsRebalanceClusterOp
-		httpsRBCOp, err = makeHTTPSRebalanceClusterOp(vcc.Log, initiatorHost, usePassword, username,
+		httpsRBCOp, err = makeHTTPSRebalanceClusterOp(initiatorHost, usePassword, username,
 			password)
 		if err != nil {
 			return instructions, err
@@ -383,20 +383,20 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 		return instructions, err
 	}
 
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(vcc.Log, initiatorHost, true, username, password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, true, username, password)
 	if err != nil {
 		return instructions, err
 	}
 	instructions = append(instructions, &httpsReloadSpreadOp)
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vcc.Log, &v, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, *options.ForceDelete)
 	if err != nil {
 		return instructions, err
 	}
 	instructions = append(instructions, &nmaDeleteDirectoriesOp)
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(vcc.Log, initiatorHost, true, username, password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, true, username, password)
 		if err != nil {
 			return instructions, err
 		}
@@ -412,7 +412,7 @@ func (vcc *VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]cluster
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	hostNodeMap vHostNodeMap) error {
 	for _, host := range targetHosts {
-		httpsMarkEphemeralNodeOp, err := makeHTTPSMarkEphemeralNodeOp(vcc.Log, hostNodeMap[host].Name, hosts,
+		httpsMarkEphemeralNodeOp, err := makeHTTPSMarkEphemeralNodeOp(hostNodeMap[host].Name, hosts,
 			useHTTPPassword, userName, httpsPassword)
 		if err != nil {
 			return err
@@ -427,7 +427,7 @@ func (vcc *VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]cluster
 func (vcc *VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[]clusterOp, initiatorHost, scNames []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) error {
 	for _, scName := range scNames {
-		op, err := makeHTTPSRebalanceSubclusterShardsOp(vcc.Log,
+		op, err := makeHTTPSRebalanceSubclusterShardsOp(
 			initiatorHost, useHTTPPassword, userName, httpsPassword, scName)
 		if err != nil {
 			return err
@@ -444,7 +444,7 @@ func (vcc *VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, targe
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	hostNodeMap vHostNodeMap, isEon bool) error {
 	for _, host := range targetHosts {
-		httpsDropNodeOp, err := makeHTTPSDropNodeOp(vcc.Log, hostNodeMap[host].Name, hosts,
+		httpsDropNodeOp, err := makeHTTPSDropNodeOp(hostNodeMap[host].Name, hosts,
 			useHTTPPassword, userName, httpsPassword,
 			isEon && hostNodeMap[host].State == util.NodeDownState)
 		if err != nil {
@@ -475,7 +475,7 @@ func (vcc *VClusterCommands) produceSpreadRemoveNodeOp(instructions *[]clusterOp
 
 	// only call HTTPSSpreadRemoveNodeOp for secondary nodes to remove
 	if len(secondaryHostsToRemove) > 0 {
-		httpsSpreadRemoveNodeOp, err := makeHTTPSSpreadRemoveNodeOp(vcc.Log, secondaryHostsToRemove, initiatorHost,
+		httpsSpreadRemoveNodeOp, err := makeHTTPSSpreadRemoveNodeOp(secondaryHostsToRemove, initiatorHost,
 			useHTTPPassword, userName, httpsPassword, hostNodeMap)
 		if err != nil {
 			return err

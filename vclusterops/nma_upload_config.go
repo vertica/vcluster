@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaUploadConfigOp struct {
@@ -48,7 +47,6 @@ type uploadConfigRequestData struct {
 // To add nodes to the DB, use the bootstrapHost value for sourceConfigHost, a list of newly added nodes
 // for newNodeHosts and provide a nil value for hosts.
 func makeNMAUploadConfigOp(
-	logger vlog.Printer,
 	opName string,
 	sourceConfigHost []string, // source host for transferring configuration files, specifically, it is
 	// 1. the bootstrap host when creating the database
@@ -60,7 +58,6 @@ func makeNMAUploadConfigOp(
 ) nmaUploadConfigOp {
 	op := nmaUploadConfigOp{}
 	op.name = opName
-	op.logger = logger.WithName(op.name)
 	op.endpoint = endpoint
 	op.fileContent = fileContent
 	op.catalogPathMap = make(map[string]string)

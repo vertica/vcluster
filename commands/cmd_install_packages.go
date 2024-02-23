@@ -40,27 +40,26 @@ func makeCmdInstallPackages() *CmdInstallPackages {
 	newCmd := &CmdInstallPackages{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("install_packages", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("install_packages", flag.ExitOnError)
 	installPkgOpts := vclusterops.VInstallPackagesOptionsFactory()
 
 	// required flags
-	installPkgOpts.DBName = newCmd.parser.String("db-name", "", "The name of the database to install packages in")
+	installPkgOpts.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to install packages in")
 
 	// optional flags
-	installPkgOpts.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."))
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Used to specify the hosts are IPv6 hosts"))
-	installPkgOpts.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	installPkgOpts.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."))
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Used to specify the hosts are IPv6 hosts"))
+	installPkgOpts.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	installPkgOpts.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	installPkgOpts.ForceReinstall = newCmd.parser.Bool("force-reinstall", false,
+	newCmd.oldParser.StringVar(&installPkgOpts.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
+	installPkgOpts.ForceReinstall = newCmd.oldParser.Bool("force-reinstall", false,
 		util.GetOptionalFlagMsg("Install the packages, even if they are already installed."))
 
 	newCmd.installPkgOpts = &installPkgOpts
 
-	newCmd.parser.Usage = func() {
-		util.SetParserUsage(newCmd.parser, "install_packages")
+	newCmd.oldParser.Usage = func() {
+		util.SetParserUsage(newCmd.oldParser, "install_packages")
 	}
 
 	return newCmd
@@ -80,14 +79,11 @@ func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) erro
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.installPkgOpts.Password = nil
 	}
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
-	}
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.installPkgOpts.ConfigDirectory = nil
 	}
 
 	return c.validateParse()
@@ -95,7 +91,7 @@ func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) erro
 
 // all validations of the arguments should go in here
 func (c *CmdInstallPackages) validateParse() error {
-	return c.ValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
 }
 
 func (c *CmdInstallPackages) Analyze(_ vlog.Printer) error {

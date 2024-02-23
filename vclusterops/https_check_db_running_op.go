@@ -24,7 +24,6 @@ import (
 
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type opType int
@@ -35,7 +34,7 @@ const (
 	StartDB
 	ReviveDB
 
-	opName = "HTTPSCheckDBRunningOp"
+	checkDBRunningOpName = "HTTPSCheckDBRunningOp"
 )
 
 func (op opType) String() string {
@@ -73,13 +72,12 @@ type httpsCheckRunningDBOp struct {
 	mainCluster bool   // check if DB is running on the main cluster.
 }
 
-func makeHTTPSCheckRunningDBOp(logger vlog.Printer, hosts []string,
+func makeHTTPSCheckRunningDBOp(hosts []string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
-	op.name = opName
-	op.logger = logger.WithName(op.name)
+	op.name = checkDBRunningOpName
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -93,13 +91,12 @@ func makeHTTPSCheckRunningDBOp(logger vlog.Printer, hosts []string,
 	return op, nil
 }
 
-func makeHTTPSCheckRunningDBWithSandboxOp(logger vlog.Printer, hosts []string,
+func makeHTTPSCheckRunningDBWithSandboxOp(hosts []string,
 	useHTTPPassword bool, userName string, sandbox string, mainCluster bool,
 	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
-	op.name = opName
-	op.logger = logger.WithName(op.name)
+	op.name = checkDBRunningOpName
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.sandbox = sandbox         // check if DB is running on specified sandbox
@@ -313,13 +310,21 @@ func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHo
 
 	switch op.opType {
 	case CreateDB:
-		op.logger.PrintInfo("Aborting database creation")
+		const createDBMsg = "Aborting database creation"
+		op.logger.PrintInfo(createDBMsg)
+		op.updateSpinnerMessage(createDBMsg)
 	case StopDB:
-		op.logger.PrintInfo("The database has not been down yet")
+		const stopDBMsg = "The database has not been down yet"
+		op.logger.PrintInfo(stopDBMsg)
+		op.updateSpinnerMessage(stopDBMsg)
 	case StartDB:
-		op.logger.PrintInfo("Aborting database start")
+		const startDBMsg = "Aborting database start"
+		op.logger.PrintInfo(startDBMsg)
+		op.updateSpinnerMessage(startDBMsg)
 	case ReviveDB:
-		op.logger.PrintInfo("Aborting database revival")
+		const reviveDBMsg = "Aborting database revival"
+		op.logger.PrintInfo(reviveDBMsg)
+		op.updateSpinnerMessage(reviveDBMsg)
 	}
 
 	// when db is running, append an error to allErrs for stopping VClusterOpEngine
@@ -401,7 +406,7 @@ func (op *httpsCheckRunningDBOp) pollForDBDown(execContext *opEngineExecContext)
 		if count > 0 {
 			time.Sleep(PollingInterval * time.Second)
 		}
-		err = execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
+		err = execContext.dispatcher.sendRequest(&op.clusterHTTPRequest, op.spinner)
 		if err != nil {
 			return fmt.Errorf("fail to dispatch request %v: %w", op.clusterHTTPRequest, err)
 		}
@@ -423,7 +428,7 @@ func (op *httpsCheckRunningDBOp) pollForDBDown(execContext *opEngineExecContext)
 }
 
 func (op *httpsCheckRunningDBOp) checkDBConnection(execContext *opEngineExecContext) error {
-	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
+	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest, op.spinner)
 	if err != nil {
 		return fmt.Errorf("fail to dispatch request %v: %w", op.clusterHTTPRequest, err)
 	}

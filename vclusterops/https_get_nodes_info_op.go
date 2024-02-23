@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsGetNodesInfoOp struct {
@@ -31,12 +30,11 @@ type httpsGetNodesInfoOp struct {
 	vdb    *VCoordinationDatabase
 }
 
-func makeHTTPSGetNodesInfoOp(logger vlog.Printer, dbName string, hosts []string,
+func makeHTTPSGetNodesInfoOp(dbName string, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string, vdb *VCoordinationDatabase,
 ) (httpsGetNodesInfoOp, error) {
 	op := httpsGetNodesInfoOp{}
 	op.name = "HTTPSGetNodeInfoOp"
-	op.logger = logger.WithName(op.name)
 	op.dbName = dbName
 	op.hosts = hosts
 	op.vdb = vdb

@@ -37,27 +37,26 @@ func makeCmdRemoveSubcluster() *CmdRemoveSubcluster {
 	newCmd := &CmdRemoveSubcluster{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("db_remove_subcluster", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("db_remove_subcluster", flag.ExitOnError)
 	removeScOptions := vclusterops.VRemoveScOptionsFactory()
 
 	// required flags
-	removeScOptions.DBName = newCmd.parser.String("db-name", "", "Name of the database to remove subcluster")
-	removeScOptions.SubclusterToRemove = newCmd.parser.String("remove", "", "Name of subcluster to be removed")
+	removeScOptions.DBName = newCmd.oldParser.String("db-name", "", "Name of the database to remove subcluster")
+	removeScOptions.SubclusterToRemove = newCmd.oldParser.String("remove", "", "Name of subcluster to be removed")
 	// VER-88096: get all nodes information from the database and remove this option
-	removeScOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
+	removeScOptions.DepotPrefix = newCmd.oldParser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
 
 	// optional flags
-	removeScOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	removeScOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	removeScOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
+	removeScOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
 		" to get cluster info from the db. Use it when you do not trust "+vclusterops.ConfigFileName))
-	removeScOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	removeScOptions.ForceDelete = newCmd.parser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
+	newCmd.oldParser.StringVar(&removeScOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
+	removeScOptions.ForceDelete = newCmd.oldParser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
 		" if they are not empty"))
-	removeScOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Whether the hosts use IPv6 addresses"))
+	removeScOptions.DataPrefix = newCmd.oldParser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Whether the hosts use IPv6 addresses"))
 
 	newCmd.removeScOptions = &removeScOptions
 	return newCmd
@@ -77,11 +76,7 @@ func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) err
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.removeScOptions.ConfigDirectory = nil
-	}
-
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.removeScOptions.Password = nil
 	}
 	return c.validateParse(logger)
@@ -90,7 +85,7 @@ func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) err
 func (c *CmdRemoveSubcluster) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	return c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
 }
 
 func (c *CmdRemoveSubcluster) Analyze(_ vlog.Printer) error {
@@ -107,7 +102,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.VClusterCommands) error {
 		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vdb.WriteClusterConfig(c.removeScOptions.ConfigDirectory, vcc.Log)
+	err = vdb.WriteClusterConfig(c.removeScOptions.ConfigPath, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("failed to write config file, details: %s", err)
 	}

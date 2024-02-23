@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -15,26 +17,13 @@ import (
  * Basic/common fields of vcluster commands
  */
 type CmdBase struct {
-	argv   []string
-	parser *flag.FlagSet
+	argv      []string
+	parser    *pflag.FlagSet
+	oldParser *flag.FlagSet // remove this variable in VER-92222
 
 	hostListStr *string // raw string from user input, need further processing
 	isEon       *bool   // need further processing to see if the user inputted this flag or not
 	ipv6        *bool   // need further processing to see if the user inputted this flag or not
-}
-
-// convert a host string into a list of hosts,
-// save the list into options.RawHosts;
-// the hosts should be separated by comma, and will be converted to lower case
-func (c *CmdBase) parseHostList(options *vclusterops.DatabaseOptions) error {
-	inputHostList, err := util.SplitHosts(*c.hostListStr)
-	if err != nil {
-		return err
-	}
-
-	options.RawHosts = inputHostList
-
-	return nil
 }
 
 // print usage of a command
@@ -46,7 +35,7 @@ func (c *CmdBase) PrintUsage(commandType string) {
 
 // parse argv
 func (c *CmdBase) ParseArgv() error {
-	parserError := c.parser.Parse(c.argv)
+	parserError := c.oldParser.Parse(c.argv)
 	if parserError != nil {
 		return parserError
 	}
@@ -68,7 +57,7 @@ func (c *CmdBase) ValidateParseMaskedArgv(commandType string, logger vlog.Printe
 }
 
 func (c *CmdBase) ValidateParseArgvHelper(commandType string) error {
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 	if len(c.argv) == 0 {
@@ -81,6 +70,39 @@ func (c *CmdBase) ValidateParseArgvHelper(commandType string) error {
 // ValidateParseBaseOptions will validate and parse the required base options in each command
 func (c *CmdBase) ValidateParseBaseOptions(opt *vclusterops.DatabaseOptions) error {
 	if *opt.HonorUserInput {
+		// parse raw hosts
+		err := util.ParseHostList(&opt.RawHosts)
+		if err != nil {
+			return err
+		}
+		// parse IsEon
+		opt.IsEon.FromBoolPointer(c.isEon)
+		// parse Ipv6
+		opt.Ipv6.FromBoolPointer(c.ipv6)
+	}
+
+	return nil
+}
+
+// SetParser can assign a pflag parser to CmdBase
+func (c *CmdBase) SetParser(parser *pflag.FlagSet) {
+	c.parser = parser
+}
+
+// SetIPv6 can create the flag --ipv6 for a cobra command
+func (c *CmdBase) SetIPv6(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		c.ipv6,
+		"ipv6",
+		false,
+		util.GetOptionalFlagMsg("Whether the hosts are using IPv6 addresses"),
+	)
+}
+
+// remove this function in VER-92222
+// ValidateParseBaseOptions will validate and parse the required base options in each command
+func (c *CmdBase) OldValidateParseBaseOptions(opt *vclusterops.DatabaseOptions) error {
+	if *opt.HonorUserInput {
 		// parse raw host str input into a []string
 		err := c.parseHostList(opt)
 		if err != nil {
@@ -91,6 +113,21 @@ func (c *CmdBase) ValidateParseBaseOptions(opt *vclusterops.DatabaseOptions) err
 		// parse Ipv6
 		opt.Ipv6.FromBoolPointer(c.ipv6)
 	}
+
+	return nil
+}
+
+// remove this function in VER-92222
+// convert a host string into a list of hosts,
+// save the list into options.RawHosts;
+// the hosts should be separated by comma, and will be converted to lower case
+func (c *CmdBase) parseHostList(options *vclusterops.DatabaseOptions) error {
+	inputHostList, err := util.SplitHosts(*c.hostListStr)
+	if err != nil {
+		return err
+	}
+
+	options.RawHosts = inputHostList
 
 	return nil
 }

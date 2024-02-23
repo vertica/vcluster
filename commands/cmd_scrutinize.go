@@ -40,6 +40,10 @@ const (
 	nmaRootCAPathEnvVar = "NMA_ROOTCA_PATH"
 	nmaCertPathEnvVar   = "NMA_CERT_PATH"
 	nmaKeyPathEnvVar    = "NMA_KEY_PATH"
+
+	// Environment variable names storing name of secret that has the db password
+	passwordSecretNamespaceEnvVar = "PASSWORD_SECRET_NAMESPACE"
+	passwordSecretNameEnvVar      = "PASSWORD_SECRET_NAME"
 )
 
 const (
@@ -50,7 +54,7 @@ const (
 
 // secretRetriever is an interface for retrieving secrets.
 type secretRetriever interface {
-	RetrieveSecret(logger vlog.Printer, namespace, secretName string) ([]byte, []byte, []byte, error)
+	RetrieveSecret(logger vlog.Printer, namespace, secretName string) (map[string][]byte, error)
 }
 
 // secretStoreRetrieverStruct is an implementation of secretRetriever. It
@@ -75,31 +79,30 @@ type CmdScrutinize struct {
 
 func makeCmdScrutinize() *CmdScrutinize {
 	newCmd := &CmdScrutinize{}
-	newCmd.parser = flag.NewFlagSet("scrutinize", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("scrutinize", flag.ExitOnError)
 	newCmd.sOptions = vclusterops.VScrutinizOptionsFactory()
 	newCmd.secretStoreRetriever = secretStoreRetrieverStruct{}
 	// required flags
-	newCmd.sOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to run scrutinize.  May be omitted on k8s.")
+	newCmd.sOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to run scrutinize.  May be omitted on k8s.")
 
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated host list")
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated host list")
 
 	// optional flags
-	newCmd.sOptions.Password = newCmd.parser.String("password", "",
+	newCmd.sOptions.Password = newCmd.oldParser.String("password", "",
 		util.GetOptionalFlagMsg("Database password. Consider using in single quotes to avoid shell substitution."))
 
-	newCmd.sOptions.UserName = newCmd.parser.String("db-user", "",
+	newCmd.sOptions.UserName = newCmd.oldParser.String("db-user", "",
 		util.GetOptionalFlagMsg("Database username. Consider using single quotes to avoid shell substitution."))
 
-	newCmd.sOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	newCmd.sOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
 
-	newCmd.sOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
+	newCmd.oldParser.StringVar(&newCmd.sOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
 
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Scrutinize database with IPv6 hosts"))
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Scrutinize database with IPv6 hosts"))
 
 	// this argument is parsed separately by the cluster command launcher to initialize the logger
-	newCmd.sOptions.LogPath = newCmd.parser.String("log-path", defaultLogPath,
+	newCmd.sOptions.LogPath = newCmd.oldParser.String("log-path", defaultLogPath,
 		util.GetOptionalFlagMsg("File path of the vcluster scrutinize log"))
 
 	return newCmd
@@ -120,17 +123,14 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.sOptions.Password = nil
 	}
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.sOptions.ConfigDirectory = nil
-	}
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
 	}
 	// just so generic parsing works - not relevant for functionality
-	if !util.IsOptionSet(c.parser, "eon-mode") {
+	if !util.IsOptionSet(c.oldParser, "eon-mode") {
 		c.CmdBase.isEon = nil
 	}
 
@@ -141,14 +141,20 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 // all validations of the arguments should go in here
 func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	return c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
 }
 
 func (c *CmdScrutinize) Analyze(logger vlog.Printer) error {
 	logger.Info("Called method Analyze()")
 
+	// Read the password from a secret
+	err := c.dbPassswdLookupFromSecretStore(logger)
+	if err != nil {
+		return err
+	}
+
 	// Read the NMA certs into the options struct
-	err := c.readNMACerts(logger)
+	err = c.readNMACerts(logger)
 	if err != nil {
 		return err
 	}
@@ -184,7 +190,7 @@ func (c *CmdScrutinize) Run(vcc vclusterops.VClusterCommands) error {
 
 // RetrieveSecret retrieves a secret from a secret store, such as Kubernetes or
 // GSM, and returns its data.
-func (k secretStoreRetrieverStruct) RetrieveSecret(logger vlog.Printer, namespace, secretName string) (ca, cert, key []byte, err error) {
+func (k secretStoreRetrieverStruct) RetrieveSecret(logger vlog.Printer, namespace, secretName string) (map[string][]byte, error) {
 	// We use MultiSourceSecretFetcher since it will use the correct client
 	// depending on the secret path reference of the secret name. This can
 	// handle reading clients from the k8s-apiserver using a k8s client, or from
@@ -193,15 +199,16 @@ func (k secretStoreRetrieverStruct) RetrieveSecret(logger vlog.Printer, namespac
 		Log: &logger,
 	}
 	ctx := context.Background()
-	var certData map[string][]byte
 	fetchName := types.NamespacedName{
 		Namespace: namespace,
 		Name:      secretName,
 	}
-	certData, err = fetcher.Fetch(ctx, fetchName)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to fetch secret: %w", err)
-	}
+	return fetcher.Fetch(ctx, fetchName)
+}
+
+// extractNMACerts extracts the ca, cert and key from a secret data and
+// set the options struct
+func (c *CmdScrutinize) extractNMACerts(certData map[string][]byte) (err error) {
 	const (
 		CACertName  = "ca.crt"
 		TLSCertName = "tls.crt"
@@ -209,17 +216,41 @@ func (k secretStoreRetrieverStruct) RetrieveSecret(logger vlog.Printer, namespac
 	)
 	caCertVal, exists := certData[CACertName]
 	if !exists {
-		return nil, nil, nil, fmt.Errorf("missing key %s in secret", CACertName)
+		return fmt.Errorf("missing key %s in secret", CACertName)
 	}
 	tlsCertVal, exists := certData[TLSCertName]
 	if !exists {
-		return nil, nil, nil, fmt.Errorf("missing key %s in secret", TLSCertName)
+		return fmt.Errorf("missing key %s in secret", TLSCertName)
 	}
 	tlsKeyVal, exists := certData[TLSKeyName]
 	if !exists {
-		return nil, nil, nil, fmt.Errorf("missing key %s in secret", TLSKeyName)
+		return fmt.Errorf("missing key %s in secret", TLSKeyName)
 	}
-	return caCertVal, tlsCertVal, tlsKeyVal, nil
+
+	if len(caCertVal) == 0 || len(tlsCertVal) == 0 || len(tlsKeyVal) == 0 {
+		return fmt.Errorf("failed to read CA, cert or key (sizes = %d/%d/%d)",
+			len(caCertVal), len(tlsCertVal), len(tlsKeyVal))
+	}
+
+	c.sOptions.CaCert = string(caCertVal)
+	c.sOptions.Cert = string(tlsCertVal)
+	c.sOptions.Key = string(tlsKeyVal)
+	return nil
+}
+
+// extractDBPassword extracts the password from a secret data and
+// set the options struct
+func (c *CmdScrutinize) extractDBPassword(pwdData map[string][]byte) (err error) {
+	const passwordKey = "password"
+	pwd, ok := pwdData[passwordKey]
+	if !ok {
+		return fmt.Errorf("password not found, secret must have a key with name %q", passwordKey)
+	}
+	if c.sOptions.Password == nil {
+		c.sOptions.Password = new(string)
+	}
+	*c.sOptions.Password = string(pwd)
+	return nil
 }
 
 func (c *CmdScrutinize) readNMACerts(logger vlog.Printer) error {
@@ -237,44 +268,59 @@ func (c *CmdScrutinize) readNMACerts(logger vlog.Printer) error {
 	return nil
 }
 
+// dbPassswdLookupFromSecretStore retrieves the db password directly from a secret store.
+func (c *CmdScrutinize) dbPassswdLookupFromSecretStore(logger vlog.Printer) error {
+	// no-op if we are not on k8s or the password has already
+	// been set through another method
+	if !isK8sEnvironment() || c.sOptions.Password != nil {
+		return nil
+	}
+
+	secret, err := lookupAndCheckSecretEnvVars(passwordSecretNameEnvVar, passwordSecretNamespaceEnvVar)
+	if secret == nil || err != nil {
+		if err == nil {
+			logger.Info("Password secret environment variables are not set. Password read will rely on the user input.")
+		}
+		return err
+	}
+
+	pwdData, err := c.secretStoreRetriever.RetrieveSecret(logger, secret.Namespace, secret.Name)
+	if err != nil {
+		return err
+	}
+	err = c.extractDBPassword(pwdData)
+	if err != nil {
+		return err
+	}
+	logger.Info("Successfully read db password from secret store", "secretName", secret.Name)
+	return nil
+}
+
 // nmaCertLookupFromSecretStore retrieves PEM-encoded text of CA certs, the server cert, and
 // the server key directly from a secret store.
 func (c *CmdScrutinize) nmaCertLookupFromSecretStore(logger vlog.Printer) (bool, error) {
-	_, portSet := os.LookupEnv(kubernetesPort)
-	if !portSet {
+	if !isK8sEnvironment() {
 		return false, nil
 	}
+
 	logger.Info("K8s environment")
-	secretNameSpace, nameSpaceSet := os.LookupEnv(secretNameSpaceEnvVar)
-	secretName, nameSet := os.LookupEnv(secretNameEnvVar)
-
-	// either secret namespace/name must be set, or none at all
-	if !((nameSpaceSet && nameSet) || (!nameSpaceSet && !nameSet)) {
-		missingParamError := constructMissingParamsMsg([]bool{nameSpaceSet, nameSet},
-			[]string{secretNameSpaceEnvVar, secretNameEnvVar})
-		return false, fmt.Errorf("all or none of the environment variables %s and %s must be set. %s",
-			secretNameSpaceEnvVar, secretNameEnvVar, missingParamError)
+	secret, err := lookupAndCheckSecretEnvVars(secretNameEnvVar, secretNameSpaceEnvVar)
+	if secret == nil || err != nil {
+		if err == nil {
+			logger.Info("Secret name not set in env. Failback to other cert retieval methods.")
+		}
+		return false, err
 	}
 
-	if !nameSpaceSet {
-		logger.Info("Secret name not set in env. Failback to other cert retieval methods.")
-		return false, nil
-	}
-
-	caCert, cert, key, err := c.secretStoreRetriever.RetrieveSecret(logger, secretNameSpace, secretName)
+	certData, err := c.secretStoreRetriever.RetrieveSecret(logger, secret.Namespace, secret.Name)
 	if err != nil {
-		return false, fmt.Errorf("failed to read certs from secret store with name %s in namespace %s: %w", secretName, secretNameSpace, err)
+		return false, err
 	}
-	if len(caCert) != 0 && len(cert) != 0 && len(key) != 0 {
-		logger.Info("Successfully read cert from secret store", "secretName", secretName, "secretNameSpace", secretNameSpace)
-	} else {
-		return false, fmt.Errorf("failed to read CA, cert or key (sizes = %d/%d/%d)",
-			len(caCert), len(cert), len(key))
+	err = c.extractNMACerts(certData)
+	if err != nil {
+		return false, err
 	}
-	c.sOptions.CaCert = string(caCert)
-	c.sOptions.Cert = string(cert)
-	c.sOptions.Key = string(key)
-
+	logger.Info("Successfully read cert from secret store", "secretName", secret.Name, "secretNameSpace", secret.Namespace)
 	return true, nil
 }
 
@@ -322,24 +368,25 @@ func (c *CmdScrutinize) nmaCertLookupFromEnv(logger vlog.Printer) (bool, error) 
 // readOptionsFromK8sEnv picks up the catalog path and dbname from the environment when on k8s
 // which otherwise would need to be set at the command line or read from a config file.
 func (c *CmdScrutinize) readOptionsFromK8sEnv(logger vlog.Printer) (allErrs error) {
-	port, found := os.LookupEnv(kubernetesPort)
-	if found && port != "" && *c.sOptions.HonorUserInput {
-		logger.Info(kubernetesPort, " is set, k8s environment detected", found)
-		dbName, found := os.LookupEnv(databaseName)
-		if !found || dbName == "" {
-			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get database name from environment variable. "))
-		} else {
-			c.sOptions.DBName = &dbName
-			logger.Info("Setting database name from env as", "DBName", *c.sOptions.DBName)
-		}
+	if !isK8sEnvironment() || !*c.sOptions.HonorUserInput {
+		return
+	}
 
-		catPrefix, found := os.LookupEnv(catalogPathPref)
-		if !found || catPrefix == "" {
-			allErrs = errors.Join(allErrs, fmt.Errorf("unable to get catalog path from environment variable. "))
-		} else {
-			c.sOptions.CatalogPrefix = &catPrefix
-			logger.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
-		}
+	logger.Info("k8s environment detected")
+	dbName, found := os.LookupEnv(databaseName)
+	if !found || dbName == "" {
+		allErrs = errors.Join(allErrs, fmt.Errorf("unable to get database name from environment variable. "))
+	} else {
+		c.sOptions.DBName = &dbName
+		logger.Info("Setting database name from env as", "DBName", *c.sOptions.DBName)
+	}
+
+	catPrefix, found := os.LookupEnv(catalogPathPref)
+	if !found || catPrefix == "" {
+		allErrs = errors.Join(allErrs, fmt.Errorf("unable to get catalog path from environment variable. "))
+	} else {
+		c.sOptions.CatalogPrefix = &catPrefix
+		logger.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
 	}
 	return
 }
@@ -374,4 +421,32 @@ func constructMissingParamsMsg(exists []bool, params []string) string {
 		}
 	}
 	return warningBuilder.String()
+}
+
+func isK8sEnvironment() bool {
+	port, portSet := os.LookupEnv(kubernetesPort)
+	return portSet && port != ""
+}
+
+// lookupAndCheckSecretEnvVars retrieves the values of the secret environment variables
+// and checks if they are valid
+func lookupAndCheckSecretEnvVars(nameEnv, namespaceEnv string) (*types.NamespacedName, error) {
+	secretNameSpace, nameSpaceSet := os.LookupEnv(namespaceEnv)
+	secretName, nameSet := os.LookupEnv(nameEnv)
+
+	// either secret namespace/name must be set, or none at all
+	if !((nameSpaceSet && nameSet) || (!nameSpaceSet && !nameSet)) {
+		missingParamError := constructMissingParamsMsg([]bool{nameSpaceSet, nameSet},
+			[]string{secretNameSpaceEnvVar, secretNameEnvVar})
+		return nil, fmt.Errorf("all or none of the environment variables %s and %s must be set. %s",
+			secretNameSpaceEnvVar, secretNameEnvVar, missingParamError)
+	}
+	if !nameSpaceSet {
+		return nil, nil
+	}
+	secret := &types.NamespacedName{
+		Name:      secretName,
+		Namespace: secretNameSpace,
+	}
+	return secret, nil
 }

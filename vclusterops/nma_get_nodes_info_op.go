@@ -17,8 +17,6 @@ package vclusterops
 
 import (
 	"errors"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 // nmaGetNodesInfoOp get nodes info from the NMA /v1/nodes endpoint.
@@ -31,13 +29,12 @@ type nmaGetNodesInfoOp struct {
 	vdb                  *VCoordinationDatabase
 }
 
-func makeNMAGetNodesInfoOp(logger vlog.Printer, hosts []string,
+func makeNMAGetNodesInfoOp(hosts []string,
 	dbName, catalogPrefix string,
 	ignoreInternalErrors bool,
 	vdb *VCoordinationDatabase) nmaGetNodesInfoOp {
 	op := nmaGetNodesInfoOp{}
 	op.name = "NMAGetNodesInfoOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.dbName = dbName
 	op.catalogPrefix = catalogPrefix

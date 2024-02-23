@@ -15,7 +15,10 @@
 
 package vclusterops
 
-import "github.com/vertica/vcluster/vclusterops/vlog"
+import (
+	"github.com/theckman/yacspin"
+	"github.com/vertica/vcluster/vclusterops/vlog"
+)
 
 type requestDispatcher struct {
 	opBase
@@ -54,7 +57,7 @@ func (dispatcher *requestDispatcher) setupForDownload(hosts []string,
 	}
 }
 
-func (dispatcher *requestDispatcher) sendRequest(httpRequest *clusterHTTPRequest) error {
+func (dispatcher *requestDispatcher) sendRequest(httpRequest *clusterHTTPRequest, spinner *yacspin.Spinner) error {
 	dispatcher.logger.Info("HTTP request dispatcher's sendRequest is called")
-	return dispatcher.pool.sendRequest(httpRequest)
+	return dispatcher.pool.sendRequest(httpRequest, spinner)
 }

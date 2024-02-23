@@ -44,36 +44,35 @@ func makeCmdAddNode() *CmdAddNode {
 	newCmd := &CmdAddNode{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("db_add_node", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("db_add_node", flag.ExitOnError)
 	addNodeOptions := vclusterops.VAddNodeOptionsFactory()
 
 	// required flags
-	addNodeOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be modified")
-	newCmd.newHostListStr = newCmd.parser.String("add", "", "Comma-separated list of hosts to add to the database")
+	addNodeOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to be modified")
+	newCmd.newHostListStr = newCmd.oldParser.String("add", "", "Comma-separated list of hosts to add to the database")
 
 	// optional flags
-	addNodeOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	addNodeOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	addNodeOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
+	addNodeOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
 		" to get cluster info from the database. Use it when you do not trust "+vclusterops.ConfigFileName))
-	addNodeOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	addNodeOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
-	addNodeOptions.ForceRemoval = newCmd.parser.Bool("force-removal", false,
+	newCmd.oldParser.StringVar(&addNodeOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
+	addNodeOptions.DataPrefix = newCmd.oldParser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
+	addNodeOptions.ForceRemoval = newCmd.oldParser.Bool("force-removal", false,
 		util.GetOptionalFlagMsg("Force removal of existing directories before adding nodes"))
-	addNodeOptions.SkipRebalanceShards = newCmd.parser.Bool("skip-rebalance-shards", false,
+	addNodeOptions.SkipRebalanceShards = newCmd.oldParser.Bool("skip-rebalance-shards", false,
 		util.GetOptionalFlagMsg("Skip the subcluster shards rebalancing"))
 
 	// Eon flags
 	// VER-88096: get all nodes information from the database and remove this option
-	addNodeOptions.SCName = newCmd.parser.String("subcluster", "", util.GetEonFlagMsg("The Name of subcluster"+
+	addNodeOptions.SCName = newCmd.oldParser.String("subcluster", "", util.GetEonFlagMsg("The Name of subcluster"+
 		" to which the nodes must be added. If empty default subcluster is considered"))
-	addNodeOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
-	addNodeOptions.DepotSize = newCmd.parser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
+	addNodeOptions.DepotPrefix = newCmd.oldParser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
+	addNodeOptions.DepotSize = newCmd.oldParser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
 
 	// Optional flags
-	newCmd.nodeNameListStr = newCmd.parser.String("node-names", "",
+	newCmd.nodeNameListStr = newCmd.oldParser.String("node-names", "",
 		util.GetOptionalFlagMsg("Comma-separated list of node names that exist in the cluster. "+
 			"Use with caution: not mentioned nodes will be trimmed from catalog."))
 
@@ -92,17 +91,13 @@ func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 		return err
 	}
 
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.addNodeOptions.ConfigDirectory = nil
-	}
-
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.addNodeOptions.Password = nil
 	}
-	if !util.IsOptionSet(c.parser, "eon-mode") {
+	if !util.IsOptionSet(c.oldParser, "eon-mode") {
 		c.CmdBase.isEon = nil
 	}
 	return c.validateParse(logger)
@@ -121,7 +116,7 @@ func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	return c.ValidateParseBaseOptions(&c.addNodeOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.addNodeOptions.DatabaseOptions)
 }
 
 // ParseNewHostList converts the string list of hosts, to add, into a slice of strings.
@@ -138,7 +133,7 @@ func (c *CmdAddNode) parseNewHostList() error {
 
 func (c *CmdAddNode) parseNodeNameList() error {
 	// if --node-names is set, there must be at least one node name
-	if util.IsOptionSet(c.parser, "node-names") {
+	if util.IsOptionSet(c.oldParser, "node-names") {
 		if *c.nodeNameListStr == "" {
 			return fmt.Errorf("when --node-names is specified, "+
 				"must provide all existing node names in %s", *c.addNodeOptions.DBName)
@@ -171,7 +166,7 @@ func (c *CmdAddNode) Run(vcc vclusterops.VClusterCommands) error {
 		return addNodeError
 	}
 	// write cluster information to the YAML config file
-	err = vdb.WriteClusterConfig(options.ConfigDirectory, vcc.Log)
+	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("fail to write config file, details: %s", err)
 	}

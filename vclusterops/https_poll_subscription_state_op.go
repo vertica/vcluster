@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsPollSubscriptionStateOp struct {
@@ -28,11 +27,10 @@ type httpsPollSubscriptionStateOp struct {
 	timeout int
 }
 
-func makeHTTPSPollSubscriptionStateOp(logger vlog.Printer, hosts []string,
+func makeHTTPSPollSubscriptionStateOp(hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsPollSubscriptionStateOp, error) {
 	op := httpsPollSubscriptionStateOp{}
 	op.name = "HTTPSPollSubscriptionStateOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.timeout = StartupPollingTimeout
@@ -56,7 +54,7 @@ func (op *httpsPollSubscriptionStateOp) setupClusterHTTPRequest(hosts []string) 
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.Timeout = httpRequestTimeoutSeconds
+		httpRequest.Timeout = defaultHTTPRequestTimeoutSeconds
 		httpRequest.buildHTTPSEndpoint("subscriptions")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword

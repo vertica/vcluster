@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const HTTPSSuccMsg = "REBALANCED SHARDS"
@@ -32,11 +31,10 @@ type httpsRebalanceSubclusterShardsOp struct {
 }
 
 // makeHTTPSRebalanceSubclusterShardsOp creates an op that calls vertica-http service to rebalance shards of a subcluster
-func makeHTTPSRebalanceSubclusterShardsOp(logger vlog.Printer, bootstrapHost []string, useHTTPPassword bool, userName string,
+func makeHTTPSRebalanceSubclusterShardsOp(bootstrapHost []string, useHTTPPassword bool, userName string,
 	httpsPassword *string, scName string) (httpsRebalanceSubclusterShardsOp, error) {
 	op := httpsRebalanceSubclusterShardsOp{}
 	op.name = "HTTPSRebalanceSubclusterShardsOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = bootstrapHost
 	op.scName = scName
 

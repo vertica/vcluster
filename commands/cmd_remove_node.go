@@ -40,29 +40,28 @@ func makeCmdRemoveNode() *CmdRemoveNode {
 	newCmd := &CmdRemoveNode{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("db_remove_node", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("db_remove_node", flag.ExitOnError)
 	removeNodeOptions := vclusterops.VRemoveNodeOptionsFactory()
 
 	// required flags
-	removeNodeOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to remove node(s) from")
-	newCmd.hostToRemoveListStr = newCmd.parser.String("remove", "", "Comma-separated list of hosts to remove from the database")
+	removeNodeOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to remove node(s) from")
+	newCmd.hostToRemoveListStr = newCmd.oldParser.String("remove", "", "Comma-separated list of hosts to remove from the database")
 
 	// optional flags
-	removeNodeOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	removeNodeOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	removeNodeOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
+	removeNodeOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
 		" to get cluster info from the db. Use it when you do not trust "+vclusterops.ConfigFileName))
-	removeNodeOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	removeNodeOptions.ForceDelete = newCmd.parser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
+	newCmd.oldParser.StringVar(&removeNodeOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
+	removeNodeOptions.ForceDelete = newCmd.oldParser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
 		" if they are not empty"))
-	removeNodeOptions.DataPrefix = newCmd.parser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Whether the hosts use IPv6 addresses"))
+	removeNodeOptions.DataPrefix = newCmd.oldParser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Whether the hosts use IPv6 addresses"))
 
 	// Eon flags
 	// VER-88096: get all nodes information from the database and remove this option
-	removeNodeOptions.DepotPrefix = newCmd.parser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
+	removeNodeOptions.DepotPrefix = newCmd.oldParser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
 
 	newCmd.removeNodeOptions = &removeNodeOptions
 	return newCmd
@@ -82,11 +81,7 @@ func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.removeNodeOptions.ConfigDirectory = nil
-	}
-
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.removeNodeOptions.Password = nil
 	}
 	return c.validateParse(logger)
@@ -99,7 +94,7 @@ func (c *CmdRemoveNode) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return c.ValidateParseBaseOptions(&c.removeNodeOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.removeNodeOptions.DatabaseOptions)
 }
 
 func (c *CmdRemoveNode) Analyze(_ vlog.Printer) error {
@@ -125,7 +120,7 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.VClusterCommands) error {
 	vcc.Log.PrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *options.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vdb.WriteClusterConfig(options.ConfigDirectory, vcc.Log)
+	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("failed to write config file, details: %s", err)
 	}

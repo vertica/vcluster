@@ -20,7 +20,6 @@ import (
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsDropNodeOp struct {
@@ -32,7 +31,7 @@ type httpsDropNodeOp struct {
 
 // makeHTTPSDropNodeOp is a constructor for httpsDropNodeOp. The cascade option
 // should be true if an EON deployment and the node we are dropping is down.
-func makeHTTPSDropNodeOp(logger vlog.Printer, vnode string,
+func makeHTTPSDropNodeOp(vnode string,
 	initiatorHost []string,
 	useHTTPPassword bool,
 	userName string,
@@ -40,7 +39,6 @@ func makeHTTPSDropNodeOp(logger vlog.Printer, vnode string,
 	cascade bool) (httpsDropNodeOp, error) {
 	op := httpsDropNodeOp{}
 	op.name = "HTTPSDropNodeOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = initiatorHost
 	op.targetHost = vnode
 	op.useHTTPPassword = useHTTPPassword

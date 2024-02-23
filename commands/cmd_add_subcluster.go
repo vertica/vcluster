@@ -42,42 +42,41 @@ func makeCmdAddSubcluster() *CmdAddSubcluster {
 	newCmd := &CmdAddSubcluster{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("db_add_subcluster", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("db_add_subcluster", flag.ExitOnError)
 	addSubclusterOptions := vclusterops.VAddSubclusterOptionsFactory()
 
 	// required flags
-	addSubclusterOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be modified")
-	addSubclusterOptions.SCName = newCmd.parser.String("subcluster", "", "The name of the new subcluster")
+	addSubclusterOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to be modified")
+	addSubclusterOptions.SCName = newCmd.oldParser.String("subcluster", "", "The name of the new subcluster")
 
 	// optional flags
-	addSubclusterOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."+
+	addSubclusterOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	addSubclusterOptions.IsPrimary = newCmd.parser.Bool("is-primary", false,
+	addSubclusterOptions.IsPrimary = newCmd.oldParser.Bool("is-primary", false,
 		util.GetOptionalFlagMsg("The new subcluster will be a primary subcluster"))
-	addSubclusterOptions.ControlSetSize = newCmd.parser.Int("control-set-size", vclusterops.ControlSetSizeDefaultValue,
+	addSubclusterOptions.ControlSetSize = newCmd.oldParser.Int("control-set-size", vclusterops.ControlSetSizeDefaultValue,
 		util.GetOptionalFlagMsg("The number of nodes that will run spread within the subcluster"))
 	// new flags comparing to adminTools db_add_subcluster
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Add subcluster with IPv6 hosts"))
-	addSubclusterOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Add subcluster with IPv6 hosts"))
+	addSubclusterOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	addSubclusterOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
+	newCmd.oldParser.StringVar(&addSubclusterOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
 
 	// Eon flags
 	// isEon is target for early checking before VClusterOpEngine runs since add-subcluster is only supported in eon mode
-	newCmd.isEon = newCmd.parser.Bool("eon-mode", false, util.GetEonFlagMsg("indicate if the database is an Eon db."+
+	newCmd.isEon = newCmd.oldParser.Bool("eon-mode", false, util.GetEonFlagMsg("indicate if the database is an Eon db."+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
 
 	// hidden options
 	// TODO implement these hidden options in db_add_subcluster, then move them to optional flags above
-	newCmd.scHostListStr = newCmd.parser.String("sc-hosts", "", util.SuppressHelp)
-	addSubclusterOptions.CloneSC = newCmd.parser.String("like", "", util.SuppressHelp)
+	newCmd.scHostListStr = newCmd.oldParser.String("sc-hosts", "", util.SuppressHelp)
+	addSubclusterOptions.CloneSC = newCmd.oldParser.String("like", "", util.SuppressHelp)
 
 	newCmd.addSubclusterOptions = &addSubclusterOptions
 
-	newCmd.parser.Usage = func() {
-		util.SetParserUsage(newCmd.parser, "db_add_subcluster")
+	newCmd.oldParser.Usage = func() {
+		util.SetParserUsage(newCmd.oldParser, "db_add_subcluster")
 	}
 
 	return newCmd
@@ -97,17 +96,14 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the values of those options to nil
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.addSubclusterOptions.Password = nil
 	}
-	if !util.IsOptionSet(c.parser, "eon-mode") {
+	if !util.IsOptionSet(c.oldParser, "eon-mode") {
 		c.CmdBase.isEon = nil
 	}
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
-	}
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.addSubclusterOptions.ConfigDirectory = nil
 	}
 
 	return c.validateParse(logger)
@@ -116,7 +112,7 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error 
 // all validations of the arguments should go in here
 func (c *CmdAddSubcluster) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	return c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
 }
 
 func (c *CmdAddSubcluster) Analyze(logger vlog.Printer) error {

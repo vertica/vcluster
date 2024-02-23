@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaLoadRemoteCatalogOp struct {
@@ -50,11 +48,10 @@ type loadRemoteCatalogRequestData struct {
 	RestorePointID      string              `json:"restore_point_id,omitempty"`
 }
 
-func makeNMALoadRemoteCatalogOp(logger vlog.Printer, oldHosts []string, configurationParameters map[string]string,
+func makeNMALoadRemoteCatalogOp(oldHosts []string, configurationParameters map[string]string,
 	vdb *VCoordinationDatabase, timeout uint, restorePoint *RestorePointPolicy) nmaLoadRemoteCatalogOp {
 	op := nmaLoadRemoteCatalogOp{}
 	op.name = "NMALoadRemoteCatalogOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = vdb.HostList
 	op.oldHosts = oldHosts
 	op.configurationParameters = configurationParameters

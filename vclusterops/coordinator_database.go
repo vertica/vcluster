@@ -422,10 +422,17 @@ func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *V
 	}
 }
 
-// WriteClusterConfig updates cluster configuration with the YAML-formatted file in configDir
+// WriteClusterConfig updates cluster configuration with the YAML-formatted file in the configPath
 // and writes to the log and stdout.
 // It returns any error encountered.
-func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, logger vlog.Printer) error {
+func (vdb *VCoordinationDatabase) WriteClusterConfig(configPath string, logger vlog.Printer) error {
+	// Early out if this config path not provided. This just means there is no
+	// config file to write out. No error is provided as the config file is
+	// meant to cache frequently specified items on the command line.
+	if configPath == "" {
+		return nil
+	}
+
 	/* build config information
 	 */
 	dbConfig := MakeDatabaseConfig()
@@ -465,8 +472,8 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, logger v
 
 	// update cluster config with the given database info
 	clusterConfig := MakeClusterConfig()
-	if checkConfigFileExist(configDir) {
-		c, err := ReadConfig(*configDir, logger)
+	if util.CheckPathExist(configPath) {
+		c, err := ReadConfig(configPath, logger)
 		if err != nil {
 			return err
 		}
@@ -474,21 +481,14 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configDir *string, logger v
 	}
 	clusterConfig[vdb.Name] = dbConfig
 
-	/* write config to a YAML file
-	 */
-	configFilePath, err := getConfigFilePath(vdb.Name, configDir, logger)
-	if err != nil {
-		return err
-	}
-
 	// if the config file exists already
 	// create its backup before overwriting it
-	err = backupConfigFile(configFilePath, logger)
+	err := backupConfigFile(configPath, logger)
 	if err != nil {
 		return err
 	}
 
-	err = clusterConfig.WriteConfig(configFilePath)
+	err = clusterConfig.WriteConfig(configPath)
 	if err != nil {
 		return err
 	}

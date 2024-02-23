@@ -49,35 +49,59 @@ func (opEngine *VClusterOpEngine) runWithExecContext(logger vlog.Printer, execCo
 	findCertsInOptions := opEngine.shouldGetCertsFromOptions()
 
 	for _, op := range opEngine.instructions {
-		op.setupBasicInfo()
-		op.logPrepare()
-		err := op.prepare(execContext)
+		err := opEngine.runInstruction(logger, execContext, op, findCertsInOptions)
 		if err != nil {
-			return fmt.Errorf("prepare %s failed, details: %w", op.getName(), err)
+			return err
 		}
-
-		if !op.isSkipExecute() {
-			err = op.loadCertsIfNeeded(opEngine.certs, findCertsInOptions)
-			if err != nil {
-				return fmt.Errorf("loadCertsIfNeeded for %s failed, details: %w", op.getName(), err)
-			}
-
-			// execute an instruction
-			op.logExecute()
-			err = op.execute(execContext)
-			if err != nil {
-				return fmt.Errorf("execute %s failed, details: %w", op.getName(), err)
-			}
-		}
-
-		op.logFinalize()
-		err = op.finalize(execContext)
-		if err != nil {
-			return fmt.Errorf("finalize failed %w", err)
-		}
-
-		logger.PrintWithIndent("[%s] is successfully completed", op.getName())
 	}
+
+	return nil
+}
+
+func (opEngine *VClusterOpEngine) runInstruction(
+	logger vlog.Printer, execContext *opEngineExecContext,
+	op clusterOp, findCertsInOptions bool) error {
+	op.setLogger(logger)
+	op.setupBasicInfo()
+	op.setupSpinner()
+	defer op.cleanupSpinner()
+
+	op.logPrepare()
+	err := op.prepare(execContext)
+	if err != nil {
+		return fmt.Errorf("prepare %s failed, details: %w", op.getName(), err)
+	}
+
+	if !op.isSkipExecute() {
+		// start the progress spinner
+		op.startSpinner()
+
+		err = op.loadCertsIfNeeded(opEngine.certs, findCertsInOptions)
+		if err != nil {
+			// here we do not return an error as the spinner error does not
+			// affect the functionality
+			op.stopFailSpinnerWithMessage(err.Error())
+			return fmt.Errorf("loadCertsIfNeeded for %s failed, details: %w", op.getName(), err)
+		}
+
+		// execute an instruction
+		op.logExecute()
+		err = op.execute(execContext)
+		if err != nil {
+			// here we do not return an error as the spinner error does not
+			// affect the functionality
+			op.stopFailSpinner()
+			return fmt.Errorf("execute %s failed, details: %w", op.getName(), err)
+		}
+	}
+
+	op.logFinalize()
+	err = op.finalize(execContext)
+	if err != nil {
+		return fmt.Errorf("finalize failed %w", err)
+	}
+
+	logger.PrintInfo("[%s] is successfully completed", op.getName())
 
 	return nil
 }

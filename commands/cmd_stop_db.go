@@ -16,10 +16,10 @@
 package commands
 
 import (
-	"flag"
 	"fmt"
 	"strconv"
 
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -38,82 +38,116 @@ type CmdStopDB struct {
 	stopDBOptions *vclusterops.VStopDatabaseOptions
 }
 
-func makeCmdStopDB() *CmdStopDB {
-	// CmdStopDB
+func makeCmdStopDB() *cobra.Command {
 	newCmd := &CmdStopDB{}
+	newCmd.isEon = new(bool)
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VStopDatabaseOptionsFactory()
+	newCmd.stopDBOptions = &opt
+	newCmd.stopDBOptions.DrainSeconds = new(int)
 
-	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("stop_db", flag.ExitOnError)
-	stopDBOptions := vclusterops.VStopDatabaseOptionsFactory()
+	cmd := makeBasicCobraCmd(
+		newCmd,
+		"stop_db",
+		"Stop a database",
+		`This stops a database or sandbox on a given set of hosts.
 
-	// required flags
-	stopDBOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be stopped")
+The name of the database must be provided.
 
-	// optional flags
-	stopDBOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	// new flags comparing to adminTools stop_db
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Stop database with IPv6 hosts"))
-	stopDBOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	stopDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	stopDBOptions.Sandbox = newCmd.parser.String("sandbox", "",
-		util.GetOptionalFlagMsg("Name of the sandbox where Database has to be stopped"))
-	stopDBOptions.MainCluster = newCmd.parser.Bool("main-cluster-only", false, util.GetOptionalFlagMsg("stop db only on the main cluster"+
-		" Use it when there are sandboxes involved "))
+Example:
+  vcluster stop_db --db-name <db_name> --hosts <any_hosts_of_the_db> --password <password> --config <config_file>
+`,
+	)
 
-	// Eon flags
-	newCmd.isEon = newCmd.parser.Bool("eon-mode", false, util.GetEonFlagMsg("indicate if the database is an Eon db."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	stopDBOptions.DrainSeconds = newCmd.parser.Int("drain-seconds", util.DefaultDrainSeconds,
-		util.GetEonFlagMsg("seconds to wait for user connections to close."+
-			" Default value is "+strconv.Itoa(util.DefaultDrainSeconds)+" seconds."+
-			" When the time expires, connections will be forcibly closed and the db will shut down"))
+	// common db flags
+	setCommonFlags(cmd, []string{"db-name", "password", "hosts", "honor-user-input", "config", "log-path"})
 
-	// hidden options
-	// TODO use these hidden options in stop_db, CheckUserConn can be move to optional flags above when we support it
-	stopDBOptions.CheckUserConn = newCmd.parser.Bool("if-no-users", false, util.SuppressHelp)
-	stopDBOptions.ForceKill = newCmd.parser.Bool("force-kill", false, util.SuppressHelp)
+	// local flags
+	newCmd.setLocalFlags(cmd)
 
-	newCmd.stopDBOptions = &stopDBOptions
+	// check if hidden flags can be implemented/removed in VER-92259
+	// hidden flags
+	newCmd.setHiddenFlags(cmd)
 
-	newCmd.parser.Usage = func() {
-		util.SetParserUsage(newCmd.parser, "stop_db")
+	// require db-name, and one of (--honor-user-input, --config)
+	cmd.PreRun = func(c *cobra.Command, args []string) {
+		markFlagsRequired(c, []string{"db-name"})
+		requireHonorUserInputOrConfDir(c)
 	}
 
-	return newCmd
+	// require the flags to be file name
+	markFlagsFileName(cmd, map[string][]string{"config": {"yaml"}, "log-path": {"log"}})
+
+	return cmd
 }
 
-func (c *CmdStopDB) CommandType() string {
-	return "stop_db"
+// setLocalFlags will set the local flags the command has
+func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		c.isEon,
+		"eon-mode",
+		false,
+		util.GetEonFlagMsg("indicate if the database is an Eon db."+
+			" Use it when you do not trust "+vclusterops.ConfigFileName),
+	)
+	cmd.Flags().IntVar(
+		c.stopDBOptions.DrainSeconds,
+		"drain-seconds",
+		util.DefaultDrainSeconds,
+		util.GetEonFlagMsg("seconds to wait for user connections to close."+
+			" Default value is "+strconv.Itoa(util.DefaultDrainSeconds)+" seconds."+
+			" When the time expires, connections will be forcibly closed and the db will shut down"),
+	)
+	cmd.Flags().StringVar(
+		c.stopDBOptions.Sandbox,
+		"sandbox",
+		"",
+		util.GetOptionalFlagMsg("Name of the sandbox to stop"),
+	)
+	cmd.Flags().BoolVar(
+		c.stopDBOptions.MainCluster,
+		"main-cluster-only",
+		false,
+		util.GetOptionalFlagMsg("Stop the database, but don't stop any of the sandboxes"),
+	)
+}
+
+// setLocalFlags will set the hidden flags the command has.
+// These hidden flags will not be shown in help and usage of the command, and they will be used internally.
+func (c *CmdStopDB) setHiddenFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		c.stopDBOptions.CheckUserConn,
+		"if-no-users",
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		c.stopDBOptions.ForceKill,
+		"force-kill",
+		false,
+		"",
+	)
+	hideLocalFlags(cmd, []string{"if-no-users", "force-kill"})
 }
 
 func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogArgParse(&c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "password") {
+	if !c.parser.Changed("password") {
 		c.stopDBOptions.Password = nil
 	}
-	if !util.IsOptionSet(c.parser, "eon-mode") {
+	if !c.parser.Changed("eon-mode") {
 		c.CmdBase.isEon = nil
 	}
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !c.parser.Changed("ipv6") {
 		c.CmdBase.ipv6 = nil
 	}
-	if !util.IsOptionSet(c.parser, "drain-seconds") {
+	if !c.parser.Changed("drain-seconds") {
 		c.stopDBOptions.DrainSeconds = nil
-	}
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.stopDBOptions.ConfigDirectory = nil
 	}
 	return c.validateParse(logger)
 }
@@ -122,11 +156,6 @@ func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdStopDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 	return c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
-}
-
-func (c *CmdStopDB) Analyze(logger vlog.Printer) error {
-	logger.Info("Called method Analyze()")
-	return nil
 }
 
 func (c *CmdStopDB) Run(vcc vclusterops.VClusterCommands) error {
@@ -159,4 +188,9 @@ func (c *CmdStopDB) Run(vcc vclusterops.VClusterCommands) error {
 	}
 	vcc.Log.PrintInfo(msg)
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStopDB
+func (c *CmdStopDB) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.stopDBOptions.DatabaseOptions = *opt
 }

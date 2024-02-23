@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const (
@@ -37,6 +36,8 @@ type nmaVerticaVersionOp struct {
 	HasIncomingSCNames bool
 	SCToHostVersionMap map[string]hostVersionMap
 	vdb                *VCoordinationDatabase
+	sandbox            bool
+	scName             string
 }
 
 func makeHostVersionMap() hostVersionMap {
@@ -48,10 +49,9 @@ func makeSCToHostVersionMap() map[string]hostVersionMap {
 }
 
 // makeNMAVerticaVersionOp is used when db has not been created
-func makeNMAVerticaVersionOp(logger vlog.Printer, hosts []string, sameVersion, isEon bool) nmaVerticaVersionOp {
+func makeNMAVerticaVersionOp(hosts []string, sameVersion, isEon bool) nmaVerticaVersionOp {
 	op := nmaVerticaVersionOp{}
 	op.name = "NMAVerticaVersionOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.RequireSameVersion = sameVersion
 	op.IsEon = isEon
@@ -60,15 +60,24 @@ func makeNMAVerticaVersionOp(logger vlog.Printer, hosts []string, sameVersion, i
 }
 
 // makeNMAVerticaVersionOpWithoutHosts is used when db is down
-func makeNMAVerticaVersionOpWithoutHosts(logger vlog.Printer, sameVersion bool) nmaVerticaVersionOp {
+func makeNMAVerticaVersionOpWithoutHosts(sameVersion bool) nmaVerticaVersionOp {
 	// We set hosts to nil and isEon to false temporarily, and they will get the correct value from execute context in prepare()
-	return makeNMAVerticaVersionOp(logger, nil /*hosts*/, sameVersion, false /*isEon*/)
+	return makeNMAVerticaVersionOp(nil /*hosts*/, sameVersion, false /*isEon*/)
+}
+
+// makeNMAVerticaVersionOpAfterUnsandbox is used after unsandboxing
+func makeNMAVerticaVersionOpAfterUnsandbox(sameVersion bool, scName string) nmaVerticaVersionOp {
+	// We set hosts to nil and isEon to true
+	op := makeNMAVerticaVersionOp(nil /*hosts*/, sameVersion, true /*isEon*/)
+	op.sandbox = true
+	op.scName = scName
+	return op
 }
 
 // makeNMAVerticaVersionOpWithVDB is used when db is up
-func makeNMAVerticaVersionOpWithVDB(logger vlog.Printer, sameVersion bool, vdb *VCoordinationDatabase) nmaVerticaVersionOp {
+func makeNMAVerticaVersionOpWithVDB(sameVersion bool, vdb *VCoordinationDatabase) nmaVerticaVersionOp {
 	// We set hosts to nil temporarily, and it will get the correct value from vdb in prepare()
-	op := makeNMAVerticaVersionOp(logger, nil /*hosts*/, sameVersion, vdb.IsEon)
+	op := makeNMAVerticaVersionOp(nil /*hosts*/, sameVersion, vdb.IsEon)
 	op.vdb = vdb
 	return op
 }
@@ -83,7 +92,24 @@ func (op *nmaVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
 
 	return nil
 }
-
+func (op *nmaVerticaVersionOp) prepareSandboxVers(execContext *opEngineExecContext) {
+	// Add current unsandboxed sc hosts
+	for _, node := range execContext.nodesInfo {
+		op.hosts = append(op.hosts, node.Address)
+	}
+	// Add Up main cluster hosts
+	for h, sb := range execContext.upHostsToSandboxes {
+		if sb == "" {
+			op.hosts = append(op.hosts, h)
+		}
+	}
+	sc := op.scName
+	// initialize the SCToHostVersionMap with empty versions
+	op.SCToHostVersionMap[sc] = makeHostVersionMap()
+	for _, host := range op.hosts {
+		op.SCToHostVersionMap[sc][host] = ""
+	}
+}
 func (op *nmaVerticaVersionOp) prepare(execContext *opEngineExecContext) error {
 	/*
 		 *	 Initialize SCToHostVersionMap in three cases:
@@ -98,7 +124,9 @@ func (op *nmaVerticaVersionOp) prepare(execContext *opEngineExecContext) error {
 			}
 		 *
 	*/
-	if len(op.hosts) == 0 {
+	if op.sandbox {
+		op.prepareSandboxVers(execContext)
+	} else if len(op.hosts) == 0 {
 		if op.vdb != nil {
 			// db is up
 			op.HasIncomingSCNames = true

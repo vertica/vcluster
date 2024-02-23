@@ -18,8 +18,11 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+)
 
-	"github.com/vertica/vcluster/vclusterops/vlog"
+const (
+	AddNodeCmd CommandType = iota
+	RemoveSubclusterCmd
 )
 
 type httpsFindSubclusterOp struct {
@@ -27,22 +30,23 @@ type httpsFindSubclusterOp struct {
 	opHTTPSBase
 	scName         string
 	ignoreNotFound bool
+	cmdType        CommandType
 }
 
 // makeHTTPSFindSubclusterOp initializes an op to find
 // a subcluster by name and find the default subcluster.
 // When ignoreNotFound is true, the op will not error out if
 // the given cluster name is not found.
-func makeHTTPSFindSubclusterOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
+func makeHTTPSFindSubclusterOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, scName string,
-	ignoreNotFound bool,
+	ignoreNotFound bool, cmdType CommandType,
 ) (httpsFindSubclusterOp, error) {
 	op := httpsFindSubclusterOp{}
 	op.name = "HTTPSFindSubclusterOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.scName = scName
 	op.ignoreNotFound = ignoreNotFound
+	op.cmdType = cmdType
 
 	err := op.validateAndSetUsernameAndPassword(op.name, useHTTPPassword, userName,
 		httpsPassword)
@@ -185,7 +189,14 @@ func (op *httpsFindSubclusterOp) processSubclusters(subclusterResp scResp, execC
 	}
 
 	if isSandboxed {
-		return fmt.Errorf(`[%s] cannot add node into a sandboxed subcluster`, op.name)
+		switch op.cmdType {
+		case AddNodeCmd:
+			return fmt.Errorf(`[%s] cannot add node into a sandboxed subcluster`, op.name)
+		case RemoveSubclusterCmd:
+			return fmt.Errorf(`[%s] cannot remove a sandboxed subcluster, must unsandbox the subcluster first`, op.name)
+		default:
+			return fmt.Errorf(`[%s] sandbox handling in the operation is not implemented`, op.name)
+		}
 	}
 
 	return nil

@@ -20,11 +20,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 func TestLogCheckVersionMatch(t *testing.T) {
-	op := makeNMAVerticaVersionOp(vlog.Printer{}, nil, true, true)
+	op := makeNMAVerticaVersionOp(nil, true, true)
 	op.HasIncomingSCNames = true
 
 	// case 1. one subcluster (enterprise db is one example of this case)

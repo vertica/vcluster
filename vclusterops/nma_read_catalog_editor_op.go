@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/vertica/vcluster/vclusterops/vlog"
 	"golang.org/x/exp/maps"
 )
 
@@ -34,21 +33,19 @@ type nmaReadCatalogEditorOp struct {
 // makeNMAReadCatalogEditorOpWithInitiator creates an op to read catalog editor info.
 // Initiator is needed when creating new nodes
 func makeNMAReadCatalogEditorOpWithInitiator(
-	logger vlog.Printer,
 	initiator []string,
 	vdb *VCoordinationDatabase,
 ) (nmaReadCatalogEditorOp, error) {
 	op := nmaReadCatalogEditorOp{}
 	op.name = "NMAReadCatalogEditorOp"
-	op.logger = logger.WithName(op.name)
 	op.initiator = initiator
 	op.vdb = vdb
 	return op, nil
 }
 
 // makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
-func makeNMAReadCatalogEditorOp(logger vlog.Printer, vdb *VCoordinationDatabase) (nmaReadCatalogEditorOp, error) {
-	return makeNMAReadCatalogEditorOpWithInitiator(logger, []string{}, vdb)
+func makeNMAReadCatalogEditorOp(vdb *VCoordinationDatabase) (nmaReadCatalogEditorOp, error) {
+	return makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
 }
 
 func (op *nmaReadCatalogEditorOp) setupClusterHTTPRequest(hosts []string) error {

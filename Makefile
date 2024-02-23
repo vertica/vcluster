@@ -37,7 +37,7 @@ lint: golangci-lint ## Lint the code
 
 .PHONY: build
 build: fmt vet ## Build vcluster binary.
-	go build -o bin/vcluster cmd/vcluster/main.go
+	go build -o bin/vcluster main.go
 
 ##@ Build Dependencies
 

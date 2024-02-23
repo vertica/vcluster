@@ -285,7 +285,7 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 
 	// mark k-safety
 	if len(aliveHosts) < ksafetyThreshold {
-		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(vcc.Log, initiator,
+		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(initiator,
 			options.usePassword, *options.UserName, options.Password,
 			ksafeValueZero)
 		if err != nil {
@@ -296,7 +296,7 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 
 	// remove down nodes from catalog
 	for _, nodeName := range nodesToTrim {
-		httpsDropNodeOp, err := makeHTTPSDropNodeOp(vcc.Log, nodeName, initiator,
+		httpsDropNodeOp, err := makeHTTPSDropNodeOp(nodeName, initiator,
 			options.usePassword, *options.UserName, options.Password, vdb.IsEon)
 		if err != nil {
 			return err
@@ -348,13 +348,13 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	usePassword := options.usePassword
 	password := options.Password
 
-	nmaHealthOp := makeNMAHealthOp(vcc.Log, vdb.HostList)
+	nmaHealthOp := makeNMAHealthOp(vdb.HostList)
 	instructions = append(instructions, &nmaHealthOp)
 
 	if vdb.IsEon {
 		httpsFindSubclusterOp, e := makeHTTPSFindSubclusterOp(
-			vcc.Log, allExistingHosts, usePassword, username, password, *options.SCName,
-			true /*ignore not found*/)
+			allExistingHosts, usePassword, username, password, *options.SCName,
+			true /*ignore not found*/, AddNodeCmd)
 		if e != nil {
 			return instructions, e
 		}
@@ -362,28 +362,28 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	}
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(vcc.Log, true /*hosts need to have the same Vertica version*/, vdb)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(true /*hosts need to have the same Vertica version*/, vdb)
 	instructions = append(instructions, &nmaVerticaVersionOp)
 
 	// this is a copy of the original HostNodeMap that only
 	// contains the hosts to add.
 	newHostNodeMap := vdb.copyHostNodeMap(options.NewHosts)
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(vcc.Log, newHostNodeMap,
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(newHostNodeMap,
 		*options.ForceRemoval /*force cleanup*/, false /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
-	nmaNetworkProfileOp := makeNMANetworkProfileOp(vcc.Log, vdb.HostList)
-	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(vcc.Log, newHosts, initiatorHost,
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(vdb.HostList)
+	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newHosts, initiatorHost,
 		usePassword, username, password, vdb, *options.SCName)
 	if err != nil {
 		return instructions, err
 	}
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(vcc.Log, initiatorHost, usePassword, username, password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, usePassword, username, password)
 	if err != nil {
 		return instructions, err
 	}
-	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(vcc.Log, usePassword, username, password, vdb)
+	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(usePassword, username, password, vdb)
 	if err != nil {
 		return instructions, err
 	}
@@ -396,13 +396,13 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 	)
 
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(vcc.Log, &instructions,
+	produceTransferConfigOps(&instructions,
 		nil,
 		vdb.HostList,
 		vdb /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(vcc.Log, newHosts, *options.StartUpConf, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(vcc.Log, newHosts, usePassword, username, password)
+	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, *options.StartUpConf, vdb)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password)
 	if err != nil {
 		return instructions, err
 	}
@@ -421,7 +421,7 @@ func (vcc *VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordination
 	username string, usePassword bool,
 	initiatorHost, newHosts []string) ([]clusterOp, error) {
 	if vdb.UseDepot {
-		httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vcc.Log, vdb,
+		httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vdb,
 			newHosts, usePassword, username, options.Password)
 		if err != nil {
 			return instructions, err
@@ -430,14 +430,14 @@ func (vcc *VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordination
 	}
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(vcc.Log, initiatorHost, true, username, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, true, username, options.Password)
 		if err != nil {
 			return instructions, err
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
 		if !*options.SkipRebalanceShards {
 			httpsRBSCShardsOp, err := makeHTTPSRebalanceSubclusterShardsOp(
-				vcc.Log, initiatorHost, usePassword, username, options.Password, *options.SCName)
+				initiatorHost, usePassword, username, options.Password, *options.SCName)
 			if err != nil {
 				return instructions, err
 			}

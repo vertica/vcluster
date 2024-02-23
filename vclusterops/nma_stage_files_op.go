@@ -18,8 +18,6 @@ package vclusterops
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaStageFilesOp struct {
@@ -38,7 +36,7 @@ type stageFilesResponseData struct {
 	ModTime   string `json:"mod_time"`
 }
 
-func makeNMAStageFilesOp(logger vlog.Printer,
+func makeNMAStageFilesOp(
 	id, batch string,
 	hosts []string,
 	hostNodeNameMap map[string]string,
@@ -47,7 +45,6 @@ func makeNMAStageFilesOp(logger vlog.Printer,
 	// base members
 	op := nmaStageFilesOp{}
 	op.name = "NMAStageFilesOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 
 	// scrutinize members

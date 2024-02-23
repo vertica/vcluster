@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsCheckNodeStateOp struct {
@@ -28,13 +27,12 @@ type httpsCheckNodeStateOp struct {
 	opHTTPSBase
 }
 
-func makeHTTPSCheckNodeStateOp(logger vlog.Printer, hosts []string,
+func makeHTTPSCheckNodeStateOp(hosts []string,
 	useHTTPPassword bool,
 	userName string,
 	httpsPassword *string,
 ) (httpsCheckNodeStateOp, error) {
 	nodeStateChecker := httpsCheckNodeStateOp{}
-	nodeStateChecker.logger = logger.WithName(nodeStateChecker.name)
 	nodeStateChecker.name = "HTTPCheckNodeStateOp"
 	// The hosts are the ones we are going to talk to.
 	// They can be a subset of the actual host information that we return,

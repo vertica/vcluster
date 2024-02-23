@@ -249,19 +249,19 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(addSubclusterInfo 
 	}
 
 	username := *options.UserName
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, addSubclusterInfo.DBName, addSubclusterInfo.Hosts,
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(addSubclusterInfo.DBName, addSubclusterInfo.Hosts,
 		usePassword, username, addSubclusterInfo.Password, DBAddSubclusterCmd)
 	if err != nil {
 		return instructions, err
 	}
 
-	httpsAddSubclusterOp, err := makeHTTPSAddSubclusterOp(vcc.Log, usePassword, username, addSubclusterInfo.Password,
+	httpsAddSubclusterOp, err := makeHTTPSAddSubclusterOp(usePassword, username, addSubclusterInfo.Password,
 		addSubclusterInfo.SCName, addSubclusterInfo.IsPrimary, addSubclusterInfo.ControlSetSize)
 	if err != nil {
 		return instructions, err
 	}
 
-	httpsCheckSubclusterOp, err := makeHTTPSCheckSubclusterOp(vcc.Log, usePassword, username, addSubclusterInfo.Password,
+	httpsCheckSubclusterOp, err := makeHTTPSCheckSubclusterOp(usePassword, username, addSubclusterInfo.Password,
 		addSubclusterInfo.SCName, addSubclusterInfo.IsPrimary, addSubclusterInfo.ControlSetSize)
 	if err != nil {
 		return instructions, err

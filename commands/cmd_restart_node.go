@@ -27,31 +27,30 @@ func makeCmdRestartNodes() *CmdRestartNodes {
 	newCmd := &CmdRestartNodes{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("restart_node", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("restart_node", flag.ExitOnError)
 	restartNodesOptions := vclusterops.VStartNodesOptionsFactory()
 
 	// require flags
-	restartNodesOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to restart nodes")
-	newCmd.vnodeListStr = newCmd.parser.String("restart", "",
+	restartNodesOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to restart nodes")
+	newCmd.vnodeListStr = newCmd.oldParser.String("restart", "",
 		"Comma-separated list of NODENAME=REIPHOST pairs part of the database nodes that need to be restarted")
 
 	// optional flags
-	restartNodesOptions.Password = newCmd.parser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that participate in the database"+
+	restartNodesOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that participate in the database"+
 		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, "restart nodes with IPv6 hosts")
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "restart nodes with IPv6 hosts")
 
-	restartNodesOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	restartNodesOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user input instead of reading the options from "+vclusterops.ConfigFileName))
-	restartNodesOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
-	restartNodesOptions.StatePollingTimeout = *newCmd.parser.Int("timeout", util.DefaultTimeoutSeconds,
+	newCmd.oldParser.StringVar(&restartNodesOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
+	restartNodesOptions.StatePollingTimeout = *newCmd.oldParser.Int("timeout", util.DefaultTimeoutSeconds,
 		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
 			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
 
 	newCmd.restartNodesOptions = &restartNodesOptions
-	newCmd.parser.Usage = func() {
-		util.SetParserUsage(newCmd.parser, "restart_node")
+	newCmd.oldParser.Usage = func() {
+		util.SetParserUsage(newCmd.oldParser, "restart_node")
 	}
 	return newCmd
 }
@@ -61,7 +60,7 @@ func (c *CmdRestartNodes) CommandType() string {
 }
 
 func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil - the parser was nil")
 	}
 
@@ -71,14 +70,10 @@ func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 		return err
 	}
 
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.restartNodesOptions.ConfigDirectory = nil
-	}
-
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
 	}
 
@@ -91,7 +86,7 @@ func (c *CmdRestartNodes) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return c.ValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
 }
 
 func (c *CmdRestartNodes) Analyze(logger vlog.Printer) error {

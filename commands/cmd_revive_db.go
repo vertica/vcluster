@@ -24,42 +24,41 @@ func makeCmdReviveDB() *CmdReviveDB {
 	newCmd := &CmdReviveDB{}
 
 	// parser, used to parse command-line flags
-	newCmd.parser = flag.NewFlagSet("revive_db", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("revive_db", flag.ExitOnError)
 	reviveDBOptions := vclusterops.VReviveDBOptionsFactory()
 
 	// require flags
-	reviveDBOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to revive")
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated hosts that participate in the database")
-	reviveDBOptions.CommunalStorageLocation = newCmd.parser.String("communal-storage-location", "",
+	reviveDBOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to revive")
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated hosts that participate in the database")
+	reviveDBOptions.CommunalStorageLocation = newCmd.oldParser.String("communal-storage-location", "",
 		util.GetEonFlagMsg("Location of communal storage"))
 
 	// optional flags
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, util.GetOptionalFlagMsg("Revive database with IPv6 hosts"))
-	newCmd.configurationParams = newCmd.parser.String("config-param", "", util.GetOptionalFlagMsg(
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Revive database with IPv6 hosts"))
+	newCmd.configurationParams = newCmd.oldParser.String("config-param", "", util.GetOptionalFlagMsg(
 		"Comma-separated list of NAME=VALUE pairs for configuration parameters"))
-	reviveDBOptions.ForceRemoval = newCmd.parser.Bool("force-removal", false,
+	reviveDBOptions.ForceRemoval = newCmd.oldParser.Bool("force-removal", false,
 		util.GetOptionalFlagMsg("Force removal of existing database directories(exclude user storage directories) before reviving the database"))
-	reviveDBOptions.LoadCatalogTimeout = newCmd.parser.Uint("load-catalog-timeout", util.DefaultLoadCatalogTimeoutSeconds,
+	reviveDBOptions.LoadCatalogTimeout = newCmd.oldParser.Uint("load-catalog-timeout", util.DefaultLoadCatalogTimeoutSeconds,
 		util.GetOptionalFlagMsg("Set a timeout (in seconds) for loading remote catalog operation, default timeout is "+
 			strconv.Itoa(util.DefaultLoadCatalogTimeoutSeconds)+"seconds"))
-	reviveDBOptions.DisplayOnly = newCmd.parser.Bool("display-only", false,
+	reviveDBOptions.DisplayOnly = newCmd.oldParser.Bool("display-only", false,
 		util.GetOptionalFlagMsg("Describe the database on communal storage, and exit"))
-	reviveDBOptions.IgnoreClusterLease = newCmd.parser.Bool("ignore-cluster-lease", false,
+	reviveDBOptions.IgnoreClusterLease = newCmd.oldParser.Bool("ignore-cluster-lease", false,
 		util.GetOptionalFlagMsg("Ignore the check of other clusters running on the same communal storage."+
 			" The communal storage can be corrupted when two clusters modified it at the same time. Proceed with caution"))
-	reviveDBOptions.RestorePoint.Archive = newCmd.parser.String("restore-point-archive", "", util.GetOptionalFlagMsg(
+	reviveDBOptions.RestorePoint.Archive = newCmd.oldParser.String("restore-point-archive", "", util.GetOptionalFlagMsg(
 		"Name of the restore archive to use for bootstrapping"))
-	reviveDBOptions.RestorePoint.Index = newCmd.parser.Int("restore-point-index", 0, util.GetOptionalFlagMsg(
+	reviveDBOptions.RestorePoint.Index = newCmd.oldParser.Int("restore-point-index", 0, util.GetOptionalFlagMsg(
 		"The (1-based) index of the restore point in the restore archive to restore from"))
-	reviveDBOptions.RestorePoint.ID = newCmd.parser.String("restore-point-id", "", util.GetOptionalFlagMsg(
+	reviveDBOptions.RestorePoint.ID = newCmd.oldParser.String("restore-point-id", "", util.GetOptionalFlagMsg(
 		"The identifier of the restore point in the restore archive to restore from"))
-	reviveDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
+	newCmd.oldParser.StringVar(&reviveDBOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
 
 	newCmd.reviveDBOptions = &reviveDBOptions
 
-	newCmd.parser.Usage = func() {
-		util.SetParserUsage(newCmd.parser, "revive_db")
+	newCmd.oldParser.Usage = func() {
+		util.SetParserUsage(newCmd.oldParser, "revive_db")
 	}
 	return newCmd
 }
@@ -78,11 +77,8 @@ func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
-	}
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.reviveDBOptions.ConfigDirectory = nil
 	}
 
 	return c.validateParse(logger)
@@ -108,7 +104,7 @@ func (c *CmdReviveDB) validateParse(logger vlog.Printer) error {
 	// will remove this after we refined config file read
 	*c.reviveDBOptions.HonorUserInput = true
 
-	return c.ValidateParseBaseOptions(&c.reviveDBOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.reviveDBOptions.DatabaseOptions)
 }
 
 func (c *CmdReviveDB) Analyze(logger vlog.Printer) error {
@@ -129,7 +125,7 @@ func (c *CmdReviveDB) Run(vcc vclusterops.VClusterCommands) error {
 		return nil
 	}
 
-	err = vdb.WriteClusterConfig(c.reviveDBOptions.ConfigDirectory, vcc.Log)
+	err = vdb.WriteClusterConfig(c.reviveDBOptions.ConfigPath, vcc.Log)
 	if err != nil {
 		vcc.Log.PrintWarning("fail to write config file, details: %s", err)
 	}

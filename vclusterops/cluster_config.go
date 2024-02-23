@@ -68,8 +68,10 @@ func MakeDatabaseConfig() DatabaseConfig {
 
 // ReadConfig reads cluster configuration information from a YAML-formatted file in configDirectory.
 // It returns a ClusterConfig and any error encountered when reading and parsing the file.
-func ReadConfig(configDirectory string, logger vlog.Printer) (ClusterConfig, error) {
-	configFilePath := filepath.Join(configDirectory, ConfigFileName)
+func ReadConfig(configFilePath string, logger vlog.Printer) (ClusterConfig, error) {
+	if configFilePath == "" {
+		return nil, fmt.Errorf("no config file provided")
+	}
 	configBytes, err := os.ReadFile(configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("fail to read config file, details: %w", err)
@@ -149,9 +151,7 @@ func (c *ClusterConfig) getCommunalStorageLocation(dbName string) (communalStora
 	return dbConfig.CommunalStorageLocation, nil
 }
 
-func (c *ClusterConfig) removeDatabaseFromConfigFile(dbName, configDirectory string, logger vlog.Printer) error {
-	configFilePath := filepath.Join(configDirectory, ConfigFileName)
-
+func (c *ClusterConfig) removeDatabaseFromConfigFile(dbName, configFilePath string, logger vlog.Printer) error {
 	// back up the old config file
 	err := backupConfigFile(configFilePath, logger)
 	if err != nil {
@@ -175,38 +175,6 @@ func (c *DatabaseConfig) getHosts() []string {
 	return hostList
 }
 
-func getConfigFilePath(dbName string, inputConfigDir *string, logger vlog.Printer) (string, error) {
-	var configParentPath string
-
-	// if the input config directory is given and has write permission,
-	// write the YAML config file under this directory
-	if inputConfigDir != nil {
-		if err := os.MkdirAll(*inputConfigDir, ConfigDirPerm); err != nil {
-			return "", fmt.Errorf("fail to create config path at %s, detail: %w", *inputConfigDir, err)
-		}
-
-		return filepath.Join(*inputConfigDir, ConfigFileName), nil
-	}
-
-	// otherwise write it under the current directory
-	// as <current_dir>/vertica_cluster.yaml
-	currentDir, err := os.Getwd()
-	if err != nil {
-		logger.Info("Fail to get current directory\n")
-		configParentPath = currentDir
-	}
-
-	// create a directory with the database name
-	// then write the config content inside this directory
-	configDirPath := filepath.Join(configParentPath, dbName)
-	if err := os.MkdirAll(configDirPath, ConfigDirPerm); err != nil {
-		return "", fmt.Errorf("fail to create config path at %s, detail: %w", configDirPath, err)
-	}
-
-	configFilePath := filepath.Join(configDirPath, ConfigFileName)
-	return configFilePath, nil
-}
-
 func backupConfigFile(configFilePath string, logger vlog.Printer) error {
 	if util.CanReadAccessDir(configFilePath) == nil {
 		// copy file to vertica_cluster.yaml.backup
@@ -221,33 +189,4 @@ func backupConfigFile(configFilePath string, logger vlog.Printer) error {
 	}
 
 	return nil
-}
-
-func RemoveConfigFile(configDirectory string, logger vlog.Printer) error {
-	configFilePath := filepath.Join(configDirectory, ConfigFileName)
-	configBackupPath := filepath.Join(configDirectory, ConfigBackupName)
-
-	err := os.RemoveAll(configFilePath)
-	if err != nil {
-		logger.PrintError("Fail to remove the config file %s, detail: %s", configFilePath, err)
-		return err
-	}
-
-	err = os.RemoveAll(configBackupPath)
-	if err != nil {
-		logger.PrintError("Fail to remove the backup config file %s, detail: %s", configBackupPath, err)
-		return err
-	}
-
-	return nil
-}
-
-// checkConfigFileExist checks whether config file exists under the given directory
-func checkConfigFileExist(configDirectory *string) bool {
-	if configDirectory == nil {
-		return false
-	}
-
-	configPath := filepath.Join(*configDirectory, ConfigFileName)
-	return util.CheckPathExist(configPath)
 }

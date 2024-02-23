@@ -44,24 +44,23 @@ func (c *CmdSandboxSubcluster) TypeName() string {
 
 func makeCmdSandboxSubcluster() *CmdSandboxSubcluster {
 	newCmd := &CmdSandboxSubcluster{}
-	newCmd.parser = flag.NewFlagSet("sandbox_subcluster", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("sandbox_subcluster", flag.ExitOnError)
 	newCmd.sbOptions = vclusterops.VSandboxOptionsFactory()
 
 	// required flags
-	newCmd.sbOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to run sandbox. May be omitted on k8s.")
-	newCmd.sbOptions.SCName = newCmd.parser.String("subcluster", "", "The name of the subcluster to be sandboxed")
-	newCmd.sbOptions.SandboxName = newCmd.parser.String("sandbox", "", "The name of the sandbox")
+	newCmd.sbOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to run sandbox. May be omitted on k8s.")
+	newCmd.sbOptions.SCName = newCmd.oldParser.String("subcluster", "", "The name of the subcluster to be sandboxed")
+	newCmd.sbOptions.SandboxName = newCmd.oldParser.String("sandbox", "", "The name of the sandbox")
 
 	// optional flags
-	newCmd.sbOptions.Password = newCmd.parser.String("password", "",
+	newCmd.sbOptions.Password = newCmd.oldParser.String("password", "",
 		util.GetOptionalFlagMsg("Database password. Consider using in single quotes to avoid shell substitution."))
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts to participate in database."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, "start database with with IPv6 hosts")
-	newCmd.sbOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg(
+		"Comma-separated list of hosts to participate in database."+" Use it when you do not trust "+vclusterops.ConfigFileName))
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "start database with with IPv6 hosts")
+	newCmd.sbOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	newCmd.sbOptions.ConfigDirectory = newCmd.parser.String("config-directory", "",
-		util.GetOptionalFlagMsg("Directory where "+vclusterops.ConfigFileName+" is located"))
+	newCmd.oldParser.StringVar(&newCmd.sbOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
 
 	return newCmd
 }
@@ -81,20 +80,17 @@ func (c *CmdSandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) er
 
 func (c *CmdSandboxSubcluster) parseInternal(logger vlog.Printer) error {
 	logger.Info("Called parseInternal()")
-	if c.parser == nil {
+	if c.oldParser == nil {
 		return fmt.Errorf("unexpected nil for CmdSandboxSubcluster.parser")
 	}
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.sbOptions.Password = nil
 	}
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
 	}
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.sbOptions.ConfigDirectory = nil
-	}
 
-	return c.ValidateParseBaseOptions(&c.sbOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.sbOptions.DatabaseOptions)
 }
 
 func (c *CmdSandboxSubcluster) Analyze(logger vlog.Printer) error {

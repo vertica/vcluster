@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -79,20 +80,30 @@ func TestWriteClusterConfig(t *testing.T) {
 	}
 	vdb.IsEon = true
 
-	err := vdb.WriteClusterConfig(nil, vlog.Printer{})
+	tmp, err := os.CreateTemp("", "cluster-config-test.*.yaml")
 	assert.NoError(t, err)
+	tmp.Close()
+	os.Remove(tmp.Name())
+
+	err = vdb.WriteClusterConfig(tmp.Name(), vlog.Printer{})
+	assert.NoError(t, err)
+	defer os.Remove(tmp.Name())
 
 	// compare the generated file with expected output
-	actualBytes, _ := os.ReadFile(dbName + "/" + ConfigFileName)
-	expectedBytes, _ := os.ReadFile("test_data/" + ConfigFileName)
+	actualBytes, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	expectedBytes, err := os.ReadFile("test_data/" + ConfigFileName)
+	assert.NoError(t, err)
 	assert.True(t, bytes.Equal(actualBytes, expectedBytes))
 
 	// now write the config file again
 	// a backup file should be generated
-	err = vdb.WriteClusterConfig(nil, vlog.Printer{})
+	err = vdb.WriteClusterConfig(tmp.Name(), vlog.Printer{})
 	assert.NoError(t, err)
-	err = util.CanReadAccessDir(dbName + "/" + ConfigBackupName)
+	bkpName := fmt.Sprintf("%s/%s", filepath.Dir(tmp.Name()), ConfigBackupName)
+	err = util.CanReadAccessDir(bkpName)
 	assert.NoError(t, err)
+	defer os.Remove(bkpName)
 
 	// clean up
 	defer os.RemoveAll(dbName)

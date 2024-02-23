@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/theckman/yacspin"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -61,7 +62,7 @@ type adapterToRequest struct {
 	request hostHTTPRequest
 }
 
-func (pool *adapterPool) sendRequest(httpRequest *clusterHTTPRequest) error {
+func (pool *adapterPool) sendRequest(httpRequest *clusterHTTPRequest, spinner *yacspin.Spinner) error {
 	// build a collection of adapter to request
 	// we need this step as a host may not be in the pool
 	// in that case, we should not proceed
@@ -85,7 +86,7 @@ func (pool *adapterPool) sendRequest(httpRequest *clusterHTTPRequest) error {
 	if pool.logger.ForCli {
 		// use context to check whether a step has completed
 		ctx, cancelCtx := context.WithCancel(context.Background())
-		go progressCheck(ctx, httpRequest.Name, pool.logger)
+		go progressCheck(ctx, httpRequest.Name, pool.logger, spinner)
 		// cancel the progress check context when the result channel is closed
 		defer cancelCtx()
 	}
@@ -115,7 +116,7 @@ func (pool *adapterPool) sendRequest(httpRequest *clusterHTTPRequest) error {
 
 // progressCheck checks whether a step (operation) has been completed.
 // Elapsed time of the step in seconds will be displayed.
-func progressCheck(ctx context.Context, name string, logger vlog.Printer) {
+func progressCheck(ctx context.Context, name string, logger vlog.Printer, spinner *yacspin.Spinner) {
 	const progressCheckInterval = 5
 	startTime := time.Now()
 
@@ -131,8 +132,11 @@ func progressCheck(ctx context.Context, name string, logger vlog.Printer) {
 			return
 		case tickTime := <-ticker.C:
 			elapsedTime := tickTime.Sub(startTime)
-			logger.PrintWithIndent("[%s] is still running. %.f seconds spent at this step.",
+			logger.PrintInfo("[%s] is still running. %.f seconds spent at this step.",
 				name, elapsedTime.Seconds())
+			if spinner != nil {
+				spinner.Message(fmt.Sprintf("%.f seconds spent at this step", elapsedTime.Seconds()))
+			}
 		}
 	}
 }

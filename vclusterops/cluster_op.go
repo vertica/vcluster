@@ -25,7 +25,9 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
+	"github.com/theckman/yacspin"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -170,6 +172,12 @@ func (status resultStatus) getStatusString() string {
 // log* implemented by embedding OpBase, but overrideable
 type clusterOp interface {
 	getName() string
+	setLogger(logger vlog.Printer)
+	setupSpinner()
+	startSpinner()
+	cleanupSpinner()
+	stopFailSpinner()
+	stopFailSpinnerWithMessage(errMsg string, v ...any)
 	prepare(execContext *opEngineExecContext) error
 	execute(execContext *opEngineExecContext) error
 	finalize(execContext *opEngineExecContext) error
@@ -194,12 +202,17 @@ type opBase struct {
 	hosts              []string
 	clusterHTTPRequest clusterHTTPRequest
 	skipExecute        bool // This can be set during prepare if we determine no work is needed
+	spinner            *yacspin.Spinner
 }
 
 type opResponseMap map[string]string
 
 func (op *opBase) getName() string {
 	return op.name
+}
+
+func (op *opBase) setLogger(logger vlog.Printer) {
+	op.logger = logger.WithName(op.name)
 }
 
 func (op *opBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
@@ -234,6 +247,83 @@ func (op *opBase) setupBasicInfo() {
 	op.setVersionToSemVar()
 }
 
+// setupSpinner sets up the progress spinner
+func (op *opBase) setupSpinner() {
+	if op.logger.ForCli {
+		cfg := yacspin.Config{
+			Frequency:         100 * time.Millisecond,
+			CharSet:           yacspin.CharSets[11],
+			Suffix:            " " + op.getName(),
+			SuffixAutoColon:   true,
+			Message:           "in progress",
+			StopCharacter:     "✔",
+			StopColors:        []string{"fgGreen"},
+			StopFailCharacter: "✘",
+			StopFailMessage:   "failed",
+			StopFailColors:    []string{"fgRed"},
+		}
+		spinner, err := yacspin.New(cfg)
+		if err != nil {
+			op.logger.PrintWarning("[UI][%s] progress spinner failed to initialize: %v", op.name, err)
+			return
+		}
+		spinner.Reverse()
+		op.spinner = spinner
+	}
+}
+
+func (op *opBase) startSpinner() {
+	if op.spinner != nil {
+		err := op.spinner.Start()
+		if err != nil {
+			op.logger.PrintWarning("[UI][%s] progress spinner failed to start: %v\n", op.name, err)
+		}
+	}
+}
+
+func (op *opBase) cleanupSpinner() {
+	if op.spinner != nil && op.spinner.Status() == yacspin.SpinnerRunning {
+		err := op.spinner.Stop()
+		if err != nil {
+			op.logger.PrintWarning("[UI][%s] progress spinner failed to stop: %v\n", op.name, err)
+		}
+	}
+}
+
+func (op *opBase) updateSpinnerMessage(msg string, v ...any) {
+	if op.spinner != nil {
+		op.spinner.Message(fmt.Sprintf(msg, v...))
+	}
+}
+
+func (op *opBase) updateSpinnerStopMessage(msg string, v ...any) {
+	if op.spinner != nil {
+		op.spinner.StopMessage(fmt.Sprintf(msg, v...))
+	}
+}
+
+func (op *opBase) updateSpinnerStopFailMessage(msg string, v ...any) {
+	if op.spinner != nil {
+		op.spinner.StopFailMessage(fmt.Sprintf(msg, v...))
+	}
+}
+
+func (op *opBase) stopFailSpinner() {
+	if op.spinner != nil {
+		err := op.spinner.StopFail()
+		if err != nil {
+			op.logger.PrintWarning("Spinner error: %v", err)
+		}
+	}
+}
+
+func (op *opBase) stopFailSpinnerWithMessage(errMsg string, v ...any) {
+	if op.spinner != nil {
+		op.spinner.StopFailMessage(fmt.Sprintf(errMsg, v...))
+		op.stopFailSpinner()
+	}
+}
+
 func (op *opBase) logResponse(host string, result hostHTTPResult) {
 	if result.err != nil {
 		op.logger.PrintError("[%s] result from host %s summary %s, details: %+v",
@@ -250,7 +340,6 @@ func (op *opBase) logPrepare() {
 
 func (op *opBase) logExecute() {
 	op.logger.Info("Execute() called", "name", op.name)
-	op.logger.PrintInfo("[%s] is running", op.name)
 }
 
 func (op *opBase) logFinalize() {
@@ -258,7 +347,7 @@ func (op *opBase) logFinalize() {
 }
 
 func (op *opBase) runExecute(execContext *opEngineExecContext) error {
-	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest)
+	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest, op.spinner)
 	if err != nil {
 		op.logger.Error(err, "Fail to dispatch request, detail", "dispatch request", op.clusterHTTPRequest)
 		return err

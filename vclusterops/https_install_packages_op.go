@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type httpsInstallPackagesOp struct {
@@ -32,12 +31,11 @@ type httpsInstallPackagesOp struct {
 	status         InstallPackageStatus // Filled in once the op completes
 }
 
-func makeHTTPSInstallPackagesOp(logger vlog.Printer, hosts []string, useHTTPPassword bool,
+func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, forceReinstall bool, verbose bool,
 ) (httpsInstallPackagesOp, error) {
 	op := httpsInstallPackagesOp{}
 	op.name = "HTTPSInstallPackagesOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.verbose = verbose
 	op.forceReinstall = forceReinstall

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 const RebalanceClusterSuccMsg = "REBALANCED"
@@ -32,11 +31,10 @@ type httpsRebalanceClusterOp struct {
 }
 
 // makeHTTPSRebalanceClusterOp will make an op that call vertica-http service to rebalance the cluster
-func makeHTTPSRebalanceClusterOp(logger vlog.Printer, initiatorHost []string, useHTTPPassword bool, userName string,
+func makeHTTPSRebalanceClusterOp(initiatorHost []string, useHTTPPassword bool, userName string,
 	httpsPassword *string) (httpsRebalanceClusterOp, error) {
 	op := httpsRebalanceClusterOp{}
 	op.name = "HTTPSRebalanceClusterOp"
-	op.logger = logger.WithName(op.name)
 	op.hosts = initiatorHost
 
 	op.useHTTPPassword = useHTTPPassword

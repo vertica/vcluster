@@ -129,7 +129,7 @@ func (vcc *VClusterCommands) produceInstallPackagesInstructions(info *vInstallPa
 		}
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(vcc.Log, info.dbName, info.hosts,
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(info.dbName, info.hosts,
 		usePassword, *opts.UserName, info.password, InstallPackageCmd)
 	if err != nil {
 		return nil, nil, err
@@ -137,7 +137,7 @@ func (vcc *VClusterCommands) produceInstallPackagesInstructions(info *vInstallPa
 
 	var noHosts = []string{} // We pass in no hosts so that this op picks an up node from the previous call.
 	verbose := false         // Silence verbose output as we will print package status at the end
-	installOp, err := makeHTTPSInstallPackagesOp(vcc.Log, noHosts, usePassword, *opts.UserName, info.password, *opts.ForceReinstall, verbose)
+	installOp, err := makeHTTPSInstallPackagesOp(noHosts, usePassword, *opts.UserName, info.password, *opts.ForceReinstall, verbose)
 	if err != nil {
 		return nil, nil, err
 	}

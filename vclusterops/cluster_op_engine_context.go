@@ -34,6 +34,7 @@ type opEngineExecContext struct {
 	startupCommandMap             map[string][]string // store start up command map to start nodes
 	dbInfo                        string              // store the db info that retrieved from communal storage
 	restorePoints                 []RestorePoint      // store list existing restore points that queried from an archive
+	systemTableList               systemTableListInfo // used for staging system tables
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {

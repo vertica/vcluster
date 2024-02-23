@@ -288,9 +288,9 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	nmaHealthOp := makeNMAHealthOp(vcc.Log, options.Hosts)
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
-	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(vcc.Log, options.Hosts, false, /*use password auth*/
+	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(options.Hosts, false, /*use password auth*/
 		"" /*username for https call*/, nil /*password for https call*/, ReviveDB)
 	if err != nil {
 		return instructions, err
@@ -305,7 +305,7 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 
 	if !options.isRestoreEnabled() {
 		// perform revive, either display-only or not
-		nmaDownloadFileOpForRevive, err := makeNMADownloadFileOpForRevive(vcc.Log, options.Hosts,
+		nmaDownloadFileOpForRevive, err := makeNMADownloadFileOpForRevive(options.Hosts,
 			currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
 			options.ConfigurationParameters, vdb, *options.DisplayOnly, *options.IgnoreClusterLease)
 		if err != nil {
@@ -318,7 +318,7 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 		// perform restore
 		if !*options.DisplayOnly {
 			// if not display-only, do a lease check first using current cluster config
-			nmaDownloadFileOpForRestoreLeaseCheck, err := makeNMADownloadFileOpForRestoreLeaseCheck(vcc.Log, options.Hosts,
+			nmaDownloadFileOpForRestoreLeaseCheck, err := makeNMADownloadFileOpForRestoreLeaseCheck(options.Hosts,
 				currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
 				options.ConfigurationParameters, vdb, *options.IgnoreClusterLease)
 			if err != nil {
@@ -359,7 +359,7 @@ func (vcc *VClusterCommands) produceRestoreDBSpecificInstructions(options *VRevi
 
 	restorePointConfigFileSrcPath := options.getRestorePointConfigFilePath(validatedRestorePointID)
 
-	nmaDownLoadFileOp, err := makeNMADownloadFileOpForRestore(vcc.Log, options.Hosts,
+	nmaDownLoadFileOp, err := makeNMADownloadFileOpForRestore(options.Hosts,
 		restorePointConfigFileSrcPath, restorePointConfigFileDestPath, catalogPath,
 		options.ConfigurationParameters, vdb, *options.DisplayOnly)
 
@@ -408,14 +408,14 @@ func (vcc *VClusterCommands) produceReviveDBInstructions(options *VReviveDatabas
 		hostNodeMap[host] = vnode
 	}
 	// prepare all directories
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(vcc.Log, hostNodeMap, *options.ForceRemoval, true /*for db revive*/)
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(hostNodeMap, *options.ForceRemoval, true /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
 
-	nmaNetworkProfileOp := makeNMANetworkProfileOp(vcc.Log, options.Hosts)
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(options.Hosts)
 
-	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(vcc.Log, oldHosts, options.ConfigurationParameters,
+	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(oldHosts, options.ConfigurationParameters,
 		&newVDB, *options.LoadCatalogTimeout, options.RestorePoint)
 
 	instructions = append(instructions,

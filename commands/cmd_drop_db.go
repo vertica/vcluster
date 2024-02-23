@@ -20,23 +20,23 @@ type CmdDropDB struct {
 
 func makeCmdDropDB() *CmdDropDB {
 	newCmd := &CmdDropDB{}
-	newCmd.parser = flag.NewFlagSet("create_db", flag.ExitOnError)
+	newCmd.oldParser = flag.NewFlagSet("create_db", flag.ExitOnError)
 
-	newCmd.hostListStr = newCmd.parser.String("hosts", "", "Comma-separated list of hosts to participate in database")
+	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated list of hosts to participate in database")
 
 	dropDBOptions := vclusterops.VDropDatabaseOptionsFactory()
-	newCmd.ipv6 = newCmd.parser.Bool("ipv6", false, "Drop database with IPv6 hosts")
-	dropDBOptions.ForceDelete = newCmd.parser.Bool("force-delete", false, "Whether force delete directories if they are not empty")
-	dropDBOptions.ConfigDirectory = newCmd.parser.String("config-directory", "", "Directory where "+vclusterops.ConfigFileName+" is located")
+	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "Drop database with IPv6 hosts")
+	dropDBOptions.ForceDelete = newCmd.oldParser.Bool("force-delete", false, "Whether force delete directories if they are not empty")
+	newCmd.oldParser.StringVar(&dropDBOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
 
-	dropDBOptions.HonorUserInput = newCmd.parser.Bool("honor-user-input", false,
+	dropDBOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
 
 	// TODO: the following options will be processed later
-	dropDBOptions.DBName = newCmd.parser.String("db-name", "", "The name of the database to be dropped")
-	dropDBOptions.CatalogPrefix = newCmd.parser.String("catalog-path", "", "The catalog path of the database")
-	dropDBOptions.DataPrefix = newCmd.parser.String("data-path", "", "The data path of the database")
-	dropDBOptions.DepotPrefix = newCmd.parser.String("depot-path", "", "The depot path of the database")
+	dropDBOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to be dropped")
+	dropDBOptions.CatalogPrefix = newCmd.oldParser.String("catalog-path", "", "The catalog path of the database")
+	dropDBOptions.DataPrefix = newCmd.oldParser.String("data-path", "", "The data path of the database")
+	dropDBOptions.DepotPrefix = newCmd.oldParser.String("depot-path", "", "The depot path of the database")
 
 	newCmd.dropDBOptions = &dropDBOptions
 
@@ -57,10 +57,7 @@ func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.parser, "config-directory") {
-		c.dropDBOptions.ConfigDirectory = nil
-	}
-	if !util.IsOptionSet(c.parser, "ipv6") {
+	if !util.IsOptionSet(c.oldParser, "ipv6") {
 		c.CmdBase.ipv6 = nil
 	}
 
@@ -68,11 +65,11 @@ func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 }
 
 func (c *CmdDropDB) validateParse(logger vlog.Printer) error {
-	if !util.IsOptionSet(c.parser, "password") {
+	if !util.IsOptionSet(c.oldParser, "password") {
 		c.dropDBOptions.Password = nil
 	}
 	logger.Info("Called validateParse()")
-	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
+	return c.OldValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
 }
 
 func (c *CmdDropDB) Analyze(_ vlog.Printer) error {
