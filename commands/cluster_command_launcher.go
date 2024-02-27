@@ -97,7 +97,7 @@ perform the following administrator operations:
 	}
 )
 
-// cmdInterface is an interface that evert vcluster command needs to implement
+// cmdInterface is an interface that every vcluster command needs to implement
 // for making a basic cobra command
 type cmdInterface interface {
 	Parse(inputArgv []string, logger vlog.Printer) error
@@ -170,6 +170,9 @@ func constructCmds() []*cobra.Command {
 		// db-scope cmds
 		makeCmdCreateDB(),
 		makeCmdStopDB(),
+		makeCmdDropDB(),
+		makeCmdReviveDB(),
+		makeCmdReIP(),
 		// sc-scope cmds
 		// node-scope cmds
 		// others
@@ -251,6 +254,7 @@ func setCommonFlags(cmd *cobra.Command, flags []string) {
 			"",
 			util.GetOptionalFlagMsg("Path to the config file"),
 		)
+		markFlagsFileName(cmd, map[string][]string{"config": {"yaml"}})
 	}
 	if util.StringInArray("password", flags) {
 		cmd.Flags().StringVarP(
@@ -302,15 +306,17 @@ func setCommonFlags(cmd *cobra.Command, flags []string) {
 			util.GetEonFlagMsg("Path to depot directory"),
 		)
 	}
-	if util.StringInArray("log-path", flags) {
-		cmd.Flags().StringVarP(
-			&logPath,
-			"log-path",
-			"l",
-			defaultLogPath,
-			util.GetOptionalFlagMsg("Path location used for the debug logs"),
-		)
-	}
+
+	// log-path is a flag that all the subcommands need
+	cmd.Flags().StringVarP(
+		&logPath,
+		"log-path",
+		"l",
+		defaultLogPath,
+		util.GetOptionalFlagMsg("Path location used for the debug logs"),
+	)
+	markFlagsFileName(cmd, map[string][]string{"log-path": {"log"}})
+
 	// verbose is a flag that all the subcommands need
 	cmd.Flags().BoolVar(
 		&verbose,
@@ -360,10 +366,7 @@ func constructOldCmds(_ vlog.Printer) []ClusterCommand {
 	return []ClusterCommand{
 		// db-scope cmds
 		makeCmdStartDB(),
-		makeCmdDropDB(),
 		makeListAllNodes(),
-		makeCmdReIP(),
-		makeCmdReviveDB(),
 		makeCmdShowRestorePoints(),
 		makeCmdInstallPackages(),
 		// sc-scope cmds

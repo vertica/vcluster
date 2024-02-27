@@ -155,7 +155,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 	}
 
 	// remove_node is aborted if requirements are not met.
-	err = checkRemoveNodeRequirements(&vdb)
+	err = checkRemoveNodeRequirements(&vdb, options)
 	if err != nil {
 		return vdb, err
 	}
@@ -263,11 +263,22 @@ func (vcc *VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordina
 
 // checkRemoveNodeRequirements validates any remove_node requirements. It will
 // return an error if a requirement isn't met.
-func checkRemoveNodeRequirements(vdb *VCoordinationDatabase) error {
+func checkRemoveNodeRequirements(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) error {
 	if !vdb.IsEon {
 		if vdb.hasAtLeastOneDownNode() {
 			return errors.New("all nodes must be up or standby")
 		}
+	}
+	// cannot remove sandboxed nodes
+	var sandboxedHosts []string
+	for _, host := range options.HostsToRemove {
+		vnode, ok := vdb.HostNodeMap[host]
+		if ok && vnode.Sandbox != "" {
+			sandboxedHosts = append(sandboxedHosts, fmt.Sprintf("%s (%s)", vnode.Name, vnode.Address))
+		}
+	}
+	if len(sandboxedHosts) > 0 {
+		return fmt.Errorf("hosts %v are sandboxed and cannot be removed", sandboxedHosts)
 	}
 	return nil
 }

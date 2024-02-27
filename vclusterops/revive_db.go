@@ -30,54 +30,54 @@ type VReviveDatabaseOptions struct {
 	/* part 2: revive db info */
 
 	// timeout in seconds of loading remote catalog
-	LoadCatalogTimeout *uint
+	LoadCatalogTimeout uint
 	// whether force remove existing directories before revive the database
-	ForceRemoval *bool
+	ForceRemoval bool
 	// describe the database on communal storage, and exit
-	DisplayOnly *bool
+	DisplayOnly bool
 	// whether ignore the cluster lease
-	IgnoreClusterLease *bool
+	IgnoreClusterLease bool
 	// the restore policy
 	RestorePoint *RestorePointPolicy
 }
 
 type RestorePointPolicy struct {
 	// Name of the restore archive to use for bootstrapping
-	Archive *string
+	Archive string
 	// The (1-based) index of the restore point in the restore archive to restore from
-	Index *int
+	Index int
 	// The identifier of the restore point in the restore archive to restore from
-	ID *string
+	ID string
 }
 
 func (options *VReviveDatabaseOptions) isRestoreEnabled() bool {
-	return options.RestorePoint != nil && options.RestorePoint.Archive != nil && *options.RestorePoint.Archive != ""
+	return options.RestorePoint != nil && options.RestorePoint.Archive != ""
 }
 
 func (options *VReviveDatabaseOptions) hasValidRestorePointID() bool {
-	return options.RestorePoint != nil && options.RestorePoint.ID != nil && *options.RestorePoint.ID != ""
+	return options.RestorePoint != nil && options.RestorePoint.ID != ""
 }
 
 func (options *VReviveDatabaseOptions) hasValidRestorePointIndex() bool {
-	return options.RestorePoint != nil && options.RestorePoint.Index != nil && *options.RestorePoint.Index > 0
+	return options.RestorePoint != nil && options.RestorePoint.Index > 0
 }
 
 func (options *VReviveDatabaseOptions) findSpecifiedRestorePoint(allRestorePoints []RestorePoint) (string, error) {
 	foundRestorePoints := make([]RestorePoint, 0)
 	for _, restorePoint := range allRestorePoints {
-		if restorePoint.Archive != *options.RestorePoint.Archive {
+		if restorePoint.Archive != options.RestorePoint.Archive {
 			continue
 		}
-		if restorePoint.ID == *options.RestorePoint.ID || restorePoint.Index == *options.RestorePoint.Index {
+		if restorePoint.ID == options.RestorePoint.ID || restorePoint.Index == options.RestorePoint.Index {
 			foundRestorePoints = append(foundRestorePoints, restorePoint)
 		}
 	}
 	if len(foundRestorePoints) == 0 {
-		err := &ReviveDBRestorePointNotFoundError{Archive: *options.RestorePoint.Archive}
+		err := &ReviveDBRestorePointNotFoundError{Archive: options.RestorePoint.Archive}
 		if options.hasValidRestorePointID() {
-			err.InvalidID = *options.RestorePoint.ID
+			err.InvalidID = options.RestorePoint.ID
 		} else {
-			err.InvalidIndex = *options.RestorePoint.Index
+			err.InvalidIndex = options.RestorePoint.Index
 		}
 		return "", err
 	}
@@ -121,15 +121,8 @@ func (options *VReviveDatabaseOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
 
 	// set default values for revive db options
-	options.LoadCatalogTimeout = new(uint)
-	*options.LoadCatalogTimeout = util.DefaultLoadCatalogTimeoutSeconds
-	options.ForceRemoval = new(bool)
-	options.DisplayOnly = new(bool)
-	options.IgnoreClusterLease = new(bool)
+	options.LoadCatalogTimeout = util.DefaultLoadCatalogTimeoutSeconds
 	options.RestorePoint = new(RestorePointPolicy)
-	options.RestorePoint.Archive = new(string)
-	options.RestorePoint.Index = new(int)
-	options.RestorePoint.ID = new(string)
 }
 
 func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
@@ -144,7 +137,7 @@ func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 
 	// new hosts
 	// when --display-only is not specified, we require --hosts
-	if len(options.RawHosts) == 0 && !*options.DisplayOnly {
+	if len(options.RawHosts) == 0 && !options.DisplayOnly {
 		return fmt.Errorf("must specify a host or host list")
 	}
 
@@ -174,7 +167,7 @@ func (options *VReviveDatabaseOptions) validateParseOptions() error {
 // analyzeOptions will modify some options based on what is chosen
 func (options *VReviveDatabaseOptions) analyzeOptions() (err error) {
 	// when --display-only is specified but no hosts in user input, we will try to access communal storage from localhost
-	if len(options.RawHosts) == 0 && *options.DisplayOnly {
+	if len(options.RawHosts) == 0 && options.DisplayOnly {
 		options.RawHosts = append(options.RawHosts, "localhost")
 	}
 
@@ -245,7 +238,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 		}
 	}
 
-	if *options.DisplayOnly {
+	if options.DisplayOnly {
 		dbInfo = clusterOpEngine.execContext.dbInfo
 		return dbInfo, &vdb, nil
 	}
@@ -307,7 +300,7 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 		// perform revive, either display-only or not
 		nmaDownloadFileOpForRevive, err := makeNMADownloadFileOpForRevive(options.Hosts,
 			currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
-			options.ConfigurationParameters, vdb, *options.DisplayOnly, *options.IgnoreClusterLease)
+			options.ConfigurationParameters, vdb, options.DisplayOnly, options.IgnoreClusterLease)
 		if err != nil {
 			return instructions, err
 		}
@@ -316,11 +309,11 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 		)
 	} else {
 		// perform restore
-		if !*options.DisplayOnly {
+		if !options.DisplayOnly {
 			// if not display-only, do a lease check first using current cluster config
 			nmaDownloadFileOpForRestoreLeaseCheck, err := makeNMADownloadFileOpForRestoreLeaseCheck(options.Hosts,
 				currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
-				options.ConfigurationParameters, vdb, *options.IgnoreClusterLease)
+				options.ConfigurationParameters, vdb, options.IgnoreClusterLease)
 			if err != nil {
 				return instructions, err
 			}
@@ -333,11 +326,11 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 		initiator := getInitiator(hosts)
 		bootstrapHost := []string{initiator}
 		filterOptions := ShowRestorePointFilterOptions{}
-		filterOptions.ArchiveName = options.RestorePoint.Archive
+		filterOptions.ArchiveName = &options.RestorePoint.Archive
 		if options.hasValidRestorePointID() {
-			filterOptions.ArchiveID = options.RestorePoint.ID
+			filterOptions.ArchiveID = &options.RestorePoint.ID
 		} else {
-			indexStr := strconv.Itoa(*options.RestorePoint.Index)
+			indexStr := strconv.Itoa(options.RestorePoint.Index)
 			filterOptions.ArchiveIndex = &indexStr
 		}
 		nmaShowRestorePointsOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.Log, bootstrapHost, *options.DBName,
@@ -361,7 +354,7 @@ func (vcc *VClusterCommands) produceRestoreDBSpecificInstructions(options *VRevi
 
 	nmaDownLoadFileOp, err := makeNMADownloadFileOpForRestore(options.Hosts,
 		restorePointConfigFileSrcPath, restorePointConfigFileDestPath, catalogPath,
-		options.ConfigurationParameters, vdb, *options.DisplayOnly)
+		options.ConfigurationParameters, vdb, options.DisplayOnly)
 
 	if err != nil {
 		return instructions, err
@@ -408,7 +401,7 @@ func (vcc *VClusterCommands) produceReviveDBInstructions(options *VReviveDatabas
 		hostNodeMap[host] = vnode
 	}
 	// prepare all directories
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(hostNodeMap, *options.ForceRemoval, true /*for db revive*/)
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(hostNodeMap, options.ForceRemoval, true /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
@@ -416,7 +409,7 @@ func (vcc *VClusterCommands) produceReviveDBInstructions(options *VReviveDatabas
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(options.Hosts)
 
 	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(oldHosts, options.ConfigurationParameters,
-		&newVDB, *options.LoadCatalogTimeout, options.RestorePoint)
+		&newVDB, options.LoadCatalogTimeout, options.RestorePoint)
 
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,

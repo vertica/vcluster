@@ -164,9 +164,12 @@ func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Pri
 	}
 
 	// config directory
-	err = opt.validateConfigDir(commandName)
-	if err != nil {
-		return err
+	// VER-91801: remove this condition once re_ip supports the config file
+	if !slices.Contains([]string{"re_ip"}, commandName) {
+		err = opt.validateConfigDir(commandName)
+		if err != nil {
+			return err
+		}
 	}
 
 	// log directory
@@ -545,7 +548,7 @@ func (options *VReviveDatabaseOptions) getRestorePointConfigFilePath(validatedRe
 	// {communal_storage_location}/metadata/{db_name}/archives/{archive_name}/{restore_point_id}/cluster_config.json
 	// an example: s3://tfminio/test_loc/metadata/test_db/archives/test_archive_name/2251e5cc-3e16-4fb1-8cd0-e4b8651f5779/cluster_config.json
 	descriptionFilePath := filepath.Join(*options.CommunalStorageLocation, descriptionFileMetadataFolder,
-		*options.DBName, archivesFolder, *options.RestorePoint.Archive, validatedRestorePointID, descriptionFileName)
+		*options.DBName, archivesFolder, options.RestorePoint.Archive, validatedRestorePointID, descriptionFileName)
 	// filepath.Join() will change "://" of the remote communal storage path to ":/"
 	// as a result, we need to change the separator back to url format
 	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)

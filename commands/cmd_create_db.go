@@ -185,7 +185,7 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-// setLocalFlags will set the hidden flags the command has.
+// setHiddenFlags will set the hidden flags the command has.
 // These hidden flags will not be shown in help and usage of the command, and they will be used internally.
 func (c *CmdCreateDB) setHiddenFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(

@@ -101,15 +101,9 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 		requestData.NodeAddresses = nodeAddresses
 		requestData.Parameters = op.configurationParameters
 		if op.restorePoint != nil {
-			if op.restorePoint.Archive != nil {
-				requestData.RestorePointArchive = *op.restorePoint.Archive
-			}
-			if op.restorePoint.Index != nil {
-				requestData.RestorePointIndex = *op.restorePoint.Index
-			}
-			if op.restorePoint.ID != nil {
-				requestData.RestorePointID = *op.restorePoint.ID
-			}
+			requestData.RestorePointArchive = op.restorePoint.Archive
+			requestData.RestorePointIndex = op.restorePoint.Index
+			requestData.RestorePointID = op.restorePoint.ID
 		}
 
 		dataBytes, err := json.Marshal(requestData)

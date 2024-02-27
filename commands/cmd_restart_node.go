@@ -1,3 +1,18 @@
+/*
+ (c) Copyright [2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
 package commands
 
 import (
@@ -44,7 +59,7 @@ func makeCmdRestartNodes() *CmdRestartNodes {
 	restartNodesOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
 		util.GetOptionalFlagMsg("Forcefully use the user input instead of reading the options from "+vclusterops.ConfigFileName))
 	newCmd.oldParser.StringVar(&restartNodesOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
-	restartNodesOptions.StatePollingTimeout = *newCmd.oldParser.Int("timeout", util.DefaultTimeoutSeconds,
+	newCmd.oldParser.IntVar(&restartNodesOptions.StatePollingTimeout, "timeout", util.DefaultTimeoutSeconds,
 		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
 			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
 

@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -105,6 +106,9 @@ func makeCmdScrutinize() *CmdScrutinize {
 	newCmd.sOptions.LogPath = newCmd.oldParser.String("log-path", defaultLogPath,
 		util.GetOptionalFlagMsg("File path of the vcluster scrutinize log"))
 
+	newCmd.oldParser.StringVar(&newCmd.sOptions.TarballName, "tarball-name", "",
+		util.GetOptionalFlagMsg("Name of the generated tarball. If empty an auto-generated name is used"))
+
 	return newCmd
 }
 
@@ -132,6 +136,17 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 	// just so generic parsing works - not relevant for functionality
 	if !util.IsOptionSet(c.oldParser, "eon-mode") {
 		c.CmdBase.isEon = nil
+	}
+
+	// if the tarballName was provided in the cli, we check
+	// if it matches GRASP regex
+	if util.IsOptionSet(c.oldParser, "tarball-name") {
+		c.validateTarballName(logger)
+	}
+	if c.sOptions.TarballName == "" {
+		// If the tarball name is empty, the final tarball
+		// name will be the auto-generated id
+		c.sOptions.TarballName = c.sOptions.ID
 	}
 
 	// parses host list and ipv6 - eon is irrelevant but handled
@@ -389,6 +404,24 @@ func (c *CmdScrutinize) readOptionsFromK8sEnv(logger vlog.Printer) (allErrs erro
 		logger.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
 	}
 	return
+}
+
+// validateTarballName checks that the tarball name has the correct format
+func (c *CmdScrutinize) validateTarballName(logger vlog.Printer) {
+	if c.sOptions.TarballName == "" {
+		logger.Info("The tarball name is empty. An auto-generated will be used")
+	}
+	// Regular expression pattern
+	const pattern = `^VerticaScrutinize\.\d{14}$`
+
+	// Compile the regular expression
+	re := regexp.MustCompile(pattern)
+
+	// Check if the string matches the pattern
+	if re.MatchString(c.sOptions.TarballName) {
+		return
+	}
+	logger.PrintWarning("The tarball name does not match GRASP regex VerticaScrutinize.yyyymmddhhmmss")
 }
 
 // readNonEmptyFile is a helper that reads the contents of a file into a string.

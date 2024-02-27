@@ -1,10 +1,22 @@
+/*
+ (c) Copyright [2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
 package commands
 
 import (
-	"errors"
-	"flag"
-	"fmt"
-
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -15,25 +27,64 @@ import (
  */
 type CmdReIP struct {
 	reIPOptions  *vclusterops.VReIPOptions
-	reIPFilePath *string
+	reIPFilePath string
 
 	CmdBase
 }
 
-func makeCmdReIP() *CmdReIP {
+func makeCmdReIP() *cobra.Command {
 	newCmd := &CmdReIP{}
-	newCmd.oldParser = flag.NewFlagSet("re_ip", flag.ExitOnError)
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VReIPFactory()
+	newCmd.reIPOptions = &opt
 
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated list of hosts in the database (provide at least one)")
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "Whether the database hosts use IPv6 addresses")
-	newCmd.reIPFilePath = newCmd.oldParser.String("re-ip-file", "", "Absolute path of the re-ip file")
+	// VER-91801: the examle below needs to be updated
+	// as we need a better example with config file
+	cmd := makeBasicCobraCmd(
+		newCmd,
+		"re_ip",
+		"Re-ip database nodes",
+		`This command alters the IP addresses of database nodes in the catalog. 
+However, the database must be offline when running this command. If an IP change 
+is required and the database is up, you can use restart_node to handle it.
 
-	reIPOpt := vclusterops.VReIPFactory()
-	reIPOpt.DBName = newCmd.oldParser.String("db-name", "", "The name of the database")
-	reIPOpt.CatalogPrefix = newCmd.oldParser.String("catalog-path", "", "The catalog path of the database")
-	newCmd.reIPOptions = &reIPOpt
+The file specified by the  argument must be a JSON file in the following format:
+[  
+	{"from_address": "192.168.1.101", "to_address": "192.168.1.102"},  
+	{"from_address": "192.168.1.103", "to_address": "192.168.1.104"}  
+] 
+		
+Only the nodes whose IP addresses you want to change need to be included in the file.
+		
+You must provide the name of the database.
 
-	return newCmd
+Example:
+  vcluster re_ip --db-name <db_name> --hosts <list_of_hosts>
+  	--catalog-path <catalog_path> --re-ip-file <path_of_re_ip_json_file>
+`,
+	)
+
+	// common db flags
+	setCommonFlags(cmd, []string{"db-name", "hosts", "catalog-path"})
+
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	// require db-name and re-ip-file
+	markFlagsRequired(cmd, []string{"db-name", "re-ip-file"})
+	markFlagsFileName(cmd, map[string][]string{"re-ip-file": {"json"}})
+
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(
+		&c.reIPFilePath,
+		"re-ip-file",
+		"",
+		"Path of the re-ip file",
+	)
 }
 
 func (c *CmdReIP) CommandType() string {
@@ -41,17 +92,8 @@ func (c *CmdReIP) CommandType() string {
 }
 
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
-	logger.LogArgParse(&inputArgv)
-
-	if c.oldParser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogArgParse(&c.argv)
 
 	return c.validateParse(logger)
 }
@@ -59,24 +101,12 @@ func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	// parse raw host str input into a []string
-	err := c.parseHostList(&c.reIPOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.reIPOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
 
-	// parse Ipv6
-	c.reIPOptions.Ipv6.FromBoolPointer(c.CmdBase.ipv6)
-
-	return nil
-}
-
-func (c *CmdReIP) Analyze(_ vlog.Printer) error {
-	if *c.reIPFilePath == "" {
-		return errors.New("must specify the re-ip-file path")
-	}
-
-	return c.reIPOptions.ReadReIPFile(*c.reIPFilePath)
+	return c.reIPOptions.ReadReIPFile(c.reIPFilePath)
 }
 
 func (c *CmdReIP) Run(vcc vclusterops.VClusterCommands) error {
@@ -89,4 +119,9 @@ func (c *CmdReIP) Run(vcc vclusterops.VClusterCommands) error {
 
 	vcc.Log.PrintInfo("Re-ip is successfully completed")
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdReIP
+func (c *CmdReIP) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.reIPOptions.DatabaseOptions = *opt
 }

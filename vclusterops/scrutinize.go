@@ -47,7 +47,8 @@ const scrutinizeSuffixSystemTables = "systables"
 
 type VScrutinizeOptions struct {
 	DatabaseOptions
-	ID string // generated: "VerticaScrutinize.yyyymmddhhmmss"
+	ID          string // generated: "VerticaScrutinize.yyyymmddhhmmss"
+	TarballName string // final tarball name
 }
 
 func VScrutinizOptionsFactory() VScrutinizeOptions {
@@ -175,7 +176,7 @@ func (vcc *VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
 	options.stageVclusterLog(options.ID, vcc.Log)
 
 	// tar all results
-	if err = tarAndRemoveDirectory(options.ID, vcc.Log); err != nil {
+	if err = tarAndRemoveDirectory(options.TarballName, options.ID, vcc.Log); err != nil {
 		vcc.Log.Error(err, "failed to create final scrutinize output tarball")
 		return err
 	}
@@ -207,8 +208,8 @@ func (options *VScrutinizeOptions) stageVclusterLog(id string, log vlog.Printer)
 }
 
 // tarAndRemoveDirectory packages the final scrutinize output.
-func tarAndRemoveDirectory(id string, log vlog.Printer) (err error) {
-	tarballPath := scrutinizeOutputBasePath + "/" + id + ".tar"
+func tarAndRemoveDirectory(tarballName, id string, log vlog.Printer) (err error) {
+	tarballPath := scrutinizeOutputBasePath + "/" + tarballName + ".tar"
 	cmd := exec.Command("tar", "cf", tarballPath, "-C", "/tmp/scrutinize/remote", id)
 	log.Info("running command %s with args %v", cmd.Path, cmd.Args)
 	if err = cmd.Run(); err != nil {

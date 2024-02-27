@@ -25,7 +25,16 @@ import (
 
 func main() {
 	// only keep commands.Execute() in main() in VER-92222
-	var cobraSupportedCmdAndFlags = []string{"-h", "--help", "completion", "stop_db", "create_db"}
+	var cobraSupportedCmdAndFlags = []string{
+		"-h", "--help",
+		"completion",
+		"create_db",
+		"stop_db",
+		"drop_db",
+		"revive_db",
+		"re_ip",
+	}
+
 	if len(os.Args) == 1 || util.StringInArray(os.Args[1], cobraSupportedCmdAndFlags) {
 		commands.Execute()
 	} else {
