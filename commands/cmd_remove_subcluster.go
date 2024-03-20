@@ -40,7 +40,7 @@ func makeCmdRemoveSubcluster() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"db_remove_subcluster",
+		removeSCSubCmd,
 		"Remove a subcluster",
 		`This subcommand removes a subcluster from an existing Eon Mode database.
 
@@ -89,10 +89,6 @@ func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdRemoveSubcluster) CommandType() string {
-	return "db_remove_subcluster"
-}
-
 func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
@@ -101,8 +97,12 @@ func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) err
 
 func (c *CmdRemoveSubcluster) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
+	err := c.getCertFilesFromCertPaths(&c.removeScOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
 
-	err := c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
+	err = c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
 	if err != nil {
 		return nil
 	}

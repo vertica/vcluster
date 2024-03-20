@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 )
 
@@ -87,7 +88,7 @@ func makeCmdScrutinize() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"scrutinize",
+		scrutinizeSubCmd,
 		"Scrutinize a database",
 		`This scrutinizes a database on a given set of hosts.
 		
@@ -189,10 +190,6 @@ func (c *CmdScrutinize) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdScrutinize) CommandType() string {
-	return vclusterops.VScrutinizeTypeName
-}
-
 func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 	logger.PrintInfo("Parsing scrutinize command input")
 	c.argv = inputArgv
@@ -201,9 +198,11 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 	// if they are not provided in cli,
 	// reset the value of those options to nil
 	c.OldResetUserInputOptions()
+
+	// remove eomModeFlag check in VER-92369
 	// just so generic parsing works - not relevant for functionality
-	if !c.parser.Changed("eon-mode") {
-		c.ipv6 = nil
+	if !c.parser.Changed(eonModeFlag) {
+		c.sOptions.OldIsEon = vstruct.NotSet
 	}
 
 	// if the tarballName was provided in the cli, we check
@@ -223,8 +222,13 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 // all validations of the arguments should go in here
 func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
+	err := c.getCertFilesFromCertPaths(&c.sOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
 	// parses host list and ipv6 - eon is irrelevant but handled
-	err := c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
+	err = c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

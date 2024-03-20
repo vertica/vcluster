@@ -83,15 +83,12 @@ func (options *VStartNodesOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-// ParseNodesList builds and returns a map of nodes from a comma-separated list of nodes.
-// For example, vnodeName1=host1,vnodeName2=host2 is converted to map[string]string{vnodeName1: host1, vnodeName2: host2}
-func (options *VStartNodesOptions) ParseNodesList(nodeListStr string) error {
-	nodes, err := util.ParseKeyValueListStr(nodeListStr, "restart")
-	if err != nil {
-		return err
-	}
+// ParseNodesList resolves hostname in a nodeName-hostname map and build a new map.
+// For example, map[string]string{vnodeName1: host1, vnodeName2: host2} is converted to
+// map[string]string{vnodeName1: 192.168.1.101, vnodeName2: 192.168.1.102}
+func (options *VStartNodesOptions) ParseNodesList(rawNodeMap map[string]string) error {
 	options.Nodes = make(map[string]string)
-	for k, v := range nodes {
+	for k, v := range rawNodeMap {
 		ip, err := util.ResolveToOneIP(v, options.OldIpv6.ToBool())
 		if err != nil {
 			return err

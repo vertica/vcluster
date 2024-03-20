@@ -42,7 +42,7 @@ func makeCmdReIP() *cobra.Command {
 	// as we need a better example with config file
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"re_ip",
+		reIPSubCmd,
 		"Re-ip database nodes",
 		`This command alters the IP addresses of database nodes in the catalog. 
 However, the database must be offline when running this command. If an IP change 
@@ -85,10 +85,6 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdReIP) CommandType() string {
-	return "re_ip"
-}
-
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogArgParse(&c.argv)
@@ -104,6 +100,10 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
+	err = c.getCertFilesFromCertPaths(&c.reIPOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
 	return c.reIPOptions.ReadReIPFile(c.reIPFilePath)
 }
 

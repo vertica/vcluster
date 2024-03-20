@@ -35,6 +35,7 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/sys/unix"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -128,6 +129,16 @@ func SliceDiff[K comparable](m, n []K) []K {
 		}
 	}
 	return diff
+}
+
+// calculate and sort array commonalities: m ∩ n
+func SliceCommon[K constraints.Ordered](m, n []K) []K {
+	mSet := mapset.NewSet[K](m...)
+	nSet := mapset.NewSet[K](n...)
+	common := mSet.Intersect(nSet).ToSlice()
+	slices.Sort(common)
+
+	return common
 }
 
 // calculate diff of map keys: m-n
@@ -321,18 +332,6 @@ func AbsPathCheck(dirPath string) error {
 	return nil
 }
 
-// remove this function in VER-92222
-func SplitHosts(hosts string) ([]string, error) {
-	if strings.TrimSpace(hosts) == "" {
-		return []string{}, fmt.Errorf("must specify a host or host list")
-	}
-	splitRes := strings.Split(strings.ToLower(strings.TrimSpace(hosts)), ",")
-	for i, host := range splitRes {
-		splitRes[i] = strings.TrimSpace(host)
-	}
-	return splitRes, nil
-}
-
 // ParseHostList will trim spaces and convert all chars to lowercase in the hosts
 func ParseHostList(hosts *[]string) error {
 	var parsedHosts []string
@@ -500,45 +499,6 @@ func ValidateRequiredAbsPath(path *string, pathName string) error {
 
 func ParamNotSetErrorMsg(param string) error {
 	return fmt.Errorf("%s is pointed to nil", param)
-}
-
-// ParseConfigParams builds and returns a map from a comma-separated list of params.
-func ParseConfigParams(configParamListStr string) (map[string]string, error) {
-	return ParseKeyValueListStr(configParamListStr, "config-param")
-}
-
-// ParseKeyValueListStr converts a comma-separated list of key-value pairs into a map.
-// Ex: key1=val1,key2=val2 ---> map[string]string{key1: val1, key2: val2}
-func ParseKeyValueListStr(listStr, opt string) (map[string]string, error) {
-	if listStr == "" {
-		return nil, nil
-	}
-	list := strings.Split(strings.TrimSpace(listStr), ",")
-	// passed an empty string to the given flag
-	if len(list) == 0 {
-		return nil, nil
-	}
-
-	listMap := make(map[string]string)
-	for _, param := range list {
-		// expected to see key value pairs of the format key=value
-		keyValue := strings.Split(param, "=")
-		if len(keyValue) != keyValueArrayLen {
-			return nil, fmt.Errorf("--%s option must take NAME=VALUE as argument: %s is invalid", opt, param)
-		} else if len(keyValue) > 0 && strings.TrimSpace(keyValue[0]) == "" {
-			return nil, fmt.Errorf("--%s option must take NAME=VALUE as argument with NAME being non-empty: %s is invalid", opt, param)
-		}
-		key := strings.TrimSpace(keyValue[0])
-		// the user is possible to set aws auth key to different strings like "awsauth" and "AWSAuth"
-		// we convert aws auth key to lowercase for easy retrieval in vclusterops
-		if strings.EqualFold(key, AWSAuthKey) {
-			key = strings.ToLower(key)
-		}
-		// we allow empty string value
-		value := strings.TrimSpace(keyValue[1])
-		listMap[key] = value
-	}
-	return listMap, nil
 }
 
 // GenVNodeName generates a vnode and returns it after checking it is not already

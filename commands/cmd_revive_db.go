@@ -30,8 +30,7 @@ import (
  */
 type CmdReviveDB struct {
 	CmdBase
-	reviveDBOptions     *vclusterops.VReviveDatabaseOptions
-	configurationParams *string // raw input from user, need further processing
+	reviveDBOptions *vclusterops.VReviveDatabaseOptions
 }
 
 func makeCmdReviveDB() *cobra.Command {
@@ -41,7 +40,6 @@ func makeCmdReviveDB() *cobra.Command {
 	opt := vclusterops.VReviveDBOptionsFactory()
 	newCmd.reviveDBOptions = &opt
 	newCmd.reviveDBOptions.CommunalStorageLocation = new(string)
-	newCmd.configurationParams = new(string)
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
@@ -64,13 +62,13 @@ Examples:
 
 	// common db flags
 	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, communalStorageLocationFlag,
-		configFlag, outputFileFlag})
+		configFlag, outputFileFlag, configParamFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
 	// require db-name
-	markFlagsRequired(cmd, []string{"db-name", "communal-storage-location"})
+	markFlagsRequired(cmd, []string{dbNameFlag, communalStorageLocationFlag})
 
 	return cmd
 }
@@ -122,12 +120,6 @@ func (c *CmdReviveDB) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The identifier of the restore point in the restore archive to restore from",
 	)
-	cmd.Flags().StringVar(
-		c.configurationParams,
-		"config-param",
-		"",
-		"Comma-separated list of NAME=VALUE pairs for configuration parameters",
-	)
 	// only one of restore-point-index or restore-point-id" will be required
 	cmd.MarkFlagsMutuallyExclusive("restore-point-index", "restore-point-id")
 }
@@ -139,7 +131,7 @@ func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !c.parser.Changed("ipv6") {
+	if !c.parser.Changed(ipv6Flag) {
 		c.ipv6 = nil
 	}
 
@@ -149,13 +141,9 @@ func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdReviveDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	// check the format of configuration params string, and parse it into configParams
-	configurationParams, err := util.ParseConfigParams(*c.configurationParams)
+	err := c.getCertFilesFromCertPaths(&c.reviveDBOptions.DatabaseOptions)
 	if err != nil {
 		return err
-	}
-	if configurationParams != nil {
-		c.reviveDBOptions.ConfigurationParameters = configurationParams
 	}
 
 	// when --display-only is provided, we do not need to parse some base options like hostListStr

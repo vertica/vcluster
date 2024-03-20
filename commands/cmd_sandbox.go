@@ -48,7 +48,7 @@ func makeCmdSandboxSubcluster() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"sandbox_subcluster",
+		sandboxSubCmd,
 		"Sandbox a subcluster",
 		`This subcommand sandboxes a subcluster in an existing Eon Mode database.
 
@@ -100,10 +100,6 @@ func (c *CmdSandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdSandboxSubcluster) CommandType() string {
-	return "sandbox_subcluster"
-}
-
 func (c *CmdSandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
@@ -114,7 +110,12 @@ func (c *CmdSandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) er
 func (c *CmdSandboxSubcluster) parseInternal(logger vlog.Printer) error {
 	logger.Info("Called parseInternal()")
 
-	err := c.ValidateParseBaseOptions(&c.sbOptions.DatabaseOptions)
+	err := c.getCertFilesFromCertPaths(&c.sbOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.ValidateParseBaseOptions(&c.sbOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
@@ -128,7 +129,7 @@ func (c *CmdSandboxSubcluster) Analyze(logger vlog.Printer) error {
 
 func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.PrintInfo("Running sandbox subcluster")
-	vcc.LogInfo("Calling method Run() for command " + c.CommandType())
+	vcc.LogInfo("Calling method Run() for command " + sandboxSubCmd)
 
 	options := c.sbOptions
 	// get config from vertica_cluster.yaml
@@ -138,7 +139,7 @@ func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	}
 	options.Config = config
 	err = vcc.VSandbox(&options)
-	vcc.PrintInfo("Completed method Run() for command " + c.CommandType())
+	vcc.PrintInfo("Completed method Run() for command " + sandboxSubCmd)
 	return err
 }
 

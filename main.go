@@ -16,46 +16,9 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/vertica/vcluster/commands"
-	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 func main() {
-	// only keep commands.Execute() in main() in VER-92222
-	var cobraSupportedCmdAndFlags = []string{
-		"-h", "--help",
-		"completion",
-		"create_db",
-		"stop_db",
-		"start_db",
-		"list_allnodes",
-		"restart_node",
-		"drop_db",
-		"revive_db",
-		"re_ip",
-		"scrutinize",
-		"config",
-		"db_add_node",
-		"db_remove_node",
-		"install_packages",
-		"show_restore_points",
-		"db_add_subcluster",
-		"db_remove_subcluster",
-		"sandbox_subcluster",
-		"unsandbox_subcluster",
-	}
-
-	if len(os.Args) == 1 || util.StringInArray(os.Args[1], cobraSupportedCmdAndFlags) {
-		commands.Execute()
-	} else {
-		launcher, vcc := commands.MakeClusterCommandLauncher()
-		runError := launcher.Run(os.Args, vcc)
-		if runError != nil {
-			fmt.Printf("Error during execution: %s\n", runError)
-			os.Exit(1)
-		}
-	}
+	commands.Execute()
 }

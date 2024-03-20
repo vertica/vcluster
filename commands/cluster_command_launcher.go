@@ -28,41 +28,13 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-/* ClusterCommandLauncher
- * A class that encapsulates the data and steps
- * of a CLI program for run cluster operations. Similar
- * to commandLineCtrl.py from Admintools.
- *
- * Main programs instaniate ClusterCommandLauncher with
- * makeClusterCommandLauncher. The main program calls the Run() method
- * with command line arguments. Run() returns errors.
- *
- */
-type ClusterCommandLauncher struct {
-	argv     []string
-	commands map[string]ClusterCommand
-}
-
-/* minArgs - the minimum number of arguments
- * that the program expects.
- *
- * The command lines that we expect to parse
- * look like:
- * vcluster <subcommand> [options] [args]
- *
- * Examples:
- * vcluster help
- * vcluster create_db --db-name db1
- *
- *
- */
-const minArgs = 2
-const helpString = "help"
 const defaultLogPath = "/opt/vertica/log/vcluster.log"
 const defaultExecutablePath = "/opt/vertica/bin/vcluster"
 
 const CLIVersion = "1.2.0"
 const vclusterLogPathEnv = "VCLUSTER_LOG_PATH"
+const vclusterKeyPathEnv = "VCLUSTER_KEY_PATH"
+const vclusterCertPathEnv = "VCLUSTER_CERT_PATH"
 
 // *Flag is for the flag name, *Key is for viper key name
 // They are bound together
@@ -83,8 +55,14 @@ const (
 	ipv6Key                     = "ipv6"
 	eonModeFlag                 = "eon-mode"
 	eonModeKey                  = "eonMode"
+	configParamFlag             = "config-param"
+	configParamKey              = "configParam"
 	logPathFlag                 = "log-path"
 	logPathKey                  = "logPath"
+	keyPathFlag                 = "key-path"
+	keyPathKey                  = "keyPath"
+	certPathFlag                = "cert-path"
+	certPathKey                 = "certPath"
 	passwordFlag                = "password"
 	passwordKey                 = "password"
 	passwordFileFlag            = "password-file"
@@ -109,7 +87,10 @@ var flagKeyMap = map[string]string{
 	communalStorageLocationFlag: communalStorageLocationKey,
 	ipv6Flag:                    ipv6Key,
 	eonModeFlag:                 eonModeKey,
+	configParamFlag:             configParamKey,
 	logPathFlag:                 logPathKey,
+	keyPathFlag:                 keyPathKey,
+	certPathFlag:                certPathKey,
 	passwordFlag:                passwordKey,
 	passwordFileFlag:            passwordFileKey,
 	readPasswordFromPromptFlag:  readPasswordFromPromptKey,
@@ -119,16 +100,33 @@ var flagKeyMap = map[string]string{
 }
 
 const (
-	createDBSubCmd = "create_db"
-	stopDBSubCmd   = "stop_db"
-	reviveDBSubCmd = "revive_db"
+	createDBSubCmd          = "create_db"
+	stopDBSubCmd            = "stop_db"
+	startDBSubCmd           = "start_db"
+	dropDBSubCmd            = "drop_db"
+	reviveDBSubCmd          = "revive_db"
+	addSCSubCmd             = "db_add_subcluster"
+	removeSCSubCmd          = "db_remove_subcluster"
+	addNodeSubCmd           = "db_add_node"
+	removeNodeSubCmd        = "db_remove_node"
+	restartNodeSubCmd       = "restart_node"
+	reIPSubCmd              = "re_ip"
+	listAllNodesSubCmd      = "list_allnodes"
+	sandboxSubCmd           = "sandbox_subcluster"
+	unsandboxSubCmd         = "unsandbox_subcluster"
+	scrutinizeSubCmd        = "scrutinize"
+	showRestorePointsSubCmd = "show_restore_points"
+	installPkgSubCmd        = "install_packages"
+	configSubCmd            = "config"
 )
 
 // cmdGlobals holds global variables shared by multiple
 // commands
 type cmdGlobals struct {
-	verbose bool
-	file    *os.File
+	verbose  bool
+	file     *os.File
+	keyPath  string
+	certPath string
 }
 
 var (
@@ -216,8 +214,14 @@ func setDBOptionsUsingViper(flag string) error {
 		dbOptions.IPv6 = viper.GetBool(ipv6Key)
 	case eonModeFlag:
 		dbOptions.IsEon = viper.GetBool(eonModeKey)
+	case configParamFlag:
+		dbOptions.ConfigurationParameters = viper.GetStringMapString(configParamKey)
 	case logPathFlag:
 		*dbOptions.LogPath = viper.GetString(logPathKey)
+	case keyPathFlag:
+		globals.keyPath = viper.GetString(keyPathKey)
+	case certPathFlag:
+		globals.certPath = viper.GetString(certPathKey)
 	case verboseFlag:
 		globals.verbose = viper.GetBool(verboseKey)
 	default:
@@ -235,7 +239,10 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 
 	// log-path is a flag that all the subcommands need
 	flagsInConfig = append(flagsInConfig, logPathFlag)
-
+	// cert-path and key-path are not available for config subcmd
+	if cmd.CalledAs() != configSubCmd {
+		flagsInConfig = append(flagsInConfig, certPathFlag, keyPathFlag)
+	}
 	// bind viper keys to cobra flags
 	for _, flag := range flagsInConfig {
 		if _, ok := flagKeyMap[flag]; !ok {
@@ -251,6 +258,14 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 	err := viper.BindEnv(logPathKey, vclusterLogPathEnv)
 	if err != nil {
 		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", logPathKey, vclusterLogPathEnv, err)
+	}
+	err = viper.BindEnv(keyPathKey, vclusterKeyPathEnv)
+	if err != nil {
+		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", keyPathKey, vclusterKeyPathEnv, err)
+	}
+	err = viper.BindEnv(certPathKey, vclusterCertPathEnv)
+	if err != nil {
+		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", certPathKey, vclusterCertPathEnv, err)
 	}
 
 	// load db options from config file to viper
@@ -478,148 +493,6 @@ func setLogPathImpl(opsys operatingSystem) string {
 		fmt.Fprintln(os.Stderr, "Cannot gain write access to user config directory path:", err)
 	}
 	return filepath.Join(path, "vcluster.log")
-}
-
-// remove this function in VER-92222
-/* ClusterCommandLauncherFactory()
- * Returns a new instance of a ClusterCommandLauncher
- * with some reasonable defaults.
- */
-func MakeClusterCommandLauncher() (ClusterCommandLauncher, vclusterops.VClusterCommands) {
-	// setup logs for command launcher initialization
-	userCommandString := os.Args[1]
-	logger := vlog.Printer{ForCli: true}
-	oldLogPath := parseLogPathArg(os.Args, defaultLogPath)
-	logger.SetupOrDie(oldLogPath)
-	vcc := vclusterops.VClusterCommands{
-		VClusterCommandsLogger: vclusterops.VClusterCommandsLogger{
-			Log: logger.WithName(userCommandString),
-		},
-	}
-	vcc.LogInfo("New vcluster command initialization")
-	newLauncher := ClusterCommandLauncher{}
-	allCommands := constructOldCmds(vcc.GetLog())
-
-	newLauncher.commands = map[string]ClusterCommand{}
-	for _, c := range allCommands {
-		_, existsInMap := newLauncher.commands[c.CommandType()]
-		if existsInMap {
-			// shout loud if there's a programmer error
-			vcc.PrintError("Programmer Error: tried to add command %s to the commands index twice. Check cluster_command_launcher.go",
-				c.CommandType())
-			os.Exit(1)
-		}
-		newLauncher.commands[c.CommandType()] = c
-	}
-
-	return newLauncher, vcc
-}
-
-// remove this function in VER-92222
-// constructCmds returns a list of commands that will be executed
-// by the cluster command launcher.
-func constructOldCmds(_ vlog.Printer) []ClusterCommand {
-	return []ClusterCommand{
-		// db-scope cmds
-		// sc-scope cmds
-		// node-scope cmds
-		// others
-		makeCmdHelp(),
-	}
-}
-
-// remove this function in VER-92222
-/* Run is expected be called by a CLI program
- * Run executes the following algorithm:
- *     + Identifies the appropriate sub-command
- *     + Asks the sub-command to parse the command line
- *     + Loads the configuration file using the vconfig library. (not implemented)
- *     + Asks the sub-command to analyze the command line given the
- *       context from the config file.
- *     + Calls Run() for the sub-command
- *     + Returns any errors to the caller after writing the error to the log
- */
-func (c ClusterCommandLauncher) Run(inputArgv []string, vcc vclusterops.VClusterCommands) error {
-	userCommandString := os.Args[1]
-	c.argv = inputArgv
-	minArgsError := checkMinimumInput(c.argv)
-
-	if minArgsError != nil {
-		vcc.LogError(minArgsError, "fail to check minimum argument")
-		return minArgsError
-	}
-
-	subCommand, idError := identifySubcommand(c.commands, userCommandString, vcc.GetLog())
-
-	if idError != nil {
-		vcc.LogError(idError, "fail to recognize command")
-		return idError
-	}
-
-	parseError := subCommand.Parse(inputArgv[2:], vcc.GetLog())
-	if parseError != nil {
-		vcc.LogError(parseError, "fail to parse command")
-		return parseError
-	}
-
-	/* Special case: help
-	 * If the user asked for help, handle that now
-	 * and then exit. Avoid doing anything else that
-	 * might fail and prevent access to help.
-	 */
-	if subCommand.CommandType() == helpString {
-		subCommand.PrintUsage(subCommand.CommandType())
-		return nil
-	}
-
-	/* TODO: this is where we would read a
-	 * configuration file. Not currently implemented.
-	 */
-	analyzeError := subCommand.Analyze(vcc.GetLog())
-
-	if analyzeError != nil {
-		vcc.LogError(analyzeError, "fail to analyze command")
-		return analyzeError
-	}
-
-	runError := subCommand.Run(vcc)
-	if runError != nil {
-		vcc.LogError(runError, "fail to run command")
-	}
-	return runError
-}
-
-// remove this function in VER-92222
-func identifySubcommand(commands map[string]ClusterCommand, userCommandString string,
-	logger vlog.Printer) (ClusterCommand, error) {
-	command, ok := commands[userCommandString]
-	if !ok {
-		return nil, fmt.Errorf("unrecognized command '%s'",
-			userCommandString)
-	}
-
-	logger.Log.Info("Recognized command", "cmd", userCommandString)
-	return command, nil
-}
-
-// remove this function in VER-92222
-func checkMinimumInput(inputArgv []string) error {
-	if len(inputArgv) >= minArgs {
-		return nil
-	}
-	return fmt.Errorf("expected at least %d arguments but found only %d",
-		minArgs,
-		len(inputArgv))
-}
-
-// remove this function in VER-92222
-func parseLogPathArg(argInput []string, defaultPath string) (logPath string) {
-	for idx, arg := range argInput {
-		if arg == "--log-path" {
-			return argInput[idx+1]
-		}
-	}
-	return defaultPath
 }
 
 func closeFile(f *os.File) {

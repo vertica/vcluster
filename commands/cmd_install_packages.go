@@ -45,7 +45,7 @@ func makeCmdInstallPackages() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"install_packages",
+		installPkgSubCmd,
 		"Install default package(s) in database",
 		`This subcommand installs default packages in the database.
 
@@ -81,10 +81,6 @@ func (c *CmdInstallPackages) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdInstallPackages) CommandType() string {
-	return "install_packages"
-}
-
 func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
@@ -99,7 +95,12 @@ func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) erro
 
 // all validations of the arguments should go in here
 func (c *CmdInstallPackages) validateParse() error {
-	err := c.ValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
+	err := c.getCertFilesFromCertPaths(&c.installPkgOpts.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.ValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
 	if err != nil {
 		return err
 	}

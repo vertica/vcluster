@@ -126,7 +126,12 @@ func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 // all validations of the arguments should go in here
 func (c *CmdStopDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
+	err := c.getCertFilesFromCertPaths(&c.stopDBOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

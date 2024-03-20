@@ -31,7 +31,7 @@ type CmdRestartNodes struct {
 	restartNodesOptions *vclusterops.VStartNodesOptions
 
 	// Comma-separated list of vnode=host
-	vnodeListStr *string
+	vnodeListStr map[string]string
 }
 
 func makeCmdRestartNodes() *cobra.Command {
@@ -40,11 +40,10 @@ func makeCmdRestartNodes() *cobra.Command {
 	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VStartNodesOptionsFactory()
 	newCmd.restartNodesOptions = &opt
-	newCmd.vnodeListStr = new(string)
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"restart_node",
+		restartNodeSubCmd,
 		"Restart nodes in the database",
 		`This subcommand starts individual nodes in a running cluster. This differs from
 start_db, which starts Vertica after cluster quorum is lost.
@@ -83,10 +82,10 @@ Examples:
 
 // setLocalFlags will set the local flags the command has
 func (c *CmdRestartNodes) setLocalFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(
-		c.vnodeListStr,
+	cmd.Flags().StringToStringVar(
+		&c.vnodeListStr,
 		"restart",
-		"",
+		map[string]string{},
 		"Comma-separated list of <node_name=re_ip_host> pairs part of the database nodes that need to be restarted",
 	)
 	cmd.Flags().IntVar(
@@ -95,10 +94,6 @@ func (c *CmdRestartNodes) setLocalFlags(cmd *cobra.Command) {
 		util.DefaultTimeoutSeconds,
 		"The timeout (in seconds) to wait for polling node state operation",
 	)
-}
-
-func (c *CmdRestartNodes) CommandType() string {
-	return "restart_node"
 }
 
 func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -115,10 +110,16 @@ func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 
 func (c *CmdRestartNodes) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.restartNodesOptions.ParseNodesList(*c.vnodeListStr)
+	err := c.restartNodesOptions.ParseNodesList(c.vnodeListStr)
 	if err != nil {
 		return err
 	}
+
+	err = c.getCertFilesFromCertPaths(&c.restartNodesOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
 	err = c.ValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
 	if err != nil {
 		return err

@@ -16,7 +16,6 @@
 package commands
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -37,11 +36,9 @@ const (
  * Basic/common fields of vcluster commands
  */
 type CmdBase struct {
-	argv      []string
-	parser    *pflag.FlagSet
-	oldParser *flag.FlagSet // remove this variable in VER-92222
+	argv   []string
+	parser *pflag.FlagSet
 
-	hostListStr *string // raw string from user input, need further processing
 	// remove below two fields in VER-92369
 	isEon *bool // need further processing to see if the user inputted this flag or not
 	ipv6  *bool // need further processing to see if the user inputted this flag or not
@@ -51,47 +48,6 @@ type CmdBase struct {
 	output                 string
 	passwordFile           string
 	readPasswordFromPrompt bool
-}
-
-// print usage of a command
-func (c *CmdBase) PrintUsage(commandType string) {
-	fmt.Fprintf(os.Stderr,
-		"Please refer the usage of \"vcluster %s\" using \"vcluster %s --help\"\n",
-		commandType, commandType)
-}
-
-// parse argv
-func (c *CmdBase) ParseArgv() error {
-	parserError := c.oldParser.Parse(c.argv)
-	if parserError != nil {
-		return parserError
-	}
-
-	return nil
-}
-
-// validate and parse argv
-func (c *CmdBase) ValidateParseArgv(commandType string, logger vlog.Printer) error {
-	logger.LogArgParse(&c.argv)
-	return c.ValidateParseArgvHelper(commandType)
-}
-
-// validate and parse masked argv
-// Some database actions, such as createDB and reviveDB, need to mask sensitive parameters in the log
-func (c *CmdBase) ValidateParseMaskedArgv(commandType string, logger vlog.Printer) error {
-	logger.LogMaskedArgParse(c.argv)
-	return c.ValidateParseArgvHelper(commandType)
-}
-
-func (c *CmdBase) ValidateParseArgvHelper(commandType string) error {
-	if c.oldParser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-	if len(c.argv) == 0 {
-		c.PrintUsage(commandType)
-		return fmt.Errorf("zero args found, at least one argument expected")
-	}
-	return c.ParseArgv()
 }
 
 // ValidateParseBaseOptions will validate and parse the required base options in each command
@@ -123,7 +79,7 @@ func (c *CmdBase) SetParser(parser *pflag.FlagSet) {
 func (c *CmdBase) SetIPv6(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(
 		c.ipv6,
-		"ipv6",
+		ipv6Flag,
 		false,
 		"Whether the hosts are using IPv6 addresses",
 	)
@@ -152,6 +108,25 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 		false,
 		"Show the details of VCluster run in the console",
 	)
+	// keyPath and certPath are flags that all subcommands require, except for the config subcommand
+	if cmd.Name() != configSubCmd {
+		cmd.Flags().StringVar(
+			&globals.keyPath,
+			keyPathFlag,
+			"",
+			"Path to the key file",
+		)
+		markFlagsFileName(cmd, map[string][]string{keyPathFlag: {"key"}})
+
+		cmd.Flags().StringVar(
+			&globals.certPath,
+			certPathFlag,
+			"",
+			"Path to the cert file",
+		)
+		markFlagsFileName(cmd, map[string][]string{certPathFlag: {"pem", "crt"}})
+		cmd.MarkFlagsRequiredTogether(keyPathFlag, certPathFlag)
+	}
 	if util.StringInArray(outputFileFlag, flags) {
 		cmd.Flags().StringVarP(
 			&c.output,
@@ -236,6 +211,13 @@ func setConfigFlags(cmd *cobra.Command, flags []string) {
 			util.GetEonFlagMsg("indicate if the database is an Eon db."+
 				" Use it when you do not trust "+vclusterops.ConfigFileName))
 	}
+	if util.StringInArray(configParamFlag, flags) {
+		cmd.Flags().StringToStringVar(
+			&dbOptions.ConfigurationParameters,
+			configParamFlag,
+			map[string]string{},
+			"Comma-separated list of NAME=VALUE pairs of existing configuration parameters")
+	}
 }
 
 // setPasswordFlags sets all the password flags
@@ -267,7 +249,7 @@ func (c *CmdBase) setPasswordFlags(cmd *cobra.Command) {
 // ResetUserInputOptions reset password option to nil in each command
 // if it is not provided in cli
 func (c *CmdBase) ResetUserInputOptions(opt *vclusterops.DatabaseOptions) {
-	if !c.parser.Changed("password") {
+	if !c.parser.Changed(passwordFlag) {
 		opt.Password = nil
 	}
 }
@@ -276,7 +258,7 @@ func (c *CmdBase) ResetUserInputOptions(opt *vclusterops.DatabaseOptions) {
 // OldResetUserInputOptions reset password and ipv6 options to nil in each command
 // if they are not provided in cli
 func (c *CmdBase) OldResetUserInputOptions() {
-	if !c.parser.Changed("ipv6") {
+	if !c.parser.Changed(ipv6Flag) {
 		c.ipv6 = nil
 	}
 }
@@ -330,38 +312,6 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 	return nil
 }
 
-// remove this function in VER-92222
-// ValidateParseBaseOptions will validate and parse the required base options in each command
-func (c *CmdBase) OldValidateParseBaseOptions(opt *vclusterops.DatabaseOptions) error {
-	// parse raw host str input into a []string
-	err := c.parseHostList(opt)
-	if err != nil {
-		return err
-	}
-	// parse IsEon
-	opt.OldIsEon.FromBoolPointer(c.isEon)
-	// parse Ipv6
-	opt.OldIpv6.FromBoolPointer(c.ipv6)
-
-	return nil
-}
-
-// remove this function in VER-92222
-// convert a host string into a list of hosts,
-// save the list into options.RawHosts;
-// the hosts should be separated by comma, and will be converted to lower case
-func (c *CmdBase) parseHostList(options *vclusterops.DatabaseOptions) error {
-	if *c.hostListStr != "" {
-		inputHostList, err := util.SplitHosts(*c.hostListStr)
-		if err != nil {
-			return err
-		}
-		options.RawHosts = inputHostList
-	}
-
-	return nil
-}
-
 // usePassword returns true if at least one of the password
 // flags is passed in the cli
 func (c *CmdBase) usePassword() bool {
@@ -393,4 +343,23 @@ func (c *CmdBase) initCmdOutputFile() (*os.File, error) {
 		return nil, fmt.Errorf("output-file cannot be empty")
 	}
 	return os.OpenFile(c.output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outputFilePerm)
+}
+
+// getCertFilesFromPaths will update cert and key file from cert path options
+func (c *CmdBase) getCertFilesFromCertPaths(opt *vclusterops.DatabaseOptions) error {
+	if globals.certPath != "" {
+		certData, err := os.ReadFile(globals.certPath)
+		if err != nil {
+			return fmt.Errorf("failed to read certificate file, details %w", err)
+		}
+		opt.Cert = string(certData)
+	}
+	if globals.keyPath != "" {
+		keyData, err := os.ReadFile(globals.keyPath)
+		if err != nil {
+			return fmt.Errorf("failed to read private key file, details %w", err)
+		}
+		opt.Key = string(keyData)
+	}
+	return nil
 }

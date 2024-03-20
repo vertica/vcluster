@@ -41,7 +41,7 @@ func makeCmdConfig() *cobra.Command {
 	newCmd := &CmdConfig{}
 	cmd := makeBasicCobraCmd(
 		newCmd,
-		"config",
+		configSubCmd,
 		"Show the content of the config file",
 		`This subcommand is used to print the content of the config file.
 
@@ -52,7 +52,7 @@ Examples:
   # show the contents of the config file at /tmp/vertica_cluster.yaml
   vcluster config --show --config /tmp/vertica_cluster.yaml
 `,
-		[]string{"config"},
+		[]string{configFlag},
 	)
 
 	// local flags
@@ -71,10 +71,6 @@ func (c *CmdConfig) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"show the content of the config file",
 	)
-}
-
-func (c *CmdConfig) CommandType() string {
-	return "config"
 }
 
 func (c *CmdConfig) Parse(inputArgv []string, logger vlog.Printer) error {

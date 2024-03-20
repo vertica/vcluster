@@ -47,7 +47,7 @@ func makeCmdUnsandboxSubcluster() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"unsandbox_subcluster",
+		unsandboxSubCmd,
 		"Unsandbox a subcluster",
 		`This subcommand unsandboxes a subcluster in an existing Eon Mode database.
 
@@ -98,10 +98,6 @@ func (c *CmdUnsandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdUnsandboxSubcluster) CommandType() string {
-	return "unsandbox_subcluster"
-}
-
 func (c *CmdUnsandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
@@ -112,7 +108,13 @@ func (c *CmdUnsandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) 
 // ParseInternal parses internal commands for unsandboxed subclusters.
 func (c *CmdUnsandboxSubcluster) parseInternal(logger vlog.Printer) error {
 	logger.Info("Called parseInternal()")
-	err := c.ValidateParseBaseOptions(&c.usOptions.DatabaseOptions)
+
+	err := c.getCertFilesFromCertPaths(&c.usOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.ValidateParseBaseOptions(&c.usOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
@@ -127,7 +129,7 @@ func (c *CmdUnsandboxSubcluster) Analyze(logger vlog.Printer) error {
 
 func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.PrintInfo("Running unsandbox subcluster")
-	vcc.LogInfo("Calling method Run() for command " + c.CommandType())
+	vcc.LogInfo("Calling method Run() for command " + unsandboxSubCmd)
 
 	options := c.usOptions
 
@@ -138,7 +140,7 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	}
 	options.Config = config
 	err = vcc.VUnsandbox(&options)
-	vcc.PrintInfo("Completed method Run() for command " + c.CommandType())
+	vcc.PrintInfo("Completed method Run() for command " + unsandboxSubCmd)
 	return err
 }
 

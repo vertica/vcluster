@@ -180,6 +180,14 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 			continue
 		}
 
+		if op.cmdType == StopDBCmd {
+			err = op.validateHosts(nodesStates)
+			if err != nil {
+				allErrs = errors.Join(allErrs, err)
+				break
+			}
+		}
+
 		// collect all the up hosts
 		err = op.collectUpHosts(nodesStates, host, upHosts, upScInfo, sandboxInfo, upScNodes)
 		if err != nil {
@@ -258,6 +266,34 @@ func (op *httpsGetUpNodesOp) processHostLists(upHosts mapset.Set[string], upScIn
 	}
 
 	return op.noUpHostsOk
+}
+
+// validateHosts can validate if hosts in user input matches the ones in GET /nodes response
+func (op *httpsGetUpNodesOp) validateHosts(nodesStates nodesStateInfo) error {
+	var dbHosts []string
+	dbUnexpected := false
+	unexpectedDBName := ""
+	for _, node := range nodesStates.NodeList {
+		if node.Database != op.DBName {
+			unexpectedDBName = node.Database
+			dbUnexpected = true
+		}
+		dbHosts = append(dbHosts, node.Address)
+	}
+	// when db name does not match, we throw an error
+	if dbUnexpected {
+		unexpectedHosts := util.SliceCommon(op.hosts, dbHosts)
+		return fmt.Errorf(`[%s] unexpected database %q is running on hosts %v. Please ensure the provided hosts or database name are correct`,
+			op.name, unexpectedDBName, unexpectedHosts)
+	}
+	// when hosts from user input do not match the ones from running db, we throw an error
+	unexpectedHosts := util.SliceDiff(op.hosts, dbHosts)
+	if len(unexpectedHosts) > 0 {
+		return fmt.Errorf(`[%s] database %q does not contain any nodes on the hosts %v. Please ensure the hosts are correct`,
+			op.name, op.DBName, unexpectedHosts)
+	}
+
+	return nil
 }
 
 func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host string,

@@ -44,7 +44,7 @@ func makeCmdAddSubcluster() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"db_add_subcluster",
+		addSCSubCmd,
 		"Add a subcluster",
 		`This subcommand adds a new subcluster to an existing Eon Mode database.
 
@@ -120,10 +120,6 @@ func (c *CmdAddSubcluster) setHiddenFlags(cmd *cobra.Command) {
 	hideLocalFlags(cmd, []string{"sc-hosts", "like"})
 }
 
-func (c *CmdAddSubcluster) CommandType() string {
-	return "db_add_subcluster"
-}
-
 func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
@@ -133,7 +129,12 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error 
 // all validations of the arguments should go in here
 func (c *CmdAddSubcluster) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
+	err := c.getCertFilesFromCertPaths(&c.addSubclusterOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

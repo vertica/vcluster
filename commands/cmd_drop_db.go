@@ -41,7 +41,7 @@ func makeCmdDropDB() *cobra.Command {
 	// VER-92345 update the long description about the hosts option
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"drop_db",
+		dropDBSubCmd,
 		"Drop a database",
 		`This subcommand drops a stopped database.
 
@@ -78,10 +78,6 @@ func (c *CmdDropDB) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdDropDB) CommandType() string {
-	return "drop_db"
-}
-
 func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogArgParse(&c.argv)
@@ -89,7 +85,7 @@ func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !c.parser.Changed("ipv6") {
+	if !c.parser.Changed(ipv6Flag) {
 		c.CmdBase.ipv6 = nil
 	}
 
@@ -98,6 +94,10 @@ func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 
 func (c *CmdDropDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
+	err := c.getCertFilesFromCertPaths(&c.dropDBOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
 	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
 }
 

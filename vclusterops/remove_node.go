@@ -47,21 +47,6 @@ func (o *VRemoveNodeOptions) setDefaultValues() {
 	*o.ForceDelete = true
 }
 
-// ParseHostToRemoveList converts a comma-separated string list of hosts into a slice of host names
-// to remove from the database. During parsing, the hosts are converted to lowercase.
-// It returns any parsing error encountered.
-func (o *VRemoveNodeOptions) ParseHostToRemoveList(hosts string) error {
-	inputHostList, err := util.SplitHosts(hosts)
-	if err != nil {
-		if len(inputHostList) == 0 {
-			return fmt.Errorf("must specify at least one host to remove")
-		}
-	}
-
-	o.HostsToRemove = inputHostList
-	return nil
-}
-
 func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
 	err := o.validateBaseOptions("db_remove_node", log)
 	if err != nil {

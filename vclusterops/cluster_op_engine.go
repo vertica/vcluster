@@ -35,7 +35,7 @@ func makeClusterOpEngine(instructions []clusterOp, certs *httpsCerts) VClusterOp
 }
 
 func (opEngine *VClusterOpEngine) shouldGetCertsFromOptions() bool {
-	return (opEngine.certs.key != "" && opEngine.certs.cert != "" && opEngine.certs.caCert != "")
+	return (opEngine.certs.key != "" && opEngine.certs.cert != "")
 }
 
 func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {

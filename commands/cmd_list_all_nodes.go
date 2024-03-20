@@ -43,7 +43,7 @@ func makeListAllNodes() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"list_allnodes",
+		listAllNodesSubCmd,
 		"List all nodes in the database",
 		`This subcommand queries the status of the nodes in the consensus and prints
 whether they are currently up or down.
@@ -64,10 +64,6 @@ Examples:
 	return cmd
 }
 
-func (c *CmdListAllNodes) CommandType() string {
-	return "list_allnodes"
-}
-
 func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogArgParse(&c.argv)
@@ -81,8 +77,13 @@ func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 }
 
 func (c *CmdListAllNodes) validateParse(logger vlog.Printer) error {
-	logger.Info("Called validateParse()", "command", c.CommandType())
-	err := c.ValidateParseBaseOptions(&c.fetchNodeStateOptions.DatabaseOptions)
+	logger.Info("Called validateParse()", "command", listAllNodesSubCmd)
+	err := c.getCertFilesFromCertPaths(&c.fetchNodeStateOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.ValidateParseBaseOptions(&c.fetchNodeStateOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

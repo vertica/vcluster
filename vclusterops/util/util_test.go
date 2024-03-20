@@ -141,21 +141,6 @@ func TestGetCleanPath(t *testing.T) {
 	assert.Equal(t, res, "/data")
 }
 
-func TestSplitHosts(t *testing.T) {
-	// positive case
-	hosts := "vnode1, vnode2"
-	res, err := SplitHosts(hosts)
-	expected := []string{"vnode1", "vnode2"}
-	assert.Nil(t, err)
-	assert.Equal(t, res, expected)
-
-	// negative case
-	hosts = " "
-	res, err = SplitHosts(hosts)
-	assert.NotNil(t, err)
-	assert.Equal(t, res, []string{})
-}
-
 func TestParseHostList(t *testing.T) {
 	// positive case
 	hosts := []string{" vnode1 ", " vnode2", "vnode3 ", "  "}
@@ -201,6 +186,14 @@ func TestSliceDiff(t *testing.T) {
 	b := []string{"1", "3", "4"}
 	expected := []string{"2"}
 	actual := SliceDiff(a, b)
+	assert.Equal(t, expected, actual)
+}
+
+func TestSliceCommon(t *testing.T) {
+	a := []string{"3", "5", "4", "1", "2"}
+	b := []string{"5", "6", "7", "4", "3"}
+	expected := []string{"3", "4", "5"}
+	actual := SliceCommon(a, b)
 	assert.Equal(t, expected, actual)
 }
 
@@ -280,28 +273,6 @@ func TestSetEonFlagHelpMsg(t *testing.T) {
 	msg := "Path to depot directory"
 	finalMsg := "[Eon only] Path to depot directory"
 	assert.Equal(t, GetEonFlagMsg(msg), finalMsg)
-}
-
-func TestParseConfigParams(t *testing.T) {
-	configParamsListStr := ""
-	configParams, err := ParseConfigParams(configParamsListStr)
-	assert.Nil(t, err)
-	assert.Nil(t, configParams)
-
-	configParamsListStr = "key1=val1,key2"
-	configParams, err = ParseConfigParams(configParamsListStr)
-	assert.NotNil(t, err)
-	assert.Nil(t, configParams)
-
-	configParamsListStr = "key1=val1,=val2"
-	configParams, err = ParseConfigParams(configParamsListStr)
-	assert.NotNil(t, err)
-	assert.Nil(t, configParams)
-
-	configParamsListStr = "key1=val1,key2=val2"
-	configParams, err = ParseConfigParams(configParamsListStr)
-	assert.Nil(t, err)
-	assert.ObjectsAreEqualValues(configParams, map[string]string{"key1": "val1", "key2": "val2"})
 }
 
 func TestGenVNodeName(t *testing.T) {

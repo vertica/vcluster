@@ -18,7 +18,6 @@ package commands
 import (
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -29,8 +28,6 @@ import (
 type CmdShowRestorePoints struct {
 	CmdBase
 	showRestorePointsOptions *vclusterops.VShowRestorePointsOptions
-	configurationParams      string // raw input from user, need further processing
-
 }
 
 func makeCmdShowRestorePoints() *cobra.Command {
@@ -42,7 +39,7 @@ func makeCmdShowRestorePoints() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"show_restore_points",
+		showRestorePointsSubCmd,
 		"Query and list restore point(s) in archive(s)",
 		`This subcommand queries and lists restore point(s) in archive(s).
 
@@ -73,8 +70,8 @@ Examples:
 	)
 
 	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, passwordFlag,
-		communalStorageLocationFlag})
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, passwordFlag, hostsFlag,
+		communalStorageLocationFlag, configParamFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -84,12 +81,6 @@ Examples:
 
 // setLocalFlags will set the local flags the command has
 func (c *CmdShowRestorePoints) setLocalFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(
-		&c.configurationParams,
-		"config-param",
-		"",
-		"Comma-separated list of NAME=VALUE pairs for configuration parameters",
-	)
 	cmd.Flags().StringVar(
 		c.showRestorePointsOptions.FilterOptions.ArchiveName,
 		"restore-point-archive",
@@ -122,10 +113,6 @@ func (c *CmdShowRestorePoints) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdShowRestorePoints) CommandType() string {
-	return "show_restore_points"
-}
-
 func (c *CmdShowRestorePoints) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
@@ -141,13 +128,9 @@ func (c *CmdShowRestorePoints) Parse(inputArgv []string, logger vlog.Printer) er
 func (c *CmdShowRestorePoints) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	// check the format of configuration params string, and parse it into configParams
-	configurationParams, err := util.ParseConfigParams(c.configurationParams)
+	err := c.getCertFilesFromCertPaths(&c.showRestorePointsOptions.DatabaseOptions)
 	if err != nil {
 		return err
-	}
-	if configurationParams != nil {
-		c.showRestorePointsOptions.ConfigurationParameters = configurationParams
 	}
 
 	err = c.ValidateParseBaseOptions(&c.showRestorePointsOptions.DatabaseOptions)

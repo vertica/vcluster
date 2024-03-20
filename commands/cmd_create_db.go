@@ -31,15 +31,12 @@ import (
  */
 
 type CmdCreateDB struct {
-	createDBOptions    *vclusterops.VCreateDatabaseOptions
-	configParamListStr *string // raw input from user, need further processing
-
+	createDBOptions *vclusterops.VCreateDatabaseOptions
 	CmdBase
 }
 
 func makeCmdCreateDB() *cobra.Command {
 	newCmd := &CmdCreateDB{}
-	newCmd.configParamListStr = new(string)
 	opt := vclusterops.VCreateDatabaseOptionsFactory()
 	newCmd.createDBOptions = &opt
 
@@ -68,7 +65,7 @@ Examples:
   --data-path <data-path> --config-pram <key1=value1,key2=value2,key3=value3> --config <config_file>
 `,
 		[]string{dbNameFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag,
-			communalStorageLocationFlag, passwordFlag, configFlag, ipv6Flag},
+			communalStorageLocationFlag, passwordFlag, configFlag, ipv6Flag, configParamFlag},
 	)
 
 	// local flags
@@ -122,12 +119,6 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		"get-aws-credentials-from-env-vars",
 		false,
 		util.GetEonFlagMsg("Read AWS credentials from environment variables"),
-	)
-	cmd.Flags().StringVar(
-		c.configParamListStr,
-		"config-param",
-		"",
-		"Comma-separated list of NAME=VALUE pairs for setting database configuration parameters",
 	)
 	cmd.Flags().BoolVar(
 		c.createDBOptions.P2p,
@@ -224,14 +215,11 @@ func (c *CmdCreateDB) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	// check the format of config param string, and parse it into configParams
-	configParams, err := util.ParseConfigParams(*c.configParamListStr)
+	err = c.getCertFilesFromCertPaths(&c.createDBOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
-	if configParams != nil {
-		c.createDBOptions.ConfigurationParameters = configParams
-	}
+
 	return c.setDBPassword(&c.createDBOptions.DatabaseOptions)
 }
 

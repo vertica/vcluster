@@ -16,8 +16,11 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -27,8 +30,6 @@ import (
  */
 type CmdRemoveNode struct {
 	removeNodeOptions *vclusterops.VRemoveNodeOptions
-	// Comma-separated list of hosts to remove
-	hostToRemoveListStr string
 
 	CmdBase
 }
@@ -42,7 +43,7 @@ func makeCmdRemoveNode() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"db_remove_node",
+		removeNodeSubCmd,
 		"Remove host(s) from an existing database",
 		`This subcommand removes one or more nodes from an existing database.
 
@@ -77,10 +78,10 @@ Examples:
 
 // setLocalFlags will set the local flags the command has
 func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(
-		&c.hostToRemoveListStr,
+	cmd.Flags().StringSliceVar(
+		&c.removeNodeOptions.HostsToRemove,
 		"remove",
-		"",
+		[]string{},
 		"Comma-separated list of host(s) to remove from the database",
 	)
 	cmd.Flags().BoolVar(
@@ -89,10 +90,6 @@ func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
 		true,
 		"Whether to force clean-up of existing directories if they are not empty",
 	)
-}
-
-func (c *CmdRemoveNode) CommandType() string {
-	return "db_remove_node"
 }
 
 func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -109,15 +106,34 @@ func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdRemoveNode) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	err := c.removeNodeOptions.ParseHostToRemoveList(c.hostToRemoveListStr)
+	err := c.parseHostToRemoveList()
 	if err != nil {
 		return err
 	}
+
+	err = c.getCertFilesFromCertPaths(&c.removeNodeOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
 	err = c.ValidateParseBaseOptions(&c.removeNodeOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
 	return c.setDBPassword(&c.removeNodeOptions.DatabaseOptions)
+}
+
+// parseHostToRemoveList trims and lowercases the hosts in --remove
+func (c *CmdRemoveNode) parseHostToRemoveList() error {
+	if len(c.removeNodeOptions.HostsToRemove) > 0 {
+		err := util.ParseHostList(&c.removeNodeOptions.HostsToRemove)
+		if err != nil {
+			// the err from util.ParseHostList will be "must specify a host or host list"
+			// we overwrite the error here to provide more details
+			return fmt.Errorf("must specify at least one host to remove")
+		}
+	}
+	return nil
 }
 
 func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
@@ -136,7 +152,7 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
 	if err != nil {
 		return err
 	}
-	vcc.PrintInfo("Successfully removed nodes %s from database %s", c.hostToRemoveListStr, *options.DBName)
+	vcc.PrintInfo("Successfully removed nodes %v from database %s", c.removeNodeOptions.HostsToRemove, *options.DBName)
 
 	// write cluster information to the YAML config file.
 	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.GetLog())

@@ -312,9 +312,11 @@ func (adapter *httpAdapter) buildCertsFromMemory(key, cert, caCert string) (tls.
 	}
 
 	caCertPool := x509.NewCertPool()
-	ok := caCertPool.AppendCertsFromPEM([]byte(caCert))
-	if !ok {
-		return certificate, nil, fmt.Errorf("fail to load HTTPS CA certificates")
+	if caCert != "" {
+		ok := caCertPool.AppendCertsFromPEM([]byte(caCert))
+		if !ok {
+			return certificate, nil, fmt.Errorf("fail to load HTTPS CA certificates")
+		}
 	}
 
 	return certificate, caCertPool, nil

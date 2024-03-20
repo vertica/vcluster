@@ -30,12 +30,11 @@ type CmdStartDB struct {
 	CmdBase
 	startDBOptions *vclusterops.VStartDatabaseOptions
 
-	Force               bool   // force cleanup to start the database
-	AllowFallbackKeygen bool   // Generate spread encryption key from Vertica. Use under support guidance only
-	IgnoreClusterLease  bool   // ignore the cluster lease in communal storage
-	Unsafe              bool   // Start database unsafely, skipping recovery.
-	Fast                bool   // Attempt fast startup database
-	configurationParams string // raw input from user, need further processing
+	Force               bool // force cleanup to start the database
+	AllowFallbackKeygen bool // Generate spread encryption key from Vertica. Use under support guidance only
+	IgnoreClusterLease  bool // ignore the cluster lease in communal storage
+	Unsafe              bool // Start database unsafely, skipping recovery.
+	Fast                bool // Attempt fast startup database
 }
 
 func makeCmdStartDB() *cobra.Command {
@@ -49,7 +48,7 @@ func makeCmdStartDB() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"start_db",
+		startDBSubCmd,
 		"Start a database",
 		`This subcommand starts a database on a set of hosts.
 
@@ -68,7 +67,8 @@ Examples:
 	)
 
 	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, communalStorageLocationFlag, configFlag, catalogPathFlag, passwordFlag})
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, communalStorageLocationFlag,
+		configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -82,19 +82,6 @@ Examples:
 
 // setLocalFlags will set the local flags the command has
 func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(
-		c.isEon,
-		"eon-mode",
-		false,
-		util.GetEonFlagMsg("indicate if the database is an Eon database."+
-			" Use it when you do not trust "+vclusterops.ConfigFileName),
-	)
-	cmd.Flags().StringVar(
-		&c.configurationParams,
-		"config-param",
-		"",
-		"Comma-separated list of NAME=VALUE pairs of existing configuration parameters",
-	)
 	cmd.Flags().IntVar(
 		c.startDBOptions.StatePollingTimeout,
 		"timeout",
@@ -145,34 +132,29 @@ func (c *CmdStartDB) setHiddenFlags(cmd *cobra.Command) {
 	hideLocalFlags(cmd, []string{"unsafe", "force", "allow_fallback_keygen", "ignore_cluster_lease", "fast", "trim-hosts"})
 }
 
-func (c *CmdStartDB) CommandType() string {
-	return "start_db"
-}
-
 func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
 
+	// remove eonModeFlag check in VER-92369
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !c.parser.Changed("eon-mode") {
+	if !c.parser.Changed(eonModeFlag) {
 		c.CmdBase.isEon = nil
+	} else {
+		*c.CmdBase.isEon = true
 	}
 	c.OldResetUserInputOptions()
 	return c.validateParse(logger)
 }
 
 func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
-	logger.Info("Called validateParse()", "command", c.CommandType())
+	logger.Info("Called validateParse()", "command", startDBSubCmd)
 
-	// check the format of configuration params string, and parse it into configParams
-	configurationParams, err := util.ParseConfigParams(c.configurationParams)
+	err := c.getCertFilesFromCertPaths(&c.startDBOptions.DatabaseOptions)
 	if err != nil {
 		return err
-	}
-	if configurationParams != nil {
-		c.startDBOptions.ConfigurationParameters = configurationParams
 	}
 
 	err = c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)

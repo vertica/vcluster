@@ -32,8 +32,6 @@ import (
  */
 type CmdAddNode struct {
 	addNodeOptions *vclusterops.VAddNodeOptions
-	// Comma-separated list of hosts to add
-	newHostListStr string
 	// Comma-separated list of node names, which exist in the cluster
 	nodeNameListStr string
 
@@ -49,7 +47,7 @@ func makeCmdAddNode() *cobra.Command {
 
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
-		"db_add_node",
+		addNodeSubCmd,
 		"Add host(s) to an existing database",
 		`This subcommand adds one or more hosts to an existing database.
 
@@ -90,10 +88,10 @@ Examples:
 
 // setLocalFlags will set the local flags the command has
 func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(
-		&c.newHostListStr,
+	cmd.Flags().StringSliceVar(
+		&c.addNodeOptions.NewHosts,
 		"add",
-		"",
+		[]string{},
 		"Comma-separated list of host(s) to add to the database",
 	)
 	cmd.Flags().BoolVar(
@@ -129,10 +127,6 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 	)
 }
 
-func (c *CmdAddNode) CommandType() string {
-	return "db_add_node"
-}
-
 func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
@@ -147,7 +141,12 @@ func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	err := c.parseNewHostList()
+	err := c.getCertFilesFromCertPaths(&c.addNodeOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.parseNewHostList()
 	if err != nil {
 		return err
 	}
@@ -164,15 +163,16 @@ func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 	return c.setDBPassword(&c.addNodeOptions.DatabaseOptions)
 }
 
-// ParseNewHostList converts the string list of hosts, to add, into a slice of strings.
-// The hosts should be separated by comma, and will be converted to lower case.
+// parseNewHostList trims and lowercases the hosts in --add
 func (c *CmdAddNode) parseNewHostList() error {
-	inputHostList, err := util.SplitHosts(c.newHostListStr)
-	if err != nil {
-		return fmt.Errorf("must specify at least one host to add: %w", err)
+	if len(c.addNodeOptions.NewHosts) > 0 {
+		err := util.ParseHostList(&c.addNodeOptions.NewHosts)
+		if err != nil {
+			// the err from util.ParseHostList will be "must specify a host or host list"
+			// we overwrite the error here to provide more details
+			return fmt.Errorf("must specify at least one host to add")
+		}
 	}
-
-	c.addNodeOptions.NewHosts = inputHostList
 	return nil
 }
 
@@ -211,7 +211,7 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 	if err != nil {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
-	vcc.PrintInfo("Added nodes %s to database %s", c.newHostListStr, *options.DBName)
+	vcc.PrintInfo("Added nodes %v to database %s", c.addNodeOptions.NewHosts, *options.DBName)
 	return nil
 }
 
