@@ -32,6 +32,7 @@ func makeHTTPSReloadSpreadOpWithInitiator(initHosts []string,
 	userName string, httpsPassword *string) (httpsReloadSpreadOp, error) {
 	op := httpsReloadSpreadOp{}
 	op.name = "HTTPSReloadSpreadOp"
+	op.description = "Reload spread"
 	op.hosts = initHosts
 	op.useHTTPPassword = useHTTPPassword
 

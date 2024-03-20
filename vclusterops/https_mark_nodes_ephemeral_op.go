@@ -34,6 +34,7 @@ func makeHTTPSMarkEphemeralNodeOp(nodeName string,
 	httpsPassword *string) (httpsMarkEphemeralNodeOp, error) {
 	op := httpsMarkEphemeralNodeOp{}
 	op.name = "HTTPSMarkEphemeralNodeOp"
+	op.description = "Change node type to ephemeral"
 	op.hosts = initiatorHost
 	op.targetNodeName = nodeName
 	op.useHTTPPassword = useHTTPPassword

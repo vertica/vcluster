@@ -32,6 +32,7 @@ func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string) (httpsSyncCatalogOp, error) {
 	op := httpsSyncCatalogOp{}
 	op.name = "HTTPSSyncCatalogOp"
+	op.description = "Synchronize catalog with communal storage"
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 

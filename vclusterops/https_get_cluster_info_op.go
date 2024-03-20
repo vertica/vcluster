@@ -34,6 +34,7 @@ func makeHTTPSGetClusterInfoOp(dbName string, hosts []string,
 ) (httpsGetClusterInfoOp, error) {
 	op := httpsGetClusterInfoOp{}
 	op.name = "HTTPSGetClusterInfoOp"
+	op.description = "Collect cluster information"
 	op.dbName = dbName
 	op.hosts = hosts
 	op.vdb = vdb

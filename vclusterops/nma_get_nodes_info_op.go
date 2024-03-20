@@ -35,6 +35,7 @@ func makeNMAGetNodesInfoOp(hosts []string,
 	vdb *VCoordinationDatabase) nmaGetNodesInfoOp {
 	op := nmaGetNodesInfoOp{}
 	op.name = "NMAGetNodesInfoOp"
+	op.description = "Collect nodes information"
 	op.hosts = hosts
 	op.dbName = dbName
 	op.catalogPrefix = catalogPrefix

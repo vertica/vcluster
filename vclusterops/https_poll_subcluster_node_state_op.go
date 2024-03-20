@@ -40,6 +40,7 @@ func makeHTTPSPollSubclusterNodeStateOp(scName string,
 	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
 	op := httpsPollSubclusterNodeStateOp{}
 	op.name = "HTTPSPollSubclusterNodeStateOp"
+	op.description = "Wait for subcluster nodes"
 	op.scName = scName
 	op.useHTTPPassword = useHTTPPassword
 
@@ -63,6 +64,7 @@ func makeHTTPSPollSubclusterNodeStateUpOp(scName string,
 	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
 	op, err := makeHTTPSPollSubclusterNodeStateOp(scName, useHTTPPassword, userName, httpsPassword)
 	op.checkDown = false
+	op.description += " to come up"
 	return op, err
 }
 
@@ -71,6 +73,7 @@ func makeHTTPSPollSubclusterNodeStateDownOp(scName string,
 	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
 	op, err := makeHTTPSPollSubclusterNodeStateOp(scName, useHTTPPassword, userName, httpsPassword)
 	op.checkDown = true
+	op.description += " to come down"
 	return op, err
 }
 

@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 )
 
-const delDirOpName = "NMADeleteDirectoriesOp"
+const (
+	delDirOpName = "NMADeleteDirectoriesOp"
+	delDirOpDesc = "Delete database directories"
+)
 
 type nmaDeleteDirectoriesOp struct {
 	opBase
@@ -28,6 +31,7 @@ func makeNMADeleteDirectoriesOp(
 ) (nmaDeleteDirectoriesOp, error) {
 	op := nmaDeleteDirectoriesOp{}
 	op.name = delDirOpName
+	op.description = delDirOpDesc
 	op.hosts = vdb.HostList
 	op.sandbox = false
 	err := op.buildRequestBody(vdb, forceDelete)
@@ -43,6 +47,7 @@ func makeNMADeleteDirsSandboxOp(
 ) (nmaDeleteDirectoriesOp, error) {
 	op := nmaDeleteDirectoriesOp{}
 	op.name = delDirOpName
+	op.description = delDirOpDesc
 	op.sandbox = sandbox
 	op.forceDelete = forceDelete
 	return op, nil

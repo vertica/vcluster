@@ -18,7 +18,7 @@ func VFetchNodeStateOptionsFactory() VFetchNodeStateOptions {
 	return opt
 }
 
-func (options *VFetchNodeStateOptions) validateParseOptions(vcc *VClusterCommands) error {
+func (options *VFetchNodeStateOptions) validateParseOptions(vcc VClusterCommands) error {
 	if len(options.RawHosts) == 0 {
 		return fmt.Errorf("must specify a host or host list")
 	}
@@ -31,16 +31,17 @@ func (options *VFetchNodeStateOptions) validateParseOptions(vcc *VClusterCommand
 }
 
 func (options *VFetchNodeStateOptions) analyzeOptions() error {
-	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
-	if err != nil {
-		return err
+	if len(options.RawHosts) > 0 {
+		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		if err != nil {
+			return err
+		}
+		options.Hosts = hostAddresses
 	}
-
-	options.Hosts = hostAddresses
 	return nil
 }
 
-func (options *VFetchNodeStateOptions) validateAnalyzeOptions(vcc *VClusterCommands) error {
+func (options *VFetchNodeStateOptions) validateAnalyzeOptions(vcc VClusterCommands) error {
 	if err := options.validateParseOptions(vcc); err != nil {
 		return err
 	}
@@ -49,7 +50,7 @@ func (options *VFetchNodeStateOptions) validateAnalyzeOptions(vcc *VClusterComma
 
 // VFetchNodeState returns the node state (e.g., up or down) for each node in the cluster and any
 // error encountered.
-func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error) {
+func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
@@ -82,7 +83,7 @@ func (vcc *VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([
 
 // produceListAllNodesInstructions will build a list of instructions to execute for
 // the fetch node state operation.
-func (vcc *VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// get hosts

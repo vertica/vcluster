@@ -38,12 +38,14 @@ func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 // AnalyzeOptions verifies the host options for the VDropDatabaseOptions struct and
 // returns any error encountered.
 func (options *VDropDatabaseOptions) AnalyzeOptions() error {
-	hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
-	if err != nil {
-		return err
+	if len(options.RawHosts) > 0 {
+		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		if err != nil {
+			return err
+		}
+		options.Hosts = hostAddresses
 	}
 
-	options.Hosts = hostAddresses
 	return nil
 }
 
@@ -54,17 +56,12 @@ func (options *VDropDatabaseOptions) validateAnalyzeOptions() error {
 	return nil
 }
 
-func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
+func (vcc VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
-
-	err := options.validateAnalyzeOptions()
-	if err != nil {
-		return err
-	}
 
 	// Analyze to produce vdb info for drop db use
 	vdb := makeVCoordinationDatabase()
@@ -72,12 +69,25 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 	// TODO: this currently requires a config file to exist. We should allow
 	// drop to proceed with just options provided and no config file.
 
-	// load vdb info from the YAML config file.
-	clusterConfig, err := ReadConfig(options.ConfigPath, vcc.Log)
+	dbConfig, err := ReadConfig(options.ConfigPath, vcc.Log)
 	if err != nil {
 		return err
 	}
-	err = vdb.setFromClusterConfig(*options.DBName, &clusterConfig)
+	options.Config = dbConfig
+
+	// set db name and hosts
+	err = options.setDBNameAndHosts()
+	if err != nil {
+		return err
+	}
+
+	// load vdb info from the YAML config file.
+	err = vdb.setFromClusterConfig(*options.DBName, dbConfig)
+	if err != nil {
+		return err
+	}
+
+	err = options.validateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
@@ -98,12 +108,12 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 		return fmt.Errorf("fail to drop database: %w", runError)
 	}
 
-	// if the database is successfully dropped, the database will be removed from the config file
+	// if the database is successfully dropped, the config file will be removed
 	// if failed to remove it, we will ask users to manually do it
-	err = clusterConfig.removeDatabaseFromConfigFile(vdb.Name, options.ConfigPath, vcc.Log)
+	err = dbConfig.removeConfigFile(options.ConfigPath, vcc.Log)
 	if err != nil {
-		vcc.Log.PrintWarning("Fail to remove the database information from config file, "+
-			"please manually clean up under directory %s. Details: %v", options.ConfigPath, err)
+		vcc.Log.PrintWarning("Fail to remove config file %q, "+
+			"please manually do it. Details: %v", options.ConfigPath, err)
 	}
 
 	return nil
@@ -117,7 +127,7 @@ func (vcc *VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error 
 //   - Check NMA connectivity
 //   - Check to see if any dbs running
 //   - Delete directories
-func (vcc *VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase, options *VDropDatabaseOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	hosts := vdb.HostList

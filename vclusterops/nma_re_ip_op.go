@@ -38,6 +38,7 @@ func makeNMAReIPOp(
 	trimReIPData bool) nmaReIPOp {
 	op := nmaReIPOp{}
 	op.name = "NMAReIPOp"
+	op.description = "Update node IPs in catalog"
 	op.reIPList = reIPList
 	op.vdb = vdb
 	op.trimReIPData = trimReIPData

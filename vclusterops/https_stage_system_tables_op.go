@@ -23,6 +23,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 type httpsStageSystemTablesOp struct {
@@ -31,6 +32,9 @@ type httpsStageSystemTablesOp struct {
 	id              string
 	hostNodeNameMap map[string]string
 	stagingDir      *string
+	excludedTables  []string
+	certs           *httpsCerts // for resetting on each new request set
+	timeoutError    error       // for breaking out early if systable gathering times out
 }
 
 type prepareStagingSystemTableRequestData struct {
@@ -38,19 +42,111 @@ type prepareStagingSystemTableRequestData struct {
 	SystemTableList  []systemTableInfo `json:"system_table_list"`
 }
 
+func (*httpsStageSystemTablesOp) getNormalExcludeTables() []string {
+	return []string{
+		"vs_ros_min_max_values",
+		"vs_projection_column_histogram",
+		"vs_passwords",
+		"vs_passwords_helper",
+		"cryptographic_keys",
+		"certificates",
+		"vs_new_storage_container_columns",
+		"vs_storage_reference_counts",
+		"vs_bundled_ros",
+	}
+}
+
+func (*httpsStageSystemTablesOp) getContainersExcludeTables() []string {
+	return []string{
+		"vs_partitions",
+		"storage_containers",
+		"vs_column_storage",
+		"vs_storage_columns",
+		"vs_strata",
+		"vs_ros_segment_bounds",
+		"delete_vectors",
+		"vs_segments",
+		"vs_projection_segment_information",
+	}
+}
+
+func (*httpsStageSystemTablesOp) getActiveQueriesExcludeTables() []string {
+	return []string{
+		"vs_execution_engine_profiles",
+	}
+}
+
+func (*httpsStageSystemTablesOp) getRosTables() []string {
+	return []string{
+		"vs_ros",
+		"vs_ros_containers",
+	}
+}
+
+func (*httpsStageSystemTablesOp) getExternalTableDetailsTables() []string {
+	return []string{
+		"external_table_details",
+	}
+}
+
+func (*httpsStageSystemTablesOp) getUDXDetailsTables() []string {
+	return []string{
+		"user_library_manifest", // VER-92401: lazy-loading UDXs on Eon can take 20+ minutes
+	}
+}
+
+func generateExcludedTableList(
+	excludeContainers bool,
+	excludeActiveQueries bool,
+	includeRos bool,
+	includeExternalTableDetails bool,
+	includeUDXDetails bool,
+	op *httpsStageSystemTablesOp,
+) (excludedTables []string) {
+	excludedTables = op.getNormalExcludeTables()
+	if excludeContainers {
+		excludedTables = append(excludedTables, op.getContainersExcludeTables()...)
+	}
+	if excludeActiveQueries {
+		excludedTables = append(excludedTables, op.getActiveQueriesExcludeTables()...)
+	}
+	if !includeRos {
+		excludedTables = append(excludedTables, op.getRosTables()...)
+	}
+	if !includeExternalTableDetails {
+		excludedTables = append(excludedTables, op.getExternalTableDetailsTables()...)
+	}
+	if !includeUDXDetails {
+		excludedTables = append(excludedTables, op.getUDXDetailsTables()...)
+	}
+	return excludedTables
+}
+
 func makeHTTPSStageSystemTablesOp(logger vlog.Printer,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	id string, hostNodeNameMap map[string]string,
 	stagingDir *string,
+	excludeContainers bool,
+	excludeActiveQueries bool,
+	includeRos bool,
+	includeExternalTableDetails bool,
+	includeUDXDetails bool,
 ) (httpsStageSystemTablesOp, error) {
 	op := httpsStageSystemTablesOp{}
 	op.name = "HTTPSStageSystemTablesOp"
+	op.description = "Stage system tables"
 	op.logger = logger.WithName(op.name)
 	op.hosts = maps.Keys(hostNodeNameMap)
 	op.useHTTPPassword = useHTTPPassword
 	op.id = id
 	op.hostNodeNameMap = hostNodeNameMap
 	op.stagingDir = stagingDir
+	op.excludedTables = generateExcludedTableList(excludeContainers,
+		excludeActiveQueries,
+		includeRos,
+		includeExternalTableDetails,
+		includeUDXDetails,
+		&op)
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -60,6 +156,9 @@ func makeHTTPSStageSystemTablesOp(logger vlog.Printer,
 		op.userName = userName
 		op.httpsPassword = httpsPassword
 	}
+
+	// define this error here for scoping
+	op.timeoutError = errors.New("timed out during system table staging")
 
 	return op, nil
 }
@@ -109,8 +208,15 @@ func (op *httpsStageSystemTablesOp) prepare(execContext *opEngineExecContext) er
 }
 
 func (op *httpsStageSystemTablesOp) execute(execContext *opEngineExecContext) error {
+	findCertsInOptions := op.certs != nil
 	for _, systemTableInfo := range execContext.systemTableList.SystemTableList {
+		if slices.Contains(op.excludedTables, systemTableInfo.TableName) {
+			continue
+		}
 		if err := op.setupClusterHTTPRequest(op.hosts, systemTableInfo.Schema, systemTableInfo.TableName); err != nil {
+			return err
+		}
+		if err := op.opBase.loadCertsIfNeeded(op.certs, findCertsInOptions); err != nil {
 			return err
 		}
 		op.logger.Info("Staging System Table:", "Schema", systemTableInfo.Schema, "Table", systemTableInfo.TableName)
@@ -118,6 +224,15 @@ func (op *httpsStageSystemTablesOp) execute(execContext *opEngineExecContext) er
 			return err
 		}
 		if err := op.processResult(execContext); err != nil {
+			// if staging a system table times out, don't take down the run,
+			// but don't keep trying as the timeouts could add up to hours if
+			// deterministic
+			if errors.Is(err, op.timeoutError) {
+				op.logger.Error(err, "Halting system table staging")
+				op.logger.PrintWarning("Timed out staging table %s.%s. Skipping remaining system tables.",
+					systemTableInfo.Schema, systemTableInfo.TableName)
+				break
+			}
 			return err
 		}
 	}
@@ -131,6 +246,12 @@ func (op *httpsStageSystemTablesOp) processResult(_ *opEngineExecContext) error 
 		op.logResponse(host, result)
 		if result.isPassing() {
 			op.logger.Info("Staging System Table Success")
+		} else if result.isInternalError() {
+			// staging system tables can fail for various reasons that should not fail
+			// the run, e.g. if DelimitedExport is uninstalled
+			op.logger.Error(result.err, "Failed to stage table")
+		} else if result.isTimeout() {
+			allErrs = errors.Join(allErrs, op.timeoutError, result.err)
 		} else {
 			allErrs = errors.Join(allErrs, result.err)
 		}
@@ -140,5 +261,14 @@ func (op *httpsStageSystemTablesOp) processResult(_ *opEngineExecContext) error 
 }
 
 func (op *httpsStageSystemTablesOp) finalize(_ *opEngineExecContext) error {
+	return nil
+}
+
+// loadCertsIfNeeded shadows the op base function and stashes the certs instead of immediately setting them,
+// as httpsStageSystemTablesOp delays creation of request objects and resets them repeatedly
+func (op *httpsStageSystemTablesOp) loadCertsIfNeeded(certs *httpsCerts, findCertsInOptions bool) error {
+	if findCertsInOptions {
+		op.certs = certs
+	}
 	return nil
 }

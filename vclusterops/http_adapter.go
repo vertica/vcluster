@@ -397,19 +397,23 @@ func getCertFilePaths() (certPaths certificatePaths, err error) {
 		return certPaths, err
 	}
 
+	fixWay := "DBAdmin user can use the --generate-https-certs-only option of install_vertica to regenerate the default certificate bundle"
 	certPaths.certFile = path.Join(certPathBase, username+".pem")
 	if !util.CheckPathExist(certPaths.certFile) {
-		return certPaths, fmt.Errorf("cert file path does not exist")
+		return certPaths, fmt.Errorf("cert file %q does not exist. "+
+			"Please verify that your cert file is in the correct location. %s", certPaths.certFile, fixWay)
 	}
 
 	certPaths.keyFile = path.Join(certPathBase, username+".key")
 	if !util.CheckPathExist(certPaths.keyFile) {
-		return certPaths, fmt.Errorf("key file path does not exist")
+		return certPaths, fmt.Errorf("key file %q does not exist. "+
+			"Please verify that your key file is in the correct location. %s", certPaths.keyFile, fixWay)
 	}
 
 	certPaths.caFile = path.Join(certPathBase, "rootca.pem")
 	if !util.CheckPathExist(certPaths.caFile) {
-		return certPaths, fmt.Errorf("ca file path does not exist")
+		return certPaths, fmt.Errorf("ca file %q does not exist. "+
+			"Please verify that your ca file is in the correct location. %s", certPaths.caFile, fixWay)
 	}
 
 	return certPaths, nil

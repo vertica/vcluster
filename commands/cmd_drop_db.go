@@ -18,7 +18,6 @@ package commands
 import (
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -40,37 +39,31 @@ func makeCmdDropDB() *cobra.Command {
 	newCmd.dropDBOptions.ForceDelete = new(bool)
 
 	// VER-92345 update the long description about the hosts option
-	cmd := makeBasicCobraCmd(
+	cmd := OldMakeBasicCobraCmd(
 		newCmd,
 		"drop_db",
 		"Drop a database",
-		`This command drops a database. Before running it, the database must be stopped. 
-For an EON database, communal storage will not be deleted and the dropped database can be recovered 
-by running revive_db.
+		`This subcommand drops a stopped database.
 
-The config file must exist for this command to work. The host information is exclusively obtained from it. 
-When the command completes successfully, the config file is removed.
+For an Eon database, communal storage is not deleted, so you can recover 
+the dropped database with revive_db.
 
-If you want to remove the local directories like catalog, depot, and data, you can use the --force-delete option. 
-This option is not recoverable, so make sure you want this data removed before using it.
-		
-The database name must be provided.
+The config file must be specified to retrieve host information. When the command 
+completes, the config file is removed.
 
+To remove the local directories like catalog, depot, and data, you can use the 
+--force-delete option. The data deleted with this option is unrecoverable.
 
-Example:
+Examples:
   vcluster drop_db --db-name <db_name> --config <config_file>
 `,
 	)
 
 	// common db flags
-	setCommonFlags(cmd, []string{"db-name", "config", "honor-user-input"})
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
-
-	// require db-name, and one of (--honor-user-input, --config)
-	markFlagsRequired(cmd, []string{"db-name"})
-	requireHonorUserInputOrConfDir(cmd)
 
 	return cmd
 }
@@ -81,8 +74,7 @@ func (c *CmdDropDB) setLocalFlags(cmd *cobra.Command) {
 		c.dropDBOptions.ForceDelete,
 		"force-delete",
 		false,
-		util.GetOptionalFlagMsg("Delete local directories like catalog, depot, and data. "+
-			"This option is not recoverable, so make sure you want this data removed before using it."),
+		"Delete local directories like catalog, depot, and data.",
 	)
 }
 
@@ -109,16 +101,16 @@ func (c *CmdDropDB) validateParse(logger vlog.Printer) error {
 	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
 }
 
-func (c *CmdDropDB) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdDropDB) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.V(1).Info("Called method Run()")
 
 	err := vcc.VDropDatabase(c.dropDBOptions)
 	if err != nil {
-		vcc.Log.Error(err, "failed do drop the database")
+		vcc.LogError(err, "failed do drop the database")
 		return err
 	}
 
-	vcc.Log.PrintInfo("Successfully dropped database %s", *c.dropDBOptions.DBName)
+	vcc.PrintInfo("Successfully dropped database %s", *c.dropDBOptions.DBName)
 	return nil
 }
 

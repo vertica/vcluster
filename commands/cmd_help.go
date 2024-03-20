@@ -44,7 +44,7 @@ func makeCmdHelp() *CmdHelp {
 	return newCmd
 }
 
-func (c CmdHelp) CommandType() string {
+func (c *CmdHelp) CommandType() string {
 	return "help"
 }
 
@@ -73,6 +73,6 @@ func (c *CmdHelp) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdHelp) Run(_ vclusterops.VClusterCommands) error {
+func (c *CmdHelp) Run(_ vclusterops.ClusterCommands) error {
 	return nil
 }

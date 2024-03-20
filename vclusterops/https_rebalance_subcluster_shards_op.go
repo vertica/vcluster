@@ -35,6 +35,7 @@ func makeHTTPSRebalanceSubclusterShardsOp(bootstrapHost []string, useHTTPPasswor
 	httpsPassword *string, scName string) (httpsRebalanceSubclusterShardsOp, error) {
 	op := httpsRebalanceSubclusterShardsOp{}
 	op.name = "HTTPSRebalanceSubclusterShardsOp"
+	op.description = "Initiate rebalance of subcluster shards"
 	op.hosts = bootstrapHost
 	op.scName = scName
 

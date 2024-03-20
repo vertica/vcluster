@@ -16,10 +16,7 @@
 package commands
 
 import (
-	"flag"
-	"fmt"
-	"strconv"
-
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -33,61 +30,119 @@ type CmdStartDB struct {
 	CmdBase
 	startDBOptions *vclusterops.VStartDatabaseOptions
 
-	Force               *bool   // force cleanup to start the database
-	AllowFallbackKeygen *bool   // Generate spread encryption key from Vertica. Use under support guidance only
-	IgnoreClusterLease  *bool   // ignore the cluster lease in communal storage
-	Unsafe              *bool   // Start database unsafely, skipping recovery.
-	Fast                *bool   // Attempt fast startup database
-	configurationParams *string // raw input from user, need further processing
+	Force               bool   // force cleanup to start the database
+	AllowFallbackKeygen bool   // Generate spread encryption key from Vertica. Use under support guidance only
+	IgnoreClusterLease  bool   // ignore the cluster lease in communal storage
+	Unsafe              bool   // Start database unsafely, skipping recovery.
+	Fast                bool   // Attempt fast startup database
+	configurationParams string // raw input from user, need further processing
 }
 
-func makeCmdStartDB() *CmdStartDB {
+func makeCmdStartDB() *cobra.Command {
 	// CmdStartDB
 	newCmd := &CmdStartDB{}
+	newCmd.isEon = new(bool)
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VStartDatabaseOptionsFactory()
+	newCmd.startDBOptions = &opt
+	newCmd.startDBOptions.CommunalStorageLocation = new(string)
 
-	// parser, used to parse command-line flags
-	newCmd.oldParser = flag.NewFlagSet("start_db", flag.ExitOnError)
-	startDBOptions := vclusterops.VStartDatabaseOptionsFactory()
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"start_db",
+		"Start a database",
+		`This subcommand starts a database on a set of hosts.
 
-	// require flags
-	startDBOptions.DBName = newCmd.oldParser.String("db-name", "", util.GetOptionalFlagMsg("The name of the database to be started."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
+Starts Vertica on each host and establishes cluster quorum. This subcommand is 
+similar to restart_node, except start_db assumes that cluster quorum has been lost.
 
-	// optional flags
-	startDBOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	startDBOptions.CatalogPrefix = newCmd.oldParser.String("catalog-path", "", "The catalog path of the database")
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg(
-		"Comma-separated list of hosts to participate in database."+" Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "start database with with IPv6 hosts")
+The IP address provided for each node name must match the current IP address in the 
+Vertica catalog. If the IPs do not match, you must call re_ip before start_db.
 
-	startDBOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	newCmd.oldParser.StringVar(&startDBOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
-	startDBOptions.StatePollingTimeout = newCmd.oldParser.Int("timeout", util.DefaultTimeoutSeconds,
-		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
-			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
-	// eon flags
-	newCmd.isEon = newCmd.oldParser.Bool("eon-mode", false, util.GetEonFlagMsg("Indicate if the database is an Eon database."+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	startDBOptions.CommunalStorageLocation = newCmd.oldParser.String("communal-storage-location", "",
-		util.GetEonFlagMsg("Location of communal storage"))
-	newCmd.configurationParams = newCmd.oldParser.String("config-param", "", util.GetOptionalFlagMsg(
-		"Comma-separated list of NAME=VALUE pairs for configuration parameters"))
+If you pass the --hosts command a subset of all nodes in the cluster, only the specified 
+nodes are started. There must be a quorum of nodes for the database to start.
 
-	// hidden options
-	// TODO: the following options will be processed later
-	newCmd.Unsafe = newCmd.oldParser.Bool("unsafe", false, util.SuppressHelp)
-	newCmd.Force = newCmd.oldParser.Bool("force", false, util.SuppressHelp)
-	newCmd.AllowFallbackKeygen = newCmd.oldParser.Bool("allow_fallback_keygen", false, util.SuppressHelp)
-	newCmd.IgnoreClusterLease = newCmd.oldParser.Bool("ignore_cluster_lease", false, util.SuppressHelp)
-	newCmd.Fast = newCmd.oldParser.Bool("fast", false, util.SuppressHelp)
-	startDBOptions.TrimHostList = newCmd.oldParser.Bool("trim-hosts", false, util.SuppressHelp)
+Examples:
+  vcluster start_db --db-name <db_name> --password <password> --config <config_file>
+`,
+	)
 
-	newCmd.startDBOptions = &startDBOptions
-	newCmd.oldParser.Usage = func() {
-		util.SetParserUsage(newCmd.oldParser, "start_db")
-	}
-	return newCmd
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, communalStorageLocationFlag, configFlag, catalogPathFlag, passwordFlag})
+
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	// check if hidden flags can be implemented/removed in VER-92259
+	// hidden flags
+	newCmd.setHiddenFlags(cmd)
+
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		c.isEon,
+		"eon-mode",
+		false,
+		util.GetEonFlagMsg("indicate if the database is an Eon database."+
+			" Use it when you do not trust "+vclusterops.ConfigFileName),
+	)
+	cmd.Flags().StringVar(
+		&c.configurationParams,
+		"config-param",
+		"",
+		"Comma-separated list of NAME=VALUE pairs of existing configuration parameters",
+	)
+	cmd.Flags().IntVar(
+		c.startDBOptions.StatePollingTimeout,
+		"timeout",
+		util.DefaultTimeoutSeconds,
+		"The timeout (in seconds) to wait for polling node state operation",
+	)
+}
+
+// setHiddenFlags will set the hidden flags the command has.
+// These hidden flags will not be shown in help and usage of the command, and they will be used internally.
+func (c *CmdStartDB) setHiddenFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		&c.Unsafe,
+		"unsafe",
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		&c.Force,
+		"force",
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		&c.AllowFallbackKeygen,
+		"allow_fallback_keygen",
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		&c.IgnoreClusterLease,
+		"ignore_cluster_lease",
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		&c.Fast,
+		"fast",
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		c.startDBOptions.TrimHostList,
+		"trim-hosts",
+		false,
+		"",
+	)
+	hideLocalFlags(cmd, []string{"unsafe", "force", "allow_fallback_keygen", "ignore_cluster_lease", "fast", "trim-hosts"})
 }
 
 func (c *CmdStartDB) CommandType() string {
@@ -95,27 +150,16 @@ func (c *CmdStartDB) CommandType() string {
 }
 
 func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {
-	if c.oldParser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogMaskedArgParse(c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "eon-mode") {
+	if !c.parser.Changed("eon-mode") {
 		c.CmdBase.isEon = nil
 	}
-
-	if !util.IsOptionSet(c.oldParser, "ipv6") {
-		c.CmdBase.ipv6 = nil
-	}
-
+	c.OldResetUserInputOptions()
 	return c.validateParse(logger)
 }
 
@@ -123,7 +167,7 @@ func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()", "command", c.CommandType())
 
 	// check the format of configuration params string, and parse it into configParams
-	configurationParams, err := util.ParseConfigParams(*c.configurationParams)
+	configurationParams, err := util.ParseConfigParams(c.configurationParams)
 	if err != nil {
 		return err
 	}
@@ -131,17 +175,15 @@ func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
 		c.startDBOptions.ConfigurationParameters = configurationParams
 	}
 
-	return c.OldValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
+	err = c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return c.setDBPassword(&c.startDBOptions.DatabaseOptions)
 }
 
-func (c *CmdStartDB) Analyze(logger vlog.Printer) error {
-	// Analyze() is needed to fulfill an interface
-	logger.Info("Called method Analyze()")
-	return nil
-}
-
-func (c *CmdStartDB) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.V(1).Info("Called method Run()")
 
 	options := c.startDBOptions
 
@@ -155,10 +197,15 @@ func (c *CmdStartDB) Run(vcc vclusterops.VClusterCommands) error {
 
 	err = vcc.VStartDatabase(options)
 	if err != nil {
-		vcc.Log.Error(err, "failed to start the database")
+		vcc.LogError(err, "failed to start the database")
 		return err
 	}
 
-	vcc.Log.PrintInfo("Successfully start the database %s\n", *options.DBName)
+	vcc.PrintInfo("Successfully start the database %s\n", *options.DBName)
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStartDB
+func (c *CmdStartDB) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.startDBOptions.DatabaseOptions = *opt
 }

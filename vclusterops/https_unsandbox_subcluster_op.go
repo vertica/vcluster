@@ -34,6 +34,7 @@ func makeHTTPSUnsandboxingOp(scName string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsUnsandboxingOp, error) {
 	op := httpsUnsandboxingOp{}
 	op.name = "HTTPSUnsansboxingOp"
+	op.description = "Convert sandboxed subcluster into regular subcluster in catalog"
 	op.useHTTPPassword = useHTTPPassword
 	op.scName = scName
 

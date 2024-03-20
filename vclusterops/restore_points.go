@@ -112,11 +112,10 @@ func (opt *VShowRestorePointsOptions) validateParseOptions(logger vlog.Printer) 
 	if err != nil {
 		return err
 	}
-	if *opt.HonorUserInput {
-		err = util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
-		if err != nil {
-			return err
-		}
+
+	err = util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
+	if err != nil {
+		return err
 	}
 
 	err = opt.FilterOptions.ValidateAndStandardizeTimestampsIfAny()
@@ -129,10 +128,10 @@ func (opt *VShowRestorePointsOptions) validateParseOptions(logger vlog.Printer) 
 
 // analyzeOptions will modify some options based on what is chosen
 func (opt *VShowRestorePointsOptions) analyzeOptions() (err error) {
-	// we analyze host names when HonorUserInput is set, otherwise we use hosts in yaml config
-	if *opt.HonorUserInput {
+	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
+	if len(opt.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.Ipv6.ToBool())
+		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.OldIpv6.ToBool())
 		if err != nil {
 			return err
 		}
@@ -149,28 +148,27 @@ func (opt *VShowRestorePointsOptions) validateAnalyzeOptions(logger vlog.Printer
 }
 
 // VShowRestorePoints can query the restore points from an archive
-func (vcc *VClusterCommands) VShowRestorePoints(options *VShowRestorePointsOptions) (restorePoints []RestorePoint, err error) {
+func (vcc VClusterCommands) VShowRestorePoints(options *VShowRestorePointsOptions) (restorePoints []RestorePoint, err error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err = options.validateAnalyzeOptions(vcc.Log)
+	// set db name and hosts
+	err = options.setDBNameAndHosts()
 	if err != nil {
 		return restorePoints, err
 	}
 
-	// get db name and hosts from config file and options
-	dbName, hosts, err := options.getNameAndHosts(options.Config)
-	if err != nil {
-		return restorePoints, err
-	}
-
-	options.DBName = &dbName
-	options.Hosts = hosts
 	// get communal storage location from config file and options
 	options.CommunalStorageLocation, err = options.getCommunalStorageLocation(options.Config)
+	if err != nil {
+		return restorePoints, err
+	}
+
+	// validate and analyze options
+	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return restorePoints, err
 	}
@@ -199,7 +197,7 @@ func (vcc *VClusterCommands) VShowRestorePoints(options *VShowRestorePointsOptio
 //   - Check NMA connectivity
 //   - Check Vertica versions
 //   - Run show restore points on the target node
-func (vcc *VClusterCommands) produceShowRestorePointsInstructions(options *VShowRestorePointsOptions) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceShowRestorePointsInstructions(options *VShowRestorePointsOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	hosts := options.Hosts

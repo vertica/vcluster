@@ -32,6 +32,7 @@ func makeHTTPSSpreadRemoveNodeOp(hostsToRemove []string, initiatorHost []string,
 	userName string, httpsPassword *string, hostNodeMap vHostNodeMap) (httpsSpreadRemoveNodeOp, error) {
 	op := httpsSpreadRemoveNodeOp{}
 	op.name = "HTTPSSpreadRemoveNodeOp"
+	op.description = "Remove nodes in spread"
 	op.hosts = initiatorHost
 	op.useHTTPPassword = useHTTPPassword
 

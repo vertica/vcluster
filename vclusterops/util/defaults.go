@@ -39,6 +39,7 @@ const (
 	NodeUpState                      = "UP"
 	NodeDownState                    = "DOWN"
 	SuppressHelp                     = "SUPPRESS_HELP"
+	MainClusterSandbox               = ""
 )
 
 var RestartPolicyList = []string{"never", DefaultRestartPolicy, "always"}

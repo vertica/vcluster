@@ -16,11 +16,10 @@
 package commands
 
 import (
-	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -33,22 +32,45 @@ import (
  * Implements ClusterCommand interface
  */
 type CmdConfig struct {
-	show *bool
-	ConfigHandler
+	show     bool
+	sOptions vclusterops.DatabaseOptions
+	CmdBase
 }
 
-func makeCmdConfig() *CmdConfig {
+func makeCmdConfig() *cobra.Command {
 	newCmd := &CmdConfig{}
-	newCmd.oldParser = flag.NewFlagSet("config", flag.ExitOnError)
-	newCmd.show = newCmd.oldParser.Bool("show", false, "show the content of the config file")
-	newCmd.directory = newCmd.oldParser.String(
-		"directory",
-		"",
-		"The directory under which the config file was created. "+
-			"By default the current directory will be used.",
+	cmd := makeBasicCobraCmd(
+		newCmd,
+		"config",
+		"Show the content of the config file",
+		`This subcommand is used to print the content of the config file.
+
+Examples:
+  # show the vertica_cluster.yaml file in the default location
+  vcluster config --show
+
+  # show the contents of the config file at /tmp/vertica_cluster.yaml
+  vcluster config --show --config /tmp/vertica_cluster.yaml
+`,
+		[]string{"config"},
 	)
 
-	return newCmd
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	// require show
+	markFlagsRequired(cmd, []string{"show"})
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdConfig) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		&c.show,
+		"show",
+		false,
+		"show the content of the config file",
+	)
 }
 
 func (c *CmdConfig) CommandType() string {
@@ -56,40 +78,22 @@ func (c *CmdConfig) CommandType() string {
 }
 
 func (c *CmdConfig) Parse(inputArgv []string, logger vlog.Printer) error {
-	logger.LogArgParse(&inputArgv)
-
-	if c.oldParser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-
 	c.argv = inputArgv
-	err := c.ParseArgv()
+	logger.LogArgParse(&c.argv)
+
+	return nil
+}
+
+func (c *CmdConfig) Run(_ vclusterops.ClusterCommands) error {
+	fileBytes, err := os.ReadFile(dbOptions.ConfigPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("fail to read config file, details: %w", err)
 	}
-
-	return c.validateParse(logger)
-}
-
-func (c *CmdConfig) validateParse(logger vlog.Printer) error {
-	logger.Info("Called validateParse()")
-	// if directory is not provided, then use the current directory
-	return c.validateDirectory()
-}
-
-func (c *CmdConfig) Analyze(_ vlog.Printer) error {
+	fmt.Printf("%s", string(fileBytes))
 	return nil
 }
 
-func (c *CmdConfig) Run(vcc vclusterops.VClusterCommands) error {
-	if *c.show {
-		configFilePath := filepath.Join(*c.directory, vclusterops.ConfigFileName)
-		fileBytes, err := os.ReadFile(configFilePath)
-		if err != nil {
-			return fmt.Errorf("fail to read config file, details: %w", err)
-		}
-		vcc.Log.PrintInfo("Content of the config file:\n%s", string(fileBytes))
-	}
-
-	return nil
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdConfig
+func (c *CmdConfig) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.sOptions = *opt
 }

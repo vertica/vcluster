@@ -60,12 +60,13 @@ func (opt *VReIPOptions) validateParseOptions(logger vlog.Printer) error {
 }
 
 func (opt *VReIPOptions) analyzeOptions() error {
-	hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.Ipv6.ToBool())
-	if err != nil {
-		return err
+	if len(opt.RawHosts) > 0 {
+		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.OldIpv6.ToBool())
+		if err != nil {
+			return err
+		}
+		opt.Hosts = hostAddresses
 	}
-
-	opt.Hosts = hostAddresses
 	return nil
 }
 
@@ -83,7 +84,7 @@ func (opt *VReIPOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	}
 
 	// address check
-	ipv6 := opt.Ipv6.ToBool()
+	ipv6 := opt.OldIpv6.ToBool()
 	nodeAddresses := make(map[string]struct{})
 	for _, info := range opt.ReIPList {
 		// the addresses must be valid IPs
@@ -116,7 +117,7 @@ func (opt *VReIPOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 
 // VReIP changes the node address, control address, and control broadcast for a node.
 // It returns any error encountered.
-func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
+func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
@@ -129,8 +130,8 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 	}
 
 	var pVDB *VCoordinationDatabase
-	// retrieve database information from cluster_config.json for EON databases
-	if options.IsEon.ToBool() {
+	// retrieve database information from cluster_config.json for Eon databases
+	if options.OldIsEon.ToBool() {
 		if *options.CommunalStorageLocation != "" {
 			vdb, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {
@@ -171,7 +172,7 @@ func (vcc *VClusterCommands) VReIP(options *VReIPOptions) error {
 //   - Read database info from catalog editor
 //     (now we should know which hosts have the latest catalog)
 //   - Run re-ip on the target nodes
-func (vcc *VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	if len(options.ReIPList) == 0 {
@@ -274,7 +275,7 @@ func (opt *VReIPOptions) ReadReIPFile(path string) error {
 		return nil
 	}
 
-	ipv6 := opt.Ipv6.ToBool()
+	ipv6 := opt.OldIpv6.ToBool()
 	for _, row := range reIPRows {
 		var info ReIPInfo
 		info.NodeAddress = row.CurrentAddress

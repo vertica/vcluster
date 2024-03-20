@@ -71,8 +71,13 @@ func (o *VRemoveScOptions) validatePathOptions() error {
 	return util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
 }
 
-func (o *VRemoveScOptions) validateParseOptions(logger vlog.Printer) error {
+func (o *VRemoveScOptions) validateParseOptions(config *DatabaseConfig, logger vlog.Printer) error {
 	err := o.validateRequiredOptions(logger)
+	if err != nil {
+		return err
+	}
+
+	err = o.validateEonOptions(config)
 	if err != nil {
 		return err
 	}
@@ -80,11 +85,25 @@ func (o *VRemoveScOptions) validateParseOptions(logger vlog.Printer) error {
 	return o.validatePathOptions()
 }
 
+func (o *VRemoveScOptions) validateEonOptions(config *DatabaseConfig) error {
+	isEon, err := o.isEonMode(config)
+	if err != nil {
+		return err
+	}
+
+	if !isEon && config != nil {
+		// config file confirms that the db is not Eon
+		return fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
+			*o.DBName)
+	}
+	return nil
+}
+
 func (o *VRemoveScOptions) analyzeOptions() (err error) {
-	// we analyze host names when HonorUserInput is set, otherwise we use hosts in yaml config
-	if *o.HonorUserInput {
+	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
+	if len(o.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.Ipv6.ToBool())
+		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.OldIpv6.ToBool())
 		if err != nil {
 			return err
 		}
@@ -93,8 +112,8 @@ func (o *VRemoveScOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (o *VRemoveScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
-	if err := o.validateParseOptions(logger); err != nil {
+func (o *VRemoveScOptions) validateAnalyzeOptions(config *DatabaseConfig, logger vlog.Printer) error {
+	if err := o.validateParseOptions(config, logger); err != nil {
 		return err
 	}
 	err := o.analyzeOptions()
@@ -109,19 +128,29 @@ func (o *VRemoveScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 //  1. Pre-check: check the subcluster name and get nodes for the subcluster.
 //  2. Removes nodes: Optional. If there are any nodes still associated with the subcluster, runs VRemoveNode.
 //  3. Drop the subcluster: Remove the subcluster name from the database catalog.
-func (vcc *VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error) {
+func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 
-	// VER-88594: read config file (may move this part to cmd_remove_subcluster)
+	// set db name and hosts
+	err := removeScOpt.setDBNameAndHosts()
+	if err != nil {
+		return vdb, err
+	}
+
+	// get depot, data and catalog prefix from config file or options
+	*removeScOpt.DepotPrefix, *removeScOpt.DataPrefix, err = removeScOpt.getDepotAndDataPrefix(removeScOpt.Config)
+	if err != nil {
+		return vdb, err
+	}
 
 	// validate and analyze options
-	err := removeScOpt.validateAnalyzeOptions(vcc.Log)
+	err = removeScOpt.validateAnalyzeOptions(removeScOpt.Config, vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
 
 	// pre-check: should not remove the default subcluster
-	vcc.Log.PrintInfo("Performing db_remove_subcluster pre-checks")
+	vcc.PrintInfo("Performing db_remove_subcluster pre-checks")
 	hostsToRemove, err := vcc.removeScPreCheck(&vdb, removeScOpt)
 	if err != nil {
 		return vdb, err
@@ -179,7 +208,7 @@ func (e *removeDefaultSubclusterError) Error() string {
 // for a successful remove_node:
 //   - Get cluster and nodes info (check if the target DB is Eon and get to-be-removed node list)
 //   - Get the subcluster info (check if the target sc exists and if it is the default sc)
-func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options *VRemoveScOptions) ([]string, error) {
+func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options *VRemoveScOptions) ([]string, error) {
 	var hostsToRemove []string
 	const preCheckErrMsg = "while performing db_remove_subcluster pre-checks"
 
@@ -191,8 +220,14 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 
 	// db_remove_subcluster only works with Eon database
 	if !vdb.IsEon {
+		// info from running db confirms that the db is not Eon
 		return hostsToRemove, fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
 			*options.DBName)
+	}
+
+	err = options.completeVDBSetting(vdb)
+	if err != nil {
+		return hostsToRemove, err
 	}
 
 	// get default subcluster
@@ -239,7 +274,24 @@ func (vcc *VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, option
 	return hostsToRemove, nil
 }
 
-func (vcc *VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options *VRemoveScOptions) error {
+// completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet
+// from the https endpoints. We set those fields from options.
+func (o *VRemoveScOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
+	vdb.DataPrefix = *o.DataPrefix
+	vdb.DepotPrefix = *o.DepotPrefix
+
+	hostNodeMap := makeVHostNodeMap()
+	// TODO: we set the depot path from /nodes rather than manually
+	// (VER-92725). This is useful for nmaDeleteDirectoriesOp.
+	for h, vnode := range vdb.HostNodeMap {
+		vnode.DepotPath = vdb.genDepotPath(vnode.Name)
+		hostNodeMap[h] = vnode
+	}
+	vdb.HostNodeMap = hostNodeMap
+	return nil
+}
+
+func (vcc VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options *VRemoveScOptions) error {
 	dropScErrMsg := fmt.Sprintf("fail to drop subcluster %s", *options.SubclusterToRemove)
 
 	// the initiator is a list of one primary up host

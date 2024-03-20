@@ -40,7 +40,7 @@ func makeCmdReIP() *cobra.Command {
 
 	// VER-91801: the examle below needs to be updated
 	// as we need a better example with config file
-	cmd := makeBasicCobraCmd(
+	cmd := OldMakeBasicCobraCmd(
 		newCmd,
 		"re_ip",
 		"Re-ip database nodes",
@@ -48,7 +48,7 @@ func makeCmdReIP() *cobra.Command {
 However, the database must be offline when running this command. If an IP change 
 is required and the database is up, you can use restart_node to handle it.
 
-The file specified by the  argument must be a JSON file in the following format:
+The file specified by the argument must be a JSON file in the following format:
 [  
 	{"from_address": "192.168.1.101", "to_address": "192.168.1.102"},  
 	{"from_address": "192.168.1.103", "to_address": "192.168.1.104"}  
@@ -56,22 +56,20 @@ The file specified by the  argument must be a JSON file in the following format:
 		
 Only the nodes whose IP addresses you want to change need to be included in the file.
 		
-You must provide the name of the database.
-
-Example:
+Examples:
   vcluster re_ip --db-name <db_name> --hosts <list_of_hosts>
   	--catalog-path <catalog_path> --re-ip-file <path_of_re_ip_json_file>
 `,
 	)
 
 	// common db flags
-	setCommonFlags(cmd, []string{"db-name", "hosts", "catalog-path"})
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, catalogPathFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// require db-name and re-ip-file
-	markFlagsRequired(cmd, []string{"db-name", "re-ip-file"})
+	// require re-ip-file
+	markFlagsRequired(cmd, []string{"re-ip-file"})
 	markFlagsFileName(cmd, map[string][]string{"re-ip-file": {"json"}})
 
 	return cmd
@@ -109,15 +107,15 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 	return c.reIPOptions.ReadReIPFile(c.reIPFilePath)
 }
 
-func (c *CmdReIP) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.LogInfo("Called method Run()")
 	err := vcc.VReIP(c.reIPOptions)
 	if err != nil {
-		vcc.Log.Error(err, "fail to re-ip")
+		vcc.LogError(err, "fail to re-ip")
 		return err
 	}
 
-	vcc.Log.PrintInfo("Re-ip is successfully completed")
+	vcc.PrintInfo("Re-ip is successfully completed")
 	return nil
 }
 

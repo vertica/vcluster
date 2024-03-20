@@ -94,6 +94,7 @@ func makeNMADownloadFileOp(newNodes []string, sourceFilePath, destinationFilePat
 	configurationParameters map[string]string, vdb *VCoordinationDatabase) (nmaDownloadFileOp, error) {
 	op := nmaDownloadFileOp{}
 	op.name = "NMADownloadFileOp"
+	op.description = fmt.Sprintf("Download %s", filepath.Base(sourceFilePath))
 	initiator := getInitiator(newNodes)
 	op.hosts = []string{initiator}
 	op.vdb = vdb

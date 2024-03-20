@@ -30,6 +30,6 @@ type ClusterCommand interface {
 	 * cluster discovery.
 	 */
 	Analyze(logger vlog.Printer) error
-	Run(vcc vclusterops.VClusterCommands) error
+	Run(vcc vclusterops.ClusterCommands) error
 	PrintUsage(string)
 }

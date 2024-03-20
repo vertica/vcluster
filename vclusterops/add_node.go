@@ -67,21 +67,18 @@ func (o *VAddNodeOptions) setDefaultValues() {
 }
 
 func (o *VAddNodeOptions) validateEonOptions() error {
-	if *o.HonorUserInput {
-		err := util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
-		if err != nil {
-			return err
-		}
+	if *o.DepotPrefix != "" {
+		return util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
 	}
 	return nil
 }
 
 func (o *VAddNodeOptions) validateExtraOptions() error {
-	if !*o.HonorUserInput {
-		return nil
-	}
 	// data prefix
-	return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
+	if *o.DataPrefix != "" {
+		return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
+	}
+	return nil
 }
 
 func (o *VAddNodeOptions) validateParseOptions(logger vlog.Printer) error {
@@ -97,15 +94,15 @@ func (o *VAddNodeOptions) validateParseOptions(logger vlog.Printer) error {
 
 // analyzeOptions will modify some options based on what is chosen
 func (o *VAddNodeOptions) analyzeOptions() (err error) {
-	o.NewHosts, err = util.ResolveRawHostsToAddresses(o.NewHosts, o.Ipv6.ToBool())
+	o.NewHosts, err = util.ResolveRawHostsToAddresses(o.NewHosts, o.OldIpv6.ToBool())
 	if err != nil {
 		return err
 	}
 
-	// we analyze host names when HonorUserInput is set, otherwise we use hosts in yaml config
-	if *o.HonorUserInput {
-		// resolve RawHosts to be IP addresses
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.Ipv6.ToBool())
+	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
+	// resolve RawHosts to be IP addresses
+	if len(o.RawHosts) > 0 {
+		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.OldIpv6.ToBool())
 		if err != nil {
 			return err
 		}
@@ -126,24 +123,23 @@ func (o *VAddNodeOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 
 // VAddNode adds one or more nodes to an existing database.
 // It returns a VCoordinationDatabase that contains catalog information and any error encountered.
-func (vcc *VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error) {
+func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 
-	err := options.validateAnalyzeOptions(vcc.Log)
+	// set db name and hosts
+	err := options.setDBNameAndHosts()
 	if err != nil {
 		return vdb, err
 	}
 
-	// get hosts from config file and options.
-	hosts, err := options.getHosts(options.Config)
-	if err != nil {
-		return vdb, err
-	}
-
-	options.Hosts = hosts
 	// get depot and data prefix from config file or options.
 	// after VER-88122, we will able to get them from an https endpoint.
 	*options.DepotPrefix, *options.DataPrefix, err = options.getDepotAndDataPrefix(options.Config)
+	if err != nil {
+		return vdb, err
+	}
+
+	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -221,8 +217,8 @@ func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
 	vdb.DepotPrefix = *o.DepotPrefix
 
 	hostNodeMap := makeVHostNodeMap()
-	// we set depot/data paths manually because there is not yet an https endpoint for
-	// that(VER-88122). This is useful for NMAPrepareDirectoriesOp.
+	// TODO: we set the depot and data path from /nodes rather than manually
+	// (VER-92725). This is useful for nmaDeleteDirectoriesOp.
 	for h, vnode := range vdb.HostNodeMap {
 		dataPath := vdb.genDataPath(vnode.Name)
 		vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
@@ -238,7 +234,7 @@ func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
 
 // trimNodesInCatalog removes failed node info from catalog
 // which can be used to remove partially added nodes
-func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
+func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions) error {
 	if len(options.ExpectedNodeNames) == 0 {
 		vcc.Log.Info("ExpectedNodeNames is not set, skip trimming nodes", "ExpectedNodeNames", options.ExpectedNodeNames)
@@ -338,7 +334,7 @@ func (vcc *VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 //   - Create depot on the new node (Eon mode only)
 //   - Sync catalog
 //   - Rebalance shards on subcluster (Eon mode only)
-func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabase,
+func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 	initiatorHost := []string{options.Initiator}
@@ -415,7 +411,7 @@ func (vcc *VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDataba
 		username, usePassword, initiatorHost, newHosts)
 }
 
-func (vcc *VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
+func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions,
 	instructions []clusterOp,
 	username string, usePassword bool,

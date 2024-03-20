@@ -23,6 +23,8 @@ type NodeInfo struct {
 	Name        string `json:"name"` // vnode name, e.g., v_dbname_node0001
 	State       string `json:"state"`
 	CatalogPath string `json:"catalog_path"`
+	Version     string `json:"version"`
+	Revision    string `json:"revision"`
 }
 
 type nodesInfo struct {

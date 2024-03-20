@@ -22,6 +22,11 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
+const (
+	spreadConf  = "config/spread"
+	verticaConf = "config/vertica"
+)
+
 type nmaDownloadConfigOp struct {
 	opBase
 	catalogPathMap map[string]string
@@ -41,6 +46,11 @@ func makeNMADownloadConfigOp(
 	op.name = opName
 	op.hosts = sourceConfigHost
 	op.endpoint = endpoint
+	if op.endpoint == verticaConf {
+		op.description = "Get contents of vertica.conf"
+	} else if op.endpoint == spreadConf {
+		op.description = "Get contents of spread.conf"
+	}
 	op.fileContent = fileContent
 	op.vdb = vdb
 

@@ -276,12 +276,6 @@ func TestValidateDBName(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid character in "+obj+" name: !")
 }
 
-func TestSetOptFlagHelpMsg(t *testing.T) {
-	msg := "The name of the database to be created"
-	finalMsg := "The name of the database to be created [Optional]"
-	assert.Equal(t, GetOptionalFlagMsg(msg), finalMsg)
-}
-
 func TestSetEonFlagHelpMsg(t *testing.T) {
 	msg := "Path to depot directory"
 	finalMsg := "[Eon only] Path to depot directory"

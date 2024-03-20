@@ -52,6 +52,7 @@ func makeHTTPSGetUpNodesOp(dbName string, hosts []string,
 ) (httpsGetUpNodesOp, error) {
 	op := httpsGetUpNodesOp{}
 	op.name = "HTTPSGetUpNodesOp"
+	op.description = "Collect information for all up nodes"
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.DBName = dbName
@@ -189,10 +190,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 		if op.cmdType == UnsandboxCmd {
 			op.collectUnsandboxingHosts(nodesStates, sandboxInfo)
 		}
-		if err != nil {
-			allErrs = errors.Join(allErrs, err)
-			break
-		}
+
 		if upHosts.Cardinality() > 0 && !isCompleteScanRequired(op.cmdType) {
 			break
 		}
@@ -282,12 +280,12 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 			}
 			if op.scName == node.Subcluster {
 				op.sandbox = node.Sandbox
-				n := NodeInfo{}
-				n.Address = node.Address
-				n.Name = node.Name
-				n.State = node.State
-				n.CatalogPath = node.CatalogPath
-				upScNodes.Add(n)
+				var n NodeInfo
+				if n, err = node.asNodeInfo(); err != nil {
+					op.logger.PrintError("[%s] %s", op.name, err.Error())
+				} else {
+					upScNodes.Add(n)
+				}
 			}
 		}
 	}

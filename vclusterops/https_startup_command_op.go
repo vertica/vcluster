@@ -23,20 +23,25 @@ import (
 )
 
 const startupOp = "startupOp"
+const generalStartNodeDesc = "Get Vertica startup command"
+const startNodeAfterUnsandboxDesc = "Get Vertica startup command for unsandboxed nodes"
 
 type httpsStartUpCommandOp struct {
 	opBase
 	opHTTPSBase
 	vdb     *VCoordinationDatabase
-	sandbox bool
+	cmdType CommandType
+	sandbox string
 }
 
 func makeHTTPSStartUpCommandOp(useHTTPPassword bool, userName string, httpsPassword *string,
 	vdb *VCoordinationDatabase) (httpsStartUpCommandOp, error) {
 	op := httpsStartUpCommandOp{}
 	op.name = startupOp
+	op.description = generalStartNodeDesc
 	op.useHTTPPassword = useHTTPPassword
 	op.vdb = vdb
+	op.sandbox = util.MainClusterSandbox
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -55,8 +60,34 @@ func makeHTTPSStartUpCommandOpAfterUnsandbox(useHTTPPassword bool, userName stri
 	httpsPassword *string) (httpsStartUpCommandOp, error) {
 	op := httpsStartUpCommandOp{}
 	op.name = startupOp
+	op.description = startNodeAfterUnsandboxDesc
 	op.useHTTPPassword = useHTTPPassword
-	op.sandbox = true
+	op.cmdType = UnsandboxCmd
+	op.sandbox = util.MainClusterSandbox
+
+	if useHTTPPassword {
+		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
+		if err != nil {
+			return op, err
+		}
+
+		op.userName = userName
+		op.httpsPassword = httpsPassword
+	}
+
+	return op, nil
+}
+
+// Use the response from an UP host of the specified sandbox
+func makeHTTPSStartUpCommandWithSandboxOp(useHTTPPassword bool, userName string, httpsPassword *string,
+	vdb *VCoordinationDatabase, sandbox string) (httpsStartUpCommandOp, error) {
+	op := httpsStartUpCommandOp{}
+	op.name = startupOp
+	op.description = generalStartNodeDesc
+	op.useHTTPPassword = useHTTPPassword
+	op.vdb = vdb
+	op.sandbox = sandbox
+
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 		if err != nil {
@@ -89,7 +120,7 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 func (op *httpsStartUpCommandOp) prepare(execContext *opEngineExecContext) error {
 	// Use the /v1/startup/command endpoint for a primary Up host to view every start command of existing nodes
 	// With sandboxes in a cluster, we need to ensure that we pick a main cluster UP host
-	if op.sandbox {
+	if op.cmdType == UnsandboxCmd {
 		for h, sb := range execContext.upHostsToSandboxes {
 			if sb == "" {
 				op.hosts = append(op.hosts, h)
@@ -99,7 +130,7 @@ func (op *httpsStartUpCommandOp) prepare(execContext *opEngineExecContext) error
 	} else {
 		var primaryUpHosts []string
 		for host, vnode := range op.vdb.HostNodeMap {
-			if vnode.IsPrimary && vnode.State == util.NodeUpState && vnode.Sandbox == "" {
+			if vnode.IsPrimary && vnode.State == util.NodeUpState && vnode.Sandbox == op.sandbox {
 				primaryUpHosts = append(primaryUpHosts, host)
 				break
 			}

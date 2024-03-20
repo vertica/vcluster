@@ -33,6 +33,7 @@ func makeHTTPSGetSystemTablesOp(logger vlog.Printer, hosts []string,
 ) (httpsGetSystemTablesOp, error) {
 	op := httpsGetSystemTablesOp{}
 	op.name = "HTTPSGetSystemTablesOp"
+	op.description = "Collect system tables information"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword

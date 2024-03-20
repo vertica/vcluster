@@ -20,18 +20,12 @@ import (
 	"os"
 	"path/filepath"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
-)
-
-const (
-	vclusterConfigEnv = "VCLUSTER_CONFIG"
-	// If no config file was provided, we will pick a default one. This is the
-	// default file name that we'll use.
-	defConfigFileName = "vertica_cluster.yaml"
 )
 
 /* ClusterCommandLauncher
@@ -65,13 +59,81 @@ type ClusterCommandLauncher struct {
 const minArgs = 2
 const helpString = "help"
 const defaultLogPath = "/opt/vertica/log/vcluster.log"
+const defaultExecutablePath = "/opt/vertica/bin/vcluster"
 
 const CLIVersion = "1.2.0"
+const vclusterLogPathEnv = "VCLUSTER_LOG_PATH"
+
+// *Flag is for the flag name, *Key is for viper key name
+// They are bound together
+const (
+	dbNameFlag                  = "db-name"
+	dbNameKey                   = "dbName"
+	hostsFlag                   = "hosts"
+	hostsKey                    = "hosts"
+	catalogPathFlag             = "catalog-path"
+	catalogPathKey              = "catalogPath"
+	depotPathFlag               = "depot-path"
+	depotPathKey                = "depotPath"
+	dataPathFlag                = "data-path"
+	dataPathKey                 = "dataPath"
+	communalStorageLocationFlag = "communal-storage-location"
+	communalStorageLocationKey  = "communalStorageLocation"
+	ipv6Flag                    = "ipv6"
+	ipv6Key                     = "ipv6"
+	eonModeFlag                 = "eon-mode"
+	eonModeKey                  = "eonMode"
+	logPathFlag                 = "log-path"
+	logPathKey                  = "logPath"
+	passwordFlag                = "password"
+	passwordKey                 = "password"
+	passwordFileFlag            = "password-file"
+	passwordFileKey             = "passwordFile"
+	readPasswordFromPromptFlag  = "read-password-from-prompt"
+	readPasswordFromPromptKey   = "readPasswordFromPrompt"
+	configFlag                  = "config"
+	configKey                   = "config"
+	verboseFlag                 = "verbose"
+	verboseKey                  = "verbose"
+	outputFileFlag              = "output-file"
+	outputFileKey               = "outputFile"
+)
+
+// flags to viper key map
+var flagKeyMap = map[string]string{
+	dbNameFlag:                  dbNameKey,
+	hostsFlag:                   hostsKey,
+	catalogPathFlag:             catalogPathKey,
+	depotPathFlag:               depotPathKey,
+	dataPathFlag:                dataPathKey,
+	communalStorageLocationFlag: communalStorageLocationKey,
+	ipv6Flag:                    ipv6Key,
+	eonModeFlag:                 eonModeKey,
+	logPathFlag:                 logPathKey,
+	passwordFlag:                passwordKey,
+	passwordFileFlag:            passwordFileKey,
+	readPasswordFromPromptFlag:  readPasswordFromPromptKey,
+	configFlag:                  configKey,
+	verboseFlag:                 verboseKey,
+	outputFileFlag:              outputFileKey,
+}
+
+const (
+	createDBSubCmd = "create_db"
+	stopDBSubCmd   = "stop_db"
+	reviveDBSubCmd = "revive_db"
+)
+
+// cmdGlobals holds global variables shared by multiple
+// commands
+type cmdGlobals struct {
+	verbose bool
+	file    *os.File
+}
 
 var (
 	dbOptions = vclusterops.DatabaseOptionsFactory()
-	logPath   string
-	verbose   bool
+	globals   = cmdGlobals{}
 	rootCmd   = &cobra.Command{
 		Use:   "vcluster",
 		Short: "Administer a Vertica cluster",
@@ -97,14 +159,18 @@ perform the following administrator operations:
 	}
 )
 
+var logPath = defaultLogPath
+
 // cmdInterface is an interface that every vcluster command needs to implement
 // for making a basic cobra command
 type cmdInterface interface {
 	Parse(inputArgv []string, logger vlog.Printer) error
-	Run(vcc vclusterops.VClusterCommands) error
+	Run(vcc vclusterops.ClusterCommands) error
 	SetDatabaseOptions(opt *vclusterops.DatabaseOptions)
 	SetParser(parser *pflag.FlagSet)
 	SetIPv6(cmd *cobra.Command)
+	setCommonFlags(cmd *cobra.Command, flags []string)
+	initCmdOutputFile() (*os.File, error)
 }
 
 func Execute() {
@@ -119,47 +185,174 @@ func Execute() {
 func initVcc(cmd *cobra.Command) vclusterops.VClusterCommands {
 	// setup logs
 	logger := vlog.Printer{ForCli: true}
-	logger.SetupOrDie(logPath)
+	logger.SetupOrDie(*dbOptions.LogPath)
 
 	vcc := vclusterops.VClusterCommands{
-		Log: logger.WithName(cmd.CalledAs()),
+		VClusterCommandsLogger: vclusterops.VClusterCommandsLogger{
+			Log: logger.WithName(cmd.CalledAs()),
+		},
 	}
-	vcc.Log.Info("New VCluster command initialization")
+	vcc.LogInfo("New VCluster command initialization")
 
 	return vcc
 }
 
+// setDBOptionsUsingViper can set the value of flag using the relevant key in viper
+func setDBOptionsUsingViper(flag string) error {
+	switch flag {
+	case dbNameFlag:
+		*dbOptions.DBName = viper.GetString(dbNameKey)
+	case hostsFlag:
+		dbOptions.RawHosts = viper.GetStringSlice(hostsKey)
+	case catalogPathFlag:
+		*dbOptions.CatalogPrefix = viper.GetString(catalogPathKey)
+	case depotPathFlag:
+		*dbOptions.DepotPrefix = viper.GetString(depotPathKey)
+	case dataPathFlag:
+		*dbOptions.DataPrefix = viper.GetString(dataPathKey)
+	case communalStorageLocationFlag:
+		*dbOptions.CommunalStorageLocation = viper.GetString(communalStorageLocationKey)
+	case ipv6Flag:
+		dbOptions.IPv6 = viper.GetBool(ipv6Key)
+	case eonModeFlag:
+		dbOptions.IsEon = viper.GetBool(eonModeKey)
+	case logPathFlag:
+		*dbOptions.LogPath = viper.GetString(logPathKey)
+	case verboseFlag:
+		globals.verbose = viper.GetBool(verboseKey)
+	default:
+		return fmt.Errorf("cannot find the relevant database option for flag %q", flag)
+	}
+
+	return nil
+}
+
+// configViper configures viper to load database options using this order:
+// user input -> environment variables -> vcluster config file
+func configViper(cmd *cobra.Command, flagsInConfig []string) error {
+	// initialize config file
+	initConfig()
+
+	// log-path is a flag that all the subcommands need
+	flagsInConfig = append(flagsInConfig, logPathFlag)
+
+	// bind viper keys to cobra flags
+	for _, flag := range flagsInConfig {
+		if _, ok := flagKeyMap[flag]; !ok {
+			return fmt.Errorf("cannot find a relevant field in configuration file for flag %q", flag)
+		}
+		err := viper.BindPFlag(flagKeyMap[flag], cmd.Flags().Lookup(flag))
+		if err != nil {
+			return fmt.Errorf("fail to bind viper key %q to flag %q: %w", flagKeyMap[flag], flag, err)
+		}
+	}
+
+	// bind viper keys to env vars
+	err := viper.BindEnv(logPathKey, vclusterLogPathEnv)
+	if err != nil {
+		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", logPathKey, vclusterLogPathEnv, err)
+	}
+
+	// load db options from config file to viper
+	// note: config file is not available for create_db and revive_db
+	if cmd.CalledAs() != createDBSubCmd && cmd.CalledAs() != reviveDBSubCmd {
+		err = loadConfigToViper()
+		if err != nil {
+			return err
+		}
+	}
+
+	// if a flag is set in viper through user input, env var or config file, we assign its viper value
+	// to database options. viper can automatically retrieve the correct value following below order:
+	// 1. user input
+	// 2. environment variable
+	// 3. config file
+	// if the flag is not set in viper, the default value of it will be used
+	for _, flag := range flagsInConfig {
+		if _, ok := flagKeyMap[flag]; !ok {
+			fmt.Printf("Warning: cannot find a relevant viper key for flag %q\n", flag)
+			continue
+		}
+		if viper.IsSet(flagKeyMap[flag]) {
+			err = setDBOptionsUsingViper(flag)
+			if err != nil {
+				return fmt.Errorf("fail to set flag %q using viper: %w", flag, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// filterFlagsInConfig can filter the flags that have a relevant field in vcluster config file
+func filterFlagsInConfig(flags []string) []string {
+	flagsAccepted := mapset.NewSet(flags...)
+	allFlagsInConfig := mapset.NewSet([]string{dbNameFlag, hostsFlag, catalogPathFlag, depotPathFlag,
+		dataPathFlag, communalStorageLocationFlag, ipv6Flag, eonModeFlag}...)
+	return flagsAccepted.Intersect(allFlagsInConfig).ToSlice()
+}
+
 // makeBasicCobraCmd can make a basic cobra command for all vcluster commands.
 // It will be called inside cmd_create_db.go, cmd_stop_db.go, ...
-func makeBasicCobraCmd(i cmdInterface, use, short, long string) *cobra.Command {
+func makeBasicCobraCmd(i cmdInterface, use, short, long string, commonFlags []string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Long:  long,
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if verbose {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if globals.verbose {
 				fmt.Println("---{VCluster begin}---")
-				defer fmt.Println("---{VCluster end}---")
 			}
-			initConfig()
+			flagsInConfig := filterFlagsInConfig(commonFlags)
+			return configViper(cmd, flagsInConfig)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			vcc := initVcc(cmd)
 			i.SetParser(cmd.Flags())
+			f, err := i.initCmdOutputFile()
+			if err != nil {
+				return err
+			}
+			defer closeFile(globals.file)
+			globals.file = f
 			i.SetDatabaseOptions(&dbOptions)
-			parseError := i.Parse(os.Args[2:], vcc.Log)
+			// parseError and runError will be printed by the command invoker.
+			// we silence them in cobra for not printing duplicate error messages.
+			cmd.SilenceErrors = true
+			parseError := i.Parse(os.Args[2:], vcc.GetLog())
 			if parseError != nil {
-				vcc.Log.Error(parseError, "fail to parse command")
+				vcc.LogError(parseError, "fail to parse command")
 				return parseError
 			}
 			runError := i.Run(vcc)
 			if runError != nil {
-				vcc.Log.Error(runError, "fail to run command")
+				cmd.SilenceUsage = true // don't show usage when vcluster fails and operation has started
+				vcc.LogError(runError, "fail to run command")
 			}
+
 			return runError
 		},
+		PostRunE: func(cmd *cobra.Command, args []string) error {
+			if globals.verbose {
+				fmt.Println("---{VCluster end}---")
+			}
+			return nil
+		},
 	}
-	i.SetIPv6(cmd)
+	// remove length check of commonFlags in VER-92369
+	if len(commonFlags) > 0 {
+		i.setCommonFlags(cmd, commonFlags)
+	}
+	return cmd
+}
 
+// remove this function in VER-92369
+// OldMakeBasicCobraCmd can make a basic cobra command for all vcluster commands.
+// It will be called inside cmd_create_db.go, cmd_stop_db.go, ...
+func OldMakeBasicCobraCmd(i cmdInterface, use, short, long string) *cobra.Command {
+	cmd := makeBasicCobraCmd(i, use, short, long, []string{})
+	i.SetIPv6(cmd)
 	return cmd
 }
 
@@ -170,12 +363,25 @@ func constructCmds() []*cobra.Command {
 		// db-scope cmds
 		makeCmdCreateDB(),
 		makeCmdStopDB(),
+		makeListAllNodes(),
+		makeCmdStartDB(),
 		makeCmdDropDB(),
 		makeCmdReviveDB(),
 		makeCmdReIP(),
+		makeCmdShowRestorePoints(),
+		makeCmdInstallPackages(),
 		// sc-scope cmds
+		makeCmdAddSubcluster(),
+		makeCmdRemoveSubcluster(),
+		makeCmdSandboxSubcluster(),
+		makeCmdUnsandboxSubcluster(),
 		// node-scope cmds
+		makeCmdRestartNodes(),
+		makeCmdAddNode(),
+		makeCmdRemoveNode(),
 		// others
+		makeCmdScrutinize(),
+		makeCmdConfig(),
 	}
 }
 
@@ -187,13 +393,6 @@ func hideLocalFlags(cmd *cobra.Command, flags []string) {
 			fmt.Printf("Warning: fail to hide flag %q, details: %v\n", flag, err)
 		}
 	}
-}
-
-// remove this function in VER-92224
-// requireHonorUserInputOrConfDir can force the users to pass in at least
-// one flag from ("--honor-user-input", "--config")
-func requireHonorUserInputOrConfDir(cmd *cobra.Command) {
-	cmd.MarkFlagsOneRequired("honor-user-input", "config")
 }
 
 // markFlagsRequired will mark local flags as required
@@ -226,104 +425,59 @@ func markFlagsFileName(cmd *cobra.Command, flagsWithExts map[string][]string) {
 	}
 }
 
-// setCommonFlags is a help function to let subcommands set some shared flags among them
-func setCommonFlags(cmd *cobra.Command, flags []string) {
-	if util.StringInArray("db-name", flags) {
-		cmd.Flags().StringVarP(
-			dbOptions.DBName,
-			"db-name",
-			"d",
-			"",
-			"The name of the database",
-		)
-	}
-	// remove this flag in VER-92224
-	if util.StringInArray("honor-user-input", flags) {
-		cmd.Flags().BoolVar(
-			dbOptions.HonorUserInput,
-			"honor-user-input",
-			false,
-			util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName),
-		)
-	}
-	if util.StringInArray("config", flags) {
-		cmd.Flags().StringVarP(
-			&dbOptions.ConfigPath,
-			"config",
-			"c",
-			"",
-			util.GetOptionalFlagMsg("Path to the config file"),
-		)
-		markFlagsFileName(cmd, map[string][]string{"config": {"yaml"}})
-	}
-	if util.StringInArray("password", flags) {
-		cmd.Flags().StringVarP(
-			dbOptions.Password,
-			"password",
-			"p",
-			"",
-			util.GetOptionalFlagMsg("Database password in single quotes"),
-		)
-	}
-	if util.StringInArray("hosts", flags) {
-		cmd.Flags().StringSliceVar(
-			&dbOptions.RawHosts,
-			"hosts",
-			[]string{},
-			util.GetOptionalFlagMsg("Comma-separated list of hosts in database."+
-				" Use it when you do not trust "+vclusterops.ConfigFileName),
-		)
-	}
-	if util.StringInArray("catalog-path", flags) {
-		cmd.Flags().StringVar(
-			dbOptions.CatalogPrefix,
-			"catalog-path",
-			"",
-			"Path of catalog directory",
-		)
-	}
-	if util.StringInArray("data-path", flags) {
-		cmd.Flags().StringVar(
-			dbOptions.DataPrefix,
-			"data-path",
-			"",
-			"Path of data directory",
-		)
-	}
-	if util.StringInArray("communal-storage-location", flags) {
-		cmd.Flags().StringVar(
-			dbOptions.CommunalStorageLocation,
-			"communal-storage-location",
-			"",
-			util.GetEonFlagMsg("Location of communal storage"),
-		)
-	}
-	if util.StringInArray("depot-path", flags) {
-		cmd.Flags().StringVar(
-			dbOptions.DepotPrefix,
-			"depot-path",
-			"",
-			util.GetEonFlagMsg("Path to depot directory"),
-		)
-	}
+// operatingSystem is an interface for testing purpose
+type operatingSystem interface {
+	Executable() (string, error)
+	UserConfigDir() (string, error)
+	MkdirAll(path string, perm os.FileMode) error
+}
 
-	// log-path is a flag that all the subcommands need
-	cmd.Flags().StringVarP(
-		&logPath,
-		"log-path",
-		"l",
-		defaultLogPath,
-		util.GetOptionalFlagMsg("Path location used for the debug logs"),
-	)
-	markFlagsFileName(cmd, map[string][]string{"log-path": {"log"}})
+type realOperatingSystem struct{}
 
-	// verbose is a flag that all the subcommands need
-	cmd.Flags().BoolVar(
-		&verbose,
-		"verbose",
-		false,
-		util.GetOptionalFlagMsg("Show the details of VCluster run in the console"),
-	)
+func (realOperatingSystem) Executable() (string, error) {
+	return os.Executable()
+}
+
+func (realOperatingSystem) UserConfigDir() (string, error) {
+	return os.UserConfigDir()
+}
+
+func (realOperatingSystem) MkdirAll(path string, perm os.FileMode) error {
+	return os.MkdirAll(path, perm)
+}
+
+func setLogPath() {
+	logPath = setLogPathImpl(realOperatingSystem{})
+}
+
+func setLogPathImpl(opsys operatingSystem) string {
+	// find the executable path of vcluster
+	vclusterExecutablePath, err := opsys.Executable()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Cannot determine vcluster executable path:", err)
+		return defaultLogPath
+	}
+	// log under /opt/vertica/log only if executable path is /opt/vertica/bin/vcluster
+	if vclusterExecutablePath == defaultExecutablePath {
+		return defaultLogPath
+	}
+	// log under $HOME/.config/vcluster
+	cfgDir, err := opsys.UserConfigDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Cannot determine user config directory path:", err)
+		return defaultLogPath
+	}
+	// ensure the config directory exists.
+	path := filepath.Join(cfgDir, "vcluster")
+	const configDirPerm = 0755
+	err = opsys.MkdirAll(path, configDirPerm)
+	if err != nil {
+		// print warning and continue execution
+		// no need to error exit because user may set log path
+		// which overwrites the default log path
+		fmt.Fprintln(os.Stderr, "Cannot gain write access to user config directory path:", err)
+	}
+	return filepath.Join(path, "vcluster.log")
 }
 
 // remove this function in VER-92222
@@ -338,18 +492,20 @@ func MakeClusterCommandLauncher() (ClusterCommandLauncher, vclusterops.VClusterC
 	oldLogPath := parseLogPathArg(os.Args, defaultLogPath)
 	logger.SetupOrDie(oldLogPath)
 	vcc := vclusterops.VClusterCommands{
-		Log: logger.WithName(userCommandString),
+		VClusterCommandsLogger: vclusterops.VClusterCommandsLogger{
+			Log: logger.WithName(userCommandString),
+		},
 	}
-	vcc.Log.Info("New vcluster command initialization")
+	vcc.LogInfo("New vcluster command initialization")
 	newLauncher := ClusterCommandLauncher{}
-	allCommands := constructOldCmds(vcc.Log)
+	allCommands := constructOldCmds(vcc.GetLog())
 
 	newLauncher.commands = map[string]ClusterCommand{}
 	for _, c := range allCommands {
 		_, existsInMap := newLauncher.commands[c.CommandType()]
 		if existsInMap {
 			// shout loud if there's a programmer error
-			vcc.Log.PrintError("Programmer Error: tried to add command %s to the commands index twice. Check cluster_command_launcher.go",
+			vcc.PrintError("Programmer Error: tried to add command %s to the commands index twice. Check cluster_command_launcher.go",
 				c.CommandType())
 			os.Exit(1)
 		}
@@ -365,24 +521,10 @@ func MakeClusterCommandLauncher() (ClusterCommandLauncher, vclusterops.VClusterC
 func constructOldCmds(_ vlog.Printer) []ClusterCommand {
 	return []ClusterCommand{
 		// db-scope cmds
-		makeCmdStartDB(),
-		makeListAllNodes(),
-		makeCmdShowRestorePoints(),
-		makeCmdInstallPackages(),
 		// sc-scope cmds
-		makeCmdAddSubcluster(),
-		makeCmdRemoveSubcluster(),
-		makeCmdSandboxSubcluster(),
-		makeCmdUnsandboxSubcluster(),
 		// node-scope cmds
-		makeCmdAddNode(),
-		makeCmdRemoveNode(),
-		makeCmdRestartNodes(),
 		// others
-		makeCmdScrutinize(),
 		makeCmdHelp(),
-		makeCmdInit(),
-		makeCmdConfig(),
 	}
 }
 
@@ -403,20 +545,20 @@ func (c ClusterCommandLauncher) Run(inputArgv []string, vcc vclusterops.VCluster
 	minArgsError := checkMinimumInput(c.argv)
 
 	if minArgsError != nil {
-		vcc.Log.Error(minArgsError, "fail to check minimum argument")
+		vcc.LogError(minArgsError, "fail to check minimum argument")
 		return minArgsError
 	}
 
-	subCommand, idError := identifySubcommand(c.commands, userCommandString, vcc.Log)
+	subCommand, idError := identifySubcommand(c.commands, userCommandString, vcc.GetLog())
 
 	if idError != nil {
-		vcc.Log.Error(idError, "fail to recognize command")
+		vcc.LogError(idError, "fail to recognize command")
 		return idError
 	}
 
-	parseError := subCommand.Parse(inputArgv[2:], vcc.Log)
+	parseError := subCommand.Parse(inputArgv[2:], vcc.GetLog())
 	if parseError != nil {
-		vcc.Log.Error(parseError, "fail to parse command")
+		vcc.LogError(parseError, "fail to parse command")
 		return parseError
 	}
 
@@ -433,16 +575,16 @@ func (c ClusterCommandLauncher) Run(inputArgv []string, vcc vclusterops.VCluster
 	/* TODO: this is where we would read a
 	 * configuration file. Not currently implemented.
 	 */
-	analyzeError := subCommand.Analyze(vcc.Log)
+	analyzeError := subCommand.Analyze(vcc.GetLog())
 
 	if analyzeError != nil {
-		vcc.Log.Error(analyzeError, "fail to analyze command")
+		vcc.LogError(analyzeError, "fail to analyze command")
 		return analyzeError
 	}
 
 	runError := subCommand.Run(vcc)
 	if runError != nil {
-		vcc.Log.Error(runError, "fail to run command")
+		vcc.LogError(runError, "fail to run command")
 	}
 	return runError
 }
@@ -480,79 +622,10 @@ func parseLogPathArg(argInput []string, defaultPath string) (logPath string) {
 	return defaultPath
 }
 
-// initConfig will initialize the dbOptions.ConfigPath field for the vcluster exe.
-func initConfig() {
-	vclusterExePath, err := os.Executable()
-	cobra.CheckErr(err)
-	// If running vcluster from /opt/vertica/bin, we will ensure
-	// /opt/vertica/config exists before using it.
-	const ensureOptVerticaConfigExists = true
-	// If using the user config director ($HOME/.config), we will ensure the necessary dir exists.
-	const ensureUserConfigDirExists = true
-	initConfigImpl(vclusterExePath, ensureOptVerticaConfigExists, ensureUserConfigDirExists)
-}
-
-// initConfigImpl will initialize the dbOptions.ConfigPath field. It will make an
-// attempt to figure out the best value. In certain circumstances, it may fail
-// to have a config path at all. In that case dbOptions.ConfigPath will be left
-// as an empty string.
-func initConfigImpl(vclusterExePath string, ensureOptVerticaConfigExists, ensureUserConfigDirExists bool) {
-	// We need to find the path to the config. The order of precedence is as follows:
-	// 1. Option
-	// 2. Environment variable
-	// 3. Default locations
-	//   a. /opt/vertica/config/vertica_config.yaml if running vcluster in /opt/vertica/bin
-	//   b. $HOME/.config/vcluster/vertica_config.yaml otherwise
-	//
-	// If none of these things are true, then we run the cli without a config file.
-
-	// If option is set, nothing else to do in here
-	if dbOptions.ConfigPath != "" {
-		return
-	}
-
-	// Check environment variable
-	if dbOptions.ConfigPath == "" {
-		val, ok := os.LookupEnv(vclusterConfigEnv)
-		if ok && val != "" {
-			dbOptions.ConfigPath = val
-			return
+func closeFile(f *os.File) {
+	if f != nil && f != os.Stdout {
+		if err := f.Close(); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
 		}
 	}
-
-	// Pick a default config file.
-
-	// If we are running vcluster from /opt/vertica/bin, we'll assume we
-	// have installed the vertica package on this machine and so can assume
-	// /opt/vertica/config exists too.
-	if vclusterExePath == "/opt/vertica/bin/vcluster" {
-		const rpmConfDir = "/opt/vertica/config"
-		_, err := os.Stat(rpmConfDir)
-		if ensureOptVerticaConfigExists && err != nil {
-			if os.IsNotExist(err) {
-				err = nil
-			}
-			cobra.CheckErr(err)
-		} else {
-			dbOptions.ConfigPath = fmt.Sprintf("%s/%s", rpmConfDir, defConfigFileName)
-			return
-		}
-	}
-
-	// Finally default to the .config directory in the users home. This is used
-	// by many CLI applications.
-	cfgDir, err := os.UserConfigDir()
-	cobra.CheckErr(err)
-
-	// Ensure the config directory exists.
-	path := filepath.Join(cfgDir, "vcluster")
-	if ensureUserConfigDirExists {
-		const configDirPerm = 0755
-		err = os.MkdirAll(path, configDirPerm)
-		if err != nil {
-			// Just abort if we don't have write access to the config path
-			return
-		}
-	}
-	dbOptions.ConfigPath = fmt.Sprintf("%s/%s", path, defConfigFileName)
 }

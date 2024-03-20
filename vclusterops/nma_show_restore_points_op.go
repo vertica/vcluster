@@ -62,9 +62,10 @@ func makeNMAShowRestorePointsOp(logger vlog.Printer,
 	hosts []string, dbName, communalLocation string, configurationParameters map[string]string) nmaShowRestorePointsOp {
 	return nmaShowRestorePointsOp{
 		opBase: opBase{
-			name:   "NMAShowRestorePointsOp",
-			logger: logger.WithName("NMAShowRestorePointsOp"),
-			hosts:  hosts,
+			name:        "NMAShowRestorePointsOp",
+			description: "Run restore points query",
+			logger:      logger.WithName("NMAShowRestorePointsOp"),
+			hosts:       hosts,
 		},
 		dbName:                  dbName,
 		configurationParameters: configurationParameters,

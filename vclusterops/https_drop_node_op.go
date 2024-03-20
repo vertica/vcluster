@@ -30,7 +30,7 @@ type httpsDropNodeOp struct {
 }
 
 // makeHTTPSDropNodeOp is a constructor for httpsDropNodeOp. The cascade option
-// should be true if an EON deployment and the node we are dropping is down.
+// should be true if an Eon deployment and the node we are dropping is down.
 func makeHTTPSDropNodeOp(vnode string,
 	initiatorHost []string,
 	useHTTPPassword bool,
@@ -39,6 +39,7 @@ func makeHTTPSDropNodeOp(vnode string,
 	cascade bool) (httpsDropNodeOp, error) {
 	op := httpsDropNodeOp{}
 	op.name = "HTTPSDropNodeOp"
+	op.description = "Drop node in catalog"
 	op.hosts = initiatorHost
 	op.targetHost = vnode
 	op.useHTTPPassword = useHTTPPassword

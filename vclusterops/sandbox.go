@@ -30,18 +30,6 @@ type VSandboxOptions struct {
 	SCRawHosts  []string
 }
 
-type VSandboxSubclusterInfo struct {
-	DBName string
-	// Hosts should contain at least one primary host for performing sandboxing,
-	// as sandboxing requires the subcluster to be secondary.
-	Hosts       []string
-	SCHosts     []string
-	UserName    string
-	Password    *string
-	SCName      string
-	SandboxName string
-}
-
 func VSandboxOptionsFactory() VSandboxOptions {
 	opt := VSandboxOptions{}
 	opt.setDefaultValues()
@@ -72,25 +60,27 @@ func (options *VSandboxOptions) validateRequiredOptions(logger vlog.Printer) err
 
 // resolve hostnames to be IPs
 func (options *VSandboxOptions) analyzeOptions() (err error) {
-	// we analyze hostnames when HonorUserInput is set, otherwise we use hosts in yaml config
-	if *options.HonorUserInput {
+	// we analyze hostnames when it is set in user input, otherwise we use hosts in yaml config
+	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
 		if err != nil {
 			return err
 		}
 	}
 
 	// resolve SCRawHosts to be IP addresses
-	options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.Ipv6.ToBool())
-	if err != nil {
-		return err
+	if len(options.SCRawHosts) > 0 {
+		options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.OldIpv6.ToBool())
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (options *VSandboxOptions) ValidateAnalyzeOptions(vcc *VClusterCommands) error {
+func (options *VSandboxOptions) ValidateAnalyzeOptions(vcc VClusterCommands) error {
 	if err := options.validateRequiredOptions(vcc.Log); err != nil {
 		return err
 	}
@@ -109,13 +99,12 @@ func (options *VSandboxOptions) ValidateAnalyzeOptions(vcc *VClusterCommands) er
 //   - Run Sandboxing for the user provided subcluster using the selected initiator host.
 //   - Poll for the sandboxed subcluster hosts to be UP.
 
-func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(sandboxSubclusterInfo *VSandboxSubclusterInfo,
-	options *VSandboxOptions) ([]clusterOp, error) {
+func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSandboxOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// when password is specified, we will use username/password to call https endpoints
 	usePassword := false
-	if sandboxSubclusterInfo.Password != nil {
+	if options.Password != nil {
 		usePassword = true
 		err := options.validateUserName(vcc.Log)
 		if err != nil {
@@ -126,29 +115,29 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(sandboxSubclus
 	username := *options.UserName
 
 	// Get all up nodes
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(sandboxSubclusterInfo.DBName, sandboxSubclusterInfo.Hosts,
-		usePassword, username, sandboxSubclusterInfo.Password, SandboxCmd)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.DBName, options.Hosts,
+		usePassword, username, options.Password, SandboxCmd)
 	if err != nil {
 		return instructions, err
 	}
 
 	// Get subcluster sandboxing information and remove sandboxed nodes from prospective initator hosts list
-	httpsCheckSubclusterSandboxOp, err := makeHTTPSCheckSubclusterSandboxOp(sandboxSubclusterInfo.Hosts,
-		sandboxSubclusterInfo.SCName, sandboxSubclusterInfo.SandboxName, usePassword, username, sandboxSubclusterInfo.Password)
+	httpsCheckSubclusterSandboxOp, err := makeHTTPSCheckSubclusterSandboxOp(options.Hosts,
+		*options.SCName, *options.SandboxName, usePassword, username, options.Password)
 	if err != nil {
 		return instructions, err
 	}
 
 	// Run Sandboxing
-	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, sandboxSubclusterInfo.SCName, sandboxSubclusterInfo.SandboxName,
-		usePassword, username, sandboxSubclusterInfo.Password)
+	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, *options.SCName, *options.SandboxName,
+		usePassword, username, options.Password)
 	if err != nil {
 		return instructions, err
 	}
 
 	// Poll for sandboxed nodes to be up
-	httpsPollSubclusterNodeOp, err := makeHTTPSPollSubclusterNodeStateUpOp(sandboxSubclusterInfo.SCName,
-		usePassword, username, sandboxSubclusterInfo.Password)
+	httpsPollSubclusterNodeOp, err := makeHTTPSPollSubclusterNodeStateUpOp(*options.SCName,
+		usePassword, username, options.Password)
 	if err != nil {
 		return instructions, err
 	}
@@ -163,40 +152,53 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(sandboxSubclus
 	return instructions, nil
 }
 
-func (vcc *VClusterCommands) VSandbox(options *VSandboxOptions) error {
-	vcc.Log.V(0).Info("VSandbox method called with options " + fmt.Sprintf("%#v", options))
-	// check required options
-	err := options.ValidateAnalyzeOptions(vcc)
-	if err != nil {
-		vcc.Log.Error(err, "validation of sandboxing arguments failed")
-		return err
-	}
+func (vcc VClusterCommands) VSandbox(options *VSandboxOptions) error {
+	vcc.Log.V(0).Info("VSandbox method called", "options", options)
+	return runSandboxCmd(vcc, options)
+}
 
-	// build sandboxSubclusterInfo from config file and options
-	sandboxSubclusterInfo := VSandboxSubclusterInfo{
-		UserName:    *options.UserName,
-		Password:    options.Password,
-		SCName:      *options.SCName,
-		SandboxName: *options.SandboxName,
-	}
-	sandboxSubclusterInfo.DBName, sandboxSubclusterInfo.Hosts, err = options.getNameAndHosts(options.Config)
-	if err != nil {
-		return err
-	}
+// sandboxInterface is an interface that will be used by runSandboxCmd().
+// The purpose of this interface is to avoid code duplication.
+type sandboxInterface interface {
+	setDBNameAndHosts() error
+	ValidateAnalyzeOptions(vcc VClusterCommands) error
+	runCommand(vcc VClusterCommands) error
+}
 
-	instructions, err := vcc.produceSandboxSubclusterInstructions(&sandboxSubclusterInfo, options)
+// runCommand will produce instructions and run them
+func (options *VSandboxOptions) runCommand(vcc VClusterCommands) error {
+	// make instructions
+	instructions, err := vcc.produceSandboxSubclusterInstructions(options)
 	if err != nil {
 		return fmt.Errorf("fail to produce instructions, %w", err)
 	}
 
-	// Create a VClusterOpEngine, and add certs to the engine
+	// add certs and instructions to the engine
 	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
-	// Give the instructions to the VClusterOpEngine to run
+	// run the engine
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return fmt.Errorf("fail to sandbox subcluster %s, %w", sandboxSubclusterInfo.SCName, runError)
+		return fmt.Errorf("fail to sandbox subcluster %s, %w", *options.SCName, runError)
 	}
 	return nil
+}
+
+// runSandboxCmd is a help function to run sandbox/unsandbox command.
+// It can avoid code duplication between VSandbox and VUnsandbox.
+func runSandboxCmd(vcc VClusterCommands, i sandboxInterface) error {
+	err := i.setDBNameAndHosts()
+	if err != nil {
+		return err
+	}
+
+	// check required options
+	err = i.ValidateAnalyzeOptions(vcc)
+	if err != nil {
+		vcc.Log.Error(err, "failed to validate the options")
+		return err
+	}
+
+	return i.runCommand(vcc)
 }

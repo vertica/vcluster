@@ -52,6 +52,7 @@ func makeSCToHostVersionMap() map[string]hostVersionMap {
 func makeNMAVerticaVersionOp(hosts []string, sameVersion, isEon bool) nmaVerticaVersionOp {
 	op := nmaVerticaVersionOp{}
 	op.name = "NMAVerticaVersionOp"
+	op.description = "Check Vertica version"
 	op.hosts = hosts
 	op.RequireSameVersion = sameVersion
 	op.IsEon = isEon

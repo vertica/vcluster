@@ -13,6 +13,7 @@
  limitations under the License.
 */
 
+// remove this file in VER-92369
 package vclusterops
 
 import (
@@ -28,24 +29,21 @@ import (
 const (
 	ConfigDirPerm            = 0755
 	ConfigFilePerm           = 0600
-	CurrentConfigFileVersion = 1
+	CurrentConfigFileVersion = "1.0"
+	ConfigFileName           = "vertica_cluster.yaml"
+	ConfigBackupName         = "vertica_cluster.yaml.backup"
 )
 
-const ConfigFileName = "vertica_cluster.yaml"
-const ConfigBackupName = "vertica_cluster.yaml.backup"
-
 type Config struct {
-	Version   int           `yaml:"config_file_version"`
-	Databases ClusterConfig `yaml:"databases"`
+	Version  string         `yaml:"configFileVersion"`
+	Database DatabaseConfig `yaml:",inline"`
 }
 
-// ClusterConfig is a map that stores configuration information for each database in the cluster.
-type ClusterConfig map[string]DatabaseConfig
-
 type DatabaseConfig struct {
+	Name                    string        `yaml:"dbName"`
 	Nodes                   []*NodeConfig `yaml:"nodes"`
-	IsEon                   bool          `yaml:"eon_mode"`
-	CommunalStorageLocation string        `yaml:"communal_storage_location"`
+	IsEon                   bool          `yaml:"eonMode"`
+	CommunalStorageLocation string        `yaml:"communalStorageLocation"`
 	Ipv6                    bool          `yaml:"ipv6"`
 }
 
@@ -53,22 +51,18 @@ type NodeConfig struct {
 	Name        string `yaml:"name"`
 	Address     string `yaml:"address"`
 	Subcluster  string `yaml:"subcluster"`
-	CatalogPath string `yaml:"catalog_path"`
-	DataPath    string `yaml:"data_path"`
-	DepotPath   string `yaml:"depot_path"`
-}
-
-func MakeClusterConfig() ClusterConfig {
-	return make(ClusterConfig)
+	CatalogPath string `yaml:"catalogPath"`
+	DataPath    string `yaml:"dataPath"`
+	DepotPath   string `yaml:"depotPath"`
 }
 
 func MakeDatabaseConfig() DatabaseConfig {
 	return DatabaseConfig{}
 }
 
-// ReadConfig reads cluster configuration information from a YAML-formatted file in configDirectory.
-// It returns a ClusterConfig and any error encountered when reading and parsing the file.
-func ReadConfig(configFilePath string, logger vlog.Printer) (ClusterConfig, error) {
+// ReadConfig reads database configuration information from a YAML-formatted file in configDirectory.
+// It returns a DatabaseConfig and any error encountered when reading and parsing the file.
+func ReadConfig(configFilePath string, logger vlog.Printer) (*DatabaseConfig, error) {
 	if configFilePath == "" {
 		return nil, fmt.Errorf("no config file provided")
 	}
@@ -85,33 +79,37 @@ func ReadConfig(configFilePath string, logger vlog.Printer) (ClusterConfig, erro
 
 	// the config file content will look like
 	/*
-		config_file_version: 1
-		databases:
-			test_db:
-				nodes:
-					- name: v_test_db_node0001
-					  address: 192.168.1.101
-					  subcluster: default_subcluster
-					  catalog_path: /data
-					  data_path: /data
-					  depot_path: /data
-					...
-				eon_mode: false
-				communal_storage_location: ""
-				ipv6: false
+		configFileVersion: "1.0"
+		dbName: test_db
+		nodes:
+			- name: v_test_db_node0001
+			  address: 192.168.1.101
+			  subcluster: default_subcluster
+			  catalogPath: /data
+			  dataPath: /data
+			  depotPath: /data
+			...
+		eonMode: false
+		communalStorageLocation: ""
+		ipv6: false
 	*/
 
-	clusterConfig := config.Databases
-	logger.PrintInfo("The content of cluster config: %+v", clusterConfig)
-	return clusterConfig, nil
+	dbConfig := config.Database
+	logger.PrintInfo("The content of database config: %+v", dbConfig)
+	nodesDetails := "The database config nodes details: "
+	for _, node := range dbConfig.Nodes {
+		nodesDetails += fmt.Sprintf("%+v ", *node)
+	}
+	logger.PrintInfo(nodesDetails)
+	return &dbConfig, nil
 }
 
 // WriteConfig writes configuration information to configFilePath.
 // It returns any write error encountered.
-func (c *ClusterConfig) WriteConfig(configFilePath string) error {
+func (c *DatabaseConfig) WriteConfig(configFilePath string, logger vlog.Printer) error {
 	var config Config
 	config.Version = CurrentConfigFileVersion
-	config.Databases = *c
+	config.Database = *c
 
 	configBytes, err := yaml.Marshal(&config)
 	if err != nil {
@@ -121,48 +119,44 @@ func (c *ClusterConfig) WriteConfig(configFilePath string) error {
 	if err != nil {
 		return fmt.Errorf("fail to write config file, details: %w", err)
 	}
+	logger.Info("Config file successfully written", "config file path", configFilePath)
 
 	return nil
 }
 
 // getPathPrefix returns catalog, data, and depot prefixes
-func (c *ClusterConfig) getPathPrefix(dbName string) (catalogPrefix string,
+func (c *DatabaseConfig) getPathPrefix(dbName string) (catalogPrefix string,
 	dataPrefix string, depotPrefix string, err error) {
-	dbConfig, ok := (*c)[dbName]
-	if !ok {
+	if dbName != c.Name {
 		return "", "", "", cannotFindDBFromConfigErr(dbName)
 	}
 
-	if len(dbConfig.Nodes) == 0 {
+	if len(c.Nodes) == 0 {
 		return "", "", "",
 			fmt.Errorf("no node was found from the config file of %s", dbName)
 	}
 
-	return dbConfig.Nodes[0].CatalogPath, dbConfig.Nodes[0].DataPath,
-		dbConfig.Nodes[0].DepotPath, nil
+	return c.Nodes[0].CatalogPath, c.Nodes[0].DataPath,
+		c.Nodes[0].DepotPath, nil
 }
 
-func (c *ClusterConfig) getCommunalStorageLocation(dbName string) (communalStorageLocation string,
+func (c *DatabaseConfig) getCommunalStorageLocation(dbName string) (communalStorageLocation string,
 	err error) {
-	dbConfig, ok := (*c)[dbName]
-	if !ok {
+	if dbName != c.Name {
 		return "", cannotFindDBFromConfigErr(dbName)
 	}
-	return dbConfig.CommunalStorageLocation, nil
+	return c.CommunalStorageLocation, nil
 }
 
-func (c *ClusterConfig) removeDatabaseFromConfigFile(dbName, configFilePath string, logger vlog.Printer) error {
+func (c *DatabaseConfig) removeConfigFile(configFilePath string, logger vlog.Printer) error {
 	// back up the old config file
 	err := backupConfigFile(configFilePath, logger)
 	if err != nil {
 		return err
 	}
 
-	// remove the target database from the cluster config
-	// and overwrite the config file
-	delete(*c, dbName)
-
-	return c.WriteConfig(configFilePath)
+	// remove the old db config
+	return os.Remove(configFilePath)
 }
 
 func (c *DatabaseConfig) getHosts() []string {

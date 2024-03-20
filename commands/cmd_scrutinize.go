@@ -18,7 +18,6 @@ package commands
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"regexp"
@@ -26,8 +25,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 )
@@ -78,38 +77,116 @@ type CmdScrutinize struct {
 	sOptions             vclusterops.VScrutinizeOptions
 }
 
-func makeCmdScrutinize() *CmdScrutinize {
+func makeCmdScrutinize() *cobra.Command {
 	newCmd := &CmdScrutinize{}
-	newCmd.oldParser = flag.NewFlagSet("scrutinize", flag.ExitOnError)
-	newCmd.sOptions = vclusterops.VScrutinizOptionsFactory()
+	newCmd.isEon = new(bool)
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VScrutinizeOptionsFactory()
+	newCmd.sOptions = opt
 	newCmd.secretStoreRetriever = secretStoreRetrieverStruct{}
-	// required flags
-	newCmd.sOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to run scrutinize.  May be omitted on k8s.")
 
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated host list")
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"scrutinize",
+		"Scrutinize a database",
+		`This scrutinizes a database on a given set of hosts.
+		
+This subcommand is usually requested by Vertica support to collect 
+diagnostics from each host.
 
-	// optional flags
-	newCmd.sOptions.Password = newCmd.oldParser.String("password", "",
-		util.GetOptionalFlagMsg("Database password. Consider using in single quotes to avoid shell substitution."))
+If the --hosts option is specified, diagnostics will only be gathered from those 
+specific nodes. These nodes may be a subset of all the nodes in the database.
 
-	newCmd.sOptions.UserName = newCmd.oldParser.String("db-user", "",
-		util.GetOptionalFlagMsg("Database username. Consider using single quotes to avoid shell substitution."))
+The diagnostics are bundled together in a tarball and stored at the following 
+directory: `+vclusterops.ScrutinizeOutputBasePath+`/VerticaScrutinize.<timestamp>.tar.
 
-	newCmd.sOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
+Examples:
+  # Scrutinize all nodes in the database using config file option and password-based authentication
+  vcluster scrutinize --db-name test_db --db-user dbadmin --password "Secret!" --config $HOME/test_db/vertica_config.yaml
+`,
+	)
 
-	newCmd.oldParser.StringVar(&newCmd.sOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, configFlag, passwordFlag})
 
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Scrutinize database with IPv6 hosts"))
+	// local flags
+	newCmd.setLocalFlags(cmd)
 
-	// this argument is parsed separately by the cluster command launcher to initialize the logger
-	newCmd.sOptions.LogPath = newCmd.oldParser.String("log-path", defaultLogPath,
-		util.GetOptionalFlagMsg("File path of the vcluster scrutinize log"))
+	return cmd
+}
 
-	newCmd.oldParser.StringVar(&newCmd.sOptions.TarballName, "tarball-name", "",
-		util.GetOptionalFlagMsg("Name of the generated tarball. If empty an auto-generated name is used"))
+// setLocalFlags will set the local flags the command has
+func (c *CmdScrutinize) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(
+		dbOptions.UserName,
+		"db-user",
+		"",
+		"Database username. Consider using single quotes "+
+			"to avoid shell substitution.",
+	)
 
-	return newCmd
+	cmd.Flags().StringVar(
+		&c.sOptions.TarballName,
+		"tarball-name",
+		"",
+		"Name of the generated tarball. If empty an auto-generated "+
+			"name is used following the pattern VerticaScrutinize.<timestamp>",
+	)
+	cmd.Flags().StringVar(
+		&c.sOptions.LogAgeOldestTime,
+		"log-age-oldest-time",
+		"",
+		"Timestamp of the maximum age of archived vertica log files "+
+			"to collect, formatted as "+vclusterops.ScrutinizeHelpTimeFormatDesc,
+	)
+	cmd.Flags().StringVar(
+		&c.sOptions.LogAgeNewestTime,
+		"log-age-newest-time",
+		"",
+		"Timestamp of the minimum age of archived vertica log files "+
+			"to collect, formatted as "+vclusterops.ScrutinizeHelpTimeFormatDesc,
+	)
+	cmd.Flags().IntVar(
+		&c.sOptions.LogAgeHours,
+		"log-age-hours",
+		vclusterops.ScrutinizeLogMaxAgeHoursDefault,
+		"Maximum age of archived vertica log files to collect "+
+			"in hours, default "+fmt.Sprint(vclusterops.ScrutinizeLogMaxAgeHoursDefault),
+	)
+	cmd.MarkFlagsMutuallyExclusive("log-age-hours", "log-age-oldest-time")
+	cmd.MarkFlagsMutuallyExclusive("log-age-hours", "log-age-newest-time")
+	cmd.Flags().BoolVar(
+		&c.sOptions.ExcludeContainers,
+		"exclude-containers",
+		false,
+		"Exclude information scaling with number of ros containers",
+	)
+	cmd.Flags().BoolVar(
+		&c.sOptions.ExcludeActiveQueries,
+		"exclude-active-queries",
+		false,
+		"Exclude information affected by currently running queries",
+	)
+	cmd.Flags().BoolVar(
+		&c.sOptions.IncludeRos,
+		"include-ros",
+		false,
+		"Include information describing ros containers",
+	)
+	cmd.Flags().BoolVar(
+		&c.sOptions.IncludeExternalTableDetails,
+		"include-external-table-details",
+		false,
+		"Include information describing external tables, "+
+			"which is expensive to gather",
+	)
+	cmd.Flags().BoolVar(
+		&c.sOptions.IncludeUDXDetails,
+		"include-udx-details",
+		false,
+		"Include information describing all UDX functions, "+
+			"which can be expensive to gather on Eon",
+	)
 }
 
 func (c *CmdScrutinize) CommandType() string {
@@ -119,28 +196,19 @@ func (c *CmdScrutinize) CommandType() string {
 func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 	logger.PrintInfo("Parsing scrutinize command input")
 	c.argv = inputArgv
-	err := c.ValidateParseMaskedArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
-
+	logger.LogMaskedArgParse(c.argv)
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "password") {
-		c.sOptions.Password = nil
-	}
-	if !util.IsOptionSet(c.oldParser, "ipv6") {
-		c.CmdBase.ipv6 = nil
-	}
+	c.OldResetUserInputOptions()
 	// just so generic parsing works - not relevant for functionality
-	if !util.IsOptionSet(c.oldParser, "eon-mode") {
-		c.CmdBase.isEon = nil
+	if !c.parser.Changed("eon-mode") {
+		c.ipv6 = nil
 	}
 
 	// if the tarballName was provided in the cli, we check
 	// if it matches GRASP regex
-	if util.IsOptionSet(c.oldParser, "tarball-name") {
+	if c.parser.Changed("tarball-name") {
 		c.validateTarballName(logger)
 	}
 	if c.sOptions.TarballName == "" {
@@ -149,43 +217,41 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 		c.sOptions.TarballName = c.sOptions.ID
 	}
 
-	// parses host list and ipv6 - eon is irrelevant but handled
 	return c.validateParse(logger)
 }
 
 // all validations of the arguments should go in here
 func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	return c.OldValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
+	// parses host list and ipv6 - eon is irrelevant but handled
+	err := c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return c.setDBPassword(&c.sOptions.DatabaseOptions)
 }
 
-func (c *CmdScrutinize) Analyze(logger vlog.Printer) error {
-	logger.Info("Called method Analyze()")
+func (c *CmdScrutinize) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.PrintInfo("Running scrutinize") // TODO remove when no longer needed for tests
+	vcc.LogInfo("Calling method Run()")
 
 	// Read the password from a secret
-	err := c.dbPassswdLookupFromSecretStore(logger)
+	err := c.dbPassswdLookupFromSecretStore(vcc.GetLog())
 	if err != nil {
 		return err
 	}
 
 	// Read the NMA certs into the options struct
-	err = c.readNMACerts(logger)
+	err = c.readNMACerts(vcc.GetLog())
 	if err != nil {
 		return err
 	}
 
 	// get extra options direct from env variables
-	err = c.readOptionsFromK8sEnv(logger)
+	err = c.readOptionsFromK8sEnv(vcc.GetLog())
 	if err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func (c *CmdScrutinize) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.PrintInfo("Running scrutinize") // TODO remove when no longer needed for tests
-	vcc.Log.Info("Calling method Run()")
 
 	// get config from vertica_cluster.yaml (if exists)
 	config, err := c.sOptions.GetDBConfig(vcc)
@@ -196,10 +262,10 @@ func (c *CmdScrutinize) Run(vcc vclusterops.VClusterCommands) error {
 
 	err = vcc.VScrutinize(&c.sOptions)
 	if err != nil {
-		vcc.Log.Error(err, "scrutinize run failed")
+		vcc.LogError(err, "scrutinize run failed")
 		return err
 	}
-	vcc.Log.PrintInfo("Successfully completed scrutinize run for the database %s", *c.sOptions.DBName)
+	vcc.PrintInfo("Successfully completed scrutinize run for the database %s", *c.sOptions.DBName)
 	return err
 }
 
@@ -383,7 +449,7 @@ func (c *CmdScrutinize) nmaCertLookupFromEnv(logger vlog.Printer) (bool, error) 
 // readOptionsFromK8sEnv picks up the catalog path and dbname from the environment when on k8s
 // which otherwise would need to be set at the command line or read from a config file.
 func (c *CmdScrutinize) readOptionsFromK8sEnv(logger vlog.Printer) (allErrs error) {
-	if !isK8sEnvironment() || !*c.sOptions.HonorUserInput {
+	if !isK8sEnvironment() {
 		return
 	}
 
@@ -482,4 +548,9 @@ func lookupAndCheckSecretEnvVars(nameEnv, namespaceEnv string) (*types.Namespace
 		Namespace: secretNameSpace,
 	}
 	return secret, nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdScrutinize
+func (c *CmdScrutinize) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.sOptions.DatabaseOptions = *opt
 }

@@ -366,11 +366,13 @@ func (opt *VCreateDatabaseOptions) validateParseOptions(logger vlog.Printer) err
 // Do advanced analysis on the options inputs, like resolve hostnames to be IPs
 func (opt *VCreateDatabaseOptions) analyzeOptions() error {
 	// resolve RawHosts to be IP addresses
-	hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.Ipv6.ToBool())
-	if err != nil {
-		return err
+	if len(opt.RawHosts) > 0 {
+		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
+		if err != nil {
+			return err
+		}
+		opt.Hosts = hostAddresses
 	}
-	opt.Hosts = hostAddresses
 
 	// process correct catalog path, data path and depot path prefixes
 	*opt.CatalogPrefix = util.GetCleanPath(*opt.CatalogPrefix)
@@ -392,7 +394,7 @@ func (opt *VCreateDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer) e
 	return opt.analyzeOptions()
 }
 
-func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error) {
+func (vcc VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error) {
 	vcc.Log.Info("starting VCreateDatabase")
 
 	/*
@@ -449,7 +451,7 @@ func (vcc *VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (V
 //   - Mark design ksafe
 //   - Install packages
 //   - Sync catalog
-func (vcc *VClusterCommands) produceCreateDBInstructions(
+func (vcc VClusterCommands) produceCreateDBInstructions(
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions) ([]clusterOp, error) {
 	instructions, err := vcc.produceCreateDBBootstrapInstructions(vdb, options)
@@ -474,7 +476,7 @@ func (vcc *VClusterCommands) produceCreateDBInstructions(
 }
 
 // produceCreateDBBootstrapInstructions returns the bootstrap instructions for create_db.
-func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
+func (vcc VClusterCommands) produceCreateDBBootstrapInstructions(
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -554,7 +556,7 @@ func (vcc *VClusterCommands) produceCreateDBBootstrapInstructions(
 }
 
 // produceCreateDBWorkerNodesInstructions returns the workder nodes' instructions for create_db.
-func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
+func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 	vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -586,7 +588,7 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 
 	if len(hosts) > 1 {
 		httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, bootstrapHost,
-			true /* use password auth */, *options.UserName, options.Password, vdb)
+			true /* use password auth */, *options.UserName, options.Password, vdb, false, util.MainClusterSandbox)
 		if err != nil {
 			return instructions, err
 		}
@@ -612,7 +614,7 @@ func (vcc *VClusterCommands) produceCreateDBWorkerNodesInstructions(
 }
 
 // produceAdditionalCreateDBInstructions returns additional instruction necessary for create_db.
-func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase,
+func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordinationDatabase,
 	options *VCreateDatabaseOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
@@ -665,7 +667,7 @@ func (vcc *VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordin
 	return instructions, nil
 }
 
-func (vcc *VClusterCommands) addEnableSpreadEncryptionOp(keyType string) clusterOp {
+func (vcc VClusterCommands) addEnableSpreadEncryptionOp(keyType string) clusterOp {
 	vcc.Log.Info("adding instruction to set key for spread encryption")
 	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
 	return &op

@@ -33,6 +33,7 @@ func makeHTTPSDropSubclusterOp(hosts []string, scName string,
 ) (httpsDropSubclusterOp, error) {
 	op := httpsDropSubclusterOp{}
 	op.name = "HTTPSDropSubclusterOp"
+	op.description = "Drop subcluster in catalog"
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.scName = scName

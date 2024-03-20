@@ -33,6 +33,7 @@ func makeHTTPSCreateNodeOp(newNodeHosts []string, bootstrapHost []string,
 	vdb *VCoordinationDatabase, scName string) (httpsCreateNodeOp, error) {
 	op := httpsCreateNodeOp{}
 	op.name = "HTTPSCreateNodeOp"
+	op.description = "Create node in catalog"
 	op.hosts = bootstrapHost
 	op.RequestParams = make(map[string]string)
 	// HTTPS create node endpoint requires passing everything before node name

@@ -172,9 +172,11 @@ func (options *VReviveDatabaseOptions) analyzeOptions() (err error) {
 	}
 
 	// resolve RawHosts to be IP addresses
-	options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
-	if err != nil {
-		return err
+	if len(options.RawHosts) > 0 {
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -189,7 +191,7 @@ func (options *VReviveDatabaseOptions) validateAnalyzeOptions() error {
 
 // VReviveDatabase revives a database that was terminated but whose communal storage data still exists.
 // It returns the database information retrieved from communal storage and any error encountered.
-func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error) {
+func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error) {
 	/*
 	 *   - Validate options
 	 *   - Run VClusterOpEngine to get terminated database info
@@ -214,7 +216,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	// feed the pre-revive db instructions to the VClusterOpEngine
 	clusterOpEngine := makeClusterOpEngine(preReviveDBInstructions, &certs)
-	err = clusterOpEngine.run(vcc.Log)
+	err = clusterOpEngine.run(vcc.GetLog())
 	if err != nil {
 		return dbInfo, nil, fmt.Errorf("fail to collect the information of database in revive_db %w", err)
 	}
@@ -232,7 +234,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 
 		// feed the restore db specific instructions to the VClusterOpEngine
 		clusterOpEngine = makeClusterOpEngine(restoreDBSpecificInstructions, &certs)
-		runErr := clusterOpEngine.run(vcc.Log)
+		runErr := clusterOpEngine.run(vcc.GetLog())
 		if runErr != nil {
 			return dbInfo, &vdb, fmt.Errorf("fail to collect the restore-specific information of database in revive_db %w", runErr)
 		}
@@ -251,7 +253,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 
 	// feed revive db instructions to the VClusterOpEngine
 	clusterOpEngine = makeClusterOpEngine(reviveDBInstructions, &certs)
-	err = clusterOpEngine.run(vcc.Log)
+	err = clusterOpEngine.run(vcc.GetLog())
 	if err != nil {
 		return dbInfo, &vdb, fmt.Errorf("fail to revive database %w", err)
 	}
@@ -260,7 +262,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 	vdb.Name = *options.DBName
 	vdb.IsEon = true
 	vdb.CommunalStorageLocation = *options.CommunalStorageLocation
-	vdb.Ipv6 = options.Ipv6.ToBool()
+	vdb.Ipv6 = options.OldIpv6.ToBool()
 
 	return dbInfo, &vdb, nil
 }
@@ -277,7 +279,7 @@ func (vcc *VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (d
 //   - Check any DB running on the hosts
 //   - (Optionally) download and read the current description file from communal storage on the initiator
 //   - (Optionally) list all restore points
-func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveDatabaseOptions,
+func (vcc VClusterCommands) producePreReviveDBInstructions(options *VReviveDatabaseOptions,
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
@@ -333,7 +335,7 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 			indexStr := strconv.Itoa(options.RestorePoint.Index)
 			filterOptions.ArchiveIndex = &indexStr
 		}
-		nmaShowRestorePointsOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.Log, bootstrapHost, *options.DBName,
+		nmaShowRestorePointsOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.GetLog(), bootstrapHost, *options.DBName,
 			*options.CommunalStorageLocation, options.ConfigurationParameters, &filterOptions)
 		instructions = append(instructions,
 			&nmaShowRestorePointsOp,
@@ -346,7 +348,7 @@ func (vcc *VClusterCommands) producePreReviveDBInstructions(options *VReviveData
 // produceRestoreDBSpecificInstructions will complete building the first half of revive_db instructions when a restore is enabled
 // The generated instructions will later perform the following operations
 //   - Download and read the description file corresponding to the restore point from communal storage on the initiator
-func (vcc *VClusterCommands) produceRestoreDBSpecificInstructions(options *VReviveDatabaseOptions,
+func (vcc VClusterCommands) produceRestoreDBSpecificInstructions(options *VReviveDatabaseOptions,
 	vdb *VCoordinationDatabase, validatedRestorePointID string) ([]clusterOp, error) {
 	var instructions []clusterOp
 
@@ -372,7 +374,7 @@ func (vcc *VClusterCommands) produceRestoreDBSpecificInstructions(options *VRevi
 //   - Prepare database directories for all the hosts
 //   - Get network profiles for all the hosts
 //   - Load remote catalog from communal storage on all the hosts
-func (vcc *VClusterCommands) produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	newVDB, oldHosts, err := options.generateReviveVDB(vdb)

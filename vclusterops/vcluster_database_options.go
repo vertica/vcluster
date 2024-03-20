@@ -36,7 +36,9 @@ type DatabaseOptions struct {
 	// expected to be IP addresses resolved from RawHosts
 	Hosts []string
 	// whether using IPv6 for host addresses
-	Ipv6 vstruct.NullableBool
+	IPv6 bool
+	// remove OldIpv6 in VER-92369
+	OldIpv6 vstruct.NullableBool
 	// path of catalog directory
 	CatalogPrefix *string
 	// path of data directory
@@ -49,7 +51,9 @@ type DatabaseOptions struct {
 	// path of depot directory
 	DepotPrefix *string
 	// whether the database is in Eon mode
-	IsEon vstruct.NullableBool
+	IsEon bool
+	// remove OldIsEon in VER-92369
+	OldIsEon vstruct.NullableBool
 	// path of the communal storage
 	CommunalStorageLocation *string
 	// database configuration parameters
@@ -72,12 +76,12 @@ type DatabaseOptions struct {
 
 	// path of the log file
 	LogPath *string
-	// whether honor user's input rather than reading values from the config file
-	HonorUserInput *bool
 	// whether use password
 	usePassword bool
-	// pointer to the cluster config object
-	Config *ClusterConfig
+
+	// remove Config in VER-92369
+	// pointer to the db config object
+	Config *DatabaseConfig
 }
 
 const (
@@ -94,10 +98,14 @@ const (
 	commandDropDB            = "drop_db"
 	commandStopDB            = "stop_db"
 	commandStartDB           = "start_db"
+	commandAddNode           = "db_add_node"
+	commandRemoveNode        = "db_remove_node"
 	commandAddCluster        = "db_add_subcluster"
+	commandRemoveCluster     = "db_remove_subcluster"
 	commandSandboxSC         = "sandbox_subcluster"
 	commandUnsandboxSC       = "unsandbox_subcluster"
 	commandShowRestorePoints = "show_restore_points"
+	commandInstallPackages   = "install_packages"
 )
 
 func DatabaseOptionsFactory() DatabaseOptions {
@@ -114,9 +122,8 @@ func (opt *DatabaseOptions) setDefaultValues() {
 	opt.DataPrefix = new(string)
 	opt.DepotPrefix = new(string)
 	opt.UserName = new(string)
-	opt.HonorUserInput = new(bool)
-	opt.Ipv6 = vstruct.NotSet
-	opt.IsEon = vstruct.NotSet
+	opt.OldIpv6 = vstruct.NotSet
+	opt.OldIsEon = vstruct.NotSet
 	opt.CommunalStorageLocation = new(string)
 	opt.ConfigurationParameters = make(map[string]string)
 }
@@ -183,29 +190,18 @@ func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Pri
 
 // validateHostsAndPwd will validate raw hosts and password
 func (opt *DatabaseOptions) validateHostsAndPwd(commandName string, log vlog.Printer) error {
-	// when we create db, we need hosts and set password to "" if user did not provide one
-	if commandName == commandCreateDB {
-		// raw hosts
-		if len(opt.RawHosts) == 0 {
-			return fmt.Errorf("must specify a host or host list")
-		}
-		// password
-		if opt.Password == nil {
+	// hosts
+	if len(opt.RawHosts) == 0 && len(opt.Hosts) == 0 {
+		return fmt.Errorf("must specify a host or host list")
+	}
+
+	// when we create db, we need to set password to "" if user did not provide one
+	if opt.Password == nil {
+		if commandName == commandCreateDB {
 			opt.Password = new(string)
 			*opt.Password = ""
-			log.PrintInfo("no password specified, using none")
 		}
-	} else {
-		// for other commands, we validate hosts when HonorUserInput is set, otherwise we use hosts in config file
-		if *opt.HonorUserInput {
-			if len(opt.RawHosts) == 0 {
-				log.PrintInfo("no hosts specified, try to use the hosts in %s", ConfigFileName)
-			}
-		}
-		// for other commands, we will not use "" as password
-		if opt.Password == nil {
-			log.PrintInfo("no password specified, using none")
-		}
+		log.PrintInfo("no password specified, using none")
 	}
 	return nil
 }
@@ -232,7 +228,8 @@ func (opt *DatabaseOptions) validatePaths(commandName string) error {
 	}
 
 	// depot prefix
-	if opt.IsEon == vstruct.True {
+	// remove `|| opt.OldIsEon == vstruct.True` in VER-92369
+	if opt.IsEon || opt.OldIsEon == vstruct.True {
 		err = util.ValidateRequiredAbsPath(opt.DepotPrefix, "depot path")
 		if err != nil {
 			return err
@@ -250,8 +247,8 @@ func (opt *DatabaseOptions) validateCatalogPath() error {
 func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
-	commands := []string{commandCreateDB, commandDropDB, commandStopDB, commandStartDB, commandAddCluster, commandSandboxSC,
-		commandUnsandboxSC, commandShowRestorePoints}
+	commands := []string{commandCreateDB, commandDropDB, commandStopDB, commandStartDB, commandAddCluster, commandRemoveCluster,
+		commandSandboxSC, commandUnsandboxSC, commandShowRestorePoints, commandAddNode, commandRemoveNode, commandInstallPackages}
 	if slices.Contains(commands, commandName) {
 		return nil
 	}
@@ -296,114 +293,151 @@ func (opt *DatabaseOptions) setUsePassword(log vlog.Printer) error {
 	return nil
 }
 
+// remove this function in VER-92369
 // isEonMode can choose the right eon mode from user input and config file
-func (opt *DatabaseOptions) isEonMode(config *ClusterConfig) (bool, error) {
-	// when config file is not available, we use user input
-	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
-	if config == nil {
-		return opt.IsEon.ToBool(), nil
+func (opt *DatabaseOptions) isEonMode(config *DatabaseConfig) (bool, error) {
+	// if eon mode is set in user input, we use the value in user input
+	if opt.OldIsEon != vstruct.NotSet {
+		return opt.OldIsEon.ToBool(), nil
 	}
 
-	dbConfig, ok := (*config)[*opt.DBName]
-	if !ok {
+	// when config file is not available, we do not return an error because we want
+	// to delay eon mode check in each command's validateAnalyzeOptions(), which is
+	// a central place to check all the options.
+	if config == nil {
+		return opt.OldIsEon.ToBool(), nil
+	}
+
+	// if db name from user input is different than the one in config file,
+	// we throw an error
+	if *opt.DBName != "" && config.Name != *opt.DBName {
 		return false, cannotFindDBFromConfigErr(*opt.DBName)
 	}
 
-	isEon := dbConfig.IsEon
-	// if HonorUserInput is set, we choose the user input
-	if opt.IsEon != vstruct.NotSet && *opt.HonorUserInput {
-		isEon = opt.IsEon.ToBool()
-	}
+	isEon := config.IsEon
 	return isEon, nil
 }
 
+// remove this function in VER-92369
+// setNameAndHosts can assign the right dbName and hosts to DatabaseOptions
+func (opt *DatabaseOptions) setDBNameAndHosts() error {
+	dbName, hosts, err := opt.getNameAndHosts(opt.Config)
+	if err != nil {
+		return err
+	}
+	opt.DBName = &dbName
+	opt.Hosts = hosts
+	return nil
+}
+
+// remove this function in VER-92369
 // getNameAndHosts can choose the right dbName and hosts from user input and config file
-func (opt *DatabaseOptions) getNameAndHosts(config *ClusterConfig) (dbName string, hosts []string, err error) {
-	// DBName is now a required option with our without yaml config, so this function exists for legacy reasons
-	dbName = *opt.DBName
+func (opt *DatabaseOptions) getNameAndHosts(config *DatabaseConfig) (dbName string, hosts []string, err error) {
+	// DBName is now a required flag, we always get it from user input
+	dbName = opt.getDBName(config)
+	if dbName == "" {
+		return dbName, hosts, fmt.Errorf("must specify a database name")
+	}
 	hosts, err = opt.getHosts(config)
 	return dbName, hosts, err
 }
 
+// remove this function in VER-92369
+// getDBName chooses the right db name from user input and config file
+func (opt *DatabaseOptions) getDBName(config *DatabaseConfig) string {
+	// if db name is set in user input, we use the value in user input
+	if *opt.DBName != "" {
+		return *opt.DBName
+	}
+
+	if config == nil {
+		return ""
+	}
+
+	return config.Name
+}
+
+// remove this function in VER-92369
 // getHosts chooses the right hosts from user input and config file
-func (opt *DatabaseOptions) getHosts(config *ClusterConfig) (hosts []string, err error) {
-	// when config file is not available, we use user input
-	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
+func (opt *DatabaseOptions) getHosts(config *DatabaseConfig) (hosts []string, err error) {
+	// if Hosts is set in user input, we use the value in user input
+	if len(opt.Hosts) > 0 {
+		return opt.Hosts, nil
+	}
+
+	// when config file is not available, we do not return an error because we want
+	// to delay hosts check in each command's validateAnalyzeOptions(), which is
+	// a central place to check all the options.
 	if config == nil {
 		return opt.Hosts, nil
 	}
 
-	dbConfig, ok := (*config)[*opt.DBName]
-	if !ok {
+	// if db name from user input is different than the one in config file,
+	// we throw an error
+	if *opt.DBName != "" && config.Name != *opt.DBName {
 		return hosts, cannotFindDBFromConfigErr(*opt.DBName)
 	}
 
-	hosts = dbConfig.getHosts()
-	// if HonorUserInput is set, we choose the user input
-	if len(opt.Hosts) > 0 && *opt.HonorUserInput {
-		hosts = opt.Hosts
-	}
+	hosts = config.getHosts()
 	return hosts, nil
 }
 
+// remove this function in VER-92369
 // getCatalogPrefix can choose the right catalog prefix from user input and config file
-func (opt *DatabaseOptions) getCatalogPrefix(clusterConfig *ClusterConfig) (catalogPrefix *string, err error) {
+func (opt *DatabaseOptions) getCatalogPrefix(config *DatabaseConfig) (catalogPrefix *string, err error) {
 	// when config file is not available, we use user input
-	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
-	if clusterConfig == nil {
+	if config == nil {
 		return opt.CatalogPrefix, nil
 	}
 
 	catalogPrefix = new(string)
-	*catalogPrefix, _, _, err = clusterConfig.getPathPrefix(*opt.DBName)
+	*catalogPrefix, _, _, err = config.getPathPrefix(*opt.DBName)
 	if err != nil {
 		return catalogPrefix, err
 	}
 
-	// if HonorUserInput is set, we choose the user input
-	if *opt.CatalogPrefix != "" && *opt.HonorUserInput {
+	// if CatalogPrefix is set in user input, we use the value in user input
+	if *opt.CatalogPrefix != "" {
 		catalogPrefix = opt.CatalogPrefix
 	}
 	return catalogPrefix, nil
 }
 
+// remove this function in VER-92369
 // getCommunalStorageLocation can choose the right communal storage location from user input and config file
-func (opt *DatabaseOptions) getCommunalStorageLocation(clusterConfig *ClusterConfig) (communalStorageLocation *string, err error) {
+func (opt *DatabaseOptions) getCommunalStorageLocation(config *DatabaseConfig) (communalStorageLocation *string, err error) {
 	// when config file is not available, we use user input
-	// HonorUserInput must be true at this time, otherwise vcluster has stopped when it cannot find the config file
-	if clusterConfig == nil {
+	if config == nil {
 		return opt.CommunalStorageLocation, nil
 	}
 
 	communalStorageLocation = new(string)
-	*communalStorageLocation, err = clusterConfig.getCommunalStorageLocation(*opt.DBName)
+	*communalStorageLocation, err = config.getCommunalStorageLocation(*opt.DBName)
 	if err != nil {
 		return communalStorageLocation, err
 	}
 
-	// if HonorUserInput is set, we choose the user input
-	if *opt.CommunalStorageLocation != "" && *opt.HonorUserInput {
+	// if CommunalStorageLocation is set in user input, we use the value in user input
+	if *opt.CommunalStorageLocation != "" {
 		communalStorageLocation = opt.CommunalStorageLocation
 	}
 	return communalStorageLocation, nil
 }
 
+// remove this function in VER-92369
 // getDepotAndDataPrefix chooses the right depot/data prefix from user input and config file.
 func (opt *DatabaseOptions) getDepotAndDataPrefix(
-	clusterConfig *ClusterConfig) (depotPrefix, dataPrefix string, err error) {
-	if clusterConfig == nil {
+	config *DatabaseConfig) (depotPrefix, dataPrefix string, err error) {
+	if config == nil {
 		return *opt.DepotPrefix, *opt.DataPrefix, nil
 	}
 
-	_, dataPrefix, depotPrefix, err = clusterConfig.getPathPrefix(*opt.DBName)
+	_, dataPrefix, depotPrefix, err = config.getPathPrefix(*opt.DBName)
 	if err != nil {
 		return "", "", err
 	}
 
-	// if HonorUserInput is set, we choose the user input
-	if !*opt.HonorUserInput {
-		return depotPrefix, dataPrefix, nil
-	}
+	// if DepotPrefix and DataPrefix are set in user input, we use the value in user input
 	if *opt.DepotPrefix != "" {
 		depotPrefix = *opt.DepotPrefix
 	}
@@ -413,27 +447,16 @@ func (opt *DatabaseOptions) getDepotAndDataPrefix(
 	return depotPrefix, dataPrefix, nil
 }
 
-// GetDBConfig reads database configurations from the config file into a ClusterConfig struct.
-// It returns the ClusterConfig and any error encountered.
-func (opt *DatabaseOptions) GetDBConfig(vcc VClusterCommands) (config *ClusterConfig, e error) {
-	if opt.ConfigPath == "" {
-		if !*opt.HonorUserInput {
-			return nil, fmt.Errorf("only supported two options: honor-user-input and config")
-		}
-		return nil, nil
-	}
-
-	configContent, err := ReadConfig(opt.ConfigPath, vcc.Log)
-	config = &configContent
+// remove this function in VER-92369
+// GetDBConfig reads database configurations from the config file into a DatabaseConfig struct.
+// It returns the DatabaseConfig and any error encountered.
+func (opt *DatabaseOptions) GetDBConfig(vcc ClusterCommands) (config *DatabaseConfig, err error) {
+	config, err = ReadConfig(opt.ConfigPath, vcc.GetLog())
 	if err != nil {
-		// when we cannot read config file, config points to an empty ClusterConfig with default values
+		// when we cannot read config file, config points to an empty DatabaseConfig with default values
 		// we want to reset config to nil so we will use user input later rather than those default values
 		config = nil
-		vcc.Log.PrintWarning("Failed to read " + opt.ConfigPath)
-		// when the customer wants to use user input, we can ignore config file error
-		if !*opt.HonorUserInput {
-			return config, err
-		}
+		vcc.PrintWarning("Failed to read %s, details: %v", opt.ConfigPath, err)
 	}
 
 	return config, nil
@@ -449,7 +472,7 @@ func (opt *DatabaseOptions) normalizePaths() {
 }
 
 // getVDBWhenDBIsDown can retrieve db configurations from NMA /nodes endpoint and cluster_config.json when db is down
-func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc *VClusterCommands) (vdb VCoordinationDatabase, err error) {
+func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoordinationDatabase, err error) {
 	/*
 	 *   1. Get node names for input hosts from NMA /nodes.
 	 *   2. Get other node information for input hosts from cluster_config.json.

@@ -24,24 +24,25 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-type nmaPrepareScrutinizerDirectoriesOp struct {
+type nmaPrepareScrutinizeDirectoriesOp struct {
 	scrutinizeOpBase
 	dirSuffix  string
 	stagingDir *string
 }
 
-type prepareScrutinizerDirectoriesRequestData struct {
+type prepareScrutinizeDirectoriesRequestData struct {
 	Suffix string `json:"suffix"`
 }
 
-func makeNMAPrepareScrutinizerDirectoriesOp(logger vlog.Printer,
+func makeNMAPrepareScrutinizeDirectoriesOp(logger vlog.Printer,
 	id string,
 	hostNodeNameMap map[string]string,
 	batch string,
 	suffix string,
-	stagingDir *string) (nmaPrepareScrutinizerDirectoriesOp, error) {
-	op := nmaPrepareScrutinizerDirectoriesOp{}
-	op.name = "NMAPrepareScrutinizerDirectoriesOp"
+	stagingDir *string) (nmaPrepareScrutinizeDirectoriesOp, error) {
+	op := nmaPrepareScrutinizeDirectoriesOp{}
+	op.name = "NMAPrepareScrutinizeDirectoriesOp"
+	op.description = "Create necessary directories for scrutinize"
 	op.logger = logger.WithName(op.name)
 	op.id = id
 	op.batch = batch
@@ -60,11 +61,11 @@ func makeNMAPrepareScrutinizerDirectoriesOp(logger vlog.Printer,
 	return op, nil
 }
 
-func (op *nmaPrepareScrutinizerDirectoriesOp) setupRequestBody(hostNodeNameMap map[string]string) error {
+func (op *nmaPrepareScrutinizeDirectoriesOp) setupRequestBody(hostNodeNameMap map[string]string) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for host := range hostNodeNameMap {
-		prepareDirData := prepareScrutinizerDirectoriesRequestData{}
+		prepareDirData := prepareScrutinizeDirectoriesRequestData{}
 		prepareDirData.Suffix = op.dirSuffix
 
 		dataBytes, err := json.Marshal(prepareDirData)
@@ -79,7 +80,7 @@ func (op *nmaPrepareScrutinizerDirectoriesOp) setupRequestBody(hostNodeNameMap m
 	return nil
 }
 
-func (op *nmaPrepareScrutinizerDirectoriesOp) prepare(execContext *opEngineExecContext) error {
+func (op *nmaPrepareScrutinizeDirectoriesOp) prepare(execContext *opEngineExecContext) error {
 	host := getInitiatorFromUpHosts(execContext.upHosts, op.hosts)
 	if host == "" {
 		op.logger.PrintWarning("no up hosts among user specified hosts to collect system tables from, skipping the operation")
@@ -94,7 +95,7 @@ func (op *nmaPrepareScrutinizerDirectoriesOp) prepare(execContext *opEngineExecC
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *nmaPrepareScrutinizerDirectoriesOp) execute(execContext *opEngineExecContext) error {
+func (op *nmaPrepareScrutinizeDirectoriesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -102,22 +103,22 @@ func (op *nmaPrepareScrutinizerDirectoriesOp) execute(execContext *opEngineExecC
 	return op.processResult(execContext)
 }
 
-func (op *nmaPrepareScrutinizerDirectoriesOp) finalize(_ *opEngineExecContext) error {
+func (op *nmaPrepareScrutinizeDirectoriesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type prepareScrutinizerDirsResp struct {
+type prepareScrutinizeDirsResp struct {
 	StagingDir string `json:"staging_dir"`
 }
 
-func (op *nmaPrepareScrutinizerDirectoriesOp) processResult(_ *opEngineExecContext) error {
+func (op *nmaPrepareScrutinizeDirectoriesOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			resp := prepareScrutinizerDirsResp{}
+			resp := prepareScrutinizeDirsResp{}
 			err := op.parseAndCheckResponse(host, result.content, &resp)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)

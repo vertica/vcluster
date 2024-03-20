@@ -33,6 +33,7 @@ func makeHTTPSCheckSubclusterOp(useHTTPPassword bool, userName string, httpsPass
 	scName string, isPrimary bool, ctlSetSize int) (httpsCheckSubclusterOp, error) {
 	op := httpsCheckSubclusterOp{}
 	op.name = "HTTPSCheckSubclusterOp"
+	op.description = "Collect information for the specified subcluster"
 	op.scName = scName
 	op.isSecondary = !isPrimary
 	op.ctlSetSize = ctlSetSize

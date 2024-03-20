@@ -17,11 +17,10 @@ package commands
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -35,19 +34,34 @@ type CmdListAllNodes struct {
 	CmdBase
 }
 
-func makeListAllNodes() *CmdListAllNodes {
+func makeListAllNodes() *cobra.Command {
 	newCmd := &CmdListAllNodes{}
-	newCmd.oldParser = flag.NewFlagSet("list_allnodes", flag.ExitOnError)
+	newCmd.ipv6 = new(bool)
 
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", "Comma-separated list of hosts to participate in database")
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "List all nodes with IPv6 hosts")
+	opt := vclusterops.VFetchNodeStateOptionsFactory()
+	newCmd.fetchNodeStateOptions = &opt
 
-	fetchNodeStateOpt := vclusterops.VFetchNodeStateOptionsFactory()
-	fetchNodeStateOpt.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"list_allnodes",
+		"List all nodes in the database",
+		`This subcommand queries the status of the nodes in the consensus and prints
+whether they are currently up or down.
 
-	newCmd.fetchNodeStateOptions = &fetchNodeStateOpt
+The --host option allows you to specify the host or hosts that the program
+should communicate with. The program will return the first response it
+receives from any of the specified hosts.
 
-	return newCmd
+The only requirement for each host is that it is running the spread daemon.
+
+Examples:
+	vcluster list_allnodes --password <password> --config <config_file>
+`)
+
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{hostsFlag, configFlag, passwordFlag, outputFileFlag})
+
+	return cmd
 }
 
 func (c *CmdListAllNodes) CommandType() string {
@@ -56,49 +70,34 @@ func (c *CmdListAllNodes) CommandType() string {
 
 func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogArgParse(&c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "password") {
-		c.fetchNodeStateOptions.Password = nil
-	}
+	c.OldResetUserInputOptions()
 
 	return c.validateParse(logger)
 }
 
 func (c *CmdListAllNodes) validateParse(logger vlog.Printer) error {
-	logger.Info("Called validateParse()")
-
-	// parse raw host str input into a []string
-	err := c.parseHostList(&c.fetchNodeStateOptions.DatabaseOptions)
+	logger.Info("Called validateParse()", "command", c.CommandType())
+	err := c.ValidateParseBaseOptions(&c.fetchNodeStateOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
-
-	// parse Ipv6
-	c.fetchNodeStateOptions.Ipv6.FromBoolPointer(c.CmdBase.ipv6)
-
-	return nil
+	return c.setDBPassword(&c.fetchNodeStateOptions.DatabaseOptions)
 }
 
-func (c *CmdListAllNodes) Analyze(_ vlog.Printer) error {
-	return nil
-}
-
-func (c *CmdListAllNodes) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.V(1).Info("Called method Run()")
 
 	nodeStates, err := vcc.VFetchNodeState(c.fetchNodeStateOptions)
 	if err != nil {
 		// if all nodes are down, the nodeStates list is not empty
 		// for this case, we don't want to show errors but show DOWN for the nodes
 		if len(nodeStates) == 0 {
-			vcc.Log.PrintError("fail to list all nodes: %s", err)
+			vcc.PrintError("fail to list all nodes: %s", err)
 			return err
 		}
 	}
@@ -107,7 +106,13 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.VClusterCommands) error {
 	if err != nil {
 		return fmt.Errorf("fail to marshal the node state result, details %w", err)
 	}
-	fmt.Printf("Node states:\n%s", string(bytes))
 
+	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
+	vcc.LogInfo("Node states: ", "nodeStates", string(bytes))
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdListAllNodes
+func (c *CmdListAllNodes) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.fetchNodeStateOptions.DatabaseOptions = *opt
 }

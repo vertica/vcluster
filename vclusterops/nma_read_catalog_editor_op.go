@@ -38,6 +38,7 @@ func makeNMAReadCatalogEditorOpWithInitiator(
 ) (nmaReadCatalogEditorOp, error) {
 	op := nmaReadCatalogEditorOp{}
 	op.name = "NMAReadCatalogEditorOp"
+	op.description = "Read catalog"
 	op.initiator = initiator
 	op.vdb = vdb
 	return op, nil

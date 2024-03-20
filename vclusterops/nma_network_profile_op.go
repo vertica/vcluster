@@ -29,6 +29,7 @@ type nmaNetworkProfileOp struct {
 func makeNMANetworkProfileOp(hosts []string) nmaNetworkProfileOp {
 	op := nmaNetworkProfileOp{}
 	op.name = "NMANetworkProfileOp"
+	op.description = "Get network profile of cluster"
 	op.hosts = hosts
 	return op
 }

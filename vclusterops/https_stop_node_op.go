@@ -33,6 +33,7 @@ func makeHTTPSStopNodeOp(useHTTPPassword bool, userName string,
 	httpsPassword *string, timeout *int) (httpsStopNodeOp, error) {
 	op := httpsStopNodeOp{}
 	op.name = "HTTPSStopNodeOp"
+	op.description = "Stop node"
 	op.useHTTPPassword = useHTTPPassword
 
 	// set the query params, "timeout" is optional

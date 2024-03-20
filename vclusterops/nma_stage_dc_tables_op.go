@@ -40,6 +40,7 @@ func makeNMAStageDCTablesOp(
 	// base members
 	op := nmaStageDCTablesOp{}
 	op.name = "NMAStageDCTablesOp"
+	op.description = "Stage DC tables"
 	op.hosts = hosts
 
 	// scrutinize members

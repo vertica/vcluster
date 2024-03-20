@@ -20,7 +20,6 @@ import (
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 )
 
 /* CmdCreateDB
@@ -40,28 +39,37 @@ type CmdCreateDB struct {
 
 func makeCmdCreateDB() *cobra.Command {
 	newCmd := &CmdCreateDB{}
-	newCmd.ipv6 = new(bool)
 	newCmd.configParamListStr = new(string)
 	opt := vclusterops.VCreateDatabaseOptionsFactory()
 	newCmd.createDBOptions = &opt
 
 	cmd := makeBasicCobraCmd(
 		newCmd,
-		"create_db",
+		createDBSubCmd,
 		"Create a database",
-		`This creates a new database on a given set of hosts.
+		`This subcommand creates a database on a set of hosts.
 
-The name of the database must be provided.
+You must specify the database name, host list, catalog path, and data path.
 
-Example:
-  vcluster create_db --db-name <db_name> --hosts <all_hosts_of_the_db> --catalog-path <catalog-path> 
+If --config is not provided, a configuration file is created in one of the following locations, 
+in order of precedence::
+- path set in VCLUSTER_CONFIG environment variable
+- if running vcluster from /opt/vertica/bin, in /opt/vertica/config/vertica_config.yaml
+- $HOME/.config/vcluster/vertica_config.yaml
+
+You can pass --config-param a comma-separated list of NAME=VALUE pairs to set multiple 
+configuration parameters when the database is created (see Example below).
+
+To remove the local directories like catalog, depot, and data, you can use the --force-cleanup-on-failure or 
+--force-removal-at-creation options. The data deleted with these options is unrecoverable.
+
+Examples:
+  vcluster create_db --db-name <db_name> --hosts <all_hosts_of_the_db> --catalog-path <catalog-path>
   --data-path <data-path> --config-pram <key1=value1,key2=value2,key3=value3> --config <config_file>
 `,
+		[]string{dbNameFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag,
+			communalStorageLocationFlag, passwordFlag, configFlag, ipv6Flag},
 	)
-
-	// common db flags
-	setCommonFlags(cmd, []string{"db-name", "hosts", "catalog-path", "data-path",
-		"depot-path", "password", "config", "communal-storage-location", "log-path"})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -71,15 +79,7 @@ Example:
 	newCmd.setHiddenFlags(cmd)
 
 	// require db-name
-	cmd.PreRun = func(c *cobra.Command, args []string) {
-		markFlagsRequired(c, []string{"db-name"})
-	}
-
-	// require the flags to be file name
-	markFlagsFileName(cmd, map[string][]string{"config": {"yaml"}, "log-path": {"log"}, "sql": {"sql"}})
-
-	// require the flags to be dir name
-	markFlagsDirName(cmd, []string{"catalog-path", "data-path", "depot-path"})
+	markFlagsRequired(cmd, []string{dbNameFlag})
 
 	return cmd
 }
@@ -90,20 +90,21 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		c.createDBOptions.LicensePathOnNode,
 		"license",
 		"",
-		util.GetOptionalFlagMsg("Database license"),
+		"Database license",
 	)
 	cmd.Flags().StringVar(
 		c.createDBOptions.Policy,
 		"policy",
 		util.DefaultRestartPolicy,
-		util.GetOptionalFlagMsg("Restart policy of the database"),
+		"Restart policy of the database",
 	)
 	cmd.Flags().StringVar(
 		c.createDBOptions.SQLFile,
 		"sql",
 		"",
-		util.GetOptionalFlagMsg("SQL file to run (as dbadmin) immediately on database creation"),
+		"SQL file to run (as dbadmin) immediately on database creation",
 	)
+	markFlagsFileName(cmd, map[string][]string{"sql": {"sql"}})
 	cmd.Flags().IntVar(
 		c.createDBOptions.ShardCount,
 		"shard-count",
@@ -126,62 +127,61 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		c.configParamListStr,
 		"config-param",
 		"",
-		util.GetOptionalFlagMsg(
-			"Comma-separated list of NAME=VALUE pairs for setting database configuration parameters immediately on database creation"),
+		"Comma-separated list of NAME=VALUE pairs for setting database configuration parameters",
 	)
 	cmd.Flags().BoolVar(
 		c.createDBOptions.P2p,
 		"point-to-point",
 		true,
-		util.GetOptionalFlagMsg("Configure Spread to use point-to-point communication between all Vertica nodes"),
+		"Configure Spread to use point-to-point communication between all Vertica nodes",
 	)
 	cmd.Flags().BoolVar(
 		c.createDBOptions.Broadcast,
 		"broadcast",
 		false,
-		util.GetOptionalFlagMsg("Configure Spread to use UDP broadcast traffic between nodes on the same subnet"),
+		"Configure Spread to use UDP broadcast traffic between nodes on the same subnet",
 	)
 	cmd.Flags().IntVar(
 		c.createDBOptions.LargeCluster,
 		"large-cluster",
 		-1,
-		util.GetOptionalFlagMsg("Enables a large cluster layout"),
+		"Enables a large cluster layout",
 	)
 	cmd.Flags().BoolVar(
 		c.createDBOptions.SpreadLogging,
 		"spread-logging",
 		false,
-		util.GetOptionalFlagMsg("Whether enable spread logging"),
+		"Whether enable spread logging",
 	)
 	cmd.Flags().IntVar(
 		c.createDBOptions.SpreadLoggingLevel,
 		"spread-logging-level",
 		-1,
-		util.GetOptionalFlagMsg("Spread logging level"),
+		"Spread logging level",
 	)
 	cmd.Flags().BoolVar(
 		c.createDBOptions.ForceCleanupOnFailure,
 		"force-cleanup-on-failure",
 		false,
-		util.GetOptionalFlagMsg("Force removal of existing directories on failure of command"),
+		"Force removal of existing directories on failure of command",
 	)
 	cmd.Flags().BoolVar(
 		c.createDBOptions.ForceRemovalAtCreation,
 		"force-removal-at-creation",
 		false,
-		util.GetOptionalFlagMsg("Force removal of existing directories before creating the database"),
+		"Force removal of existing directories before creating the database",
 	)
 	cmd.Flags().BoolVar(
 		c.createDBOptions.SkipPackageInstall,
 		"skip-package-install",
 		false,
-		util.GetOptionalFlagMsg("Skip the installation of packages from /opt/vertica/packages."),
+		"Skip the installation of packages from /opt/vertica/packages.",
 	)
 	cmd.Flags().IntVar(
 		c.createDBOptions.TimeoutNodeStartupSeconds,
 		"startup-timeout",
 		util.DefaultTimeoutSeconds,
-		util.GetOptionalFlagMsg("The timeout to wait for the nodes to start"),
+		"The timeout to wait for the nodes to start",
 	)
 }
 
@@ -207,18 +207,10 @@ func (c *CmdCreateDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
 
-	// handle options that are not passed in
-	if !c.parser.Changed("log-path") {
-		c.createDBOptions.LogPath = nil
-	}
-	if !c.parser.Changed("password") {
-		c.createDBOptions.Password = nil
-	}
-
-	if !c.parser.Changed("depot-path") {
-		c.createDBOptions.IsEon = vstruct.False
+	if !c.parser.Changed(depotPathFlag) {
+		c.createDBOptions.IsEon = false
 	} else {
-		c.createDBOptions.IsEon = vstruct.True
+		c.createDBOptions.IsEon = true
 	}
 
 	return c.validateParse(logger)
@@ -240,21 +232,22 @@ func (c *CmdCreateDB) validateParse(logger vlog.Printer) error {
 	if configParams != nil {
 		c.createDBOptions.ConfigurationParameters = configParams
 	}
-	return nil
+	return c.setDBPassword(&c.createDBOptions.DatabaseOptions)
 }
 
-func (c *CmdCreateDB) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.V(1).Info("Called method Run()")
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
 		return createError
 	}
-	// write cluster information to the YAML config file
-	err := vdb.WriteClusterConfig(c.createDBOptions.ConfigPath, vcc.Log)
+
+	// write db info to vcluster config file
+	err := writeConfig(&vdb, vcc.GetLog())
 	if err != nil {
-		vcc.Log.PrintWarning("fail to write config file, details: %s", err)
+		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
-	vcc.Log.PrintInfo("Created a database with name [%s]", vdb.Name)
+	vcc.PrintInfo("Created a database with name [%s]", vdb.Name)
 	return nil
 }
 

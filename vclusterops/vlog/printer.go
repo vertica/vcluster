@@ -181,7 +181,7 @@ func logMaskedArgParseHelper(inputArgv []string) (maskedPairs []string) {
 	return maskedPairs
 }
 
-// setupOrDie will setup the logging for vcluster CLI. One exit, p.Log will
+// setupOrDie will setup the logging for vcluster CLI. On exit, p.Log will
 // be set.
 func (p *Printer) SetupOrDie(logFile string) {
 	// The vcluster library uses logr as the logging API. We use Uber's zap

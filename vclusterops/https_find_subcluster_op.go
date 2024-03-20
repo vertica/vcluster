@@ -43,6 +43,7 @@ func makeHTTPSFindSubclusterOp(hosts []string, useHTTPPassword bool,
 ) (httpsFindSubclusterOp, error) {
 	op := httpsFindSubclusterOp{}
 	op.name = "HTTPSFindSubclusterOp"
+	op.description = "Collect subcluster information"
 	op.hosts = hosts
 	op.scName = scName
 	op.ignoreNotFound = ignoreNotFound

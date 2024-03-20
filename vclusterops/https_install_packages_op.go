@@ -36,6 +36,7 @@ func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,
 ) (httpsInstallPackagesOp, error) {
 	op := httpsInstallPackagesOp{}
 	op.name = "HTTPSInstallPackagesOp"
+	op.description = "Install packages"
 	op.hosts = hosts
 	op.verbose = verbose
 	op.forceReinstall = forceReinstall

@@ -44,6 +44,7 @@ func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
 	forceCleanup, forRevive bool) (nmaPrepareDirectoriesOp, error) {
 	op := nmaPrepareDirectoriesOp{}
 	op.name = "NMAPrepareDirectoriesOp"
+	op.description = "Create necessary directories on Vertica hosts"
 	op.forceCleanup = forceCleanup
 	op.forRevive = forRevive
 

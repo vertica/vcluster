@@ -42,6 +42,7 @@ func makeNMAStageCommandsOp(logger vlog.Printer,
 	// base members
 	op := nmaStageCommandsOp{}
 	op.name = "NMAStageCommandsOp"
+	op.description = "Stage commands"
 	op.logger = logger.WithName(op.name)
 	op.hosts = hosts
 

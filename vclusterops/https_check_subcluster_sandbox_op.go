@@ -33,6 +33,7 @@ func makeHTTPSCheckSubclusterSandboxOp(hosts []string, scName string, sandbox st
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsCheckSubclusterSandboxOp, error) {
 	op := httpsCheckSubclusterSandboxOp{}
 	op.name = "HTTPSCheckSubclusterSandboxOp"
+	op.description = "Find all subclusters and record their sandboxing information"
 	op.hosts = hosts
 	op.ScToSandbox = scName
 	op.Sandbox = sandbox

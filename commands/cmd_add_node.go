@@ -16,9 +16,10 @@
 package commands
 
 import (
-	"flag"
 	"fmt"
 	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -32,52 +33,100 @@ import (
 type CmdAddNode struct {
 	addNodeOptions *vclusterops.VAddNodeOptions
 	// Comma-separated list of hosts to add
-	newHostListStr *string
+	newHostListStr string
 	// Comma-separated list of node names, which exist in the cluster
-	nodeNameListStr *string
+	nodeNameListStr string
 
 	CmdBase
 }
 
-func makeCmdAddNode() *CmdAddNode {
+func makeCmdAddNode() *cobra.Command {
 	// CmdAddNode
 	newCmd := &CmdAddNode{}
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VAddNodeOptionsFactory()
+	newCmd.addNodeOptions = &opt
 
-	// parser, used to parse command-line flags
-	newCmd.oldParser = flag.NewFlagSet("db_add_node", flag.ExitOnError)
-	addNodeOptions := vclusterops.VAddNodeOptionsFactory()
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"db_add_node",
+		"Add host(s) to an existing database",
+		`This subcommand adds one or more hosts to an existing database.
 
-	// required flags
-	addNodeOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to be modified")
-	newCmd.newHostListStr = newCmd.oldParser.String("add", "", "Comma-separated list of hosts to add to the database")
+You must provide the --add option one or more hosts to remove as a
+comma-separated list. You cannot add hosts to a sandbox subcluster in an
+Eon Mode database.
 
-	// optional flags
-	addNodeOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	addNodeOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
-		" to get cluster info from the database. Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.oldParser.StringVar(&addNodeOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
-	addNodeOptions.DataPrefix = newCmd.oldParser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
-	addNodeOptions.ForceRemoval = newCmd.oldParser.Bool("force-removal", false,
-		util.GetOptionalFlagMsg("Force removal of existing directories before adding nodes"))
-	addNodeOptions.SkipRebalanceShards = newCmd.oldParser.Bool("skip-rebalance-shards", false,
-		util.GetOptionalFlagMsg("Skip the subcluster shards rebalancing"))
+The --node-names option is utilized to address issues resulting from a failed
+node addition attempt. It's crucial to include all expected nodes in the catalog
+when using this option. This subcommand removes any surplus nodes from the
+catalog, provided they are down, before commencing the node addition process.
+Omitting the option will skip this node trimming process.
 
-	// Eon flags
-	// VER-88096: get all nodes information from the database and remove this option
-	addNodeOptions.SCName = newCmd.oldParser.String("subcluster", "", util.GetEonFlagMsg("The Name of subcluster"+
-		" to which the nodes must be added. If empty default subcluster is considered"))
-	addNodeOptions.DepotPrefix = newCmd.oldParser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
-	addNodeOptions.DepotSize = newCmd.oldParser.String("depot-size", "", util.GetEonFlagMsg("Size of depot"))
+Examples:
+  # Add a single host to the existing database with config file
+  vcluster db_add_node --db-name test_db --add 10.20.30.43 --config \
+  /opt/vertica/config/vertica_cluster.yaml
 
-	// Optional flags
-	newCmd.nodeNameListStr = newCmd.oldParser.String("node-names", "",
-		util.GetOptionalFlagMsg("Comma-separated list of node names that exist in the cluster. "+
-			"Use with caution: not mentioned nodes will be trimmed from catalog."))
+  # Add multiple hosts to the existing database with user input
+  vcluster db_add_node --db-name test_db --add 10.20.30.43,10.20.30.44 \
+  --data-path /data --hosts 10.20.30.40 --node-names \
+  test_db_node0001,test_db_node0002
+`,
+	)
 
-	newCmd.addNodeOptions = &addNodeOptions
-	return newCmd
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, dataPathFlag, depotPathFlag,
+		passwordFlag})
+
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	// require hosts to add
+	markFlagsRequired(cmd, []string{"add"})
+
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(
+		&c.newHostListStr,
+		"add",
+		"",
+		"Comma-separated list of host(s) to add to the database",
+	)
+	cmd.Flags().BoolVar(
+		c.addNodeOptions.ForceRemoval,
+		"force-removal",
+		false,
+		"Whether to force clean-up of existing directories before adding host(s)",
+	)
+	cmd.Flags().BoolVar(
+		c.addNodeOptions.SkipRebalanceShards,
+		"skip-rebalance-shards",
+		false,
+		util.GetEonFlagMsg("Skip the subcluster shards rebalancing"),
+	)
+	cmd.Flags().StringVar(
+		c.addNodeOptions.SCName,
+		"subcluster",
+		"",
+		util.GetEonFlagMsg("The Name of subcluster"+
+			" to which the host(s) must be added. If empty default subcluster is considered"),
+	)
+	cmd.Flags().StringVar(
+		c.addNodeOptions.DepotSize,
+		"depot-size",
+		"",
+		util.GetEonFlagMsg("Size of depot"),
+	)
+	cmd.Flags().StringVar(
+		&c.nodeNameListStr,
+		"node-names",
+		"",
+		"Comma-separated list of node names that exist in the cluster",
+	)
 }
 
 func (c *CmdAddNode) CommandType() string {
@@ -86,20 +135,12 @@ func (c *CmdAddNode) CommandType() string {
 
 func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogMaskedArgParse(c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "password") {
-		c.addNodeOptions.Password = nil
-	}
-	if !util.IsOptionSet(c.oldParser, "eon-mode") {
-		c.CmdBase.isEon = nil
-	}
+	c.OldResetUserInputOptions()
 	return c.validateParse(logger)
 }
 
@@ -116,13 +157,17 @@ func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	return c.OldValidateParseBaseOptions(&c.addNodeOptions.DatabaseOptions)
+	err = c.ValidateParseBaseOptions(&c.addNodeOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return c.setDBPassword(&c.addNodeOptions.DatabaseOptions)
 }
 
 // ParseNewHostList converts the string list of hosts, to add, into a slice of strings.
 // The hosts should be separated by comma, and will be converted to lower case.
 func (c *CmdAddNode) parseNewHostList() error {
-	inputHostList, err := util.SplitHosts(*c.newHostListStr)
+	inputHostList, err := util.SplitHosts(c.newHostListStr)
 	if err != nil {
 		return fmt.Errorf("must specify at least one host to add: %w", err)
 	}
@@ -133,24 +178,20 @@ func (c *CmdAddNode) parseNewHostList() error {
 
 func (c *CmdAddNode) parseNodeNameList() error {
 	// if --node-names is set, there must be at least one node name
-	if util.IsOptionSet(c.oldParser, "node-names") {
-		if *c.nodeNameListStr == "" {
+	if c.parser.Changed("node-names") {
+		if c.nodeNameListStr == "" {
 			return fmt.Errorf("when --node-names is specified, "+
-				"must provide all existing node names in %s", *c.addNodeOptions.DBName)
+				"must provide all existing node names in %q", *c.addNodeOptions.DBName)
 		}
 
-		c.addNodeOptions.ExpectedNodeNames = strings.Split(*c.nodeNameListStr, ",")
+		c.addNodeOptions.ExpectedNodeNames = strings.Split(c.nodeNameListStr, ",")
 	}
 
 	return nil
 }
 
-func (c *CmdAddNode) Analyze(_ vlog.Printer) error {
-	return nil
-}
-
-func (c *CmdAddNode) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.V(1).Info("Called method Run()")
 
 	options := c.addNodeOptions
 
@@ -166,10 +207,15 @@ func (c *CmdAddNode) Run(vcc vclusterops.VClusterCommands) error {
 		return addNodeError
 	}
 	// write cluster information to the YAML config file
-	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.Log)
+	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.GetLog())
 	if err != nil {
-		vcc.Log.PrintWarning("fail to write config file, details: %s", err)
+		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
-	vcc.Log.PrintInfo("Added nodes %s to database %s", *c.newHostListStr, *options.DBName)
+	vcc.PrintInfo("Added nodes %s to database %s", c.newHostListStr, *options.DBName)
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdAddNode
+func (c *CmdAddNode) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.addNodeOptions.DatabaseOptions = *opt
 }

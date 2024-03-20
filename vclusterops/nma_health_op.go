@@ -26,6 +26,7 @@ type nmaHealthOp struct {
 func makeNMAHealthOp(hosts []string) nmaHealthOp {
 	op := nmaHealthOp{}
 	op.name = "NMAHealthOp"
+	op.description = "Check NMA service health"
 	op.hosts = hosts
 	return op
 }

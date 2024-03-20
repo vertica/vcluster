@@ -16,10 +16,8 @@
 package commands
 
 import (
-	"flag"
-
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -29,42 +27,68 @@ import (
  */
 type CmdRemoveNode struct {
 	removeNodeOptions *vclusterops.VRemoveNodeOptions
-	// Comma-separated list of hosts to add
-	hostToRemoveListStr *string
+	// Comma-separated list of hosts to remove
+	hostToRemoveListStr string
 
 	CmdBase
 }
 
-func makeCmdRemoveNode() *CmdRemoveNode {
+func makeCmdRemoveNode() *cobra.Command {
 	// CmdRemoveNode
 	newCmd := &CmdRemoveNode{}
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VRemoveNodeOptionsFactory()
+	newCmd.removeNodeOptions = &opt
 
-	// parser, used to parse command-line flags
-	newCmd.oldParser = flag.NewFlagSet("db_remove_node", flag.ExitOnError)
-	removeNodeOptions := vclusterops.VRemoveNodeOptionsFactory()
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"db_remove_node",
+		"Remove host(s) from an existing database",
+		`This subcommand removes one or more nodes from an existing database.
 
-	// required flags
-	removeNodeOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to remove node(s) from")
-	newCmd.hostToRemoveListStr = newCmd.oldParser.String("remove", "", "Comma-separated list of hosts to remove from the database")
+You need to provide the --remove option followed by one or more hosts to
+remove, separated by commas.
 
-	// optional flags
-	removeNodeOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	removeNodeOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
-		" to get cluster info from the db. Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.oldParser.StringVar(&removeNodeOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
-	removeNodeOptions.ForceDelete = newCmd.oldParser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
-		" if they are not empty"))
-	removeNodeOptions.DataPrefix = newCmd.oldParser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Whether the hosts use IPv6 addresses"))
+You cannot remove nodes from a sandboxed subcluster in an Eon Mode database.
 
-	// Eon flags
-	// VER-88096: get all nodes information from the database and remove this option
-	removeNodeOptions.DepotPrefix = newCmd.oldParser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
+Examples:
+  # Remove multiple nodes from the existing database with config file
+  vcluster db_remove_node --db-name test_db --remove 10.20.30.40,10.20.30.42 \
+  --config /opt/vertica/config/vertica_cluster.yaml
 
-	newCmd.removeNodeOptions = &removeNodeOptions
-	return newCmd
+  # Remove a single node from the existing database with user input
+  vcluster db_remove_node --db-name test_db --remove 10.20.30.42 \
+  --hosts 10.20.30.40 --data-path /data
+`,
+	)
+
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, dataPathFlag,
+		depotPathFlag, passwordFlag})
+
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	// require hosts to remove
+	markFlagsRequired(cmd, []string{"remove"})
+
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(
+		&c.hostToRemoveListStr,
+		"remove",
+		"",
+		"Comma-separated list of host(s) to remove from the database",
+	)
+	cmd.Flags().BoolVar(
+		c.removeNodeOptions.ForceDelete,
+		"force-delete",
+		true,
+		"Whether to force clean-up of existing directories if they are not empty",
+	)
 }
 
 func (c *CmdRemoveNode) CommandType() string {
@@ -73,36 +97,31 @@ func (c *CmdRemoveNode) CommandType() string {
 
 func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogMaskedArgParse(c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "password") {
-		c.removeNodeOptions.Password = nil
-	}
+	c.OldResetUserInputOptions()
 	return c.validateParse(logger)
 }
 
 func (c *CmdRemoveNode) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	err := c.removeNodeOptions.ParseHostToRemoveList(*c.hostToRemoveListStr)
+	err := c.removeNodeOptions.ParseHostToRemoveList(c.hostToRemoveListStr)
 	if err != nil {
 		return err
 	}
-	return c.OldValidateParseBaseOptions(&c.removeNodeOptions.DatabaseOptions)
+	err = c.ValidateParseBaseOptions(&c.removeNodeOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return c.setDBPassword(&c.removeNodeOptions.DatabaseOptions)
 }
 
-func (c *CmdRemoveNode) Analyze(_ vlog.Printer) error {
-	return nil
-}
-
-func (c *CmdRemoveNode) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.LogInfo("Called method Run()")
 
 	options := c.removeNodeOptions
 
@@ -117,13 +136,18 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.VClusterCommands) error {
 	if err != nil {
 		return err
 	}
-	vcc.Log.PrintInfo("Successfully removed nodes %s from database %s", *c.hostToRemoveListStr, *options.DBName)
+	vcc.PrintInfo("Successfully removed nodes %s from database %s", c.hostToRemoveListStr, *options.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.Log)
+	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.GetLog())
 	if err != nil {
-		vcc.Log.PrintWarning("failed to write config file, details: %s", err)
+		vcc.PrintWarning("failed to write config file, details: %s", err)
 	}
-	vcc.Log.PrintInfo("Successfully updated config file")
+	vcc.PrintInfo("Successfully updated config file")
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdRemoveNode
+func (c *CmdRemoveNode) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.removeNodeOptions.DatabaseOptions = *opt
 }

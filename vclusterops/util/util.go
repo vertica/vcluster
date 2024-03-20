@@ -469,10 +469,6 @@ func SetParserUsage(parser *flag.FlagSet, op string) {
 	})
 }
 
-func GetOptionalFlagMsg(message string) string {
-	return message + " [Optional]"
-}
-
 func GetEonFlagMsg(message string) string {
 	return "[Eon only] " + message
 }

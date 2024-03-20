@@ -52,6 +52,7 @@ func makeNMALoadRemoteCatalogOp(oldHosts []string, configurationParameters map[s
 	vdb *VCoordinationDatabase, timeout uint, restorePoint *RestorePointPolicy) nmaLoadRemoteCatalogOp {
 	op := nmaLoadRemoteCatalogOp{}
 	op.name = "NMALoadRemoteCatalogOp"
+	op.description = "Load remote catalog"
 	op.hosts = vdb.HostList
 	op.oldHosts = oldHosts
 	op.configurationParameters = configurationParameters

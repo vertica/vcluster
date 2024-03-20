@@ -36,6 +36,7 @@ func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsSandboxingOp, error) {
 	op := httpsSandboxingOp{}
 	op.name = "HTTPSSansboxingOp"
+	op.description = "Convert subcluster into sandbox in catalog system"
 	op.logger = logger.WithName(op.name)
 	op.useHTTPPassword = useHTTPPassword
 	op.scName = scName

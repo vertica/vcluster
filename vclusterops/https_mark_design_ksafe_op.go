@@ -42,6 +42,7 @@ func makeHTTPSMarkDesignKSafeOp(
 ) (httpsMarkDesignKSafeOp, error) {
 	op := httpsMarkDesignKSafeOp{}
 	op.name = "HTTPSMarkDesignKsafeOp"
+	op.description = "Set k-safety"
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 
@@ -142,9 +143,6 @@ func (op *httpsMarkDesignKSafeOp) processResult(_ *opEngineExecContext) error {
 			continue
 		}
 
-		if op.spinner != nil {
-			op.spinner.StopMessage(fmt.Sprintf(`the K-safety value of the database is set as %d`, ksafeValue))
-		}
 		op.logger.PrintInfo(`[%s] The K-safety value of the database is set as %d`, op.name, ksafeValue)
 	}
 

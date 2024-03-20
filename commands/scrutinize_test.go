@@ -20,6 +20,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/spf13/pflag"
+	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 
 	"github.com/stretchr/testify/assert"
@@ -74,32 +76,35 @@ func TestScrutinCmd(t *testing.T) {
 	os.Setenv(kubernetesPort, kubePort)
 	os.Setenv(databaseName, dbName)
 	os.Setenv(catalogPathPref, catalogPath)
-	c := makeCmdScrutinize()
-	*c.sOptions.HonorUserInput = true
-	err := c.Analyze(vlog.Printer{})
-	assert.Nil(t, err)
+	c := &CmdScrutinize{}
+	c.sOptions = vclusterops.VScrutinizeOptionsFactory()
+	c.SetParser(&pflag.FlagSet{})
+	err := c.Run(vclusterops.VClusterCommands{})
+	assert.ErrorContains(t, err, "must specify a host or host list")
 	assert.Equal(t, dbName, *c.sOptions.DBName)
 	assert.Equal(t, catalogPath, *c.sOptions.CatalogPrefix)
 
 	// Catalog Path not provided
 	os.Setenv(catalogPathPref, "")
-	c = makeCmdScrutinize()
-	*c.sOptions.HonorUserInput = true
-	err = c.Analyze(vlog.Printer{})
+	c = &CmdScrutinize{}
+	c.sOptions = vclusterops.VScrutinizeOptionsFactory()
+	c.SetParser(&pflag.FlagSet{})
+	err = c.Run(vclusterops.VClusterCommands{})
 	assert.ErrorContains(t, err, "unable to get catalog path from environment variable")
 
 	// Database Name not provided
 	os.Setenv(databaseName, "")
 	os.Setenv(catalogPathPref, catalogPath)
-	c = makeCmdScrutinize()
-	*c.sOptions.HonorUserInput = true
-	err = c.Analyze(vlog.Printer{})
+	c = &CmdScrutinize{}
+	c.sOptions = vclusterops.VScrutinizeOptionsFactory()
+	c.SetParser(&pflag.FlagSet{})
+	err = c.Run(vclusterops.VClusterCommands{})
 	assert.ErrorContains(t, err, "unable to get database name from environment variable")
 }
 
 func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	const randomBytes = "123"
-	c := makeCmdScrutinize()
+	c := &CmdScrutinize{}
 	c.secretStoreRetriever = TestNMASecretRetriever{
 		success: true,
 		ca:      "test cert 1",
@@ -122,7 +127,7 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	assert.Equal(t, "test cert 3", c.sOptions.Key)
 
 	// If some of the keys are missing
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	c.secretStoreRetriever = TestNMASecretRetriever{
 		success: true,
 		ca:      "test cert 1",
@@ -134,7 +139,7 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	assert.False(t, ok)
 
 	// Failure to retrieve the secret should fail the request
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	c.secretStoreRetriever = TestNMASecretRetriever{success: false}
 	ok, err = c.nmaCertLookupFromSecretStore(vlog.Printer{})
 	assert.Error(t, err)
@@ -143,7 +148,7 @@ func TestNMACertLookupFromK8sSecret(t *testing.T) {
 	// If the nma env vars aren't set, then we go onto the next retrieval method
 	os.Clearenv()
 	os.Setenv("KUBERNETES_PORT", randomBytes)
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	ok, err = c.nmaCertLookupFromSecretStore(vlog.Printer{})
 	assert.NoError(t, err)
 	assert.False(t, ok)
@@ -183,7 +188,7 @@ func TestNMACertLookupFromEnv(t *testing.T) {
 	// intentionally omit key path env var to test error path
 
 	// Should fail because only 2 of 3 env vars are set
-	c := makeCmdScrutinize()
+	c := &CmdScrutinize{}
 	ok, err := c.nmaCertLookupFromEnv(vlog.Printer{})
 	assert.Error(t, err)
 	assert.False(t, ok)
@@ -192,7 +197,7 @@ func TestNMACertLookupFromEnv(t *testing.T) {
 	os.Setenv(nmaKeyPathEnvVar, fkeyEmpty.Name())
 
 	// Should fail because one of the files is empty
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	ok, err = c.nmaCertLookupFromEnv(vlog.Printer{})
 	assert.Error(t, err)
 	assert.False(t, ok)
@@ -211,7 +216,7 @@ func TestNMACertLookupFromEnv(t *testing.T) {
 	os.Setenv(nmaKeyPathEnvVar, fkey.Name())
 
 	// Should succeed now as everything is setup properly
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	ok, err = c.nmaCertLookupFromEnv(vlog.Printer{})
 	assert.NoError(t, err)
 	assert.True(t, ok)
@@ -222,7 +227,7 @@ func TestNMACertLookupFromEnv(t *testing.T) {
 
 func TestDBPassswdLookupFromK8sSecret(t *testing.T) {
 	const randomBytes = "123"
-	c := makeCmdScrutinize()
+	c := &CmdScrutinize{}
 	c.sOptions.Password = nil
 	c.secretStoreRetriever = TestPasswordSecretRetriever{
 		success:     true,
@@ -239,7 +244,7 @@ func TestDBPassswdLookupFromK8sSecret(t *testing.T) {
 
 	// should fail if secret does not contain
 	// a passwordKey="password"
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	c.sOptions.Password = nil
 	c.secretStoreRetriever = TestPasswordSecretRetriever{
 		success:     true,
@@ -250,7 +255,7 @@ func TestDBPassswdLookupFromK8sSecret(t *testing.T) {
 	assert.Error(t, err)
 
 	// Failure to retrieve the secret should fail the request
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	c.sOptions.Password = nil
 	c.secretStoreRetriever = TestPasswordSecretRetriever{success: false}
 	err = c.dbPassswdLookupFromSecretStore(vlog.Printer{})
@@ -260,7 +265,7 @@ func TestDBPassswdLookupFromK8sSecret(t *testing.T) {
 	// error
 	os.Clearenv()
 	os.Setenv("KUBERNETES_PORT", randomBytes)
-	c = makeCmdScrutinize()
+	c = &CmdScrutinize{}
 	c.sOptions.Password = nil
 	err = c.dbPassswdLookupFromSecretStore(vlog.Printer{})
 	assert.NoError(t, err)

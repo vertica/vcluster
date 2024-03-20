@@ -16,10 +16,8 @@
 package commands
 
 import (
-	"flag"
-
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -33,33 +31,62 @@ type CmdRemoveSubcluster struct {
 	CmdBase
 }
 
-func makeCmdRemoveSubcluster() *CmdRemoveSubcluster {
+func makeCmdRemoveSubcluster() *cobra.Command {
+	// CmdRemoveSubcluster
 	newCmd := &CmdRemoveSubcluster{}
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VRemoveScOptionsFactory()
+	newCmd.removeScOptions = &opt
 
-	// parser, used to parse command-line flags
-	newCmd.oldParser = flag.NewFlagSet("db_remove_subcluster", flag.ExitOnError)
-	removeScOptions := vclusterops.VRemoveScOptionsFactory()
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"db_remove_subcluster",
+		"Remove a subcluster",
+		`This subcommand removes a subcluster from an existing Eon Mode database.
 
-	// required flags
-	removeScOptions.DBName = newCmd.oldParser.String("db-name", "", "Name of the database to remove subcluster")
-	removeScOptions.SubclusterToRemove = newCmd.oldParser.String("remove", "", "Name of subcluster to be removed")
-	// VER-88096: get all nodes information from the database and remove this option
-	removeScOptions.DepotPrefix = newCmd.oldParser.String("depot-path", "", util.GetEonFlagMsg("Path to depot directory"))
+You must provide the subcluster name with the --subcluster option.
 
-	// optional flags
-	removeScOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	removeScOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that will initially be used"+
-		" to get cluster info from the db. Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.oldParser.StringVar(&removeScOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
-	removeScOptions.ForceDelete = newCmd.oldParser.Bool("force-delete", true, util.GetOptionalFlagMsg("Whether force delete directories"+
-		" if they are not empty"))
-	removeScOptions.DataPrefix = newCmd.oldParser.String("data-path", "", util.GetOptionalFlagMsg("Path of data directory"))
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Whether the hosts use IPv6 addresses"))
+All hosts in the subcluster are removed. You cannot remove a sandboxed
+subcluster.
 
-	newCmd.removeScOptions = &removeScOptions
-	return newCmd
+Examples:
+  # Remove a subcluster with config file
+  vcluster db_remove_subcluster --subcluster sc1 --config \
+  /opt/vertica/config/vertica_cluster.yaml
+
+  # Remove a subcluster with user input
+  vcluster db_remove_subcluster --db-name test_db --hosts \
+  10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1 --data-path \
+  /data --depot-path /data
+`,
+	)
+
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, dataPathFlag, depotPathFlag, passwordFlag})
+
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	// require name of subcluster to remove
+	markFlagsRequired(cmd, []string{"subcluster"})
+
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(
+		c.removeScOptions.SubclusterToRemove,
+		"subcluster",
+		"",
+		"Name of subcluster to be removed",
+	)
+	cmd.Flags().BoolVar(
+		c.removeScOptions.ForceDelete,
+		"force-delete",
+		true,
+		"Whether force delete directories if they are not empty",
+	)
 }
 
 func (c *CmdRemoveSubcluster) CommandType() string {
@@ -68,45 +95,54 @@ func (c *CmdRemoveSubcluster) CommandType() string {
 
 func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
-
-	// for some options, we do not want to use their default values,
-	// if they are not provided in cli,
-	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "password") {
-		c.removeScOptions.Password = nil
-	}
+	logger.LogMaskedArgParse(c.argv)
 	return c.validateParse(logger)
 }
 
 func (c *CmdRemoveSubcluster) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	return c.OldValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
+	if err != nil {
+		return nil
+	}
+	return c.setDBPassword(&c.removeScOptions.DatabaseOptions)
 }
 
 func (c *CmdRemoveSubcluster) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdRemoveSubcluster) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
-	vdb, err := vcc.VRemoveSubcluster(c.removeScOptions)
+func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.V(1).Info("Called method Run()")
+
+	options := c.removeScOptions
+
+	// get config from vertica_cluster.yaml
+	config, err := c.removeScOptions.GetDBConfig(vcc)
 	if err != nil {
 		return err
 	}
-	vcc.Log.PrintInfo("Successfully removed subcluster %s from database %s",
-		*c.removeScOptions.SubclusterToRemove, *c.removeScOptions.DBName)
+	options.Config = config
+
+	vdb, err := vcc.VRemoveSubcluster(options)
+	if err != nil {
+		return err
+	}
+	vcc.PrintInfo("Successfully removed subcluster %s from database %s",
+		*options.SubclusterToRemove, *options.DBName)
 
 	// write cluster information to the YAML config file.
-	err = vdb.WriteClusterConfig(c.removeScOptions.ConfigPath, vcc.Log)
+	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.GetLog())
 	if err != nil {
-		vcc.Log.PrintWarning("failed to write config file, details: %s", err)
+		vcc.PrintWarning("failed to write config file, details: %s", err)
 	}
-	vcc.Log.PrintInfo("Successfully updated config file")
+	vcc.PrintInfo("Successfully updated config file")
 
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdRemoveSubcluster
+func (c *CmdRemoveSubcluster) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.removeScOptions.DatabaseOptions = *opt
 }

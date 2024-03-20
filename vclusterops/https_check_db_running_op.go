@@ -35,6 +35,7 @@ const (
 	ReviveDB
 
 	checkDBRunningOpName = "HTTPSCheckDBRunningOp"
+	checkDBRunningOpDesc = "Verify database is running"
 )
 
 func (op opType) String() string {
@@ -78,6 +79,7 @@ func makeHTTPSCheckRunningDBOp(hosts []string,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
 	op.name = checkDBRunningOpName
+	op.description = checkDBRunningOpDesc
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -97,6 +99,7 @@ func makeHTTPSCheckRunningDBWithSandboxOp(hosts []string,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
 	op.name = checkDBRunningOpName
+	op.description = checkDBRunningOpDesc
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.sandbox = sandbox         // check if DB is running on specified sandbox
@@ -310,19 +313,19 @@ func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHo
 
 	switch op.opType {
 	case CreateDB:
-		const createDBMsg = "Aborting database creation"
+		const createDBMsg = "aborting database creation"
 		op.logger.PrintInfo(createDBMsg)
 		op.updateSpinnerMessage(createDBMsg)
 	case StopDB:
-		const stopDBMsg = "The database has not been down yet"
+		const stopDBMsg = "the database has not been down yet"
 		op.logger.PrintInfo(stopDBMsg)
 		op.updateSpinnerMessage(stopDBMsg)
 	case StartDB:
-		const startDBMsg = "Aborting database start"
+		const startDBMsg = "aborting database start"
 		op.logger.PrintInfo(startDBMsg)
 		op.updateSpinnerMessage(startDBMsg)
 	case ReviveDB:
-		const reviveDBMsg = "Aborting database revival"
+		const reviveDBMsg = "aborting database revival"
 		op.logger.PrintInfo(reviveDBMsg)
 		op.updateSpinnerMessage(reviveDBMsg)
 	}

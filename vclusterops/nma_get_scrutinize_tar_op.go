@@ -35,6 +35,7 @@ func makeNMAGetScrutinizeTarOp(
 	// base members
 	op := nmaGetScrutinizeTarOp{}
 	op.name = "NMAGetScrutinizeTarOp"
+	op.description = fmt.Sprintf("Create and retrieve tar files for batch %s", batch)
 	op.hosts = hosts
 
 	// scrutinize members

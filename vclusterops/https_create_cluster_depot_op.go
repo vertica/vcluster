@@ -35,6 +35,7 @@ func makeHTTPSCreateClusterDepotOp(vdb *VCoordinationDatabase, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsCreateDepotOp, error) {
 	op := httpsCreateDepotOp{}
 	op.name = "HTTPSCreateDepotOp"
+	op.description = "Create depot for Eon database"
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 

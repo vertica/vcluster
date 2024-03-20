@@ -62,6 +62,7 @@ func makeHTTPSPollNodeStateOpHelper(hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsPollNodeStateOp, error) {
 	op := httpsPollNodeStateOp{}
 	op.name = "HTTPSPollNodeStateOp"
+	op.description = fmt.Sprintf("Wait for %d node(s) to come up", len(hosts))
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.httpRequestTimeout = defaultHTTPRequestTimeoutSeconds
@@ -217,7 +218,7 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 	}
 
 	op.logger.PrintInfo("[%s] All nodes are up", op.name)
-	op.updateSpinnerStopMessage("All nodes are up")
+	op.updateSpinnerStopMessage("all nodes are up")
 
 	return true, nil
 }

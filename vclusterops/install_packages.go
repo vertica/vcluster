@@ -30,13 +30,6 @@ type VInstallPackagesOptions struct {
 	ForceReinstall *bool
 }
 
-type vInstallPackagesInfo struct {
-	dbName   string
-	hosts    []string
-	userName string
-	password *string
-}
-
 func VInstallPackagesOptionsFactory() VInstallPackagesOptions {
 	opt := VInstallPackagesOptions{
 		ForceReinstall: new(bool),
@@ -47,10 +40,10 @@ func VInstallPackagesOptionsFactory() VInstallPackagesOptions {
 
 // resolve hostnames to be IPs
 func (options *VInstallPackagesOptions) analyzeOptions() (err error) {
-	// we analyze hostnames when HonorUserInput is set, otherwise we use hosts in yaml config
-	if *options.HonorUserInput {
+	// we analyze hostnames when it is set in user input, otherwise we use hosts in yaml config
+	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
 		if err != nil {
 			return err
 		}
@@ -66,29 +59,28 @@ func (options *VInstallPackagesOptions) validateAnalyzeOptions(log vlog.Printer)
 	return options.analyzeOptions()
 }
 
-func (vcc *VClusterCommands) VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error) {
+func (vcc VClusterCommands) VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.validateAnalyzeOptions(vcc.Log)
+	// set db name and hosts
+	err := options.setDBNameAndHosts()
 	if err != nil {
 		return nil, err
 	}
 
-	installPkgInfo := new(vInstallPackagesInfo)
-	installPkgInfo.userName = *options.UserName
-	installPkgInfo.password = options.Password
-	installPkgInfo.dbName, installPkgInfo.hosts, err = options.getNameAndHosts(options.Config)
+	// validate and analyze all options
+	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Generate the instructions and a pointer to the status object that will
 	// get filled in when we run the instructions.
-	instructions, status, err := vcc.produceInstallPackagesInstructions(installPkgInfo, options)
+	instructions, status, err := vcc.produceInstallPackagesInstructions(options)
 	if err != nil {
 		return nil, fmt.Errorf("fail to production instructions: %w", err)
 	}
@@ -116,12 +108,10 @@ func (vcc *VClusterCommands) VInstallPackages(options *VInstallPackagesOptions) 
 // The generated instructions are as follows:
 //   - Get up nodes through https call
 //   - Install packages using one of the up nodes
-func (vcc *VClusterCommands) produceInstallPackagesInstructions(info *vInstallPackagesInfo,
-	opts *VInstallPackagesOptions,
-) ([]clusterOp, *InstallPackageStatus, error) {
+func (vcc *VClusterCommands) produceInstallPackagesInstructions(opts *VInstallPackagesOptions) ([]clusterOp, *InstallPackageStatus, error) {
 	// when password is specified, we will use username/password to call https endpoints
 	usePassword := false
-	if info.password != nil {
+	if opts.Password != nil {
 		usePassword = true
 		err := opts.validateUserName(vcc.Log)
 		if err != nil {
@@ -129,15 +119,15 @@ func (vcc *VClusterCommands) produceInstallPackagesInstructions(info *vInstallPa
 		}
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(info.dbName, info.hosts,
-		usePassword, *opts.UserName, info.password, InstallPackageCmd)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*opts.DBName, opts.Hosts,
+		usePassword, *opts.UserName, opts.Password, InstallPackageCmd)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var noHosts = []string{} // We pass in no hosts so that this op picks an up node from the previous call.
 	verbose := false         // Silence verbose output as we will print package status at the end
-	installOp, err := makeHTTPSInstallPackagesOp(noHosts, usePassword, *opts.UserName, info.password, *opts.ForceReinstall, verbose)
+	installOp, err := makeHTTPSInstallPackagesOp(noHosts, usePassword, *opts.UserName, opts.Password, *opts.ForceReinstall, verbose)
 	if err != nil {
 		return nil, nil, err
 	}

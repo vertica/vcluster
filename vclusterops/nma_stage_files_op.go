@@ -45,6 +45,7 @@ func makeNMAStageFilesOp(
 	// base members
 	op := nmaStageFilesOp{}
 	op.name = "NMAStageFilesOp"
+	op.description = "Stage files"
 	op.hosts = hosts
 
 	// scrutinize members

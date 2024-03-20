@@ -56,6 +56,7 @@ func makeNMABootstrapCatalogOp(
 	bootstrapHosts []string) (nmaBootstrapCatalogOp, error) {
 	op := nmaBootstrapCatalogOp{}
 	op.name = "NMABootstrapCatalogOp"
+	op.description = "Bootstrap catalog"
 	// usually, only one node need bootstrap catalog
 	op.hosts = bootstrapHosts
 
@@ -101,7 +102,7 @@ func (op *nmaBootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 		}
 		bootstrapData.SpreadLogging = *options.SpreadLogging
 		bootstrapData.SpreadLoggingLevel = *options.SpreadLoggingLevel
-		bootstrapData.Ipv6 = options.Ipv6.ToBool()
+		bootstrapData.Ipv6 = options.OldIpv6.ToBool()
 		bootstrapData.SuperuserName = *options.UserName
 		bootstrapData.DBPassword = *options.Password
 

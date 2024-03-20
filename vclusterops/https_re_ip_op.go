@@ -47,6 +47,7 @@ func makeHTTPSReIPOp(nodeNamesToReIP, hostToReIP []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsReIPOp, error) {
 	op := httpsReIPOp{}
 	op.name = "HTTPSReIpOp"
+	op.description = "Change host IPs in the catalog"
 	op.useHTTPPassword = useHTTPPassword
 	op.nodeNamesToReIP = nodeNamesToReIP
 	op.hostToReIP = hostToReIP

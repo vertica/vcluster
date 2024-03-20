@@ -36,6 +36,7 @@ func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
 	httpsPassword *string, timeout *int, sandbox string, mainCluster bool) (httpsStopDBOp, error) {
 	op := httpsStopDBOp{}
 	op.name = "HTTPSStopDBOp"
+	op.description = "Stop database"
 	op.useHTTPPassword = useHTTPPassword
 	op.sandbox = sandbox
 	op.mainCluster = mainCluster

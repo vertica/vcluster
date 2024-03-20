@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/theckman/yacspin"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -199,6 +200,7 @@ type clusterOp interface {
 type opBase struct {
 	logger             vlog.Printer
 	name               string
+	description        string
 	hosts              []string
 	clusterHTTPRequest clusterHTTPRequest
 	skipExecute        bool // This can be set during prepare if we determine no work is needed
@@ -253,7 +255,7 @@ func (op *opBase) setupSpinner() {
 		cfg := yacspin.Config{
 			Frequency:         100 * time.Millisecond,
 			CharSet:           yacspin.CharSets[11],
-			Suffix:            " " + op.getName(),
+			Suffix:            " " + op.description,
 			SuffixAutoColon:   true,
 			Message:           "in progress",
 			StopCharacter:     "✔",
@@ -366,6 +368,10 @@ func (op *opBase) loadCertsIfNeeded(certs *httpsCerts, findCertsInOptions bool) 
 		return fmt.Errorf("[%s] has not set up a http request", op.name)
 	}
 
+	if certs == nil {
+		return fmt.Errorf("[%s] is trying to use certificates, but none are set", op.name)
+	}
+
 	for host := range op.clusterHTTPRequest.RequestCollection {
 		request := op.clusterHTTPRequest.RequestCollection[host]
 		request.UseCertsInOptions = true
@@ -469,8 +475,68 @@ func (opb *opHTTPSBase) validateAndSetUsernameAndPassword(opName string, useHTTP
 	return nil
 }
 
+type ClusterCommands interface {
+	GetLog() vlog.Printer
+	V(int) logr.Logger
+	LogInfo(msg string, keysAndValues ...any)
+	LogError(err error, msg string, keysAndValues ...any)
+	PrintInfo(msg string, v ...any)
+	PrintWarning(msg string, v ...any)
+	PrintError(msg string, v ...any)
+
+	VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error)
+	VAddSubcluster(options *VAddSubclusterOptions) error
+	VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error)
+	VDropDatabase(options *VDropDatabaseOptions) error
+	VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error)
+	VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error)
+	VReIP(options *VReIPOptions) error
+	VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error)
+	VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error)
+	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
+	VSandbox(options *VSandboxOptions) error
+	VScrutinize(options *VScrutinizeOptions) error
+	VShowRestorePoints(options *VShowRestorePointsOptions) (restorePoints []RestorePoint, err error)
+	VStartDatabase(options *VStartDatabaseOptions) error
+	VStartNodes(options *VStartNodesOptions) error
+	VStopDatabase(options *VStopDatabaseOptions) error
+	VUnsandbox(options *VUnsandboxOptions) error
+}
+
+type VClusterCommandsLogger struct {
+	Log vlog.Printer
+}
+
+func (vcc VClusterCommandsLogger) GetLog() vlog.Printer {
+	return vcc.Log
+}
+
+func (vcc VClusterCommandsLogger) V(level int) logr.Logger {
+	return vcc.Log.V(level)
+}
+
+func (vcc VClusterCommandsLogger) LogInfo(msg string, keysAndValues ...any) {
+	vcc.Log.Info(msg, keysAndValues...)
+}
+
+func (vcc VClusterCommandsLogger) LogError(err error, msg string, keysAndValues ...any) {
+	vcc.Log.Error(err, msg, keysAndValues...)
+}
+
+func (vcc VClusterCommandsLogger) PrintInfo(msg string, v ...any) {
+	vcc.Log.PrintInfo(msg, v...)
+}
+
+func (vcc VClusterCommandsLogger) PrintWarning(msg string, v ...any) {
+	vcc.Log.PrintWarning(msg, v...)
+}
+
+func (vcc VClusterCommandsLogger) PrintError(msg string, v ...any) {
+	vcc.Log.PrintError(msg, v...)
+}
+
 // VClusterCommands passes state around for all top-level administrator commands
 // (e.g. create db, add node, etc.).
 type VClusterCommands struct {
-	Log vlog.Printer
+	VClusterCommandsLogger
 }

@@ -106,10 +106,31 @@ type nodeStateInfo struct {
 	IsPrimary   bool   `json:"is_primary"`
 	Name        string `json:"name"`
 	Sandbox     string `json:"sandbox_name"`
+	Version     string `json:"build_info"`
+}
+
+func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
+	n.Address = node.Address
+	n.Name = node.Name
+	n.State = node.State
+	n.CatalogPath = node.CatalogPath
+	// version can be, eg, v24.0.0-<revision> or v23.4.0-<hotfix|date>-<revision> including a hotfix or daily build date
+	verWithHotfix := 3
+	verWithoutHotfix := 2
+	if parts := strings.Split(node.Version, "-"); len(parts) == verWithHotfix {
+		n.Version = parts[0] + "-" + parts[1]
+		n.Revision = parts[2]
+	} else if len(parts) == verWithoutHotfix {
+		n.Version = parts[0]
+		n.Revision = parts[1]
+	} else {
+		err = fmt.Errorf("failed to parse version '%s'", node.Version)
+	}
+	return
 }
 
 type nodesStateInfo struct {
-	NodeList []nodeStateInfo `json:"node_list"`
+	NodeList []*nodeStateInfo `json:"node_list"`
 }
 
 // getInitiatorHost returns as initiator the first primary up node that is not
@@ -123,15 +144,26 @@ func getInitiatorHost(primaryUpNodes, hostsToSkip []string) (string, error) {
 	return initiatorHosts[0], nil
 }
 
+// getVDBFromRunningDB will retrieve db configurations from a non-sandboxed host by calling https endpoints of a running db
+func (vcc VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+	return vcc.getVDBFromRunningDBImpl(vdb, options, false, util.MainClusterSandbox)
+}
+
+// getVDBFromRunningDB will retrieve db configurations from any UP host by calling https endpoints of a running db
+func (vcc VClusterCommands) getVDBFromRunningDBIncludeSandbox(vdb *VCoordinationDatabase, options *DatabaseOptions, sandbox string) error {
+	return vcc.getVDBFromRunningDBImpl(vdb, options, true, sandbox)
+}
+
 // getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
-func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, options *DatabaseOptions,
+	allowUseSandboxRes bool, sandbox string) error {
 	err := options.setUsePassword(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
 
 	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, vdb)
+		options.usePassword, *options.UserName, options.Password, vdb, allowUseSandboxRes, sandbox)
 	if err != nil {
 		return fmt.Errorf("fail to produce httpsGetNodesInfo instructions while retrieving database configurations, %w", err)
 	}
@@ -150,6 +182,32 @@ func (vcc *VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, opt
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to retrieve database configurations, %w", err)
+	}
+
+	return nil
+}
+
+// getClusterInfoFromRunningDB will retrieve db configurations by calling https endpoints of a running db
+func (vcc VClusterCommands) getClusterInfoFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+	err := options.setUsePassword(vcc.Log)
+	if err != nil {
+		return fmt.Errorf("fail to set userPassword while retrieving cluster configurations, %w", err)
+	}
+
+	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.DBName, options.Hosts,
+		options.usePassword, *options.UserName, options.Password, vdb)
+	if err != nil {
+		return fmt.Errorf("fail to produce httpsGetClusterInfo instructions while retrieving cluster configurations, %w", err)
+	}
+
+	var instructions []clusterOp
+	instructions = append(instructions, &httpsGetClusterInfoOp)
+
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.run(vcc.Log)
+	if err != nil {
+		return fmt.Errorf("fail to retrieve cluster configurations, %w", err)
 	}
 
 	return nil

@@ -52,7 +52,7 @@ func TestReadReIPFile(t *testing.T) {
 	currentDir, _ := os.Getwd()
 
 	// ipv4 positive
-	opt.Ipv6 = vstruct.False
+	opt.OldIpv6 = vstruct.False
 	err := opt.ReadReIPFile(currentDir + "/test_data/re_ip_v4.json")
 	assert.NoError(t, err)
 
@@ -61,7 +61,7 @@ func TestReadReIPFile(t *testing.T) {
 	assert.ErrorContains(t, err, "192.168.1.10a in the re-ip file is not a valid IPv4 address")
 
 	// ipv6
-	opt.Ipv6 = vstruct.True
+	opt.OldIpv6 = vstruct.True
 	err = opt.ReadReIPFile(currentDir + "/test_data/re_ip_v6.json")
 	assert.NoError(t, err)
 

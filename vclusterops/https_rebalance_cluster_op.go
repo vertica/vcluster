@@ -35,6 +35,7 @@ func makeHTTPSRebalanceClusterOp(initiatorHost []string, useHTTPPassword bool, u
 	httpsPassword *string) (httpsRebalanceClusterOp, error) {
 	op := httpsRebalanceClusterOp{}
 	op.name = "HTTPSRebalanceClusterOp"
+	op.description = "Rebalance cluster"
 	op.hosts = initiatorHost
 
 	op.useHTTPPassword = useHTTPPassword

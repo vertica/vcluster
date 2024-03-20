@@ -30,9 +30,22 @@ func main() {
 		"completion",
 		"create_db",
 		"stop_db",
+		"start_db",
+		"list_allnodes",
+		"restart_node",
 		"drop_db",
 		"revive_db",
 		"re_ip",
+		"scrutinize",
+		"config",
+		"db_add_node",
+		"db_remove_node",
+		"install_packages",
+		"show_restore_points",
+		"db_add_subcluster",
+		"db_remove_subcluster",
+		"sandbox_subcluster",
+		"unsandbox_subcluster",
 	}
 
 	if len(os.Args) == 1 || util.StringInArray(os.Args[1], cobraSupportedCmdAndFlags) {

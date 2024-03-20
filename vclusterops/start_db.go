@@ -61,14 +61,7 @@ func (options *VStartDatabaseOptions) validateRequiredOptions(logger vlog.Printe
 		return err
 	}
 
-	if *options.HonorUserInput {
-		err = options.validateCatalogPath()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return options.validateCatalogPath()
 }
 
 func (options *VStartDatabaseOptions) validateEonOptions() error {
@@ -90,10 +83,10 @@ func (options *VStartDatabaseOptions) validateParseOptions(logger vlog.Printer) 
 }
 
 func (options *VStartDatabaseOptions) analyzeOptions() (err error) {
-	// we analyze hostnames when HonorUserInput is set, otherwise we use hosts in yaml config
-	if *options.HonorUserInput {
+	// we analyze hostnames when it is set in user input, otherwise we use hosts in yaml config
+	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.Ipv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
 		if err != nil {
 			return err
 		}
@@ -108,29 +101,35 @@ func (options *VStartDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer
 	return options.analyzeOptions()
 }
 
-func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error {
+func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error {
 	/*
 	 *   - Produce Instructions
 	 *   - Create VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.validateAnalyzeOptions(vcc.Log)
+	// set db name and hosts
+	err := options.setDBNameAndHosts()
 	if err != nil {
 		return err
 	}
 
-	// get db name and hosts from config file and options
-	dbName, hosts, err := options.getNameAndHosts(options.Config)
+	isEon, err := options.isEonMode(options.Config)
 	if err != nil {
 		return err
 	}
+	options.OldIsEon.FromBoolPointer(&isEon)
 
-	options.DBName = &dbName
-	options.Hosts = hosts
 	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
 	if err != nil {
 		return err
+	}
+
+	if isEon {
+		options.CommunalStorageLocation, err = options.getCommunalStorageLocation(options.Config)
+		if err != nil {
+			return err
+		}
 	}
 
 	// set default value to StatePollingTimeout
@@ -138,27 +137,31 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 		*options.StatePollingTimeout = util.DefaultStatePollingTimeout
 	}
 
-	var vdb VCoordinationDatabase
-	// retrieve database information from cluster_config.json for EON databases
-	isEon, err := options.isEonMode(options.Config)
+	// validate and analyze all options
+	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
 
+	var vdb VCoordinationDatabase
+	// retrieve database information from cluster_config.json for Eon databases
 	if isEon {
+		const warningMsg = " for an Eon database, start_db after revive_db could fail " +
+			"because we cannot retrieve the correct database information\n"
 		if *options.CommunalStorageLocation != "" {
 			vdbNew, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {
-				return e
+				// show a warning message if we cannot get VDB from a down database
+				vcc.Log.PrintWarning("failed to retrieve the communal storage location" + warningMsg)
+			} else {
+				// we want to read catalog info only from primary nodes later
+				vdbNew.filterPrimaryNodes()
+				vdb = vdbNew
 			}
-			// we want to read catalog info only from primary nodes later
-			vdbNew.filterPrimaryNodes()
-			vdb = vdbNew
 		} else {
 			// When communal storage location is missing, we only log a warning message
 			// because fail to read cluster_config.json will not affect start_db in most of the cases.
-			vcc.Log.PrintWarning("communal storage location is not specified for an eon database," +
-				" first start_db after revive_db could fail because we cannot retrieve the correct database information\n")
+			vcc.Log.PrintWarning("communal storage location is not specified" + warningMsg)
 		}
 	}
 
@@ -187,7 +190,7 @@ func (vcc *VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) erro
 	return nil
 }
 
-func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) error {
+func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) error {
 	// pre-instruction to perform basic checks and get basic information
 	preInstructions, err := vcc.produceStartDBPreCheck(options, vdb, *options.TrimHostList)
 	if err != nil {
@@ -212,7 +215,7 @@ func (vcc *VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, 
 	return nil
 }
 
-func (vcc *VClusterCommands) removeHostsNotInCatalog(vdb *nmaVDatabase, hosts []string) []string {
+func (vcc VClusterCommands) removeHostsNotInCatalog(vdb *nmaVDatabase, hosts []string) []string {
 	var trimmedHostList []string
 	var extraHosts []string
 
@@ -242,8 +245,8 @@ func (vcc *VClusterCommands) removeHostsNotInCatalog(vdb *nmaVDatabase, hosts []
 //   - Check to see if any dbs run
 //   - Get nodes' information by calling the NMA /nodes endpoint
 //   - Find latest catalog to use for removal of nodes not in the catalog
-func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase,
-	findLatestCatalog bool) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase,
+	trimHostList bool) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
@@ -263,14 +266,15 @@ func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptio
 		&checkDBRunningOp,
 	)
 
-	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
+	// when we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
 	if len(vdb.HostNodeMap) == 0 {
 		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix,
 			true /* ignore internal errors */, vdb)
 		instructions = append(instructions, &nmaGetNodesInfoOp)
 	}
 
-	if findLatestCatalog {
+	// find latest catalog to use for removal of nodes not in the catalog
+	if trimHostList {
 		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
 		if err != nil {
 			return instructions, err
@@ -292,7 +296,7 @@ func (vcc *VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOptio
 //   - Start all nodes of the database
 //   - Poll node startup
 //   - Sync catalog (Eon mode only)
-func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// vdb here should contains only primary nodes
@@ -335,7 +339,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 		&httpsPollNodeStateOp,
 	)
 
-	if options.IsEon.ToBool() {
+	if options.OldIsEon.ToBool() {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password)
 		if err != nil {
 			return instructions, err
@@ -346,7 +350,7 @@ func (vcc *VClusterCommands) produceStartDBInstructions(options *VStartDatabaseO
 	return instructions, nil
 }
 
-func (vcc *VClusterCommands) setOrRotateEncryptionKey(keyType string) clusterOp {
+func (vcc VClusterCommands) setOrRotateEncryptionKey(keyType string) clusterOp {
 	vcc.Log.Info("adding instruction to set or rotate the key for spread encryption")
 	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
 	return &op

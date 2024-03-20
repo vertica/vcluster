@@ -36,12 +36,13 @@ type startNodeRequestData struct {
 
 func makeNMAStartNodeOp(
 	hosts []string, startupConf string) nmaStartNodeOp {
-	startNodeOp := nmaStartNodeOp{}
-	startNodeOp.name = "NMAStartNodeOp"
-	startNodeOp.hosts = hosts
-	startNodeOp.startupConf = startupConf
-	startNodeOp.sandbox = false
-	return startNodeOp
+	op := nmaStartNodeOp{}
+	op.name = "NMAStartNodeOp"
+	op.description = fmt.Sprintf("Start %d node(s)", len(hosts))
+	op.hosts = hosts
+	op.startupConf = startupConf
+	op.sandbox = false
+	return op
 }
 
 func makeNMAStartNodeOpAfterUnsandbox(startupConf string) nmaStartNodeOp {

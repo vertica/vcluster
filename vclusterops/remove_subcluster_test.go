@@ -26,32 +26,40 @@ const dbName = "test_db"
 
 func TestRemoveSubcluster(t *testing.T) {
 	options := VRemoveScOptionsFactory()
-	*options.HonorUserInput = true
 	options.RawHosts = []string{"vnode1", "vnode2"}
 	options.Password = new(string)
-
-	// options without db name, sc name, data path, and depot path
-	err := options.validateParseOptions(vlog.Printer{})
-	assert.ErrorContains(t, err, "must specify a database name")
-
 	// input db name
 	*options.DBName = dbName
-	err = options.validateParseOptions(vlog.Printer{})
+
+	config := &DatabaseConfig{
+		Name:  dbName,
+		IsEon: true,
+	}
+
+	// options without sc name, data path, and depot path
+	err := options.validateParseOptions(config, vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify a subcluster name")
 
 	// input sc name
 	options.SubclusterToRemove = new(string)
 	*options.SubclusterToRemove = "sc1"
-	err = options.validateParseOptions(vlog.Printer{})
+
+	// verify Eon mode is set
+	config.IsEon = false
+	err = options.validateParseOptions(config, vlog.Printer{})
+	assert.ErrorContains(t, err, "cannot remove subcluster from an enterprise database")
+	config.IsEon = true
+
+	err = options.validateParseOptions(config, vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify an absolute data path")
 
 	// input data path
 	*options.DataPrefix = defaultPath
-	err = options.validateParseOptions(vlog.Printer{})
+	err = options.validateParseOptions(config, vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify an absolute depot path")
 
 	// input depot path
 	*options.DepotPrefix = defaultPath
-	err = options.validateParseOptions(vlog.Printer{})
+	err = options.validateParseOptions(config, vlog.Printer{})
 	assert.NoError(t, err)
 }

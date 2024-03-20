@@ -46,9 +46,10 @@ func makeNMASpreadSecurityOp(
 ) nmaSpreadSecurityOp {
 	return nmaSpreadSecurityOp{
 		opBase: opBase{
-			logger: logger.WithName("NMASpreadSecurityOp"),
-			name:   "NMASpreadSecurityOp",
-			hosts:  nil, // We always set this at runtime from read catalog editor
+			logger:      logger.WithName("NMASpreadSecurityOp"),
+			name:        "NMASpreadSecurityOp",
+			description: "Set new spread encryption key",
+			hosts:       nil, // We always set this at runtime from read catalog editor
 		},
 		catalogPathMap: nil, // Set at runtime after reading the catalog editor
 		keyType:        keyType,

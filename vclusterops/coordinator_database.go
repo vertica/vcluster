@@ -84,7 +84,7 @@ func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabas
 	vdb.HostList = options.Hosts
 	vdb.HostNodeMap = makeVHostNodeMap()
 	vdb.LicensePathOnNode = *options.LicensePathOnNode
-	vdb.Ipv6 = options.Ipv6.ToBool()
+	vdb.Ipv6 = options.IPv6
 
 	// section 2: eon info
 	vdb.IsEon = false
@@ -160,12 +160,18 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string) error 
 }
 
 func (vdb *VCoordinationDatabase) setFromClusterConfig(dbName string,
-	clusterConfig *ClusterConfig) error {
+	dbConfig *DatabaseConfig) error {
+	// if db name from user input is different than the one in config file,
+	// we throw an error
+	if dbConfig.Name != dbName {
+		return cannotFindDBFromConfigErr(dbName)
+	}
+
 	// we trust the information in the config file
 	// so we do not perform validation here
 	vdb.Name = dbName
 
-	catalogPrefix, dataPrefix, depotPrefix, err := clusterConfig.getPathPrefix(dbName)
+	catalogPrefix, dataPrefix, depotPrefix, err := dbConfig.getPathPrefix(dbName)
 	if err != nil {
 		return err
 	}
@@ -173,10 +179,6 @@ func (vdb *VCoordinationDatabase) setFromClusterConfig(dbName string,
 	vdb.DataPrefix = dataPrefix
 	vdb.DepotPrefix = depotPrefix
 
-	dbConfig, ok := (*clusterConfig)[dbName]
-	if !ok {
-		return cannotFindDBFromConfigErr(dbName)
-	}
 	vdb.IsEon = dbConfig.IsEon
 	vdb.CommunalStorageLocation = dbConfig.CommunalStorageLocation
 	vdb.Ipv6 = dbConfig.Ipv6
@@ -392,7 +394,7 @@ func (vnode *VCoordinationNode) setFromCreateDBOptions(
 			depotSuffix := fmt.Sprintf("%s_depot", vnode.Name)
 			vnode.DepotPath = filepath.Join(*options.DepotPrefix, dbName, depotSuffix)
 		}
-		if options.Ipv6.ToBool() {
+		if options.IPv6 {
 			vnode.ControlAddressFamily = util.IPv6ControlAddressFamily
 		} else {
 			vnode.ControlAddressFamily = util.DefaultControlAddressFamily
@@ -422,6 +424,7 @@ func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *V
 	}
 }
 
+// remove this function in VER-92369
 // WriteClusterConfig updates cluster configuration with the YAML-formatted file in the configPath
 // and writes to the log and stdout.
 // It returns any error encountered.
@@ -433,6 +436,8 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configPath string, logger v
 		return nil
 	}
 
+	logger.Info("vdb content", "vdb", fmt.Sprintf("%+v", *vdb))
+
 	/* build config information
 	 */
 	dbConfig := MakeDatabaseConfig()
@@ -442,6 +447,7 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configPath string, logger v
 		if !ok {
 			return fmt.Errorf("cannot find host %s from HostNodeMap", host)
 		}
+		logger.Info("vnode content", "vnode", fmt.Sprintf("%+v", *vnode))
 		nodeConfig := NodeConfig{}
 		nodeConfig.Name = vnode.Name
 		nodeConfig.Address = vnode.Address
@@ -469,17 +475,7 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configPath string, logger v
 	dbConfig.IsEon = vdb.IsEon
 	dbConfig.CommunalStorageLocation = vdb.CommunalStorageLocation
 	dbConfig.Ipv6 = vdb.Ipv6
-
-	// update cluster config with the given database info
-	clusterConfig := MakeClusterConfig()
-	if util.CheckPathExist(configPath) {
-		c, err := ReadConfig(configPath, logger)
-		if err != nil {
-			return err
-		}
-		clusterConfig = c
-	}
-	clusterConfig[vdb.Name] = dbConfig
+	dbConfig.Name = vdb.Name
 
 	// if the config file exists already
 	// create its backup before overwriting it
@@ -488,7 +484,8 @@ func (vdb *VCoordinationDatabase) WriteClusterConfig(configPath string, logger v
 		return err
 	}
 
-	err = clusterConfig.WriteConfig(configPath)
+	// update db config with the given database info
+	err = dbConfig.WriteConfig(configPath, logger)
 	if err != nil {
 		return err
 	}

@@ -71,11 +71,11 @@ func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
 }
 
 func (o *VRemoveNodeOptions) validateExtraOptions() error {
-	if !*o.HonorUserInput {
-		return nil
-	}
 	// data prefix
-	return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
+	if *o.DataPrefix != "" {
+		return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
+	}
+	return nil
 }
 
 func (o *VRemoveNodeOptions) validateParseOptions(log vlog.Printer) error {
@@ -89,15 +89,15 @@ func (o *VRemoveNodeOptions) validateParseOptions(log vlog.Printer) error {
 }
 
 func (o *VRemoveNodeOptions) analyzeOptions() (err error) {
-	o.HostsToRemove, err = util.ResolveRawHostsToAddresses(o.HostsToRemove, o.Ipv6.ToBool())
+	o.HostsToRemove, err = util.ResolveRawHostsToAddresses(o.HostsToRemove, o.OldIpv6.ToBool())
 	if err != nil {
 		return err
 	}
 
-	// we analyze host names when HonorUserInput is set, otherwise we use hosts in yaml config
-	if *o.HonorUserInput {
+	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
+	if len(o.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.Ipv6.ToBool())
+		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.OldIpv6.ToBool())
 		if err != nil {
 			return err
 		}
@@ -117,29 +117,27 @@ func (o *VRemoveNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	return o.setUsePassword(log)
 }
 
-func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {
+func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 
-	// validate and analyze options
-	err := options.validateAnalyzeOptions(vcc.Log)
+	// set db name and hosts
+	err := options.setDBNameAndHosts()
 	if err != nil {
 		return vdb, err
 	}
 
-	// get db name and hosts from config file and options.
-	dbName, hosts, err := options.getNameAndHosts(options.Config)
-	if err != nil {
-		return vdb, err
-	}
-
-	options.DBName = &dbName
-	options.Hosts = hosts
 	// get depot, data and catalog prefix from config file or options
 	*options.DepotPrefix, *options.DataPrefix, err = options.getDepotAndDataPrefix(options.Config)
 	if err != nil {
 		return vdb, err
 	}
 	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
+	if err != nil {
+		return vdb, err
+	}
+
+	// validate and analyze options
+	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -179,7 +177,7 @@ func (vcc *VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordina
 // removeNodesInCatalog will perform the steps to remove nodes. The node list in
 // options.HostsToRemove has already been verified that each node is in the
 // catalog.
-func (vcc *VClusterCommands) removeNodesInCatalog(options *VRemoveNodeOptions, vdb *VCoordinationDatabase) (VCoordinationDatabase, error) {
+func (vcc VClusterCommands) removeNodesInCatalog(options *VRemoveNodeOptions, vdb *VCoordinationDatabase) (VCoordinationDatabase, error) {
 	if len(options.HostsToRemove) == 0 {
 		vcc.Log.Info("Exit early because there are no hosts to remove")
 		return *vdb, nil
@@ -221,7 +219,7 @@ func (vcc *VClusterCommands) removeNodesInCatalog(options *VRemoveNodeOptions, v
 // handleRemoveNodeForHostsNotInCatalog will build and execute a list of
 // instructions to do remove of hosts that aren't present in the catalog. We
 // will do basic cleanup logic for this needed by the operator.
-func (vcc *VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinationDatabase, options *VRemoveNodeOptions,
+func (vcc VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinationDatabase, options *VRemoveNodeOptions,
 	missingHosts []string) (VCoordinationDatabase, error) {
 	vcc.Log.Info("Doing cleanup of hosts missing from database", "hostsNotInCatalog", missingHosts)
 
@@ -291,7 +289,7 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 	if *o.DepotPrefix == "" {
 		return nil
 	}
-	if *o.HonorUserInput && vdb.IsEon {
+	if vdb.IsEon {
 		// checking this here because now we have got eon value from
 		// the running db. This will be removed once we are able to get
 		// the depot path from db through an https endpoint(VER-88122).
@@ -302,14 +300,24 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 	}
 	vdb.DepotPrefix = *o.DepotPrefix
 	hostNodeMap := makeVHostNodeMap()
-	// we set the depot path manually because there is not yet an https endpoint for
-	// that(VER-88122). This is useful for nmaDeleteDirectoriesOp.
+	// TODO: we set the depot path from /nodes rather than manually
+	// (VER-92725). This is useful for nmaDeleteDirectoriesOp.
 	for h, vnode := range vdb.HostNodeMap {
 		vnode.DepotPath = vdb.genDepotPath(vnode.Name)
 		hostNodeMap[h] = vnode
 	}
 	vdb.HostNodeMap = hostNodeMap
 	return nil
+}
+
+func getMainClusterNodes(vdb *VCoordinationDatabase, options *VRemoveNodeOptions, mainClusterNodes *[]string) {
+	hostsAfterRemoval := util.SliceDiff(vdb.HostList, options.HostsToRemove)
+	for _, host := range hostsAfterRemoval {
+		vnode := vdb.HostNodeMap[host]
+		if vnode.Sandbox == "" {
+			*mainClusterNodes = append(*mainClusterNodes, vnode.Name)
+		}
+	}
 }
 
 // produceRemoveNodeInstructions will build a list of instructions to execute for
@@ -326,7 +334,7 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 //   - Reload spread
 //   - Delete catalog and data directories
 //   - Sync catalog (eon only)
-func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDatabase, options *VRemoveNodeOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	var initiatorHost []string
@@ -362,10 +370,14 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 			return instructions, err
 		}
 
-		// for Eon DB, we check whethter all subscriptions are ACTIVE
-		// after rebalance shards
+		// for Eon DB, we check whethter all subscriptions are ACTIVE after rebalance shards
+		// Sandboxed nodes cannot be removed, so even if the database has sandboxes,
+		// polling subscriptions for the main cluster is enough
+		var nodesToPollSubs []string
+		getMainClusterNodes(vdb, options, &nodesToPollSubs)
+
 		httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(initiatorHost,
-			usePassword, username, password)
+			usePassword, username, password, &nodesToPollSubs)
 		if e != nil {
 			return instructions, e
 		}
@@ -419,7 +431,7 @@ func (vcc *VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationDat
 
 // produceMarkEphemeralNodeOps gets a slice of target hosts and for each of them
 // produces an HTTPSMarkEphemeralNodeOp.
-func (vcc *VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]clusterOp, targetHosts, hosts []string,
+func (vcc VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]clusterOp, targetHosts, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	hostNodeMap vHostNodeMap) error {
 	for _, host := range targetHosts {
@@ -435,7 +447,7 @@ func (vcc *VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]cluster
 
 // produceRebalanceSubclusterShardsOps gets a slice of subclusters and for each of them
 // produces an HTTPSRebalanceSubclusterShardsOp.
-func (vcc *VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[]clusterOp, initiatorHost, scNames []string,
+func (vcc VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[]clusterOp, initiatorHost, scNames []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) error {
 	for _, scName := range scNames {
 		op, err := makeHTTPSRebalanceSubclusterShardsOp(
@@ -451,7 +463,7 @@ func (vcc *VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[
 
 // produceDropNodeOps produces an HTTPSDropNodeOp for each node to drop.
 // This is because we must drop node one by one to avoid losing quorum.
-func (vcc *VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, targetHosts, hosts []string,
+func (vcc VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, targetHosts, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	hostNodeMap vHostNodeMap, isEon bool) error {
 	for _, host := range targetHosts {
@@ -469,7 +481,7 @@ func (vcc *VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, targe
 
 // produceSpreadRemoveNodeOp calls HTTPSSpreadRemoveNodeOp
 // when there is at least one secondary node to remove
-func (vcc *VClusterCommands) produceSpreadRemoveNodeOp(instructions *[]clusterOp, hostsToRemove []string,
+func (vcc VClusterCommands) produceSpreadRemoveNodeOp(instructions *[]clusterOp, hostsToRemove []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
 	initiatorHost []string, hostNodeMap vHostNodeMap) error {
 	// find secondary nodes from HostsToRemove
@@ -510,15 +522,14 @@ func (o *VRemoveNodeOptions) setInitiator(primaryUpNodes []string) error {
 
 // findRemovedNodesInCatalog checks whether the to-be-removed nodes are still in catalog.
 // Return true if they are still in catalog.
-func (vcc *VClusterCommands) findRemovedNodesInCatalog(options *VRemoveNodeOptions,
+func (vcc VClusterCommands) findRemovedNodesInCatalog(options *VRemoveNodeOptions,
 	remainingHosts []string) bool {
 	fetchNodeStateOpt := VFetchNodeStateOptionsFactory()
 	fetchNodeStateOpt.DBName = options.DBName
 	fetchNodeStateOpt.RawHosts = remainingHosts
-	fetchNodeStateOpt.Ipv6 = options.Ipv6
+	fetchNodeStateOpt.OldIpv6 = options.OldIpv6
 	fetchNodeStateOpt.UserName = options.UserName
 	fetchNodeStateOpt.Password = options.Password
-	*fetchNodeStateOpt.HonorUserInput = true
 
 	var nodesInformation nodesInfo
 	res, err := vcc.VFetchNodeState(&fetchNodeStateOpt)

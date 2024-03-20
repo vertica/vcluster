@@ -35,6 +35,7 @@ func makeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
 ) (httpsCreateNodesDepotOp, error) {
 	op := httpsCreateNodesDepotOp{}
 	op.name = "HTTPSCreateNodesDepotOp"
+	op.description = "Create depot for new nodes"
 	op.hosts = nodes
 	op.useHTTPPassword = useHTTPPassword
 	op.HostNodeMap = vdb.HostNodeMap

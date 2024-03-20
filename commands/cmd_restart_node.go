@@ -16,16 +16,13 @@
 package commands
 
 import (
-	"flag"
-	"fmt"
-	"strconv"
-
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-/* CmdRestartNode
+/* CmdRestartNodes
  *
  * Implements ClusterCommand interface
  */
@@ -37,37 +34,67 @@ type CmdRestartNodes struct {
 	vnodeListStr *string
 }
 
-func makeCmdRestartNodes() *CmdRestartNodes {
+func makeCmdRestartNodes() *cobra.Command {
 	// CmdRestartNodes
 	newCmd := &CmdRestartNodes{}
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VStartNodesOptionsFactory()
+	newCmd.restartNodesOptions = &opt
+	newCmd.vnodeListStr = new(string)
 
-	// parser, used to parse command-line flags
-	newCmd.oldParser = flag.NewFlagSet("restart_node", flag.ExitOnError)
-	restartNodesOptions := vclusterops.VStartNodesOptionsFactory()
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"restart_node",
+		"Restart nodes in the database",
+		`This subcommand starts individual nodes in a running cluster. This differs from
+start_db, which starts Vertica after cluster quorum is lost.
 
-	// require flags
-	restartNodesOptions.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to restart nodes")
-	newCmd.vnodeListStr = newCmd.oldParser.String("restart", "",
-		"Comma-separated list of NODENAME=REIPHOST pairs part of the database nodes that need to be restarted")
+You can pass --restart a comma-separated list of NODE_NAME=IP_TO_RESTART pairs to restart 
+multiple nodes without a config file. If the IP_TO_RESTART value does not match the information 
+stored in the catalog for NODE_NAME, Vertica updates the catalog with the IP_TO_RESTART value and 
+restarts the node.
 
-	// optional flags
-	restartNodesOptions.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated hosts that participate in the database"+
-		" Use it when you do not trust "+vclusterops.ConfigFileName))
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, "restart nodes with IPv6 hosts")
+Examples:
+  # Restart a single host in the database with a config file
+  vcluster restart_node --db-name test_db --restart v_test_db_node0004=192.168.1.104
+  --password "" --config $HOME/test_db/vertica_config.yaml
 
-	restartNodesOptions.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user input instead of reading the options from "+vclusterops.ConfigFileName))
-	newCmd.oldParser.StringVar(&restartNodesOptions.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
-	newCmd.oldParser.IntVar(&restartNodesOptions.StatePollingTimeout, "timeout", util.DefaultTimeoutSeconds,
-		util.GetOptionalFlagMsg("Set a timeout (in seconds) for polling node state operation, default timeout is "+
-			strconv.Itoa(util.DefaultTimeoutSeconds)+"seconds"))
+  # Restart a single host and change its IP address in the database with a config file
+  vcluster restart_node --db-name test_db --restart v_test_db_node0004=192.168.1.105
+  --password "" --config $HOME/test_db/vertica_config.yaml
+ 
+  # Restart multiple hosts in the database with a config file
+  vcluster restart_node --db-name test_db --restart v_test_db_node0003=192.168.1.103,
+  v_test_db_node0004=192.168.1.104 --password "" --config $HOME/test_db/vertica_config.yaml		
+`,
+	)
 
-	newCmd.restartNodesOptions = &restartNodesOptions
-	newCmd.oldParser.Usage = func() {
-		util.SetParserUsage(newCmd.oldParser, "restart_node")
-	}
-	return newCmd
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, configFlag, passwordFlag})
+
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	// require nodes to restart
+	markFlagsRequired(cmd, []string{"restart"})
+
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdRestartNodes) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(
+		c.vnodeListStr,
+		"restart",
+		"",
+		"Comma-separated list of <node_name=re_ip_host> pairs part of the database nodes that need to be restarted",
+	)
+	cmd.Flags().IntVar(
+		&c.restartNodesOptions.StatePollingTimeout,
+		"timeout",
+		util.DefaultTimeoutSeconds,
+		"The timeout (in seconds) to wait for polling node state operation",
+	)
 }
 
 func (c *CmdRestartNodes) CommandType() string {
@@ -75,22 +102,13 @@ func (c *CmdRestartNodes) CommandType() string {
 }
 
 func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
-	if c.oldParser == nil {
-		return fmt.Errorf("unexpected nil - the parser was nil")
-	}
-
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogArgParse(&c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "ipv6") {
-		c.CmdBase.ipv6 = nil
-	}
+	c.OldResetUserInputOptions()
 
 	return c.validateParse(logger)
 }
@@ -101,17 +119,15 @@ func (c *CmdRestartNodes) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return c.OldValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
+	err = c.ValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return c.setDBPassword(&c.restartNodesOptions.DatabaseOptions)
 }
 
-func (c *CmdRestartNodes) Analyze(logger vlog.Printer) error {
-	// Analyze() is needed to fulfill an interface
-	logger.Info("Called method Analyze()")
-	return nil
-}
-
-func (c *CmdRestartNodes) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.V(1).Info("Called method Run()")
+func (c *CmdRestartNodes) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.V(1).Info("Called method Run()")
 
 	options := c.restartNodesOptions
 
@@ -133,7 +149,12 @@ func (c *CmdRestartNodes) Run(vcc vclusterops.VClusterCommands) error {
 	for _, ip := range options.Nodes {
 		hostToRestart = append(hostToRestart, ip)
 	}
-	vcc.Log.PrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *options.DBName)
+	vcc.PrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *options.DBName)
 
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdRestartNodes
+func (c *CmdRestartNodes) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.restartNodesOptions.DatabaseOptions = *opt
 }

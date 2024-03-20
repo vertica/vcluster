@@ -16,10 +16,10 @@
 package commands
 
 import (
-	"flag"
+	"encoding/json"
 
+	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -36,33 +36,49 @@ type CmdInstallPackages struct {
 	installPkgOpts *vclusterops.VInstallPackagesOptions
 }
 
-func makeCmdInstallPackages() *CmdInstallPackages {
+func makeCmdInstallPackages() *cobra.Command {
+	// CmdInstallPackages
 	newCmd := &CmdInstallPackages{}
+	newCmd.ipv6 = new(bool)
+	opt := vclusterops.VInstallPackagesOptionsFactory()
+	newCmd.installPkgOpts = &opt
 
-	// parser, used to parse command-line flags
-	newCmd.oldParser = flag.NewFlagSet("install_packages", flag.ExitOnError)
-	installPkgOpts := vclusterops.VInstallPackagesOptionsFactory()
+	cmd := OldMakeBasicCobraCmd(
+		newCmd,
+		"install_packages",
+		"Install default package(s) in database",
+		`This subcommand installs default packages in the database.
 
-	// required flags
-	installPkgOpts.DBName = newCmd.oldParser.String("db-name", "", "The name of the database to install packages in")
+The default packages are those under /opt/vertica/packages where Autoinstall is marked true.
+Per package installation status will be returned.
 
-	// optional flags
-	installPkgOpts.Password = newCmd.oldParser.String("password", "", util.GetOptionalFlagMsg("Database password in single quotes"))
-	newCmd.hostListStr = newCmd.oldParser.String("hosts", "", util.GetOptionalFlagMsg("Comma-separated list of hosts in database."))
-	newCmd.ipv6 = newCmd.oldParser.Bool("ipv6", false, util.GetOptionalFlagMsg("Used to specify the hosts are IPv6 hosts"))
-	installPkgOpts.HonorUserInput = newCmd.oldParser.Bool("honor-user-input", false,
-		util.GetOptionalFlagMsg("Forcefully use the user's input instead of reading the options from "+vclusterops.ConfigFileName))
-	newCmd.oldParser.StringVar(&installPkgOpts.ConfigPath, "config", "", util.GetOptionalFlagMsg("Path to the config file"))
-	installPkgOpts.ForceReinstall = newCmd.oldParser.Bool("force-reinstall", false,
-		util.GetOptionalFlagMsg("Install the packages, even if they are already installed."))
+Examples:
+  # Install default packages using user input.
+  vcluster install_packages --db-name test_db --hosts vnode1,vnode2,vnode3
 
-	newCmd.installPkgOpts = &installPkgOpts
+  # Force (re)install default packages using config file.
+  vcluster install_packages --db-name test_db --force-reinstall --config /opt/vertica/config/vertica_cluster.yaml
+`,
+	)
 
-	newCmd.oldParser.Usage = func() {
-		util.SetParserUsage(newCmd.oldParser, "install_packages")
-	}
+	// common db flags
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, passwordFlag,
+		outputFileFlag})
 
-	return newCmd
+	// local flags
+	newCmd.setLocalFlags(cmd)
+
+	return cmd
+}
+
+// setLocalFlags will set the local flags the command has
+func (c *CmdInstallPackages) setLocalFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		c.installPkgOpts.ForceReinstall,
+		"force-reinstall",
+		false,
+		"Install the packages, even if they are already installed.",
+	)
 }
 
 func (c *CmdInstallPackages) CommandType() string {
@@ -71,34 +87,30 @@ func (c *CmdInstallPackages) CommandType() string {
 
 func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	err := c.ValidateParseArgv(c.CommandType(), logger)
-	if err != nil {
-		return err
-	}
+	logger.LogMaskedArgParse(c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !util.IsOptionSet(c.oldParser, "password") {
-		c.installPkgOpts.Password = nil
-	}
-	if !util.IsOptionSet(c.oldParser, "ipv6") {
-		c.CmdBase.ipv6 = nil
-	}
+	c.OldResetUserInputOptions()
 
 	return c.validateParse()
 }
 
 // all validations of the arguments should go in here
 func (c *CmdInstallPackages) validateParse() error {
-	return c.OldValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return c.setDBPassword(&c.installPkgOpts.DatabaseOptions)
 }
 
 func (c *CmdInstallPackages) Analyze(_ vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdInstallPackages) Run(vcc vclusterops.VClusterCommands) error {
+func (c *CmdInstallPackages) Run(vcc vclusterops.ClusterCommands) error {
 	options := c.installPkgOpts
 
 	// get config from vertica_cluster.yaml
@@ -111,10 +123,23 @@ func (c *CmdInstallPackages) Run(vcc vclusterops.VClusterCommands) error {
 	var status *vclusterops.InstallPackageStatus
 	status, err = vcc.VInstallPackages(options)
 	if err != nil {
-		vcc.Log.Error(err, "failed to install the packages")
+		vcc.LogError(err, "failed to install the packages")
 		return err
 	}
 
-	vcc.Log.PrintInfo("Installed the packages:\n%v", status.Packages)
+	var bytes []byte
+	bytes, err = json.MarshalIndent(status, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
+	vcc.LogInfo("Installed the packages: ", "packages", string(bytes))
+
 	return nil
+}
+
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdInstallPackages
+func (c *CmdInstallPackages) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.installPkgOpts.DatabaseOptions = *opt
 }

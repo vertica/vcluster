@@ -36,6 +36,7 @@ func makeHTTPSAddSubclusterOp(useHTTPPassword bool, userName string, httpsPasswo
 	scName string, isPrimary bool, ctlSetSize int) (httpsAddSubclusterOp, error) {
 	op := httpsAddSubclusterOp{}
 	op.name = "HTTPSAddSubclusterOp"
+	op.description = "Add subcluster to catalog"
 	op.scName = scName
 	op.isSecondary = !isPrimary
 	op.ctlSetSize = ctlSetSize

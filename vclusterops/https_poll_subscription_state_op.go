@@ -24,16 +24,23 @@ import (
 type httpsPollSubscriptionStateOp struct {
 	opBase
 	opHTTPSBase
-	timeout int
+	timeout     int
+	nodesToPoll *[]string
 }
 
 func makeHTTPSPollSubscriptionStateOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string) (httpsPollSubscriptionStateOp, error) {
+	useHTTPPassword bool, userName string, httpsPassword *string, nodesToPoll *[]string) (httpsPollSubscriptionStateOp, error) {
 	op := httpsPollSubscriptionStateOp{}
 	op.name = "HTTPSPollSubscriptionStateOp"
+	op.description = "Wait for subcluster shard rebalance"
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.timeout = StartupPollingTimeout
+	if len(*nodesToPoll) == 0 {
+		return op, fmt.Errorf("[%s] should specify a non-empty list of nodes to poll subscription status", op.name)
+	}
+
+	op.nodesToPoll = nodesToPoll
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -141,11 +148,8 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 				return true, err
 			}
 
-			// check whether all subscriptions are ACTIVE
-			for _, s := range subscriptList.SubscriptionList {
-				if s.SubscriptionState != "ACTIVE" {
-					return false, nil
-				}
+			if containsInactiveSub(&subscriptList, op.nodesToPoll) {
+				return false, nil
 			}
 
 			op.logger.PrintInfo("All subscriptions are ACTIVE")
@@ -156,4 +160,16 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 	// this could happen if ResultCollection is empty
 	op.logger.PrintError("[%s] empty result received from the provided hosts %v", op.name, op.hosts)
 	return false, nil
+}
+
+func containsInactiveSub(subscriptList *subscriptionList, nodesToPoll *[]string) bool {
+	var allNodesWithInactiveSubs []string
+	for _, s := range subscriptList.SubscriptionList {
+		if s.SubscriptionState != "ACTIVE" {
+			allNodesWithInactiveSubs = append(allNodesWithInactiveSubs, s.Nodename)
+		}
+	}
+	nodesToPollWithActiveSubs := util.SliceDiff(*nodesToPoll, allNodesWithInactiveSubs)
+	// all subs of all nodes in nodesToPoll are active
+	return len(*nodesToPoll) != len(nodesToPollWithActiveSubs)
 }

@@ -57,3 +57,58 @@ func TestConfigPathDefaults(t *testing.T) {
 	var homeConfigPathPartial = fmt.Sprintf("vcluster/%s", defConfigFileName)
 	assert.Contains(t, dbOptions.ConfigPath, homeConfigPathPartial)
 }
+
+type mockOperatingSystem struct {
+	mockExecutablePath    string
+	mockExecutablePathErr error
+	mockUserConfigDir     string
+	mockUserConfigDirErr  error
+	mockMkdirAllErr       error
+}
+
+func (m *mockOperatingSystem) Executable() (string, error) {
+	return m.mockExecutablePath, m.mockExecutablePathErr
+}
+
+func (m *mockOperatingSystem) UserConfigDir() (string, error) {
+	return m.mockUserConfigDir, m.mockUserConfigDirErr
+}
+
+func (m *mockOperatingSystem) MkdirAll(_ string, _ os.FileMode) error {
+	return m.mockMkdirAllErr
+}
+func TestSetLogPathImpl(t *testing.T) {
+	mockOpsys := mockOperatingSystem{
+		mockExecutablePath:    defaultExecutablePath,
+		mockExecutablePathErr: nil,
+		mockUserConfigDir:     "/home/user/.config",
+		mockUserConfigDirErr:  nil,
+		mockMkdirAllErr:       nil,
+	}
+
+	logPath := setLogPathImpl(&mockOpsys)
+	expectedLogPath := defaultLogPath
+	assert.Equal(t, expectedLogPath, logPath)
+
+	mockOpsys.mockExecutablePath = "/usr/bin/vcluster"
+	logPath = setLogPathImpl(&mockOpsys)
+	defaultHomeConfigDirLogPath := "/home/user/.config/vcluster/vcluster.log"
+	expectedLogPath = defaultHomeConfigDirLogPath
+	assert.Equal(t, expectedLogPath, logPath)
+
+	mockOpsys.mockExecutablePathErr = fmt.Errorf("error getting executable path")
+	logPath = setLogPathImpl(&mockOpsys)
+	expectedLogPath = defaultLogPath
+	assert.Equal(t, expectedLogPath, logPath)
+
+	mockOpsys.mockExecutablePathErr = nil
+	mockOpsys.mockUserConfigDirErr = fmt.Errorf("error getting user config directory")
+	logPath = setLogPathImpl(&mockOpsys)
+	assert.Equal(t, expectedLogPath, logPath)
+
+	mockOpsys.mockUserConfigDirErr = nil
+	mockOpsys.mockMkdirAllErr = fmt.Errorf("error creating config directory")
+	logPath = setLogPathImpl(&mockOpsys)
+	expectedLogPath = defaultHomeConfigDirLogPath
+	assert.Equal(t, expectedLogPath, logPath)
+}

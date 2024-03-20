@@ -40,27 +40,21 @@ type CmdStopDB struct {
 
 func makeCmdStopDB() *cobra.Command {
 	newCmd := &CmdStopDB{}
-	newCmd.isEon = new(bool)
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VStopDatabaseOptionsFactory()
 	newCmd.stopDBOptions = &opt
 	newCmd.stopDBOptions.DrainSeconds = new(int)
 
 	cmd := makeBasicCobraCmd(
 		newCmd,
-		"stop_db",
+		stopDBSubCmd,
 		"Stop a database",
-		`This stops a database or sandbox on a given set of hosts.
+		`This subcommand stops a database or sandbox.
 
-The name of the database must be provided.
-
-Example:
-  vcluster stop_db --db-name <db_name> --hosts <any_hosts_of_the_db> --password <password> --config <config_file>
+Examples:
+  vcluster stop_db --password <password> --config <config_file>
 `,
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, eonModeFlag, configFlag, passwordFlag},
 	)
-
-	// common db flags
-	setCommonFlags(cmd, []string{"db-name", "password", "hosts", "honor-user-input", "config", "log-path"})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -69,27 +63,11 @@ Example:
 	// hidden flags
 	newCmd.setHiddenFlags(cmd)
 
-	// require db-name, and one of (--honor-user-input, --config)
-	cmd.PreRun = func(c *cobra.Command, args []string) {
-		markFlagsRequired(c, []string{"db-name"})
-		requireHonorUserInputOrConfDir(c)
-	}
-
-	// require the flags to be file name
-	markFlagsFileName(cmd, map[string][]string{"config": {"yaml"}, "log-path": {"log"}})
-
 	return cmd
 }
 
 // setLocalFlags will set the local flags the command has
 func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(
-		c.isEon,
-		"eon-mode",
-		false,
-		util.GetEonFlagMsg("indicate if the database is an Eon db."+
-			" Use it when you do not trust "+vclusterops.ConfigFileName),
-	)
 	cmd.Flags().IntVar(
 		c.stopDBOptions.DrainSeconds,
 		"drain-seconds",
@@ -102,13 +80,13 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 		c.stopDBOptions.Sandbox,
 		"sandbox",
 		"",
-		util.GetOptionalFlagMsg("Name of the sandbox to stop"),
+		"Name of the sandbox to stop",
 	)
 	cmd.Flags().BoolVar(
 		c.stopDBOptions.MainCluster,
 		"main-cluster-only",
 		false,
-		util.GetOptionalFlagMsg("Stop the database, but don't stop any of the sandboxes"),
+		"Stop the database, but don't stop any of the sandboxes",
 	)
 }
 
@@ -137,15 +115,8 @@ func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	if !c.parser.Changed("password") {
-		c.stopDBOptions.Password = nil
-	}
-	if !c.parser.Changed("eon-mode") {
-		c.CmdBase.isEon = nil
-	}
-	if !c.parser.Changed("ipv6") {
-		c.CmdBase.ipv6 = nil
-	}
+	c.OldResetUserInputOptions()
+
 	if !c.parser.Changed("drain-seconds") {
 		c.stopDBOptions.DrainSeconds = nil
 	}
@@ -155,38 +126,35 @@ func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 // all validations of the arguments should go in here
 func (c *CmdStopDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	return c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
-}
-
-func (c *CmdStopDB) Run(vcc vclusterops.VClusterCommands) error {
-	vcc.Log.Info("Called method Run()")
-
-	options := c.stopDBOptions
-
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig(vcc)
+	err := c.ValidateParseBaseOptions(&c.stopDBOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
-	options.Config = config
+	return c.setDBPassword(&c.stopDBOptions.DatabaseOptions)
+}
 
-	err = vcc.VStopDatabase(options)
+func (c *CmdStopDB) Run(vcc vclusterops.ClusterCommands) error {
+	vcc.LogInfo("Called method Run()")
+
+	options := c.stopDBOptions
+
+	err := vcc.VStopDatabase(options)
 	if err != nil {
-		vcc.Log.Error(err, "failed to stop the database")
+		vcc.LogError(err, "failed to stop the database")
 		return err
 	}
 	msg := fmt.Sprintf("Stopped a database with name %s", *options.DBName)
 	if *options.Sandbox != "" {
 		sandboxMsg := fmt.Sprintf(" on sandbox %s", *options.Sandbox)
-		vcc.Log.PrintInfo(msg + sandboxMsg)
+		vcc.PrintInfo(msg + sandboxMsg)
 		return nil
 	}
 	if *options.MainCluster {
 		stopMsg := " on main cluster"
-		vcc.Log.PrintInfo(msg + stopMsg)
+		vcc.PrintInfo(msg + stopMsg)
 		return nil
 	}
-	vcc.Log.PrintInfo(msg)
+	vcc.PrintInfo(msg)
 	return nil
 }
 

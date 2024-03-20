@@ -32,6 +32,7 @@ func makeNMAGetHealthyNodesOp(hosts []string,
 	vdb *VCoordinationDatabase) nmaGetHealthyNodesOp {
 	op := nmaGetHealthyNodesOp{}
 	op.name = "NMAGetHealthyNodesOp"
+	op.description = "Get healthy nodes"
 	op.hosts = hosts
 	op.vdb = vdb
 	return op

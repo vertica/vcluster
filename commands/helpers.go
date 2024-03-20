@@ -14,18 +14,31 @@ limitations under the License.
 */
 package commands
 
-func init() {
-	// move below memory allocation code to setDefaultValues() in
-	// vcluster_database_options.go in VER-92369
-	// allocate memory to Password and LogPath for flags parse
-	dbOptions.Password = new(string)
-	dbOptions.LogPath = new(string)
+import (
+	"fmt"
+	"io"
+	"os"
 
-	// set the log path depending on executable path
-	setLogPath()
+	"golang.org/x/term"
+)
 
-	allCommands := constructCmds()
-	for _, c := range allCommands {
-		rootCmd.AddCommand(c)
+func readDBPasswordFromPrompt() (string, error) {
+	// Prompt the user to enter the password
+	fmt.Print("Enter password: ")
+
+	// Disable echoing
+	passwordBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		return "", fmt.Errorf("error reading password: %w", err)
 	}
+	fmt.Println()
+	return string(passwordBytes), nil
+}
+
+func readFromStdin() (string, error) {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return "", fmt.Errorf("error reading from stdin: %w", err)
+	}
+	return string(data), nil
 }
