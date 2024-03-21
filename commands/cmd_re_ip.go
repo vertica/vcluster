@@ -44,21 +44,24 @@ func makeCmdReIP() *cobra.Command {
 		newCmd,
 		reIPSubCmd,
 		"Re-ip database nodes",
-		`This command alters the IP addresses of database nodes in the catalog. 
-However, the database must be offline when running this command. If an IP change 
+		`This subcommand alters the IP addresses of database nodes in the catalog.
+
+The database must be offline when running this command. If an IP change 
 is required and the database is up, you can use restart_node to handle it.
 
 The file specified by the argument must be a JSON file in the following format:
 [  
-	{"from_address": "192.168.1.101", "to_address": "192.168.1.102"},  
-	{"from_address": "192.168.1.103", "to_address": "192.168.1.104"}  
+	{"from_address": "10.20.30.40", "to_address": "10.20.30.41"},  
+	{"from_address": "10.20.30.42", "to_address": "10.20.30.43"}  
 ] 
 		
-Only the nodes whose IP addresses you want to change need to be included in the file.
+Only the nodes whose IP addresses you want to change need to be included in the
+file.
 		
 Examples:
-  vcluster re_ip --db-name <db_name> --hosts <list_of_hosts>
-  	--catalog-path <catalog_path> --re-ip-file <path_of_re_ip_json_file>
+  # Alter the IP address of database nodes with user input
+  vcluster re_ip --db-name test_db --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+  	--catalog-path /data --re-ip-file /data/re_ip_map.json
 `,
 	)
 

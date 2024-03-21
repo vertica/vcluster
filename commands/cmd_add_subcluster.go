@@ -55,12 +55,14 @@ the --is-primary flag.
 
 Examples:
   # Add a subcluster with config file
-  vcluster db_add_subcluster --subcluster sc1 --config \
-  /opt/vertica/config/vertica_cluster.yaml --is-primary --control-set-size 1
+  vcluster db_add_subcluster --subcluster sc1 \
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --is-primary --control-set-size 1
 
   # Add a subcluster with user input
   vcluster db_add_subcluster --subcluster sc1 --db-name test_db \
-  --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --is-primary --control-set-size -1
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --is-primary --control-set-size -1
 `,
 	)
 

@@ -67,12 +67,12 @@ You must provide the subcluster name with the --subcluster option.
 
 Examples:
   # Unsandbox a subcluster with config file
-  vcluster unsandbox_subcluster --subcluster sc1 --config \
-  /opt/vertica/config/vertica_cluster.yaml
+  vcluster unsandbox_subcluster --subcluster sc1 \
+    --config /opt/vertica/config/vertica_cluster.yaml
 
   # Unsandbox a subcluster with user input
-  vcluster unsandbox_subcluster --subcluster sc1 --hosts \
-  10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
+  vcluster unsandbox_subcluster --subcluster sc1 \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
 `,
 	)
 

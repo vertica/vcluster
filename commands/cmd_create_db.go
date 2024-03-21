@@ -48,21 +48,28 @@ func makeCmdCreateDB() *cobra.Command {
 
 You must specify the database name, host list, catalog path, and data path.
 
-If --config is not provided, a configuration file is created in one of the following locations, 
-in order of precedence::
+If --config is not provided, a configuration file is created in one of the
+following locations, in order of precedence:
 - path set in VCLUSTER_CONFIG environment variable
-- if running vcluster from /opt/vertica/bin, in /opt/vertica/config/vertica_config.yaml
+- if running vcluster from /opt/vertica/bin, in
+  /opt/vertica/config/vertica_config.yaml
 - $HOME/.config/vcluster/vertica_config.yaml
 
-You can pass --config-param a comma-separated list of NAME=VALUE pairs to set multiple 
-configuration parameters when the database is created (see Example below).
+You can pass --config-param a comma-separated list of NAME=VALUE pairs to set
+multiple configuration parameters when the database is created
+(see Example below).
 
-To remove the local directories like catalog, depot, and data, you can use the --force-cleanup-on-failure or 
---force-removal-at-creation options. The data deleted with these options is unrecoverable.
+To remove the local directories like catalog, depot, and data, you can use the
+--force-cleanup-on-failure or --force-removal-at-creation options.
+The data deleted with these options is unrecoverable.
 
 Examples:
-  vcluster create_db --db-name <db_name> --hosts <all_hosts_of_the_db> --catalog-path <catalog-path>
-  --data-path <data-path> --config-pram <key1=value1,key2=value2,key3=value3> --config <config_file>
+  # Create a database and save the generated config file under custom directory
+  vcluster create_db --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --catalog-path /data --data-path /data \
+    --config-param HttpServerConf=/opt/vertica/config/https_certs/httpstls.json \
+    --config $HOME/custom/directory/vertica_cluster.yaml
 `,
 		[]string{dbNameFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag,
 			communalStorageLocationFlag, passwordFlag, configFlag, ipv6Flag, configParamFlag},

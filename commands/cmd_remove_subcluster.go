@@ -51,13 +51,13 @@ subcluster.
 
 Examples:
   # Remove a subcluster with config file
-  vcluster db_remove_subcluster --subcluster sc1 --config \
-  /opt/vertica/config/vertica_cluster.yaml
+  vcluster db_remove_subcluster --subcluster sc1 \
+    --config /opt/vertica/config/vertica_cluster.yaml
 
   # Remove a subcluster with user input
-  vcluster db_remove_subcluster --db-name test_db --hosts \
-  10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1 --data-path \
-  /data --depot-path /data
+  vcluster db_remove_subcluster --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1 \
+    --data-path /data --depot-path /data
 `,
 	)
 

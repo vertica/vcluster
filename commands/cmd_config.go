@@ -43,14 +43,32 @@ func makeCmdConfig() *cobra.Command {
 		newCmd,
 		configSubCmd,
 		"Show the content of the config file",
-		`This subcommand is used to print the content of the config file.
+		`This subcommand prints or recovers the content of the config file.
+
+When recovering a config file, you must provide the all hosts that participate 
+in this database.
+
+If there is an existing file at the provided config file location, the recover
+function will not create a new config file, unless you specify
+--overwrite explicitly.
 
 Examples:
-  # show the vertica_cluster.yaml file in the default location
+  # Show the cluster config file in the default location
   vcluster config --show
 
-  # show the contents of the config file at /tmp/vertica_cluster.yaml
+  # Show the contents of the config file at /tmp/vertica_cluster.yaml
   vcluster config --show --config /tmp/vertica_cluster.yaml
+
+  # Recover the config file to the default location
+  vcluster config --recover --db-name test_db \
+    --hosts 10.20.30.41,10.20.30.42,10.20.30.43 \
+    --catalog-path /data --data-path /data --depot-path /data
+
+  # Recover the config file to /tmp/vertica_cluster.yaml
+  vcluster config --recover --db-name test_db \
+    --hosts 10.20.30.41,10.20.30.42,10.20.30.43 \
+    --catalog-path /data --data-path /data --depot-path /data \
+    --config /tmp/vertica_cluster.yaml
 `,
 		[]string{configFlag},
 	)

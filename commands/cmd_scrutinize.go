@@ -102,8 +102,10 @@ The diagnostics are bundled together in a tarball and stored at the following
 directory: `+vclusterops.ScrutinizeOutputBasePath+`/VerticaScrutinize.<timestamp>.tar.
 
 Examples:
-  # Scrutinize all nodes in the database using config file option and password-based authentication
-  vcluster scrutinize --db-name test_db --db-user dbadmin --password "Secret!" --config $HOME/test_db/vertica_config.yaml
+  # Scrutinize all nodes in the database with config file
+  # option and password-based authentication
+  vcluster scrutinize --db-name test_db --db-user dbadmin \
+    --password testpassword --config /opt/vertica/config/vertica_cluster.yaml
 `,
 	)
 

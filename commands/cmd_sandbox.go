@@ -63,12 +63,12 @@ sandbox name with the --sandbox option.
 		
 Examples:
   # Sandbox a subcluster with config file
-  vcluster sandbox_subcluster --subcluster sc1 --sandbox sand --config \
-  /opt/vertica/config/vertica_cluster.yaml
+  vcluster sandbox_subcluster --subcluster sc1 --sandbox sand \
+    --config /opt/vertica/config/vertica_cluster.yaml
 
   # Sandbox a subcluster with user input
-  vcluster sandbox_subcluster --subcluster sc1 --sandbox sand --hosts \
-  10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
+  vcluster sandbox_subcluster --subcluster sc1 --sandbox sand \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
 `,
 	)
 

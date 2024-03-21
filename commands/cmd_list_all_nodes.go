@@ -48,14 +48,17 @@ func makeListAllNodes() *cobra.Command {
 		`This subcommand queries the status of the nodes in the consensus and prints
 whether they are currently up or down.
 
-The --host option allows you to specify the host or hosts that the program
+The --hosts option specifies one or more hosts that the program
 should communicate with. The program will return the first response it
 receives from any of the specified hosts.
 
 The only requirement for each host is that it is running the spread daemon.
 
 Examples:
-	vcluster list_allnodes --password <password> --config <config_file>
+  # List the status of nodes with config file where password authentication is
+  # used to access the database
+  vcluster list_allnodes --password testpassword \
+    --config /opt/vertica/config/vertica_cluster.yaml
 `)
 
 	// common db flags

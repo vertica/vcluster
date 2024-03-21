@@ -53,16 +53,21 @@ func makeCmdStartDB() *cobra.Command {
 		`This subcommand starts a database on a set of hosts.
 
 Starts Vertica on each host and establishes cluster quorum. This subcommand is 
-similar to restart_node, except start_db assumes that cluster quorum has been lost.
+similar to restart_node, except start_db assumes that cluster quorum
+has been lost.
 
-The IP address provided for each node name must match the current IP address in the 
-Vertica catalog. If the IPs do not match, you must call re_ip before start_db.
+The IP address provided for each node name must match the current IP address
+in the Vertica catalog. If the IPs do not match, you must call re_ip
+before start_db.
 
-If you pass the --hosts command a subset of all nodes in the cluster, only the specified 
-nodes are started. There must be a quorum of nodes for the database to start.
+If you pass the --hosts command a subset of all nodes in the cluster, only the
+specified nodes are started. There must be a quorum of nodes for the database
+to start.
 
 Examples:
-  vcluster start_db --db-name <db_name> --password <password> --config <config_file>
+  # Start a database with config file using password authentication
+  vcluster start_db --password testpassword \
+    --config /opt/vertica/config/vertica_cluster.yaml
 `,
 	)
 

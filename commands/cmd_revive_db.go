@@ -45,18 +45,42 @@ func makeCmdReviveDB() *cobra.Command {
 		newCmd,
 		reviveDBSubCmd,
 		"Revive a database",
-		`This revives an Eon Mode database to a given set of hosts.
+		`This subcommand revives an Eon Mode database to a given set of hosts.
+This could also restore an Eon Mode database to a given restore point.
 
-The communal storage path must be provided and it cannot be empty. If access to communal storage
-requires access keys, these can be provided through the --config-param option.
+The communal storage path must be provided and it cannot be empty.
+If access to communal storage requires access keys, these can be provided
+through the --config-param option.
 
-You must also specify a set of hosts that matches the number of hosts when the database was running.
+You must also specify a set of hosts that matches the number of hosts when the
+database was running. You can omit the hosts only if --diplays-only
+is specified.
 
 The name of the database must be provided.
 
+When restoring to a restore point, the --restore-point-archive option must be
+provided, and the targeted restore point within an archive must be specified
+by either --restore-point-index or --restore-point-id (not both).
+
 Examples:
-  vcluster revive_db --db-name <db_name> --hosts <list_of_hosts>
-    --communal-storage-location <communal_storage_location> --config <config_file>
+  # Revive a database with user input and save the generated config file
+  # under given directory
+  vcluster revive_db --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --communal-storage-location /communal \
+    --config /opt/vertica/config/vertica_cluster.yaml
+
+  # Describe the database only when reviving the database
+  vcluster revive_db --db-name test_db --communal-storage-location /communal \
+    --display-only
+
+  # Revive a database with user input by restoring to a given restore point
+  vcluster revive_db --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --communal-storage-location /communal \
+    --config /opt/vertica/config/vertica_cluster.yaml --force-removal \
+    --ignore-cluster-lease --restore-point-archive db --restore-point-index 1
+
 `,
 	)
 
@@ -67,7 +91,7 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// require db-name
+	// require db-name and communal-storage-location
 	markFlagsRequired(cmd, []string{dbNameFlag, communalStorageLocationFlag})
 
 	return cmd

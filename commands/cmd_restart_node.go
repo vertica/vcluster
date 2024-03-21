@@ -45,26 +45,31 @@ func makeCmdRestartNodes() *cobra.Command {
 		newCmd,
 		restartNodeSubCmd,
 		"Restart nodes in the database",
-		`This subcommand starts individual nodes in a running cluster. This differs from
-start_db, which starts Vertica after cluster quorum is lost.
+		`This subcommand starts individual nodes in a running cluster. This
+differs from start_db, which starts Vertica after cluster quorum is lost.
 
-You can pass --restart a comma-separated list of NODE_NAME=IP_TO_RESTART pairs to restart 
-multiple nodes without a config file. If the IP_TO_RESTART value does not match the information 
-stored in the catalog for NODE_NAME, Vertica updates the catalog with the IP_TO_RESTART value and 
-restarts the node.
+You can pass --restart a comma-separated list of NODE_NAME=IP_TO_RESTART pairs
+to restart multiple nodes without a config file. If the IP_TO_RESTART value
+does not match the information stored in the catalog for NODE_NAME, Vertica
+updates the catalog with the IP_TO_RESTART value and restarts the node.
 
 Examples:
-  # Restart a single host in the database with a config file
-  vcluster restart_node --db-name test_db --restart v_test_db_node0004=192.168.1.104
-  --password "" --config $HOME/test_db/vertica_config.yaml
+  # Restart a single node in the database with config file
+  vcluster restart_node --db-name test_db \
+    --restart v_test_db_node0004=10.20.30.43 --password testpassword \
+    --config /opt/vertica/config/vertica_cluster.yaml
 
-  # Restart a single host and change its IP address in the database with a config file
-  vcluster restart_node --db-name test_db --restart v_test_db_node0004=192.168.1.105
-  --password "" --config $HOME/test_db/vertica_config.yaml
- 
-  # Restart multiple hosts in the database with a config file
-  vcluster restart_node --db-name test_db --restart v_test_db_node0003=192.168.1.103,
-  v_test_db_node0004=192.168.1.104 --password "" --config $HOME/test_db/vertica_config.yaml		
+  # Restart a single node and change its IP address in the database
+  # with config file (assuming the node IP address previously stored
+  # catalog was not 10.20.30.44)
+  vcluster restart_node --db-name test_db \
+    --restart v_test_db_node0004=10.20.30.44 --password testpassword \
+    --config /opt/vertica/config/vertica_cluster.yaml
+
+  # Restart multiple nodes in the database with config file
+  vcluster restart_node --db-name test_db \
+    --restart v_test_db_node0003=10.20.30.42,v_test_db_node0004=10.20.30.43 \
+    --password testpassword --config /opt/vertica/config/vertica_cluster.yaml	
 `,
 	)
 

@@ -48,18 +48,19 @@ func makeCmdRemoveNode() *cobra.Command {
 		`This subcommand removes one or more nodes from an existing database.
 
 You need to provide the --remove option followed by one or more hosts to
-remove, separated by commas.
+remove as a comma-separated list.
 
 You cannot remove nodes from a sandboxed subcluster in an Eon Mode database.
 
 Examples:
   # Remove multiple nodes from the existing database with config file
-  vcluster db_remove_node --db-name test_db --remove 10.20.30.40,10.20.30.42 \
-  --config /opt/vertica/config/vertica_cluster.yaml
+  vcluster db_remove_node --db-name test_db \
+    --remove 10.20.30.40,10.20.30.42 \
+    --config /opt/vertica/config/vertica_cluster.yaml
 
   # Remove a single node from the existing database with user input
   vcluster db_remove_node --db-name test_db --remove 10.20.30.42 \
-  --hosts 10.20.30.40 --data-path /data
+    --hosts 10.20.30.40 --data-path /data
 `,
 	)
 

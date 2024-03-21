@@ -43,29 +43,40 @@ func makeCmdShowRestorePoints() *cobra.Command {
 		"Query and list restore point(s) in archive(s)",
 		`This subcommand queries and lists restore point(s) in archive(s).
 
-Then --start-timestamp and --end-timestamp options both limit the scope of creation timestamps
-of listed restore points. Both of them expect a timestamp in date-time format or date-only format;
-some examples include: "2006-01-02 15:04:05", "2006-01-02", "2006-01-02 15:04:05.000000000".
+Then --start-timestamp and --end-timestamp options both limit the scope of
+creation timestamps of listed restore points. Both of them expect a timestamp
+in date-time format or date-only format, for example:
+"2006-01-02 15:04:05", "2006-01-02", "2006-01-02 15:04:05.000000000".
 Both of them expect a timestamp in UTC timezone.
 
 Examples:
-  # List restore points without filters using user input.
-  vcluster show_restore_points --db-name test_db --hosts vnode1,vnode2,vnode3 --communal-storage-location /communal
+  # List restore points without filters with user input
+  vcluster show_restore_points --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+	--communal-storage-location /communal
 
-  # List restore points without filters using config file.
-  vcluster show_restore_points --db-name test_db --config /opt/vertica/config/vertica_cluster.yaml
+  # List restore points without filters with config file
+  vcluster show_restore_points --db-name test_db \
+    --config /opt/vertica/config/vertica_cluster.yaml
 
-  # List restore points with archive name filter using user input.
-  vcluster show_restore_points --db-name test_db --hosts vnode1,vnode2,vnode3 \
-  --communal-storage-location /communal --restore-point-archive db1
+  # List restore points with archive name filter with user input
+  vcluster show_restore_points --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --communal-storage-location /communal --restore-point-archive db1
 
-  # List restore points with restore point id filter using user input.
-  vcluster show_restore_points --db-name test_db --hosts vnode1,vnode2,vnode3 \
-  --communal-storage-location /communal --restore-point-id 34668031-c63d-4f3b-ba97-70223c4f97d6
+  # List restore points with restore point id filter with user input
+  vcluster show_restore_points --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --communal-storage-location /communal \
+    --restore-point-id 34668031-c63d-4f3b-ba97-70223c4f97d6
 
-  # List restore points with start timestamp and end timestamp filters using user input.
-  vcluster show_restore_points --db-name test_db --hosts vnode1,vnode2,vnode3 \
-  --communal-storage-location /communal --start-timestamp 2024-03-04 08:32:33.277569 --end-timestamp 2024-03-04 08:32:34.176391
+  # List restore points with start timestamp and
+  # end timestamp filters with user input
+  vcluster show_restore_points --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --communal-storage-location /communal \
+    --start-timestamp 2024-03-04 08:32:33.277569 \
+    --end-timestamp 2024-03-04 08:32:34.176391
 `,
 	)
 

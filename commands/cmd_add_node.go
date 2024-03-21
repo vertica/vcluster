@@ -51,9 +51,10 @@ func makeCmdAddNode() *cobra.Command {
 		"Add host(s) to an existing database",
 		`This subcommand adds one or more hosts to an existing database.
 
-You must provide the --add option one or more hosts to remove as a
-comma-separated list. You cannot add hosts to a sandbox subcluster in an
-Eon Mode database.
+You need to provide the --add option followed by one or more hosts to add as a
+comma-separated list.
+
+You cannot add hosts to a sandbox subcluster in an Eon Mode database.
 
 The --node-names option is utilized to address issues resulting from a failed
 node addition attempt. It's crucial to include all expected nodes in the catalog
@@ -63,13 +64,13 @@ Omitting the option will skip this node trimming process.
 
 Examples:
   # Add a single host to the existing database with config file
-  vcluster db_add_node --db-name test_db --add 10.20.30.43 --config \
-  /opt/vertica/config/vertica_cluster.yaml
+  vcluster db_add_node --db-name test_db --add 10.20.30.43 \
+    --config /opt/vertica/config/vertica_cluster.yaml
 
   # Add multiple hosts to the existing database with user input
   vcluster db_add_node --db-name test_db --add 10.20.30.43,10.20.30.44 \
-  --data-path /data --hosts 10.20.30.40 --node-names \
-  test_db_node0001,test_db_node0002
+    --data-path /data --hosts 10.20.30.40 \
+    --node-names v_test_db_node0001,v_test_db_node0002
 `,
 	)
 
