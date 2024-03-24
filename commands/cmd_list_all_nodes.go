@@ -41,7 +41,7 @@ func makeListAllNodes() *cobra.Command {
 	opt := vclusterops.VFetchNodeStateOptionsFactory()
 	newCmd.fetchNodeStateOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		listAllNodesSubCmd,
 		"List all nodes in the database",
@@ -59,10 +59,9 @@ Examples:
   # used to access the database
   vcluster list_allnodes --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
-`)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{hostsFlag, configFlag, passwordFlag, outputFileFlag})
+`,
+		[]string{hostsFlag, passwordFlag, configFlag, outputFileFlag},
+	)
 
 	return cmd
 }

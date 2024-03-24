@@ -74,7 +74,6 @@ Examples:
 		[]string{dbNameFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag,
 			communalStorageLocationFlag, passwordFlag, configFlag, ipv6Flag, configParamFlag},
 	)
-
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
@@ -84,6 +83,10 @@ Examples:
 
 	// require db-name
 	markFlagsRequired(cmd, []string{dbNameFlag})
+
+	// VER-92676: we may add a function setRequiredFlags() in cmd_base.go
+	// in which we can set catalog-path, data-path, ...
+	// then call that function in cmd_create_db and cmd_revive_db
 
 	return cmd
 }

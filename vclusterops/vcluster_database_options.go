@@ -106,6 +106,7 @@ const (
 	commandUnsandboxSC       = "unsandbox_subcluster"
 	commandShowRestorePoints = "show_restore_points"
 	commandInstallPackages   = "install_packages"
+	commandConfigRecover     = "manage_config_recover"
 )
 
 func DatabaseOptionsFactory() DatabaseOptions {
@@ -180,9 +181,11 @@ func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Pri
 	}
 
 	// log directory
-	err = util.ValidateAbsPath(opt.LogPath, "log directory")
-	if err != nil {
-		return err
+	if log.LogToFileOnly {
+		err = util.ValidateAbsPath(opt.LogPath, "log directory")
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -210,7 +213,7 @@ func (opt *DatabaseOptions) validateHostsAndPwd(commandName string, log vlog.Pri
 func (opt *DatabaseOptions) validatePaths(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
-	commands := []string{commandCreateDB, commandDropDB}
+	commands := []string{commandCreateDB, commandDropDB, commandConfigRecover}
 	if !slices.Contains(commands, commandName) {
 		return nil
 	}
@@ -222,9 +225,12 @@ func (opt *DatabaseOptions) validatePaths(commandName string) error {
 	}
 
 	// data prefix
-	err = util.ValidateRequiredAbsPath(opt.DataPrefix, "data path")
-	if err != nil {
-		return err
+	// `manage_config recover` does not need the data-path
+	if commandName != commandConfigRecover {
+		err = util.ValidateRequiredAbsPath(opt.DataPrefix, "data path")
+		if err != nil {
+			return err
+		}
 	}
 
 	// depot prefix

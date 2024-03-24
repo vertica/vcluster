@@ -70,7 +70,7 @@ func (op *nmaGetScrutinizeTarOp) createOutputDir() error {
 	if err := os.MkdirAll(outputDir, OwnerReadWriteExecute); err != nil {
 		return err
 	}
-	stagingDirPathAccess := util.CanWriteAccessDir(outputDir)
+	stagingDirPathAccess := util.CanWriteAccessPath(outputDir)
 	if stagingDirPathAccess == util.FileNotExist {
 		return fmt.Errorf("opening scrutinize output directory failed: '%s'", outputDir)
 	}

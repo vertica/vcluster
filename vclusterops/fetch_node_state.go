@@ -62,8 +62,6 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 		return nil, err
 	}
 
-	// TODO: we need to support reading hosts from config for Go client
-
 	// produce list_allnodes instructions
 	instructions, err := vcc.produceListAllNodesInstructions(options)
 	if err != nil {

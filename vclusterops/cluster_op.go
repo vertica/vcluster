@@ -500,6 +500,7 @@ type ClusterCommands interface {
 	VStartDatabase(options *VStartDatabaseOptions) error
 	VStartNodes(options *VStartNodesOptions) error
 	VStopDatabase(options *VStopDatabaseOptions) error
+	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
 	VUnsandbox(options *VUnsandboxOptions) error
 }
 

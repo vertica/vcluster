@@ -22,6 +22,8 @@ import (
 	"golang.org/x/term"
 )
 
+const kubernetesPort = "KUBERNETES_PORT"
+
 func readDBPasswordFromPrompt() (string, error) {
 	// Prompt the user to enter the password
 	fmt.Print("Enter password: ")
@@ -41,4 +43,9 @@ func readFromStdin() (string, error) {
 		return "", fmt.Errorf("error reading from stdin: %w", err)
 	}
 	return string(data), nil
+}
+
+func isK8sEnvironment() bool {
+	port, portSet := os.LookupEnv(kubernetesPort)
+	return portSet && port != ""
 }

@@ -397,9 +397,9 @@ func CanReadAccessDir(dirPath string) error {
 }
 
 // Check whether the directory is read accessible
-func CanWriteAccessDir(dirPath string) int {
+func CanWriteAccessPath(path string) int {
 	// check whether the path exists
-	_, err := os.Stat(dirPath)
+	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return FileNotExist
@@ -407,8 +407,8 @@ func CanWriteAccessDir(dirPath string) int {
 	}
 
 	// check whether the path has write access
-	if err := unix.Access(dirPath, unix.W_OK); err != nil {
-		log.Printf("Path '%s' is not writable.\n", dirPath)
+	if err := unix.Access(path, unix.W_OK); err != nil {
+		log.Printf("Path '%s' is not writable.\n", path)
 		return NoWritePerm
 	}
 

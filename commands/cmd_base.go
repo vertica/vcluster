@@ -108,8 +108,10 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 		false,
 		"Show the details of VCluster run in the console",
 	)
-	// keyPath and certPath are flags that all subcommands require, except for the config subcommand
-	if cmd.Name() != configSubCmd {
+	// keyPath and certPath are flags that all subcommands require,
+	// except for manage_config and `manage_config show`
+	if cmd.Name() != manageConfigSubCmd &&
+		cmd.Name() != configShowSubCmd {
 		cmd.Flags().StringVar(
 			&globals.keyPath,
 			keyPathFlag,

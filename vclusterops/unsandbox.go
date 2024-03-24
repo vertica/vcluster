@@ -28,6 +28,8 @@ type VUnsandboxOptions struct {
 	SCName     *string
 	SCHosts    []string
 	SCRawHosts []string
+	// if restart the subcluster after unsandboxing it, the default value of it is true
+	RestartSC bool
 }
 
 func VUnsandboxOptionsFactory() VUnsandboxOptions {
@@ -39,6 +41,7 @@ func VUnsandboxOptionsFactory() VUnsandboxOptions {
 func (options *VUnsandboxOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
 	options.SCName = new(string)
+	options.RestartSC = true
 }
 
 func (options *VUnsandboxOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -150,11 +153,11 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase, optio
 //   - Poll for stopped hosts to be down
 //   - Run unsandboxing for the user provided subcluster using the selected initiator host(s).
 //   - Remove catalog dirs from unsandboxed hosts
-//   - Restart the unsandboxed hosts and Poll for the unsandboxed subcluster hosts to be UP.
-//   - Check Vertica versions
-//   - get start commands from UP main cluster node
-//   - run startup commands for unsandboxed nodes
-//   - Poll for started nodes to be UP
+//   - VCluster CLI will restart the unsandboxed hosts using below instructions, but k8s operator will skip the restart process
+//     1. Check Vertica versions
+//     2. get start commands from UP main cluster node
+//     3. run startup commands for unsandboxed nodes
+//     4. Poll for started nodes to be UP
 func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
@@ -204,36 +207,41 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		return instructions, err
 	}
 
-	// NMA check vertica versions before restart
-	nmaVersionCheck := makeNMAVerticaVersionOpAfterUnsandbox(true, *options.SCName)
-
-	// Get startup commands
-	httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOpAfterUnsandbox(usePassword, username, options.Password)
-	if err != nil {
-		return instructions, err
-	}
-
-	// Start the nodes
-	nmaRestartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
-
-	// Poll for nodes UP
-	httpsPollScUp, err := makeHTTPSPollSubclusterNodeStateUpOp(*options.SCName,
-		usePassword, username, options.Password)
-	if err != nil {
-		return instructions, err
-	}
-
 	instructions = append(instructions,
 		&httpsGetUpNodesOp,
 		&httpsStopNodeOp,
 		&httpsPollScDown,
 		&httpsUnsandboxSubclusterOp,
 		&nmaDeleteDirsOp,
-		&nmaVersionCheck,
-		&httpsStartUpCommandOp,
-		&nmaRestartNodesOp,
-		&httpsPollScUp,
 	)
+
+	if options.RestartSC {
+		// NMA check vertica versions before restart
+		nmaVersionCheck := makeNMAVerticaVersionOpAfterUnsandbox(true, *options.SCName)
+
+		// Get startup commands
+		httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOpAfterUnsandbox(usePassword, username, options.Password)
+		if err != nil {
+			return instructions, err
+		}
+
+		// Start the nodes
+		nmaRestartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
+
+		// Poll for nodes UP
+		httpsPollScUp, err := makeHTTPSPollSubclusterNodeStateUpOp(*options.SCName,
+			usePassword, username, options.Password)
+		if err != nil {
+			return instructions, err
+		}
+
+		instructions = append(instructions,
+			&nmaVersionCheck,
+			&httpsStartUpCommandOp,
+			&nmaRestartNodesOp,
+			&httpsPollScUp,
+		)
+	}
 
 	return instructions, nil
 }

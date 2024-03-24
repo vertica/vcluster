@@ -48,7 +48,6 @@ const (
 )
 
 const (
-	kubernetesPort  = "KUBERNETES_PORT"
 	databaseName    = "DATABASE_NAME"
 	catalogPathPref = "CATALOG_PATH"
 )
@@ -526,11 +525,6 @@ func constructMissingParamsMsg(exists []bool, params []string) string {
 		}
 	}
 	return warningBuilder.String()
-}
-
-func isK8sEnvironment() bool {
-	port, portSet := os.LookupEnv(kubernetesPort)
-	return portSet && port != ""
 }
 
 // lookupAndCheckSecretEnvVars retrieves the values of the secret environment variables

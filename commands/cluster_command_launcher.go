@@ -102,22 +102,24 @@ var flagKeyMap = map[string]string{
 const (
 	createDBSubCmd          = "create_db"
 	stopDBSubCmd            = "stop_db"
+	reviveDBSubCmd          = "revive_db"
+	manageConfigSubCmd      = "manage_config"
+	configRecoverSubCmd     = "recover"
+	configShowSubCmd        = "show"
+	listAllNodesSubCmd      = "list_allnodes"
 	startDBSubCmd           = "start_db"
 	dropDBSubCmd            = "drop_db"
-	reviveDBSubCmd          = "revive_db"
 	addSCSubCmd             = "db_add_subcluster"
 	removeSCSubCmd          = "db_remove_subcluster"
 	addNodeSubCmd           = "db_add_node"
 	removeNodeSubCmd        = "db_remove_node"
 	restartNodeSubCmd       = "restart_node"
 	reIPSubCmd              = "re_ip"
-	listAllNodesSubCmd      = "list_allnodes"
 	sandboxSubCmd           = "sandbox_subcluster"
 	unsandboxSubCmd         = "unsandbox_subcluster"
 	scrutinizeSubCmd        = "scrutinize"
 	showRestorePointsSubCmd = "show_restore_points"
 	installPkgSubCmd        = "install_packages"
-	configSubCmd            = "config"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -239,10 +241,14 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 
 	// log-path is a flag that all the subcommands need
 	flagsInConfig = append(flagsInConfig, logPathFlag)
-	// cert-path and key-path are not available for config subcmd
-	if cmd.CalledAs() != configSubCmd {
+	// cert-path and key-path are not available for
+	// - manage_config
+	// - manage_config show
+	if cmd.CalledAs() != manageConfigSubCmd &&
+		cmd.CalledAs() != configShowSubCmd {
 		flagsInConfig = append(flagsInConfig, certPathFlag, keyPathFlag)
 	}
+
 	// bind viper keys to cobra flags
 	for _, flag := range flagsInConfig {
 		if _, ok := flagKeyMap[flag]; !ok {
@@ -270,13 +276,20 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 
 	// load db options from config file to viper
 	// note: config file is not available for create_db and revive_db
-	if cmd.CalledAs() != createDBSubCmd && cmd.CalledAs() != reviveDBSubCmd {
+	//       manage_config does not need viper to load config file info
+	if cmd.CalledAs() != createDBSubCmd &&
+		cmd.CalledAs() != reviveDBSubCmd &&
+		cmd.CalledAs() != manageConfigSubCmd {
 		err = loadConfigToViper()
 		if err != nil {
 			return err
 		}
 	}
 
+	return handleViperUserInput(flagsInConfig)
+}
+
+func handleViperUserInput(flagsInConfig []string) error {
 	// if a flag is set in viper through user input, env var or config file, we assign its viper value
 	// to database options. viper can automatically retrieve the correct value following below order:
 	// 1. user input
@@ -289,7 +302,7 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 			continue
 		}
 		if viper.IsSet(flagKeyMap[flag]) {
-			err = setDBOptionsUsingViper(flag)
+			err := setDBOptionsUsingViper(flag)
 			if err != nil {
 				return fmt.Errorf("fail to set flag %q using viper: %w", flag, err)
 			}
@@ -396,7 +409,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdRemoveNode(),
 		// others
 		makeCmdScrutinize(),
-		makeCmdConfig(),
+		makeCmdManageConfig(),
 	}
 }
 
