@@ -347,7 +347,7 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 	)
 
 	if options.OldIsEon.ToBool() {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password, StartDBSyncCat)
 		if err != nil {
 			return instructions, err
 		}

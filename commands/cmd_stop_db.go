@@ -80,7 +80,7 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().StringVar(
 		c.stopDBOptions.Sandbox,
-		"sandbox",
+		sandboxFlag,
 		"",
 		"Name of the sandbox to stop",
 	)

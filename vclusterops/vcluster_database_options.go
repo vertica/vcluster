@@ -102,6 +102,7 @@ const (
 	commandRemoveNode        = "db_remove_node"
 	commandAddCluster        = "db_add_subcluster"
 	commandRemoveCluster     = "db_remove_subcluster"
+	commandStopCluster       = "stop_subcluster"
 	commandSandboxSC         = "sandbox_subcluster"
 	commandUnsandboxSC       = "unsandbox_subcluster"
 	commandShowRestorePoints = "show_restore_points"

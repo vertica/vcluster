@@ -109,7 +109,7 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().StringVar(
 		c.addNodeOptions.SCName,
-		"subcluster",
+		subclusterFlag,
 		"",
 		util.GetEonFlagMsg("The Name of subcluster"+
 			" to which the host(s) must be added. If empty default subcluster is considered"),

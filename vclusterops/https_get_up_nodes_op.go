@@ -29,7 +29,8 @@ const (
 	StartNodeCommand
 	StopDBCmd
 	ScrutinizeCmd
-	DBAddSubclusterCmd
+	AddSubclusterCmd
+	StopSubclusterCmd
 	InstallPackageCmd
 	UnsandboxCmd
 )
@@ -180,7 +181,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 			continue
 		}
 
-		if op.cmdType == StopDBCmd {
+		if op.cmdType == StopDBCmd || op.cmdType == StopSubclusterCmd {
 			err = op.validateHosts(nodesStates)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
@@ -192,7 +193,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 		err = op.collectUpHosts(nodesStates, host, upHosts, upScInfo, sandboxInfo, upScNodes)
 		if err != nil {
 			allErrs = errors.Join(allErrs, err)
-			break
+			return allErrs
 		}
 
 		if op.cmdType == UnsandboxCmd {
@@ -215,7 +216,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 
 // Return true if all the results need to be scanned to figure out UP hosts
 func isCompleteScanRequired(cmdType CommandType) bool {
-	return cmdType == SandboxCmd || cmdType == StopDBCmd || cmdType == UnsandboxCmd
+	return cmdType == SandboxCmd || cmdType == StopDBCmd || cmdType == UnsandboxCmd || cmdType == StopSubclusterCmd
 }
 
 func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
@@ -238,6 +239,11 @@ func (op *httpsGetUpNodesOp) processHostLists(upHosts mapset.Set[string], upScIn
 	execContext *opEngineExecContext) (ignoreErrors bool) {
 	execContext.upScInfo = upScInfo
 
+	// when we found up nodes in the database, but cannot found up nodes in subcluster, we throw an error
+	if op.cmdType == StopSubclusterCmd && upHosts.Cardinality() > 0 && len(execContext.nodesInfo) == 0 {
+		op.logger.PrintError(`[%s] There are no UP nodes in subcluster %s. The subcluster is already down`, op.name, op.scName)
+		return false
+	}
 	if op.sandbox != "" && op.cmdType != UnsandboxCmd {
 		upSandbox := op.checkSandboxUp(sandboxInfo, op.sandbox)
 		if !upSandbox {
@@ -299,16 +305,20 @@ func (op *httpsGetUpNodesOp) validateHosts(nodesStates nodesStateInfo) error {
 func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host string,
 	upHosts mapset.Set[string], upScInfo, sandboxInfo map[string]string, upScNodes mapset.Set[NodeInfo]) (err error) {
 	upMainNodeFound := false
+	foundSC := false
 	for _, node := range nodesStates.NodeList {
 		if node.Database != op.DBName {
 			err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
 			return err
 		}
+		if op.scName != "" && node.Subcluster == op.scName {
+			foundSC = true
+		}
 		if node.State == util.NodeUpState {
 			upHosts.Add(node.Address)
 			upScInfo[node.Address] = node.Subcluster
 			if op.cmdType == StopDBCmd {
-				if node.Sandbox != "" || !upMainNodeFound {
+				if node.Sandbox != util.MainClusterSandbox || !upMainNodeFound {
 					sandboxInfo[node.Address] = node.Sandbox
 					// We still need one main cluster UP node, when there are sandboxes
 					upMainNodeFound = true
@@ -324,6 +334,9 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 				}
 			}
 		}
+	}
+	if !foundSC && op.cmdType == StopSubclusterCmd {
+		return fmt.Errorf(`[%s] cannot find subcluster %s in database %s`, op.name, op.scName, op.DBName)
 	}
 	return err
 }

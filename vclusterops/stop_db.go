@@ -197,7 +197,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 	instructions = append(instructions, &httpsGetUpNodesOp)
 
 	if options.IsEon {
-		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, *options.UserName, options.Password)
+		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, *options.UserName, options.Password, StopDBSyncCat)
 		if e != nil {
 			return instructions, e
 		}

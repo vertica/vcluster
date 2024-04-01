@@ -83,7 +83,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require name of subcluster to unsandbox
-	markFlagsRequired(cmd, []string{"subcluster"})
+	markFlagsRequired(cmd, []string{subclusterFlag})
 
 	return cmd
 }
@@ -92,7 +92,7 @@ Examples:
 func (c *CmdUnsandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
 		c.usOptions.SCName,
-		"subcluster",
+		subclusterFlag,
 		"",
 		"The name of the subcluster to be unsandboxed",
 	)

@@ -404,7 +404,7 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	instructions = append(instructions, &nmaDeleteDirectoriesOp)
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, true, username, password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, true, username, password, RemoveNodeSyncCat)
 		if err != nil {
 			return instructions, err
 		}

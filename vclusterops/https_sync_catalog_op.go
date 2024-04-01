@@ -23,17 +23,31 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
+type SyncCatCmdType int
+
+const (
+	CreateDBSyncCat SyncCatCmdType = iota
+	StartDBSyncCat
+	StopDBSyncCat
+	StopSCSyncCat
+	AddNodeSyncCat
+	StartNodeSyncCat
+	RemoveNodeSyncCat
+)
+
 type httpsSyncCatalogOp struct {
 	opBase
 	opHTTPSBase
+	cmdType SyncCatCmdType
 }
 
 func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string) (httpsSyncCatalogOp, error) {
+	userName string, httpsPassword *string, cmdType SyncCatCmdType) (httpsSyncCatalogOp, error) {
 	op := httpsSyncCatalogOp{}
 	op.name = "HTTPSSyncCatalogOp"
 	op.description = "Synchronize catalog with communal storage"
 	op.hosts = hosts
+	op.cmdType = cmdType
 	op.useHTTPPassword = useHTTPPassword
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -47,8 +61,8 @@ func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
 }
 
 func makeHTTPSSyncCatalogOpWithoutHosts(useHTTPPassword bool,
-	userName string, httpsPassword *string) (httpsSyncCatalogOp, error) {
-	return makeHTTPSSyncCatalogOp(nil, useHTTPPassword, userName, httpsPassword)
+	userName string, httpsPassword *string, cmdType SyncCatCmdType) (httpsSyncCatalogOp, error) {
+	return makeHTTPSSyncCatalogOp(nil, useHTTPPassword, userName, httpsPassword, cmdType)
 }
 
 func (op *httpsSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
@@ -71,11 +85,20 @@ func (op *httpsSyncCatalogOp) setupClusterHTTPRequest(hosts []string) error {
 func (op *httpsSyncCatalogOp) prepare(execContext *opEngineExecContext) error {
 	// If no hosts passed in, we will find the hosts from execute-context
 	if len(op.hosts) == 0 {
-		if len(execContext.upHosts) == 0 {
-			return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+		if op.cmdType == StopSCSyncCat {
+			// execContext.nodesInfo stores the information of UP nodes in target subcluster
+			if len(execContext.nodesInfo) == 0 {
+				return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
+			}
+			// use first up host in subcluster to execute https post request
+			op.hosts = []string{execContext.nodesInfo[0].Address}
+		} else {
+			if len(execContext.upHosts) == 0 {
+				return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+			}
+			// use first up host to execute https post request
+			op.hosts = []string{execContext.upHosts[0]}
 		}
-		// use first up host to execute https post request
-		op.hosts = []string{execContext.upHosts[0]}
 	}
 	execContext.dispatcher.setup(op.hosts)
 

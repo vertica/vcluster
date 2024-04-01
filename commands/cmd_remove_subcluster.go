@@ -68,7 +68,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require name of subcluster to remove
-	markFlagsRequired(cmd, []string{"subcluster"})
+	markFlagsRequired(cmd, []string{subclusterFlag})
 
 	return cmd
 }
@@ -77,7 +77,7 @@ Examples:
 func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
 		c.removeScOptions.SubclusterToRemove,
-		"subcluster",
+		subclusterFlag,
 		"",
 		"Name of subcluster to be removed",
 	)

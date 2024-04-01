@@ -75,6 +75,8 @@ const (
 	verboseKey                  = "verbose"
 	outputFileFlag              = "output-file"
 	outputFileKey               = "outputFile"
+	subclusterFlag              = "subcluster"
+	sandboxFlag                 = "sandbox"
 )
 
 // flags to viper key map
@@ -111,6 +113,7 @@ const (
 	dropDBSubCmd            = "drop_db"
 	addSCSubCmd             = "db_add_subcluster"
 	removeSCSubCmd          = "db_remove_subcluster"
+	stopSCSubCmd            = "stop_subcluster"
 	addNodeSubCmd           = "db_add_node"
 	removeNodeSubCmd        = "db_remove_node"
 	restartNodeSubCmd       = "restart_node"
@@ -403,6 +406,7 @@ func constructCmds() []*cobra.Command {
 		// sc-scope cmds
 		makeCmdAddSubcluster(),
 		makeCmdRemoveSubcluster(),
+		makeCmdStopSubcluster(),
 		makeCmdSandboxSubcluster(),
 		makeCmdUnsandboxSubcluster(),
 		// node-scope cmds

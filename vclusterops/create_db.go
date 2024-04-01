@@ -658,7 +658,7 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 	}
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(bootstrapHost, true, username, options.Password)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(bootstrapHost, true, username, options.Password, CreateDBSyncCat)
 		if err != nil {
 			return instructions, err
 		}

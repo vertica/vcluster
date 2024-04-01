@@ -77,7 +77,7 @@ Examples:
 	newCmd.setHiddenFlags(cmd)
 
 	// require name of subcluster to add
-	markFlagsRequired(cmd, []string{"subcluster"})
+	markFlagsRequired(cmd, []string{subclusterFlag})
 
 	return cmd
 }
@@ -86,7 +86,7 @@ Examples:
 func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
 		c.addSubclusterOptions.SCName,
-		"subcluster",
+		subclusterFlag,
 		"",
 		"The name of the new subcluster",
 	)

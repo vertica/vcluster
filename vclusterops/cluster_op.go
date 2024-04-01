@@ -502,6 +502,7 @@ type ClusterCommands interface {
 	VStopDatabase(options *VStopDatabaseOptions) error
 	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
 	VUnsandbox(options *VUnsandboxOptions) error
+	VStopSubcluster(options *VStopSubclusterOptions) error
 }
 
 type VClusterCommandsLogger struct {

@@ -33,6 +33,7 @@ const (
 	StopDB
 	StartDB
 	ReviveDB
+	StopSC
 
 	checkDBRunningOpName = "HTTPSCheckDBRunningOp"
 	checkDBRunningOpDesc = "Verify database is running"
@@ -48,6 +49,8 @@ func (op opType) String() string {
 		return "Start DB"
 	case ReviveDB:
 		return "Revive DB"
+	case StopSC:
+		return "Stop Subcluster"
 	}
 	return "unknown operation"
 }
@@ -93,6 +96,11 @@ func makeHTTPSCheckRunningDBOp(hosts []string,
 	return op, nil
 }
 
+func makeHTTPSCheckRunningDBOpWithoutHosts(useHTTPPassword bool, userName string,
+	httpsPassword *string, operationType opType) (httpsCheckRunningDBOp, error) {
+	return makeHTTPSCheckRunningDBOp(nil, useHTTPPassword, userName, httpsPassword, operationType)
+}
+
 func makeHTTPSCheckRunningDBWithSandboxOp(hosts []string,
 	useHTTPPassword bool, userName string, sandbox string, mainCluster bool,
 	httpsPassword *string, operationType opType,
@@ -135,6 +143,18 @@ func (op *httpsCheckRunningDBOp) logPrepare() {
 }
 
 func (op *httpsCheckRunningDBOp) prepare(execContext *opEngineExecContext) error {
+	// If no hosts passed in, we will find the hosts from execute-context
+	if len(op.hosts) == 0 && op.opType == StopSC {
+		// execContext.nodesInfo stores the information of UP nodes in target subcluster
+		if len(execContext.nodesInfo) == 0 {
+			return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
+		}
+		hostsInSC := make([]string, 0, len(execContext.nodesInfo))
+		for _, node := range execContext.nodesInfo {
+			hostsInSC = append(hostsInSC, node.Address)
+		}
+		op.hosts = hostsInSC
+	}
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
@@ -196,7 +216,7 @@ func (op *httpsCheckRunningDBOp) isDBRunningOnHost(host string,
 		case CreateDB:
 			msg = fmt.Sprintf("[%s] Detected HTTPS service running on host %s, please stop the HTTPS service before creating a new database",
 				op.name, host)
-		case StopDB, StartDB, ReviveDB:
+		case StopDB, StartDB, ReviveDB, StopSC:
 			msg = fmt.Sprintf("[%s] Detected HTTPS service running on host %s", op.name, host)
 		}
 		// check whether the node is starting and hasn't pulled the latest catalog yet
@@ -317,9 +337,13 @@ func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHo
 		op.logger.PrintInfo(createDBMsg)
 		op.updateSpinnerMessage(createDBMsg)
 	case StopDB:
-		const stopDBMsg = "the database has not been down yet"
+		const stopDBMsg = "the database is not down yet"
 		op.logger.PrintInfo(stopDBMsg)
 		op.updateSpinnerMessage(stopDBMsg)
+	case StopSC:
+		const stopSCMsg = "the subcluster is not down yet"
+		op.logger.PrintInfo(stopSCMsg)
+		op.updateSpinnerMessage(stopSCMsg)
 	case StartDB:
 		const startDBMsg = "aborting database start"
 		op.logger.PrintInfo(startDBMsg)
@@ -379,7 +403,7 @@ func (op *httpsCheckRunningDBOp) execute(execContext *opEngineExecContext) error
 	switch op.opType {
 	case CreateDB, StartDB, ReviveDB:
 		return op.checkDBConnection(execContext)
-	case StopDB:
+	case StopDB, StopSC:
 		return op.pollForDBDown(execContext)
 	}
 
@@ -425,7 +449,11 @@ func (op *httpsCheckRunningDBOp) pollForDBDown(execContext *opEngineExecContext)
 		count++
 	}
 	// timeout
-	msg := fmt.Sprintf("the DB is still up after %s seconds", timeoutSecondStr)
+	target := "DB"
+	if op.opType == StopSC {
+		target = "subcluster"
+	}
+	msg := fmt.Sprintf("the %s is still up after %s seconds", target, timeoutSecondStr)
 	op.logger.PrintWarning(msg)
 	return errors.New(msg)
 }
