@@ -182,13 +182,25 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	}
 	options.Config = config
 
-	err = vcc.VStartDatabase(options)
+	vdb, err := vcc.VStartDatabase(options)
 	if err != nil {
 		vcc.LogError(err, "failed to start the database")
 		return err
 	}
 
-	vcc.PrintInfo("Successfully start the database %s\n", *options.DBName)
+	vcc.PrintInfo("Successfully start the database %s", *options.DBName)
+
+	// update config file to fill nodes' subcluster information
+	if config == nil {
+		vcc.PrintWarning("cannot update config file as %s does not exist", options.ConfigPath)
+	} else {
+		// write db info to vcluster config file
+		err := writeConfig(vdb, vcc.GetLog())
+		if err != nil {
+			vcc.PrintWarning("fail to update config file, details: %s", err)
+		}
+	}
+
 	return nil
 }
 

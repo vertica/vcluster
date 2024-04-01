@@ -98,15 +98,17 @@ func getPrimaryHostsWithLatestCatalog(nmaVDB *nmaVDatabase, hostsWithLatestCatal
 // The following structs will store hosts' necessary information for https_get_up_nodes_op,
 // https_get_nodes_information_from_running_db, and incoming operations.
 type nodeStateInfo struct {
-	Address     string `json:"address"`
-	State       string `json:"state"`
-	Database    string `json:"database"`
-	CatalogPath string `json:"catalog_path"`
-	Subcluster  string `json:"subcluster_name"`
-	IsPrimary   bool   `json:"is_primary"`
-	Name        string `json:"name"`
-	Sandbox     string `json:"sandbox_name"`
-	Version     string `json:"build_info"`
+	Address          string   `json:"address"`
+	State            string   `json:"state"`
+	Database         string   `json:"database"`
+	CatalogPath      string   `json:"catalog_path"`
+	DepotPath        string   `json:"depot_path"`
+	StorageLocations []string `json:"data_path"`
+	Subcluster       string   `json:"subcluster_name"`
+	IsPrimary        bool     `json:"is_primary"`
+	Name             string   `json:"name"`
+	Sandbox          string   `json:"sandbox_name"`
+	Version          string   `json:"build_info"`
 }
 
 func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {

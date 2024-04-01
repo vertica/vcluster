@@ -140,6 +140,8 @@ func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 				vNode.Name = node.Name
 				vNode.Address = node.Address
 				vNode.CatalogPath = node.CatalogPath
+				vNode.DepotPath = node.DepotPath
+				vNode.StorageLocations = node.StorageLocations
 				vNode.IsPrimary = node.IsPrimary
 				vNode.State = node.State
 				vNode.Subcluster = node.Subcluster

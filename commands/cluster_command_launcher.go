@@ -279,7 +279,9 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 	//       manage_config does not need viper to load config file info
 	if cmd.CalledAs() != createDBSubCmd &&
 		cmd.CalledAs() != reviveDBSubCmd &&
-		cmd.CalledAs() != manageConfigSubCmd {
+		cmd.CalledAs() != manageConfigSubCmd && // VER-92992: remove this line once manage_config is not runnable
+		cmd.CalledAs() != configRecoverSubCmd &&
+		cmd.CalledAs() != configShowSubCmd {
 		err = loadConfigToViper()
 		if err != nil {
 			return err

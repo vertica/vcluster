@@ -61,11 +61,11 @@ func (options *VStopDatabaseOptions) validateRequiredOptions(log vlog.Printer) e
 }
 
 func (options *VStopDatabaseOptions) validateEonOptions(log vlog.Printer) error {
-	// if db is enterprise db and we see --drain-seconds, we will ignore it
 	if *options.Sandbox != "" && *options.MainCluster {
 		return fmt.Errorf("Error: cannot use both --sandbox and --main-cluster-only options together ")
 	}
 
+	// if db is enterprise db and we see --drain-seconds, we will ignore it
 	if !options.IsEon {
 		if options.DrainSeconds != nil {
 			log.PrintInfo("Notice: --drain-seconds option will be ignored because database is in enterprise mode." +
@@ -134,6 +134,19 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
+	}
+
+	// get vdb and check requirements
+	vdb := makeVCoordinationDatabase()
+	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, AnySandbox)
+	if err != nil {
+		vcc.LogError(err, "failed to get vdb from running db")
+	} else {
+		// stop_db is aborted if requirements are not met.
+		err = options.checkStopDBRequirements(&vdb)
+		if err != nil {
+			return err
+		}
 	}
 
 	instructions, err := vcc.produceStopDBInstructions(options)
@@ -211,4 +224,24 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 	)
 
 	return instructions, nil
+}
+
+// checkStopDBRequirements validates any stop_db requirements. It will
+// return an error if a requirement isn't met.
+func (options *VStopDatabaseOptions) checkStopDBRequirements(vdb *VCoordinationDatabase) error {
+	// if stop db on the whole cluster, at least one UP main cluster host in the host list
+	if *options.Sandbox == "" && !*options.MainCluster {
+		hasMainClusterHost := false
+		for _, host := range options.Hosts {
+			vnode, ok := vdb.HostNodeMap[host]
+			if ok && vnode.Sandbox == "" {
+				hasMainClusterHost = true
+				break
+			}
+		}
+		if !hasMainClusterHost {
+			return fmt.Errorf("should specify at least one UP main cluster host in the host list")
+		}
+	}
+	return nil
 }

@@ -101,7 +101,7 @@ func (options *VStartDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer
 	return options.analyzeOptions()
 }
 
-func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error {
+func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbPtr *VCoordinationDatabase, err error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create VClusterOpEngine
@@ -109,26 +109,26 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error
 	 */
 
 	// set db name and hosts
-	err := options.setDBNameAndHosts()
+	err = options.setDBNameAndHosts()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	isEon, err := options.isEonMode(options.Config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	options.OldIsEon.FromBoolPointer(&isEon)
 
 	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if isEon {
 		options.CommunalStorageLocation, err = options.getCommunalStorageLocation(options.Config)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -140,7 +140,7 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error
 	// validate and analyze all options
 	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var vdb VCoordinationDatabase
@@ -168,13 +168,13 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error
 	// start_db pre-checks and get basic info
 	err = vcc.runStartDBPrecheck(options, &vdb)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// produce start_db instructions
 	instructions, err := vcc.produceStartDBInstructions(options, &vdb)
 	if err != nil {
-		return fmt.Errorf("fail to production instructions: %w", err)
+		return nil, fmt.Errorf("fail to production instructions: %w", err)
 	}
 
 	// create a VClusterOpEngine for start_db instructions, and add certs to the engine
@@ -184,10 +184,17 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) error
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return fmt.Errorf("fail to start database: %w", runError)
+		return nil, fmt.Errorf("fail to start database: %w", runError)
 	}
 
-	return nil
+	// get vdb info from the running database
+	var updatedVDB VCoordinationDatabase
+	err = vcc.getVDBFromRunningDBIncludeSandbox(&updatedVDB, &options.DatabaseOptions, AnySandbox)
+	if err != nil {
+		return nil, err
+	}
+
+	return &updatedVDB, nil
 }
 
 func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) error {

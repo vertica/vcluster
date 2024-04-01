@@ -497,7 +497,7 @@ type ClusterCommands interface {
 	VSandbox(options *VSandboxOptions) error
 	VScrutinize(options *VScrutinizeOptions) error
 	VShowRestorePoints(options *VShowRestorePointsOptions) (restorePoints []RestorePoint, err error)
-	VStartDatabase(options *VStartDatabaseOptions) error
+	VStartDatabase(options *VStartDatabaseOptions) (vdbPtr *VCoordinationDatabase, err error)
 	VStartNodes(options *VStartNodesOptions) error
 	VStopDatabase(options *VStopDatabaseOptions) error
 	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)

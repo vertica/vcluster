@@ -63,6 +63,10 @@ To remove the local directories like catalog, depot, and data, you can use the
 --force-cleanup-on-failure or --force-removal-at-creation options.
 The data deleted with these options is unrecoverable.
 
+The password for the dbadmin user of this new database can be provided in a few ways. 
+It can be read from a file using --password-file, prompted by the CLI with 
+--read-password-from-prompt, or passed as plain text with --password as an option.
+
 Examples:
   # Create a database and save the generated config file under custom directory
   vcluster create_db --db-name test_db \
@@ -70,6 +74,30 @@ Examples:
     --catalog-path /data --data-path /data \
     --config-param HttpServerConf=/opt/vertica/config/https_certs/httpstls.json \
     --config $HOME/custom/directory/vertica_cluster.yaml
+
+  # Read the password from file
+  vcluster create_db --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --catalog-path /data --data-path /data \
+    --password-file /path/to/password-file
+
+  # Generate a random password and read it from stdin
+  cat /dev/urandom | tr -dc A-Za-z0-9 | head -c 8 | tee password.txt | vcluster create_db --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --catalog-path /data --data-path /data \
+    --password-file -
+
+  # Prompt the user to enter the password
+  vcluster create_db --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --catalog-path /data --data-path /data \
+    --read-password-from-prompt
+
+  # Password passed as plain text
+  vcluster create_db --db-name test_db \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --catalog-path /data --data-path /data \
+    --password 12345678
 `,
 		[]string{dbNameFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag,
 			communalStorageLocationFlag, passwordFlag, configFlag, ipv6Flag, configParamFlag},
