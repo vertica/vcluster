@@ -115,8 +115,8 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 	username := *options.UserName
 
 	// Get all up nodes
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.DBName, options.Hosts,
-		usePassword, username, options.Password, SandboxCmd)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(*options.DBName, options.Hosts,
+		usePassword, username, options.Password, SandboxCmd, *options.SCName)
 	if err != nil {
 		return instructions, err
 	}

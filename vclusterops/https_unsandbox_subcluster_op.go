@@ -73,27 +73,28 @@ func (op *httpsUnsandboxingOp) setupRequestBody() error {
 }
 
 func (op *httpsUnsandboxingOp) prepare(execContext *opEngineExecContext) error {
-	var hosts []string
 	var mainHost string
 	if len(execContext.upHostsToSandboxes) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
-	// use shortlisted hosts to execute https post request, this host/hosts will be the initiator
+	// use an UP host in main cluster to execute the https post request
 	for h, sb := range execContext.upHostsToSandboxes {
 		if sb == "" {
 			mainHost = h
-		} else {
-			hosts = append(hosts, h)
+			break
 		}
 	}
-	hosts = append(hosts, mainHost)
+	if mainHost == "" {
+		return fmt.Errorf(`[%s] Cannot find any up hosts of main cluster in OpEngineExecContext`, op.name)
+	}
+	op.hosts = []string{mainHost}
 	err := op.setupRequestBody()
 	if err != nil {
 		return err
 	}
-	execContext.dispatcher.setup(hosts)
+	execContext.dispatcher.setup(op.hosts)
 
-	return op.setupClusterHTTPRequest(hosts)
+	return op.setupClusterHTTPRequest(op.hosts)
 }
 
 func (op *httpsUnsandboxingOp) execute(execContext *opEngineExecContext) error {

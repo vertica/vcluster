@@ -74,3 +74,28 @@ func TestManageConfig(t *testing.T) {
 	err = simulateVClusterCli("vcluster manage_config show recover")
 	assert.ErrorContains(t, err, `unknown command "recover" for "vcluster manage_config show"`)
 }
+
+func TestManageReplication(t *testing.T) {
+	// vcluster replication should succeed and show help message
+	err := simulateVClusterCli("vcluster replication")
+	assert.NoError(t, err)
+
+	err = simulateVClusterCli("vcluster replication start test")
+	assert.ErrorContains(t, err, `unknown command "test" for "vcluster replication start"`)
+}
+
+func TestStartReplication(t *testing.T) {
+	// vcluster replication start should succeed
+	// since there is no op for this subcommand
+	err := simulateVClusterCli("vcluster replication start")
+	assert.NoError(t, err)
+
+	var passwordFilePath = os.TempDir() + "/password.txt"
+	tempConfig, _ := os.Create(passwordFilePath)
+	tempConfig.Close()
+	defer os.Remove(passwordFilePath)
+	err = simulateVClusterCli("vcluster replication start --db-name platform_test_db --hosts" +
+		" 192.168.1.101 --target-db-name test_db --target-hosts 192.168.1.103 --target-password-file " + passwordFilePath +
+		" --password-file " + passwordFilePath)
+	assert.NoError(t, err)
+}

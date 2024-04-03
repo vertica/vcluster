@@ -108,26 +108,26 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 		false,
 		"Show the details of VCluster run in the console",
 	)
-	// keyPath and certPath are flags that all subcommands require,
+	// keyFile and certFile are flags that all subcommands require,
 	// except for manage_config and `manage_config show`
 	if cmd.Name() != manageConfigSubCmd && // VER-92992: remove this line once manage_config is not runnable
 		cmd.Name() != configShowSubCmd {
 		cmd.Flags().StringVar(
-			&globals.keyPath,
-			keyPathFlag,
+			&globals.keyFile,
+			keyFileFlag,
 			"",
 			"Path to the key file",
 		)
-		markFlagsFileName(cmd, map[string][]string{keyPathFlag: {"key"}})
+		markFlagsFileName(cmd, map[string][]string{keyFileFlag: {"key"}})
 
 		cmd.Flags().StringVar(
-			&globals.certPath,
-			certPathFlag,
+			&globals.certFile,
+			certFileFlag,
 			"",
 			"Path to the cert file",
 		)
-		markFlagsFileName(cmd, map[string][]string{certPathFlag: {"pem", "crt"}})
-		cmd.MarkFlagsRequiredTogether(keyPathFlag, certPathFlag)
+		markFlagsFileName(cmd, map[string][]string{certFileFlag: {"pem", "crt"}})
+		cmd.MarkFlagsRequiredTogether(keyFileFlag, certFileFlag)
 	}
 	if util.StringInArray(outputFileFlag, flags) {
 		cmd.Flags().StringVarP(
@@ -136,6 +136,14 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 			"o",
 			"",
 			"Write output to this file instead of stdout",
+		)
+	}
+	if util.StringInArray(dbUserFlag, flags) {
+		cmd.Flags().StringVar(
+			dbOptions.UserName,
+			dbUserFlag,
+			"",
+			"The username for connecting to the database",
 		)
 	}
 }
@@ -291,27 +299,35 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 		return nil
 	}
 
+	password, err := c.passwordFileHelper(c.passwordFile)
+	if err != nil {
+		return err
+	}
+	*opt.Password = password
+	return nil
+}
+
+func (c *CmdBase) passwordFileHelper(passwordFile string) (string, error) {
 	if c.passwordFile == "" {
-		return fmt.Errorf("password file path is empty")
+		return "", fmt.Errorf("password file path is empty")
 	}
 	// hyphen(`-`) is used to indicate that input should come
 	// from stdin rather than from a file
-	if c.passwordFile == "-" {
+	if passwordFile == "-" {
 		password, err := readFromStdin()
 		if err != nil {
-			return err
+			return "", err
 		}
-		*opt.Password = strings.TrimSuffix(password, "\n")
-	} else {
-		// Read password from file
-		passwordBytes, err := os.ReadFile(c.passwordFile)
-		if err != nil {
-			return fmt.Errorf("error reading password from file %q: %w", c.passwordFile, err)
-		}
-		// Convert bytes to string, removing any newline characters
-		*opt.Password = strings.TrimSuffix(string(passwordBytes), "\n")
+		return strings.TrimSuffix(password, "\n"), nil
 	}
-	return nil
+
+	// Read password from file
+	passwordBytes, err := os.ReadFile(passwordFile)
+	if err != nil {
+		return "", fmt.Errorf("error reading password from file %q: %w", passwordFile, err)
+	}
+	// Convert bytes to string, removing any newline characters
+	return strings.TrimSuffix(string(passwordBytes), "\n"), nil
 }
 
 // usePassword returns true if at least one of the password
@@ -349,15 +365,15 @@ func (c *CmdBase) initCmdOutputFile() (*os.File, error) {
 
 // getCertFilesFromPaths will update cert and key file from cert path options
 func (c *CmdBase) getCertFilesFromCertPaths(opt *vclusterops.DatabaseOptions) error {
-	if globals.certPath != "" {
-		certData, err := os.ReadFile(globals.certPath)
+	if globals.certFile != "" {
+		certData, err := os.ReadFile(globals.certFile)
 		if err != nil {
 			return fmt.Errorf("failed to read certificate file, details %w", err)
 		}
 		opt.Cert = string(certData)
 	}
-	if globals.keyPath != "" {
-		keyData, err := os.ReadFile(globals.keyPath)
+	if globals.keyFile != "" {
+		keyData, err := os.ReadFile(globals.keyFile)
 		if err != nil {
 			return fmt.Errorf("failed to read private key file, details %w", err)
 		}

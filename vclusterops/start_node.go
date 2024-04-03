@@ -342,7 +342,8 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	)
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, true, *options.UserName, options.Password, StartNodeSyncCat)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, *options.UserName,
+			options.Password, StartNodeSyncCat)
 		if err != nil {
 			return instructions, err
 		}

@@ -154,6 +154,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 	downHosts := []string{}
 	sandboxInfo := make(map[string]string)
 	upScNodes := mapset.NewSet[NodeInfo]()
+	scNodes := mapset.NewSet[NodeInfo]()
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 		if !result.isPassing() {
@@ -190,7 +191,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 		}
 
 		// collect all the up hosts
-		err = op.collectUpHosts(nodesStates, host, upHosts, upScInfo, sandboxInfo, upScNodes)
+		err = op.collectUpHosts(nodesStates, host, upHosts, upScInfo, sandboxInfo, upScNodes, scNodes)
 		if err != nil {
 			allErrs = errors.Join(allErrs, err)
 			return allErrs
@@ -205,6 +206,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 		}
 	}
 	execContext.nodesInfo = upScNodes.ToSlice()
+	execContext.scNodesInfo = scNodes.ToSlice()
 	execContext.upHostsToSandboxes = sandboxInfo
 	ignoreErrors := op.processHostLists(upHosts, upScInfo, exceptionHosts, downHosts, sandboxInfo, execContext)
 	if ignoreErrors {
@@ -302,8 +304,8 @@ func (op *httpsGetUpNodesOp) validateHosts(nodesStates nodesStateInfo) error {
 	return nil
 }
 
-func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host string,
-	upHosts mapset.Set[string], upScInfo, sandboxInfo map[string]string, upScNodes mapset.Set[NodeInfo]) (err error) {
+func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host string, upHosts mapset.Set[string],
+	upScInfo, sandboxInfo map[string]string, upScNodes, scNodes mapset.Set[NodeInfo]) (err error) {
 	upMainNodeFound := false
 	foundSC := false
 	for _, node := range nodesStates.NodeList {
@@ -324,14 +326,26 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 					upMainNodeFound = true
 				}
 			}
-			if op.scName == node.Subcluster {
-				op.sandbox = node.Sandbox
-				var n NodeInfo
+		}
+		if op.scName == node.Subcluster {
+			op.sandbox = node.Sandbox
+			var n NodeInfo
+			// collect info for "UP" and "DOWN" nodes, ignore "UNKNOWN" nodes here
+			// because we want to avoid getting duplicate nodes' info. For a sandbox node,
+			// we will get two duplicate NodeInfo entries if we do not ignore "UNKNOWN" nodes:
+			// one with state "UNKNOWN" from main cluster, and the other with state "UP"
+			// from sandboxes.
+			if node.State == util.NodeUpState {
 				if n, err = node.asNodeInfo(); err != nil {
 					op.logger.PrintError("[%s] %s", op.name, err.Error())
 				} else {
 					upScNodes.Add(n)
+					scNodes.Add(n)
 				}
+			} else if node.State == util.NodeDownState {
+				// for "DOWN" node, we cannot get its version from https response
+				n = node.asNodeInfoWoVer()
+				scNodes.Add(n)
 			}
 		}
 	}

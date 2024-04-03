@@ -108,6 +108,7 @@ const (
 	commandShowRestorePoints = "show_restore_points"
 	commandInstallPackages   = "install_packages"
 	commandConfigRecover     = "manage_config_recover"
+	commandReplicationStart  = "replication_start"
 )
 
 func DatabaseOptionsFactory() DatabaseOptions {

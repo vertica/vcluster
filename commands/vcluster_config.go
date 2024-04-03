@@ -273,6 +273,28 @@ func backupConfigFile(configFilePath string, logger vlog.Printer) error {
 	return nil
 }
 
+// read reads information from configFilePath to a DatabaseConfig object.
+// It returns any read error encountered.
+func readConfig() (dbConfig *DatabaseConfig, err error) {
+	configFilePath := dbOptions.ConfigPath
+
+	if configFilePath == "" {
+		return nil, fmt.Errorf("no config file provided")
+	}
+	configBytes, err := os.ReadFile(configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("fail to read config file, details: %w", err)
+	}
+
+	var config Config
+	err = yaml.Unmarshal(configBytes, &config)
+	if err != nil {
+		return nil, fmt.Errorf("fail to unmarshal config file, details: %w", err)
+	}
+
+	return &config.Database, nil
+}
+
 // write writes configuration information to configFilePath. It returns
 // any write error encountered. The viper in-built write function cannot
 // work well(the order of keys cannot be customized) so we used yaml.Marshal()

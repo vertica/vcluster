@@ -30,6 +30,8 @@ type VUnsandboxOptions struct {
 	SCRawHosts []string
 	// if restart the subcluster after unsandboxing it, the default value of it is true
 	RestartSC bool
+	// if any node in the target subcluster is up. This is for internal use only.
+	hasUpNodeInSC bool
 }
 
 func VUnsandboxOptionsFactory() VUnsandboxOptions {
@@ -126,6 +128,11 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase, optio
 				return &SubclusterNotSandboxedError{SCName: *options.SCName}
 			}
 			sandboxedHosts = append(sandboxedHosts, vnode.Address)
+			// when the node state is not "DOWN" ("UP" or "UNKNOWN"), we consider
+			// the node is running
+			if vnode.State != util.NodeDownState {
+				options.hasUpNodeInSC = true
+			}
 		}
 	}
 
@@ -149,8 +156,9 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase, optio
 // for a successful unsandbox_subcluster:
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for running unsandboxing operation
 //     Also get up nodes from fellow subclusters in the same sandbox. Also get all UP nodes info in the given subcluster
-//   - Stop the up subcluster hosts
-//   - Poll for stopped hosts to be down
+//   - If the subcluster is UP
+//     1. Stop the up subcluster hosts
+//     2. Poll for stopped hosts to be down
 //   - Run unsandboxing for the user provided subcluster using the selected initiator host(s).
 //   - Remove catalog dirs from unsandboxed hosts
 //   - VCluster CLI will restart the unsandboxed hosts using below instructions, but k8s operator will skip the restart process
@@ -179,19 +187,27 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	if err != nil {
 		return instructions, err
 	}
+	instructions = append(instructions, &httpsGetUpNodesOp)
 
-	// Stop the nodes in the subcluster that is to be unsandboxed
-	httpsStopNodeOp, err := makeHTTPSStopNodeOp(usePassword, username, options.Password,
-		nil)
-	if err != nil {
-		return instructions, err
-	}
+	if options.hasUpNodeInSC {
+		// Stop the nodes in the subcluster that is to be unsandboxed
+		httpsStopNodeOp, e := makeHTTPSStopNodeOp(usePassword, username, options.Password,
+			nil)
+		if e != nil {
+			return instructions, e
+		}
 
-	// Poll for nodes down
-	httpsPollScDown, err := makeHTTPSPollSubclusterNodeStateDownOp(*options.SCName,
-		usePassword, username, options.Password)
-	if err != nil {
-		return instructions, err
+		// Poll for nodes down
+		httpsPollScDown, e := makeHTTPSPollSubclusterNodeStateDownOp(*options.SCName,
+			usePassword, username, options.Password)
+		if e != nil {
+			return instructions, e
+		}
+
+		instructions = append(instructions,
+			&httpsStopNodeOp,
+			&httpsPollScDown,
+		)
 	}
 
 	// Run Unsandboxing
@@ -208,9 +224,6 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	}
 
 	instructions = append(instructions,
-		&httpsGetUpNodesOp,
-		&httpsStopNodeOp,
-		&httpsPollScDown,
 		&httpsUnsandboxSubclusterOp,
 		&nmaDeleteDirsOp,
 	)

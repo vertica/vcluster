@@ -33,14 +33,16 @@ const defaultExecutablePath = "/opt/vertica/bin/vcluster"
 
 const CLIVersion = "1.2.0"
 const vclusterLogPathEnv = "VCLUSTER_LOG_PATH"
-const vclusterKeyPathEnv = "VCLUSTER_KEY_PATH"
-const vclusterCertPathEnv = "VCLUSTER_CERT_PATH"
+const vclusterKeyFileEnv = "VCLUSTER_KEY_FILE"
+const vclusterCertFileEnv = "VCLUSTER_CERT_FILE"
 
 // *Flag is for the flag name, *Key is for viper key name
 // They are bound together
 const (
 	dbNameFlag                  = "db-name"
 	dbNameKey                   = "dbName"
+	dbUserFlag                  = "db-user"
+	dbUserKey                   = "dbUser"
 	hostsFlag                   = "hosts"
 	hostsKey                    = "hosts"
 	catalogPathFlag             = "catalog-path"
@@ -59,10 +61,10 @@ const (
 	configParamKey              = "configParam"
 	logPathFlag                 = "log-path"
 	logPathKey                  = "logPath"
-	keyPathFlag                 = "key-path"
-	keyPathKey                  = "keyPath"
-	certPathFlag                = "cert-path"
-	certPathKey                 = "certPath"
+	keyFileFlag                 = "key-file"
+	keyFileKey                  = "keyFile"
+	certFileFlag                = "cert-file"
+	certFileKey                 = "certFile"
 	passwordFlag                = "password"
 	passwordKey                 = "password"
 	passwordFileFlag            = "password-file"
@@ -79,9 +81,26 @@ const (
 	sandboxFlag                 = "sandbox"
 )
 
+// Flag and key for database replication
+const (
+	targetDBNameFlag       = "target-db-name"
+	targetDBNameKey        = "targetDBName"
+	targetHostFlag         = "target-hosts"
+	targetHostKey          = "targetHosts"
+	targetUserNameFlag     = "target-db-user"
+	targetUserNameKey      = "targetDBUser"
+	targetPasswordFileFlag = "target-password-file"
+	targetPasswordFileKey  = "targetPasswordFile"
+	targetConnFlag         = "target-conn"
+	targetConnKey          = "targetConn"
+	sourceTLSConfigFlag    = "source-tlsconfig"
+	sourceTLSConfigKey     = "sourceTLSConfig"
+)
+
 // flags to viper key map
 var flagKeyMap = map[string]string{
 	dbNameFlag:                  dbNameKey,
+	dbUserFlag:                  dbUserKey,
 	hostsFlag:                   hostsKey,
 	catalogPathFlag:             catalogPathKey,
 	depotPathFlag:               depotPathKey,
@@ -91,14 +110,19 @@ var flagKeyMap = map[string]string{
 	eonModeFlag:                 eonModeKey,
 	configParamFlag:             configParamKey,
 	logPathFlag:                 logPathKey,
-	keyPathFlag:                 keyPathKey,
-	certPathFlag:                certPathKey,
+	keyFileFlag:                 keyFileKey,
+	certFileFlag:                certFileKey,
 	passwordFlag:                passwordKey,
 	passwordFileFlag:            passwordFileKey,
 	readPasswordFromPromptFlag:  readPasswordFromPromptKey,
 	configFlag:                  configKey,
 	verboseFlag:                 verboseKey,
 	outputFileFlag:              outputFileKey,
+	targetDBNameFlag:            targetDBNameKey,
+	targetHostFlag:              targetHostKey,
+	targetUserNameFlag:          targetUserNameKey,
+	targetPasswordFileFlag:      targetPasswordFileKey,
+	sourceTLSConfigFlag:         sourceTLSConfigKey,
 }
 
 const (
@@ -108,6 +132,8 @@ const (
 	manageConfigSubCmd      = "manage_config"
 	configRecoverSubCmd     = "recover"
 	configShowSubCmd        = "show"
+	replicationSubCmd       = "replication"
+	startReplicationSubCmd  = "start"
 	listAllNodesSubCmd      = "list_allnodes"
 	startDBSubCmd           = "start_db"
 	dropDBSubCmd            = "drop_db"
@@ -130,8 +156,8 @@ const (
 type cmdGlobals struct {
 	verbose  bool
 	file     *os.File
-	keyPath  string
-	certPath string
+	keyFile  string
+	certFile string
 }
 
 var (
@@ -223,10 +249,10 @@ func setDBOptionsUsingViper(flag string) error {
 		dbOptions.ConfigurationParameters = viper.GetStringMapString(configParamKey)
 	case logPathFlag:
 		*dbOptions.LogPath = viper.GetString(logPathKey)
-	case keyPathFlag:
-		globals.keyPath = viper.GetString(keyPathKey)
-	case certPathFlag:
-		globals.certPath = viper.GetString(certPathKey)
+	case keyFileFlag:
+		globals.keyFile = viper.GetString(keyFileKey)
+	case certFileFlag:
+		globals.certFile = viper.GetString(certFileKey)
 	case verboseFlag:
 		globals.verbose = viper.GetBool(verboseKey)
 	default:
@@ -244,12 +270,12 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 
 	// log-path is a flag that all the subcommands need
 	flagsInConfig = append(flagsInConfig, logPathFlag)
-	// cert-path and key-path are not available for
+	// cert-file and key-file are not available for
 	// - manage_config
 	// - manage_config show
 	if cmd.CalledAs() != manageConfigSubCmd &&
 		cmd.CalledAs() != configShowSubCmd {
-		flagsInConfig = append(flagsInConfig, certPathFlag, keyPathFlag)
+		flagsInConfig = append(flagsInConfig, certFileFlag, keyFileFlag)
 	}
 
 	// bind viper keys to cobra flags
@@ -268,13 +294,13 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 	if err != nil {
 		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", logPathKey, vclusterLogPathEnv, err)
 	}
-	err = viper.BindEnv(keyPathKey, vclusterKeyPathEnv)
+	err = viper.BindEnv(keyFileKey, vclusterKeyFileEnv)
 	if err != nil {
-		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", keyPathKey, vclusterKeyPathEnv, err)
+		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", keyFileKey, vclusterKeyFileEnv, err)
 	}
-	err = viper.BindEnv(certPathKey, vclusterCertPathEnv)
+	err = viper.BindEnv(certFileKey, vclusterCertFileEnv)
 	if err != nil {
-		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", certPathKey, vclusterCertPathEnv, err)
+		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", certFileKey, vclusterCertFileEnv, err)
 	}
 
 	// load db options from config file to viper
@@ -389,6 +415,17 @@ func OldMakeBasicCobraCmd(i cmdInterface, use, short, long string) *cobra.Comman
 	return cmd
 }
 
+// makeSimpleCobraCmd can make a simple cobra command for some vcluster commands
+// such as replication and manage_config
+func makeSimpleCobraCmd(use, short, long string) *cobra.Command {
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		Long:  long,
+		Args:  cobra.NoArgs,
+	}
+}
+
 // constructCmds returns a list of commands that will be executed
 // by the cluster command launcher.
 func constructCmds() []*cobra.Command {
@@ -416,6 +453,7 @@ func constructCmds() []*cobra.Command {
 		// others
 		makeCmdScrutinize(),
 		makeCmdManageConfig(),
+		makeCmdReplication(),
 	}
 }
 

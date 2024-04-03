@@ -23,6 +23,7 @@ type opEngineExecContext struct {
 	nmaVDatabase    nmaVDatabase
 	upHosts         []string // a sorted host list that contains all up nodes
 	nodesInfo       []NodeInfo
+	scNodesInfo     []NodeInfo // a node list contains all nodes in a subcluster
 
 	// This field is specifically used for sandboxing
 	// as sandboxing requires all nodes in the subcluster to be sandboxed to be UP.

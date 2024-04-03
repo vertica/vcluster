@@ -174,6 +174,8 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.startDBOptions
 
+	// VER-92369 should clean up the block below
+	// as the GetDBConfig function will be removed
 	// load vdb info from the YAML config file
 	// get config from vertica_cluster.yaml
 	config, err := options.GetDBConfig(vcc)
@@ -190,10 +192,8 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	vcc.PrintInfo("Successfully start the database %s", *options.DBName)
 
-	// update config file to fill nodes' subcluster information
-	if config == nil {
-		vcc.PrintWarning("cannot update config file as %s does not exist", options.ConfigPath)
-	} else {
+	// for Eon database, update config file to fill nodes' subcluster information
+	if options.OldIsEon.ToBool() {
 		// write db info to vcluster config file
 		err := writeConfig(vdb, vcc.GetLog())
 		if err != nil {

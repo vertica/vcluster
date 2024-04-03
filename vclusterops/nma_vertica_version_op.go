@@ -93,12 +93,18 @@ func (op *nmaVerticaVersionOp) setupClusterHTTPRequest(hosts []string) error {
 
 	return nil
 }
-func (op *nmaVerticaVersionOp) prepareSandboxVers(execContext *opEngineExecContext) {
+func (op *nmaVerticaVersionOp) prepareSandboxVers(execContext *opEngineExecContext) error {
 	// Add current unsandboxed sc hosts
-	for _, node := range execContext.nodesInfo {
+	if len(execContext.scNodesInfo) == 0 {
+		return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
+	}
+	for _, node := range execContext.scNodesInfo {
 		op.hosts = append(op.hosts, node.Address)
 	}
 	// Add Up main cluster hosts
+	if len(execContext.upHostsToSandboxes) == 0 {
+		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+	}
 	for h, sb := range execContext.upHostsToSandboxes {
 		if sb == "" {
 			op.hosts = append(op.hosts, h)
@@ -110,6 +116,8 @@ func (op *nmaVerticaVersionOp) prepareSandboxVers(execContext *opEngineExecConte
 	for _, host := range op.hosts {
 		op.SCToHostVersionMap[sc][host] = ""
 	}
+
+	return nil
 }
 func (op *nmaVerticaVersionOp) prepare(execContext *opEngineExecContext) error {
 	/*
@@ -126,7 +134,10 @@ func (op *nmaVerticaVersionOp) prepare(execContext *opEngineExecContext) error {
 		 *
 	*/
 	if op.sandbox {
-		op.prepareSandboxVers(execContext)
+		err := op.prepareSandboxVers(execContext)
+		if err != nil {
+			return err
+		}
 	} else if len(op.hosts) == 0 {
 		if op.vdb != nil {
 			// db is up

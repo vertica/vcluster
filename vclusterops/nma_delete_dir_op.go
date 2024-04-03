@@ -103,10 +103,13 @@ func (op *nmaDeleteDirectoriesOp) setupClusterHTTPRequest(hosts []string) error 
 
 func (op *nmaDeleteDirectoriesOp) prepare(execContext *opEngineExecContext) error {
 	if op.sandbox {
+		if len(execContext.scNodesInfo) == 0 {
+			return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
+		}
 		op.hosts = []string{}
 		op.hostRequestBodyMap = make(map[string]string)
 
-		for _, node := range execContext.nodesInfo {
+		for _, node := range execContext.scNodesInfo {
 			p := deleteDirParams{}
 			p.Directories = append(p.Directories, node.CatalogPath)
 			p.ForceDelete = true

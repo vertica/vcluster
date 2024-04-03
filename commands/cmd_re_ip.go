@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -66,7 +68,7 @@ Examples:
 	)
 
 	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, catalogPathFlag})
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, catalogPathFlag, configFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -112,14 +114,60 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 
 func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Called method Run()")
-	err := vcc.VReIP(c.reIPOptions)
+
+	options := c.reIPOptions
+
+	// load config info from the YAML config file
+	canUpdateConfig := true
+	dbConfig, err := readConfig()
+	if err != nil {
+		vcc.LogInfo("fail to read config file: %v", err)
+		canUpdateConfig = false
+	}
+
+	// VER-92369 should clean up the block below
+	// as the GetDBConfig function will be removed
+	config, err := options.GetDBConfig(vcc)
+	if err != nil {
+		return err
+	}
+	options.Config = config
+
+	err = vcc.VReIP(options)
 	if err != nil {
 		vcc.LogError(err, "fail to re-ip")
 		return err
 	}
 
 	vcc.PrintInfo("Re-ip is successfully completed")
+
+	// update config file after running re_ip
+	if canUpdateConfig {
+		c.UpdateConfig(dbConfig)
+		err = dbConfig.write(options.ConfigPath)
+		if err != nil {
+			fmt.Printf("Warning: fail to update config file, details %v\n", err)
+		}
+	}
+
 	return nil
+}
+
+// UpdateConfig will update node addresses in the config object after re_ip
+func (c *CmdReIP) UpdateConfig(dbConfig *DatabaseConfig) {
+	nodeNameToAddress := make(map[string]string)
+	for _, reIPInfo := range c.reIPOptions.ReIPList {
+		if reIPInfo.TargetAddress != "" {
+			nodeNameToAddress[reIPInfo.NodeName] = reIPInfo.TargetAddress
+		}
+	}
+
+	for _, n := range dbConfig.Nodes {
+		newAddress, ok := nodeNameToAddress[n.Name]
+		if ok {
+			n.Address = newAddress
+		}
+	}
 }
 
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdReIP

@@ -124,14 +124,37 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.validateAnalyzeOptions(vcc.Log)
+	// set db name and hosts
+	err := options.setDBNameAndHosts()
+	if err != nil {
+		return err
+	}
+
+	// set catalog prefix
+	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
+	if err != nil {
+		return err
+	}
+
+	isEon, err := options.isEonMode(options.Config)
+	if err != nil {
+		return err
+	}
+	if isEon {
+		options.CommunalStorageLocation, err = options.getCommunalStorageLocation(options.Config)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
 
 	var pVDB *VCoordinationDatabase
 	// retrieve database information from cluster_config.json for Eon databases
-	if options.OldIsEon.ToBool() {
+	if isEon {
 		if *options.CommunalStorageLocation != "" {
 			vdb, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {

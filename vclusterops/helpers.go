@@ -112,10 +112,7 @@ type nodeStateInfo struct {
 }
 
 func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
-	n.Address = node.Address
-	n.Name = node.Name
-	n.State = node.State
-	n.CatalogPath = node.CatalogPath
+	n = node.asNodeInfoWoVer()
 	// version can be, eg, v24.0.0-<revision> or v23.4.0-<hotfix|date>-<revision> including a hotfix or daily build date
 	verWithHotfix := 3
 	verWithoutHotfix := 2
@@ -128,6 +125,15 @@ func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
 	} else {
 		err = fmt.Errorf("failed to parse version '%s'", node.Version)
 	}
+	return
+}
+
+// asNodeInfoWoVer will create a NodeInfo with empty Version and Revision
+func (node *nodeStateInfo) asNodeInfoWoVer() (n NodeInfo) {
+	n.Address = node.Address
+	n.Name = node.Name
+	n.State = node.State
+	n.CatalogPath = node.CatalogPath
 	return
 }
 

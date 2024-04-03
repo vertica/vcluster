@@ -101,10 +101,8 @@ func (op *httpsPollSubclusterNodeStateOp) setupClusterHTTPRequest(hosts []string
 func (op *httpsPollSubclusterNodeStateOp) prepare(execContext *opEngineExecContext) error {
 	// We need to ensure that the https request to fetch the node state goes to the sandboxed node
 	// because the main cluster will report the status of sandboxed nodes as "UNKNOWN".
-	for host, sc := range execContext.upScInfo {
-		if sc == op.scName {
-			op.hosts = append(op.hosts, host)
-		}
+	for _, vnode := range execContext.scNodesInfo {
+		op.hosts = append(op.hosts, vnode.Address)
 	}
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
