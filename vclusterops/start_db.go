@@ -143,11 +143,13 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 		return nil, err
 	}
 
+	// VER-93369 may improve this if the CLI knows which nodes are primary
+	// from the config file
 	var vdb VCoordinationDatabase
 	// retrieve database information from cluster_config.json for Eon databases
 	if isEon {
 		const warningMsg = " for an Eon database, start_db after revive_db could fail " +
-			"because we cannot retrieve the correct database information\n"
+			"because we cannot retrieve the correct database information"
 		if *options.CommunalStorageLocation != "" {
 			vdbNew, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {

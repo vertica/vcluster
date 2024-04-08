@@ -38,6 +38,8 @@ type VAddSubclusterOptions struct {
 	IsPrimary      *bool
 	ControlSetSize *int
 	CloneSC        *string
+	// part 3: add node info
+	VAddNodeOptions
 }
 
 type VAddSubclusterInfo struct {
@@ -56,6 +58,8 @@ func VAddSubclusterOptionsFactory() VAddSubclusterOptions {
 	opt := VAddSubclusterOptions{}
 	// set default values to the params
 	opt.setDefaultValues()
+	// set default values for VAddNodeOptions
+	opt.VAddNodeOptions.setDefaultValues()
 
 	return opt
 }

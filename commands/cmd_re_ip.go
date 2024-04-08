@@ -40,8 +40,6 @@ func makeCmdReIP() *cobra.Command {
 	opt := vclusterops.VReIPFactory()
 	newCmd.reIPOptions = &opt
 
-	// VER-91801: the examle below needs to be updated
-	// as we need a better example with config file
 	cmd := OldMakeBasicCobraCmd(
 		newCmd,
 		reIPSubCmd,
@@ -64,11 +62,15 @@ Examples:
   # Alter the IP address of database nodes with user input
   vcluster re_ip --db-name test_db --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
   	--catalog-path /data --re-ip-file /data/re_ip_map.json
+  
+  # Alter the IP address of database nodes with config file
+  vcluster re_ip --db-name test_db --re-ip-file /data/re_ip_map.json \
+    --config /opt/vertica/config/vertica_cluster.yaml
 `,
 	)
 
 	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, catalogPathFlag, configFlag})
+	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, catalogPathFlag, configParamFlag, configFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)

@@ -152,21 +152,25 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 		return err
 	}
 
+	// VER-93369 may improve this if the CLI knows which nodes are primary
+	// from the config file
 	var pVDB *VCoordinationDatabase
 	// retrieve database information from cluster_config.json for Eon databases
 	if isEon {
+		const warningMsg = " for an Eon database, re_ip after revive_db could fail " +
+			"because we cannot retrieve the correct database information"
 		if *options.CommunalStorageLocation != "" {
 			vdb, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {
-				return e
+				// show a warning message if we cannot get VDB from a down database
+				vcc.Log.PrintWarning("failed to retrieve the communal storage location" + warningMsg)
 			}
 			pVDB = &vdb
 		} else {
 			// When communal storage location is missing, we only log a debug message
 			// because re-ip only fails in between revive_db and first start_db.
 			// We should not ran re-ip in that case because revive_db has already done the re-ip work.
-			vcc.Log.V(1).Info("communal storage location is not specified for an eon database," +
-				" re_ip after revive_db could fail because we cannot retrieve the correct database information")
+			vcc.Log.V(1).Info("communal storage location is not specified" + warningMsg)
 		}
 	}
 

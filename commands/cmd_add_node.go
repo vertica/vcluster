@@ -82,7 +82,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require hosts to add
-	markFlagsRequired(cmd, []string{"add"})
+	markFlagsRequired(cmd, []string{addNodeFlag})
 
 	return cmd
 }
@@ -91,7 +91,7 @@ Examples:
 func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(
 		&c.addNodeOptions.NewHosts,
-		"add",
+		addNodeFlag,
 		[]string{},
 		"Comma-separated list of host(s) to add to the database",
 	)

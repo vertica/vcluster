@@ -78,6 +78,7 @@ const (
 	outputFileFlag              = "output-file"
 	outputFileKey               = "outputFile"
 	subclusterFlag              = "subcluster"
+	addNodeFlag                 = "new-hosts"
 	sandboxFlag                 = "sandbox"
 )
 
