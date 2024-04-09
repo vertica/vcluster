@@ -109,6 +109,7 @@ const (
 	commandInstallPackages   = "install_packages"
 	commandConfigRecover     = "manage_config_recover"
 	commandReplicationStart  = "replication_start"
+	commandFetchNodesDetails = "fetch_nodes_details"
 )
 
 func DatabaseOptionsFactory() DatabaseOptions {
