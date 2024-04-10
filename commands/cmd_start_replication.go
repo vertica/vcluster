@@ -47,12 +47,16 @@ func makeCmdStartReplication() *cobra.Command {
 		"Start database replication",
 		`This subcommand starts a database replication. 
 		
-This subcommand copies table or schema data directly from one Eon Mode database's communal storage 
-to another.
+This subcommand copies table or schema data directly from one Eon Mode 
+database's communal storage to another.
 
-The --target-conn option serves as a collection file for gathering necessary target 
-information for replication. You need to run vcluster manage_connection to generate this 
-connection file in order to use this option.
+The --target-conn option serves as a collection file for gathering necessary
+target information for replication. You need to run vcluster manage_connection
+to generate this connection file in order to use this option.
+
+If the source database has EnableConnectCredentialForwarding enabled, the
+target username and password can be ignored. If the target database uses trust
+authentication, the password can be ignored.
 
 Examples:
   # Start database replication with config and connection file
@@ -75,11 +79,18 @@ Examples:
     --target-hosts 10.20.30.43 --password-file /path/to/password-file --target-db-user dbadmin \ 
     --target-password-file /path/to/password-file
 `,
+		// Temporarily, the Vcluster CLI doesn't support a config file for this subcommand.
+		// It will include all hosts from the config file.
+		// VER-93450 will add 2 options for sandboxes, "source-sandbox" and "target-sandbox", to get the correct sourceHosts
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag, dbUserFlag, eonModeFlag},
 	)
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
+
+	// Temporarily, targetDBName and targetHost are required.
+	// They will be removed after target-conn is implemented in VER-93130
+	markFlagsRequired(cmd, []string{targetDBNameFlag, targetHostsFlag})
 
 	// hide eon mode flag since we expect it to come from config file, not from user input
 	hideLocalFlags(cmd, []string{eonModeFlag})
@@ -96,7 +107,7 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().StringSliceVar(
 		&c.startRepOptions.TargetHosts,
-		targetHostFlag,
+		targetHostsFlag,
 		[]string{},
 		"Comma-separated list of hosts in target database")
 	cmd.Flags().StringVar(
@@ -184,7 +195,7 @@ func (c *CmdStartReplication) parseTargetHostList() error {
 
 func (c *CmdStartReplication) parseTargetPassword() error {
 	options := c.startRepOptions
-	if !c.usePassword() {
+	if !c.parser.Changed(targetPasswordFileFlag) {
 		// reset password option to nil if password is not provided in cli
 		options.TargetPassword = nil
 		return nil

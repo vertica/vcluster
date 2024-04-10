@@ -86,8 +86,8 @@ const (
 const (
 	targetDBNameFlag       = "target-db-name"
 	targetDBNameKey        = "targetDBName"
-	targetHostFlag         = "target-hosts"
-	targetHostKey          = "targetHosts"
+	targetHostsFlag        = "target-hosts"
+	targetHostsKey         = "targetHosts"
 	targetUserNameFlag     = "target-db-user"
 	targetUserNameKey      = "targetDBUser"
 	targetPasswordFileFlag = "target-password-file"
@@ -120,7 +120,7 @@ var flagKeyMap = map[string]string{
 	verboseFlag:                 verboseKey,
 	outputFileFlag:              outputFileKey,
 	targetDBNameFlag:            targetDBNameKey,
-	targetHostFlag:              targetHostKey,
+	targetHostsFlag:             targetHostsKey,
 	targetUserNameFlag:          targetUserNameKey,
 	targetPasswordFileFlag:      targetPasswordFileKey,
 	sourceTLSConfigFlag:         sourceTLSConfigKey,

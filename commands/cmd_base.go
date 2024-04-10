@@ -308,7 +308,7 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 }
 
 func (c *CmdBase) passwordFileHelper(passwordFile string) (string, error) {
-	if c.passwordFile == "" {
+	if passwordFile == "" {
 		return "", fmt.Errorf("password file path is empty")
 	}
 	// hyphen(`-`) is used to indicate that input should come

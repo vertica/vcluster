@@ -88,14 +88,5 @@ func TestStartReplication(t *testing.T) {
 	// vcluster replication start should succeed
 	// since there is no op for this subcommand
 	err := simulateVClusterCli("vcluster replication start")
-	assert.NoError(t, err)
-
-	var passwordFilePath = os.TempDir() + "/password.txt"
-	tempConfig, _ := os.Create(passwordFilePath)
-	tempConfig.Close()
-	defer os.Remove(passwordFilePath)
-	err = simulateVClusterCli("vcluster replication start --db-name platform_test_db --hosts" +
-		" 192.168.1.101 --target-db-name test_db --target-hosts 192.168.1.103 --target-password-file " + passwordFilePath +
-		" --password-file " + passwordFilePath)
-	assert.NoError(t, err)
+	assert.ErrorContains(t, err, `required flag(s) "target-db-name", "target-hosts" not set`)
 }

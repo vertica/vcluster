@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -53,6 +54,31 @@ func (opt *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Printer
 	if err != nil {
 		return err
 	}
+	if len(opt.TargetHosts) == 0 {
+		return fmt.Errorf("must specify a target host or target host list")
+	}
+
+	// valiadate target database
+	if opt.TargetDB == "" {
+		return fmt.Errorf("must specify a target database name")
+	}
+	err = util.ValidateDBName(opt.TargetDB)
+	if err != nil {
+		return err
+	}
+
+	// need to provide a password or certs in source database
+	if opt.Password == nil && (opt.Cert == "" || opt.Key == "") {
+		return fmt.Errorf("must provide a password or certs")
+	}
+
+	// need to provide a password or TLSconfig if source and target username are different
+	if opt.TargetUserName != *opt.UserName {
+		if opt.TargetPassword == nil && opt.SourceTLSConfig == "" {
+			return fmt.Errorf("only trust authentication can support username without password or TLSConfig")
+		}
+	}
+
 	return opt.validateBaseOptions(commandReplicationStart, logger)
 }
 
@@ -111,16 +137,70 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
+		if strings.Contains(runError.Error(), "EnableConnectCredentialForwarding is false") {
+			runError = fmt.Errorf("target database authentication failed, need to do one of the following things: " +
+				"1. provide tlsconfig or target username with password " +
+				"2. set EnableConnectCredentialForwarding to True in source database using vsql " +
+				"3. configure a Trust Authentication in target database using vsql")
+		}
 		return fmt.Errorf("fail to replicate database: %w", runError)
 	}
-
 	return nil
 }
 
 // The generated instructions will later perform the following operations necessary
-// for a successful replication. Temporarily, There is no-op for this subcommand.
-// We will implement the ops to do the actual replication in VER-92706
-func (vcc VClusterCommands) produceDBReplicationInstructions(_ *VReplicationDatabaseOptions) ([]clusterOp, error) {
+// for a successful replication.
+//   - Check nodes state
+//   - Check NMA connectivity
+//   - Check Vertica versions
+//   - Replicate database
+func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicationDatabaseOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
+
+	// need username for https operations in source database
+	err := options.setUsePassword(vcc.Log)
+	if err != nil {
+		return instructions, err
+	}
+
+	// verify the username for connecting to the target database
+	targetUserPassword := false
+	if options.TargetPassword != nil {
+		targetUserPassword = true
+		if options.TargetUserName == "" {
+			username, e := util.GetCurrentUsername()
+			if e != nil {
+				return instructions, e
+			}
+			options.TargetUserName = username
+		}
+		vcc.Log.Info("Current target username", "username", options.TargetUserName)
+	}
+
+	httpsGetUpNodesOp, err := makeHTTPSCheckNodeStateOp(options.Hosts,
+		options.usePassword, *options.UserName, options.Password)
+	if err != nil {
+		return instructions, err
+	}
+
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+
+	// require to have the same vertica version
+	nmaVerticaVersionOp := makeNMAVerticaVersionOp(options.Hosts, true, true /*IsEon*/)
+
+	initiatorTargetHost := getInitiator(options.TargetHosts)
+	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(*options.DBName, options.Hosts, options.usePassword,
+		*options.UserName, options.Password, targetUserPassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
+		options.TargetPassword, options.SourceTLSConfig)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions,
+		&httpsGetUpNodesOp,
+		&nmaHealthOp,
+		&nmaVerticaVersionOp,
+		&httpsStartReplicationOp,
+	)
 	return instructions, nil
 }
