@@ -34,7 +34,7 @@ func makeHTTPSCheckNodeStateOp(hosts []string,
 ) (httpsCheckNodeStateOp, error) {
 	op := httpsCheckNodeStateOp{}
 	op.name = "HTTPCheckNodeStateOp"
-	op.description = "Check node state"
+	op.description = "Check node state from running database"
 	// The hosts are the ones we are going to talk to.
 	// They can be a subset of the actual host information that we return,
 	// as if any of the hosts is responsive, spread can give us the info of all nodes
@@ -131,19 +131,6 @@ func (op *httpsCheckNodeStateOp) processResult(execContext *opEngineExecContext)
 		return nil
 	}
 
-	// If none of the requests succeed on any node, we
-	// can assume that all nodes are down.
-	if respondingNodeCount == 0 {
-		// this list is built for Go client
-		var nodeStates []NodeInfo
-		for _, host := range op.hosts {
-			nodeInfo := NodeInfo{}
-			nodeInfo.Address = host
-			nodeInfo.State = "DOWN"
-			nodeStates = append(nodeStates, nodeInfo)
-		}
-		execContext.nodesInfo = nodeStates
-	}
 	return allErrs
 }
 

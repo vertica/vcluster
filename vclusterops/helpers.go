@@ -134,6 +134,8 @@ func (node *nodeStateInfo) asNodeInfoWoVer() (n NodeInfo) {
 	n.Name = node.Name
 	n.State = node.State
 	n.CatalogPath = node.CatalogPath
+	n.Subcluster = node.Subcluster
+	n.IsPrimary = node.IsPrimary
 	return
 }
 

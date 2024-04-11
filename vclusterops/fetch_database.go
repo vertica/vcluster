@@ -25,6 +25,9 @@ import (
 type VFetchCoordinationDatabaseOptions struct {
 	DatabaseOptions
 	Overwrite bool // overwrite existing config file at the same location
+
+	// hidden option
+	readOnly bool // this should be only used if we don't want to update the config file
 }
 
 func VRecoverConfigOptionsFactory() VFetchCoordinationDatabaseOptions {
@@ -52,7 +55,7 @@ func (opt *VFetchCoordinationDatabaseOptions) analyzeOptions() error {
 	*opt.CatalogPrefix = util.GetCleanPath(*opt.CatalogPrefix)
 
 	// check existing config file at the same location
-	if !opt.Overwrite {
+	if !opt.readOnly && !opt.Overwrite {
 		if util.CanWriteAccessPath(opt.ConfigPath) == util.FileExist {
 			return fmt.Errorf("config file exists at %s. "+
 				"You can use --overwrite to overwrite this existing config file", opt.ConfigPath)
@@ -107,7 +110,7 @@ func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinati
 	// we use nmaVDB data to complete vdb
 	nmaVDB := clusterOpEngine.execContext.nmaVDatabase
 
-	if nmaVDB.CommunalStorageLocation != "" {
+	if !options.readOnly && nmaVDB.CommunalStorageLocation != "" {
 		vdb.IsEon = true
 		vdb.CommunalStorageLocation = nmaVDB.CommunalStorageLocation
 		// if depot path is not provided for an Eon DB,
@@ -125,6 +128,7 @@ func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinati
 		}
 		vnode.Subcluster = n.Subcluster.Name
 		vnode.StorageLocations = n.StorageLocations
+		vnode.IsPrimary = n.IsPrimary
 	}
 
 	return vdb, runError

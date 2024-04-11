@@ -110,8 +110,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 	)
 	// keyFile and certFile are flags that all subcommands require,
 	// except for manage_config and `manage_config show`
-	if cmd.Name() != manageConfigSubCmd && // VER-92992: remove this line once manage_config is not runnable
-		cmd.Name() != configShowSubCmd {
+	if cmd.Name() != configShowSubCmd {
 		cmd.Flags().StringVar(
 			&globals.keyFile,
 			keyFileFlag,

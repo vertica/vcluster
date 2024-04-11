@@ -72,9 +72,53 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
 
-	// Give the instructions to the VClusterOpEngine to run
+	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
 	nodeStates := clusterOpEngine.execContext.nodesInfo
+	if runError == nil {
+		return nodeStates, nil
+	}
+
+	// if failed to get node info from a running database,
+	// we will try to get it by reading catalog editor
+	upNodeCount := 0
+	for _, n := range nodeStates {
+		if n.State == util.NodeUpState {
+			upNodeCount++
+		}
+	}
+
+	if upNodeCount == 0 {
+		const msg = "Cannot get node information from running database. " +
+			"Try to get node information by reading catalog editor."
+		fmt.Println(msg)
+		vcc.Log.PrintInfo(msg)
+
+		var downNodeStates []NodeInfo
+
+		var fetchDatabaseOptions VFetchCoordinationDatabaseOptions
+		fetchDatabaseOptions.DatabaseOptions = options.DatabaseOptions
+		fetchDatabaseOptions.readOnly = true
+
+		vdb, err := vcc.VFetchCoordinationDatabase(&fetchDatabaseOptions)
+		if err != nil {
+			return downNodeStates, err
+		}
+
+		for _, h := range vdb.HostList {
+			var nodeInfo NodeInfo
+			n := vdb.HostNodeMap[h]
+			nodeInfo.Address = n.Address
+			nodeInfo.Name = n.Name
+			nodeInfo.CatalogPath = n.CatalogPath
+			nodeInfo.Subcluster = n.Subcluster
+			nodeInfo.IsPrimary = n.IsPrimary
+			nodeInfo.State = util.NodeDownState
+			downNodeStates = append(downNodeStates, nodeInfo)
+		}
+
+		return downNodeStates, nil
+	}
 
 	return nodeStates, runError
 }

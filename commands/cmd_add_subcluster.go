@@ -70,12 +70,12 @@ Examples:
   # Add a subcluster and new nodes in the subcluster with config file
   vcluster db_add_subcluster --subcluster sc1 \
     --config /opt/vertica/config/vertica_cluster.yaml \
-    --is-primary --control-set-size 1 --add 10.20.30.43
+    --is-primary --control-set-size 1 --new-hosts 10.20.30.43
 
   # Add a subcluster new nodes in the subcluster with user input
   vcluster db_add_subcluster --subcluster sc1 --db-name test_db \
 	--hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
-	--is-primary --control-set-size -1 --add 10.20.30.43
+	--is-primary --control-set-size -1 --new-hosts 10.20.30.43
 `,
 	)
 

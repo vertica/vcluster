@@ -52,6 +52,9 @@ The --hosts option specifies one or more hosts that the program
 should communicate with. The program will return the first response it
 receives from any of the specified hosts.
 
+The --db-name and --catalog-path options are only needed when VCluster cannot
+obtain node information from a running database and the config file is not provided.
+
 The only requirement for each host is that it is running the spread daemon.
 
 Examples:
@@ -60,7 +63,7 @@ Examples:
   vcluster list_allnodes --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
-		[]string{hostsFlag, passwordFlag, configFlag, outputFileFlag},
+		[]string{dbNameFlag, hostsFlag, passwordFlag, catalogPathFlag, configFlag, outputFileFlag},
 	)
 
 	return cmd
