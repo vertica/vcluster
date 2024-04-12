@@ -86,14 +86,8 @@ func (options *VAddSubclusterOptions) validateRequiredOptions(logger vlog.Printe
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateEonOptions(config *DatabaseConfig) error {
-	isEon, err := options.isEonMode(config)
-	if err != nil {
-		return err
-	}
-
-	if !isEon && config != nil {
-		// config file confirms that the db is not Eon
+func (options *VAddSubclusterOptions) validateEonOptions() error {
+	if !options.IsEon {
 		return fmt.Errorf("add subcluster is only supported in Eon mode")
 	}
 	return nil
@@ -135,14 +129,14 @@ func (options *VAddSubclusterOptions) validateExtraOptions(logger vlog.Printer) 
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateParseOptions(config *DatabaseConfig, vcc VClusterCommands) error {
+func (options *VAddSubclusterOptions) validateParseOptions(vcc VClusterCommands) error {
 	// batch 1: validate required parameters
 	err := options.validateRequiredOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
 	// batch 2: validate eon params
-	err = options.validateEonOptions(config)
+	err = options.validateEonOptions()
 	if err != nil {
 		return err
 	}
@@ -159,7 +153,7 @@ func (options *VAddSubclusterOptions) analyzeOptions() (err error) {
 	// we analyze hostnames when it is set in user input, otherwise we use hosts in yaml config
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -167,7 +161,7 @@ func (options *VAddSubclusterOptions) analyzeOptions() (err error) {
 
 	// resolve SCRawHosts to be IP addresses
 	if len(options.SCRawHosts) > 0 {
-		options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.OldIpv6.ToBool())
+		options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -176,8 +170,8 @@ func (options *VAddSubclusterOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateAnalyzeOptions(config *DatabaseConfig, vcc VClusterCommands) error {
-	if err := options.validateParseOptions(config, vcc); err != nil {
+func (options *VAddSubclusterOptions) validateAnalyzeOptions(vcc VClusterCommands) error {
+	if err := options.validateParseOptions(vcc); err != nil {
 		return err
 	}
 	err := options.analyzeOptions()
@@ -196,14 +190,8 @@ func (vcc VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// set db name and hosts
-	err := options.setDBNameAndHosts()
-	if err != nil {
-		return err
-	}
-
 	// validate and analyze all options
-	err = options.validateAnalyzeOptions(options.Config, vcc)
+	err := options.validateAnalyzeOptions(vcc)
 	if err != nil {
 		return err
 	}

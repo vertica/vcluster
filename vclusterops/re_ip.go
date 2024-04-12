@@ -61,7 +61,7 @@ func (opt *VReIPOptions) validateParseOptions(logger vlog.Printer) error {
 
 func (opt *VReIPOptions) analyzeOptions() error {
 	if len(opt.RawHosts) > 0 {
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.OldIpv6.ToBool())
+		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (opt *VReIPOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	}
 
 	// address check
-	ipv6 := opt.OldIpv6.ToBool()
+	ipv6 := opt.IPv6
 	nodeAddresses := make(map[string]struct{})
 	for _, info := range opt.ReIPList {
 		// the addresses must be valid IPs
@@ -124,30 +124,7 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// set db name and hosts
-	err := options.setDBNameAndHosts()
-	if err != nil {
-		return err
-	}
-
-	// set catalog prefix
-	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
-	if err != nil {
-		return err
-	}
-
-	isEon, err := options.isEonMode(options.Config)
-	if err != nil {
-		return err
-	}
-	if isEon {
-		options.CommunalStorageLocation, err = options.getCommunalStorageLocation(options.Config)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = options.validateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -156,7 +133,7 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 	// from the config file
 	var pVDB *VCoordinationDatabase
 	// retrieve database information from cluster_config.json for Eon databases
-	if isEon {
+	if options.IsEon {
 		const warningMsg = " for an Eon database, re_ip after revive_db could fail " +
 			"because we cannot retrieve the correct database information"
 		if *options.CommunalStorageLocation != "" {
@@ -302,7 +279,7 @@ func (opt *VReIPOptions) ReadReIPFile(path string) error {
 		return nil
 	}
 
-	ipv6 := opt.OldIpv6.ToBool()
+	ipv6 := opt.IPv6
 	for _, row := range reIPRows {
 		var info ReIPInfo
 		info.NodeAddress = row.CurrentAddress

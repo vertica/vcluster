@@ -41,11 +41,10 @@ type CmdAddNode struct {
 func makeCmdAddNode() *cobra.Command {
 	// CmdAddNode
 	newCmd := &CmdAddNode{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VAddNodeOptionsFactory()
 	newCmd.addNodeOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		addNodeSubCmd,
 		"Add host(s) to an existing database",
@@ -72,11 +71,9 @@ Examples:
     --data-path /data --hosts 10.20.30.40 \
     --node-names v_test_db_node0001,v_test_db_node0002
 `,
+		[]string{dbNameFlag, configFlag, hostsFlag, dataPathFlag, depotPathFlag,
+			passwordFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, dataPathFlag, depotPathFlag,
-		passwordFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -135,7 +132,7 @@ func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.addNodeOptions.DatabaseOptions)
 	return c.validateParse(logger)
 }
 
@@ -196,22 +193,17 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.addNodeOptions
 
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-
 	vdb, addNodeError := vcc.VAddNode(options)
 	if addNodeError != nil {
 		return addNodeError
 	}
-	// write cluster information to the YAML config file
-	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.GetLog())
+
+	// write db info to vcluster config file
+	err := writeConfig(&vdb, vcc.GetLog())
 	if err != nil {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
+
 	vcc.PrintInfo("Added nodes %v to database %s", c.addNodeOptions.NewHosts, *options.DBName)
 	return nil
 }

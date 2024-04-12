@@ -17,6 +17,7 @@ package commands
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -34,11 +35,10 @@ type CmdRemoveSubcluster struct {
 func makeCmdRemoveSubcluster() *cobra.Command {
 	// CmdRemoveSubcluster
 	newCmd := &CmdRemoveSubcluster{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VRemoveScOptionsFactory()
 	newCmd.removeScOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		removeSCSubCmd,
 		"Remove a subcluster",
@@ -59,16 +59,17 @@ Examples:
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1 \
     --data-path /data --depot-path /data
 `,
+		[]string{dbNameFlag, configFlag, hostsFlag, eonModeFlag, dataPathFlag, depotPathFlag, passwordFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, dataPathFlag, depotPathFlag, passwordFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
 	// require name of subcluster to remove
 	markFlagsRequired(cmd, []string{subclusterFlag})
+
+	// hide eon mode flag since we expect it to come from config file, not from user input
+	hideLocalFlags(cmd, []string{eonModeFlag})
 
 	return cmd
 }
@@ -92,6 +93,15 @@ func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
+
+	// reset some options that are not included in user input
+	c.ResetUserInputOptions(&c.removeScOptions.DatabaseOptions)
+
+	// remove_subcluster only works for an Eon db so we assume the user always runs this subcommand
+	// on an Eon db. When Eon mode cannot be found in config file, we set its value to true.
+	if !viper.IsSet(eonModeKey) {
+		c.removeScOptions.IsEon = true
+	}
 	return c.validateParse(logger)
 }
 
@@ -118,26 +128,18 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.removeScOptions
 
-	// get config from vertica_cluster.yaml
-	config, err := c.removeScOptions.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-
 	vdb, err := vcc.VRemoveSubcluster(options)
 	if err != nil {
 		return err
 	}
+
+	// write db info to vcluster config file
+	err = writeConfig(&vdb, vcc.GetLog())
+	if err != nil {
+		vcc.PrintWarning("fail to write config file, details: %s", err)
+	}
 	vcc.PrintInfo("Successfully removed subcluster %s from database %s",
 		*options.SubclusterToRemove, *options.DBName)
-
-	// write cluster information to the YAML config file.
-	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.GetLog())
-	if err != nil {
-		vcc.PrintWarning("failed to write config file, details: %s", err)
-	}
-	vcc.PrintInfo("Successfully updated config file")
 
 	return nil
 }

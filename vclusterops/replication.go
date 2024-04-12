@@ -86,7 +86,7 @@ func (opt *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Printer
 func (opt *VReplicationDatabaseOptions) analyzeOptions() (err error) {
 	if len(opt.TargetHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		opt.TargetHosts, err = util.ResolveRawHostsToAddresses(opt.TargetHosts, opt.OldIpv6.ToBool())
+		opt.TargetHosts, err = util.ResolveRawHostsToAddresses(opt.TargetHosts, opt.IPv6)
 		if err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func (opt *VReplicationDatabaseOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(opt.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.OldIpv6.ToBool())
+		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
 		if err != nil {
 			return err
 		}

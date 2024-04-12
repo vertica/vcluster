@@ -173,7 +173,7 @@ func (options *VReviveDatabaseOptions) analyzeOptions() (err error) {
 
 	// resolve RawHosts to be IP addresses
 	if len(options.RawHosts) > 0 {
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -262,7 +262,7 @@ func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (db
 	vdb.Name = *options.DBName
 	vdb.IsEon = true
 	vdb.CommunalStorageLocation = *options.CommunalStorageLocation
-	vdb.Ipv6 = options.OldIpv6.ToBool()
+	vdb.Ipv6 = options.IPv6
 
 	return dbInfo, &vdb, nil
 }

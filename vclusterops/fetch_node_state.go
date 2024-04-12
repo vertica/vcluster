@@ -32,7 +32,7 @@ func (options *VFetchNodeStateOptions) validateParseOptions(vcc VClusterCommands
 
 func (options *VFetchNodeStateOptions) analyzeOptions() error {
 	if len(options.RawHosts) > 0 {
-		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}

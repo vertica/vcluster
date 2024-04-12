@@ -68,25 +68,14 @@ func makeVCoordinationDatabase() VCoordinationDatabase {
 	return VCoordinationDatabase{}
 }
 
-func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabaseOptions, logger vlog.Printer) error {
-	// build after validating the options
-	err := options.validateAnalyzeOptions(logger)
-	if err != nil {
-		return err
-	}
-
-	// build coordinate db object from the create db options
-	// section 1: set db info
+func (vdb *VCoordinationDatabase) setFromBasicDBOptions(options *VCreateDatabaseOptions) error {
+	// we trust the information in the config file
+	// so we do not perform validation here
 	vdb.Name = *options.DBName
 	vdb.CatalogPrefix = *options.CatalogPrefix
 	vdb.DataPrefix = *options.DataPrefix
-	vdb.HostList = make([]string, len(options.Hosts))
-	vdb.HostList = options.Hosts
-	vdb.HostNodeMap = makeVHostNodeMap()
-	vdb.LicensePathOnNode = *options.LicensePathOnNode
-	vdb.Ipv6 = options.IPv6
+	vdb.DepotPrefix = *options.DepotPrefix
 
-	// section 2: eon info
 	vdb.IsEon = false
 	if *options.CommunalStorageLocation != "" {
 		vdb.IsEon = true
@@ -94,10 +83,45 @@ func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabas
 		vdb.DepotPrefix = *options.DepotPrefix
 		vdb.DepotSize = *options.DepotSize
 	}
+
 	vdb.UseDepot = false
 	if *options.DepotPrefix != "" {
 		vdb.UseDepot = true
 	}
+
+	vdb.HostNodeMap = makeVHostNodeMap()
+	for _, address := range options.Hosts {
+		vnode := VCoordinationNode{}
+		err := vnode.setFromBasicDBOptions(options, address)
+		if err != nil {
+			return err
+		}
+		err = vdb.addNode(&vnode)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabaseOptions, logger vlog.Printer) error {
+	// build after validating the options
+	err := options.validateAnalyzeOptions(logger)
+	if err != nil {
+		return err
+	}
+
+	err = vdb.setFromBasicDBOptions(options)
+	if err != nil {
+		return err
+	}
+
+	// set additional db info from the create db options
+	vdb.HostList = make([]string, len(options.Hosts))
+	vdb.HostList = options.Hosts
+	vdb.LicensePathOnNode = *options.LicensePathOnNode
+
 	if *options.GetAwsCredentialsFromEnv {
 		err := vdb.getAwsCredentialsFromEnv()
 		if err != nil {
@@ -105,16 +129,6 @@ func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabas
 		}
 	}
 	vdb.NumShards = *options.ShardCount
-
-	// section 3: build VCoordinationNode info
-	for _, host := range vdb.HostList {
-		vNode := makeVCoordinationNode()
-		err := vNode.setFromCreateDBOptions(options, host)
-		if err != nil {
-			return err
-		}
-		vdb.HostNodeMap[host] = &vNode
-	}
 
 	return nil
 }
@@ -144,53 +158,8 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string) error 
 			return fmt.Errorf("could not generate a vnode name for %s", host)
 		}
 		nodeNameToHost[name] = host
-		nodeConfig := NodeConfig{
-			Address:    host,
-			Name:       name,
-			Subcluster: scName,
-		}
-		vNode.setFromNodeConfig(&nodeConfig, vdb)
+		vNode.setNode(vdb, host, name, scName)
 		err := vdb.addNode(&vNode)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (vdb *VCoordinationDatabase) setFromClusterConfig(dbName string,
-	dbConfig *DatabaseConfig) error {
-	// if db name from user input is different than the one in config file,
-	// we throw an error
-	if dbConfig.Name != dbName {
-		return cannotFindDBFromConfigErr(dbName)
-	}
-
-	// we trust the information in the config file
-	// so we do not perform validation here
-	vdb.Name = dbName
-
-	catalogPrefix, dataPrefix, depotPrefix, err := dbConfig.getPathPrefix(dbName)
-	if err != nil {
-		return err
-	}
-	vdb.CatalogPrefix = catalogPrefix
-	vdb.DataPrefix = dataPrefix
-	vdb.DepotPrefix = depotPrefix
-
-	vdb.IsEon = dbConfig.IsEon
-	vdb.CommunalStorageLocation = dbConfig.CommunalStorageLocation
-	vdb.Ipv6 = dbConfig.Ipv6
-	if vdb.DepotPrefix != "" {
-		vdb.UseDepot = true
-	}
-
-	vdb.HostNodeMap = makeVHostNodeMap()
-	for _, nodeConfig := range dbConfig.Nodes {
-		vnode := VCoordinationNode{}
-		vnode.setFromNodeConfig(nodeConfig, vdb)
-		err = vdb.addNode(&vnode)
 		if err != nil {
 			return err
 		}
@@ -369,7 +338,7 @@ func makeVCoordinationNode() VCoordinationNode {
 	return VCoordinationNode{}
 }
 
-func (vnode *VCoordinationNode) setFromCreateDBOptions(
+func (vnode *VCoordinationNode) setFromBasicDBOptions(
 	options *VCreateDatabaseOptions,
 	host string,
 ) error {
@@ -405,12 +374,12 @@ func (vnode *VCoordinationNode) setFromCreateDBOptions(
 	return fmt.Errorf("fail to set up vnode from options: host %s does not exist in options", host)
 }
 
-func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *VCoordinationDatabase) {
+func (vnode *VCoordinationNode) setNode(vdb *VCoordinationDatabase, address, name, scName string) {
 	// we trust the information in the config file
 	// so we do not perform validation here
-	vnode.Address = nodeConfig.Address
-	vnode.Name = nodeConfig.Name
-	vnode.Subcluster = nodeConfig.Subcluster
+	vnode.Address = address
+	vnode.Name = name
+	vnode.Subcluster = scName
 	vnode.CatalogPath = vdb.genCatalogPath(vnode.Name)
 	dataPath := vdb.genDataPath(vnode.Name)
 	vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
@@ -422,73 +391,4 @@ func (vnode *VCoordinationNode) setFromNodeConfig(nodeConfig *NodeConfig, vdb *V
 	} else {
 		vnode.ControlAddressFamily = util.DefaultControlAddressFamily
 	}
-}
-
-// remove this function in VER-92369
-// WriteClusterConfig updates cluster configuration with the YAML-formatted file in the configPath
-// and writes to the log and stdout.
-// It returns any error encountered.
-func (vdb *VCoordinationDatabase) WriteClusterConfig(configPath string, logger vlog.Printer) error {
-	// Early out if this config path not provided. This just means there is no
-	// config file to write out. No error is provided as the config file is
-	// meant to cache frequently specified items on the command line.
-	if configPath == "" {
-		return nil
-	}
-
-	logger.Info("vdb content", "vdb", fmt.Sprintf("%+v", *vdb))
-
-	/* build config information
-	 */
-	dbConfig := MakeDatabaseConfig()
-	// loop over HostList is needed as we want to preserve the order
-	for _, host := range vdb.HostList {
-		vnode, ok := vdb.HostNodeMap[host]
-		if !ok {
-			return fmt.Errorf("cannot find host %s from HostNodeMap", host)
-		}
-		logger.Info("vnode content", "vnode", fmt.Sprintf("%+v", *vnode))
-		nodeConfig := NodeConfig{}
-		nodeConfig.Name = vnode.Name
-		nodeConfig.Address = vnode.Address
-		nodeConfig.Subcluster = vnode.Subcluster
-
-		// VER-91869 will replace the path prefixes with full paths
-		if vdb.CatalogPrefix == "" {
-			nodeConfig.CatalogPath = util.GetPathPrefix(vnode.CatalogPath)
-		} else {
-			nodeConfig.CatalogPath = vdb.CatalogPrefix
-		}
-		if vdb.DataPrefix == "" && len(vnode.StorageLocations) > 0 {
-			nodeConfig.DataPath = util.GetPathPrefix(vnode.StorageLocations[0])
-		} else {
-			nodeConfig.DataPath = vdb.DataPrefix
-		}
-		if vdb.IsEon && vdb.DepotPrefix == "" {
-			nodeConfig.DepotPath = util.GetPathPrefix(vnode.DepotPath)
-		} else {
-			nodeConfig.DepotPath = vdb.DepotPrefix
-		}
-
-		dbConfig.Nodes = append(dbConfig.Nodes, &nodeConfig)
-	}
-	dbConfig.IsEon = vdb.IsEon
-	dbConfig.CommunalStorageLocation = vdb.CommunalStorageLocation
-	dbConfig.Ipv6 = vdb.Ipv6
-	dbConfig.Name = vdb.Name
-
-	// if the config file exists already
-	// create its backup before overwriting it
-	err := backupConfigFile(configPath, logger)
-	if err != nil {
-		return err
-	}
-
-	// update db config with the given database info
-	err = dbConfig.WriteConfig(configPath, logger)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

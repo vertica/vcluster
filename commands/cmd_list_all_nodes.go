@@ -36,7 +36,6 @@ type CmdListAllNodes struct {
 
 func makeListAllNodes() *cobra.Command {
 	newCmd := &CmdListAllNodes{}
-	newCmd.ipv6 = new(bool)
 
 	opt := vclusterops.VFetchNodeStateOptionsFactory()
 	newCmd.fetchNodeStateOptions = &opt
@@ -76,7 +75,7 @@ func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.fetchNodeStateOptions.DatabaseOptions)
 
 	return c.validateParse(logger)
 }

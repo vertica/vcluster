@@ -37,11 +37,10 @@ type CmdRestartNodes struct {
 func makeCmdRestartNodes() *cobra.Command {
 	// CmdRestartNodes
 	newCmd := &CmdRestartNodes{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VStartNodesOptionsFactory()
 	newCmd.restartNodesOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		restartNodeSubCmd,
 		"Restart nodes in the database",
@@ -71,10 +70,8 @@ Examples:
     --restart v_test_db_node0003=10.20.30.42,v_test_db_node0004=10.20.30.43 \
     --password testpassword --config /opt/vertica/config/vertica_cluster.yaml	
 `,
+		[]string{dbNameFlag, hostsFlag, configFlag, passwordFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, configFlag, passwordFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -108,7 +105,7 @@ func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.restartNodesOptions.DatabaseOptions)
 
 	return c.validateParse(logger)
 }
@@ -137,16 +134,8 @@ func (c *CmdRestartNodes) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.restartNodesOptions
 
-	// load vdb info from the YAML config file
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-
 	// this is the instruction that will be used by both CLI and operator
-	err = vcc.VStartNodes(options)
+	err := vcc.VStartNodes(options)
 	if err != nil {
 		return err
 	}

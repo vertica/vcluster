@@ -131,7 +131,7 @@ func (opt *VShowRestorePointsOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(opt.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.OldIpv6.ToBool())
+		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
 		if err != nil {
 			return err
 		}
@@ -154,18 +154,6 @@ func (vcc VClusterCommands) VShowRestorePoints(options *VShowRestorePointsOption
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
-
-	// set db name and hosts
-	err = options.setDBNameAndHosts()
-	if err != nil {
-		return restorePoints, err
-	}
-
-	// get communal storage location from config file and options
-	options.CommunalStorageLocation, err = options.getCommunalStorageLocation(options.Config)
-	if err != nil {
-		return restorePoints, err
-	}
 
 	// validate and analyze options
 	err = options.validateAnalyzeOptions(vcc.Log)

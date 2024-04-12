@@ -44,7 +44,7 @@ func (opt *VFetchCoordinationDatabaseOptions) validateParseOptions(logger vlog.P
 func (opt *VFetchCoordinationDatabaseOptions) analyzeOptions() error {
 	// resolve RawHosts to be IP addresses
 	if len(opt.RawHosts) > 0 {
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.OldIpv6.ToBool())
+		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
 		if err != nil {
 			return err
 		}

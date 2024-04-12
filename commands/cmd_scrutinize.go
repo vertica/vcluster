@@ -28,7 +28,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 )
 
@@ -79,13 +78,11 @@ type CmdScrutinize struct {
 
 func makeCmdScrutinize() *cobra.Command {
 	newCmd := &CmdScrutinize{}
-	newCmd.isEon = new(bool)
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VScrutinizeOptionsFactory()
 	newCmd.sOptions = opt
 	newCmd.secretStoreRetriever = secretStoreRetrieverStruct{}
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		scrutinizeSubCmd,
 		"Scrutinize a database",
@@ -106,10 +103,8 @@ Examples:
   vcluster scrutinize --db-name test_db --db-user dbadmin \
     --password testpassword --config /opt/vertica/config/vertica_cluster.yaml
 `,
+		[]string{dbNameFlag, hostsFlag, configFlag, catalogPathFlag, passwordFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, configFlag, passwordFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -198,13 +193,7 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
-
-	// remove eomModeFlag check in VER-92369
-	// just so generic parsing works - not relevant for functionality
-	if !c.parser.Changed(eonModeFlag) {
-		c.sOptions.OldIsEon = vstruct.NotSet
-	}
+	c.ResetUserInputOptions(&c.sOptions.DatabaseOptions)
 
 	// if the tarballName was provided in the cli, we check
 	// if it matches GRASP regex
@@ -257,13 +246,6 @@ func (c *CmdScrutinize) Run(vcc vclusterops.ClusterCommands) error {
 	if err != nil {
 		return err
 	}
-
-	// get config from vertica_cluster.yaml (if exists)
-	config, err := c.sOptions.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	c.sOptions.Config = config
 
 	err = vcc.VScrutinize(&c.sOptions)
 	if err != nil {

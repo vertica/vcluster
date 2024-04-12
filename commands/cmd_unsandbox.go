@@ -41,11 +41,10 @@ func (c *CmdUnsandboxSubcluster) TypeName() string {
 func makeCmdUnsandboxSubcluster() *cobra.Command {
 	// CmdUnsandboxSubcluster
 	newCmd := &CmdUnsandboxSubcluster{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VUnsandboxOptionsFactory()
 	newCmd.usOptions = opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		unsandboxSubCmd,
 		"Unsandbox a subcluster",
@@ -74,10 +73,8 @@ Examples:
   vcluster unsandbox_subcluster --subcluster sc1 \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
 `,
+		[]string{dbNameFlag, configFlag, passwordFlag, hostsFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, passwordFlag, hostsFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -133,13 +130,7 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.usOptions
 
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-	err = vcc.VUnsandbox(&options)
+	err := vcc.VUnsandbox(&options)
 	vcc.PrintInfo("Completed method Run() for command " + unsandboxSubCmd)
 	return err
 }

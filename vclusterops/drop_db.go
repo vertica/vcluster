@@ -35,11 +35,11 @@ func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	return opt
 }
 
-// AnalyzeOptions verifies the host options for the VDropDatabaseOptions struct and
+// analyzeOptions verifies the host options for the VDropDatabaseOptions struct and
 // returns any error encountered.
-func (options *VDropDatabaseOptions) AnalyzeOptions() error {
+func (options *VDropDatabaseOptions) analyzeOptions() error {
 	if len(options.RawHosts) > 0 {
-		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ func (options *VDropDatabaseOptions) validateAnalyzeOptions() error {
 	if *options.DBName == "" {
 		return fmt.Errorf("database name must be provided")
 	}
-	return nil
+	return options.analyzeOptions()
 }
 
 func (vcc VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
@@ -66,28 +66,12 @@ func (vcc VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
 	// Analyze to produce vdb info for drop db use
 	vdb := makeVCoordinationDatabase()
 
-	// TODO: this currently requires a config file to exist. We should allow
-	// drop to proceed with just options provided and no config file.
-
-	dbConfig, err := ReadConfig(options.ConfigPath, vcc.Log)
-	if err != nil {
-		return err
-	}
-	options.Config = dbConfig
-
-	// set db name and hosts
-	err = options.setDBNameAndHosts()
+	err := options.validateAnalyzeOptions()
 	if err != nil {
 		return err
 	}
 
-	// load vdb info from the YAML config file.
-	err = vdb.setFromClusterConfig(*options.DBName, dbConfig)
-	if err != nil {
-		return err
-	}
-
-	err = options.validateAnalyzeOptions()
+	err = vdb.setFromBasicDBOptions(&options.VCreateDatabaseOptions)
 	if err != nil {
 		return err
 	}
@@ -106,14 +90,6 @@ func (vcc VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to drop database: %w", runError)
-	}
-
-	// if the database is successfully dropped, the config file will be removed
-	// if failed to remove it, we will ask users to manually do it
-	err = dbConfig.removeConfigFile(options.ConfigPath, vcc.Log)
-	if err != nil {
-		vcc.Log.PrintWarning("Fail to remove config file %q, "+
-			"please manually do it. Details: %v", options.ConfigPath, err)
 	}
 
 	return nil

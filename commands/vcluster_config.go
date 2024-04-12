@@ -159,13 +159,13 @@ func loadConfigToViper() error {
 	dbConfig := MakeDatabaseConfig()
 	err = viper.Unmarshal(&dbConfig)
 	if err != nil {
-		fmt.Printf("Warning: fail to unmarshal config file into DatabaseConfig: %v\n", err)
+		fmt.Printf("Warning: fail to unmarshal configuration file into DatabaseConfig: %v\n", err)
 		return nil
 	}
 
 	// if we can read config file, check if dbName in user input matches the one in config file
 	if viper.IsSet(dbNameKey) && dbConfig.Name != viper.GetString(dbNameKey) {
-		return fmt.Errorf("database %q does not match name found in the config file %q", dbConfig.Name, viper.GetString(dbNameKey))
+		return fmt.Errorf("database %q does not match name found in the configuration file %q", dbConfig.Name, viper.GetString(dbNameKey))
 	}
 
 	// hosts, catalogPrefix, dataPrefix, depotPrefix are special in config file,
@@ -190,7 +190,7 @@ func loadConfigToViper() error {
 // It will be called in the end of some subcommands that will change the db state.
 func writeConfig(vdb *vclusterops.VCoordinationDatabase, logger vlog.Printer) error {
 	if dbOptions.ConfigPath == "" {
-		return fmt.Errorf("config path is empty")
+		return fmt.Errorf("configuration file path is empty")
 	}
 
 	dbConfig, err := readVDBToDBConfig(vdb)
@@ -212,6 +212,22 @@ func writeConfig(vdb *vclusterops.VCoordinationDatabase, logger vlog.Printer) er
 	}
 
 	return nil
+}
+
+// removeConfig remove the config file vertica_cluster.yaml.
+// It will be called in the end of drop_db subcommands.
+func removeConfig(logger vlog.Printer) error {
+	if dbOptions.ConfigPath == "" {
+		return fmt.Errorf("configuration file path is empty")
+	}
+	// back up the old config file
+	err := backupConfigFile(dbOptions.ConfigPath, logger)
+	if err != nil {
+		return err
+	}
+
+	// remove the old db config
+	return os.Remove(dbOptions.ConfigPath)
 }
 
 // readVDBToDBConfig converts vdb to DatabaseConfig
@@ -262,7 +278,7 @@ func backupConfigFile(configFilePath string, logger vlog.Printer) error {
 		// copy file to vertica_cluster.yaml.backup
 		configDirPath := filepath.Dir(configFilePath)
 		configFileBackup := filepath.Join(configDirPath, configBackupName)
-		logger.Info("Config file exists and, creating a backup", "config file", configFilePath,
+		logger.Info("Configuration file exists and, creating a backup", "config file", configFilePath,
 			"backup file", configFileBackup)
 		err := util.CopyFile(configFilePath, configFileBackup, configFilePerm)
 		if err != nil {
@@ -279,17 +295,17 @@ func readConfig() (dbConfig *DatabaseConfig, err error) {
 	configFilePath := dbOptions.ConfigPath
 
 	if configFilePath == "" {
-		return nil, fmt.Errorf("no config file provided")
+		return nil, fmt.Errorf("configuration file path is empty")
 	}
 	configBytes, err := os.ReadFile(configFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("fail to read config file, details: %w", err)
+		return nil, fmt.Errorf("fail to read configuration file, details: %w", err)
 	}
 
 	var config Config
 	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
-		return nil, fmt.Errorf("fail to unmarshal config file, details: %w", err)
+		return nil, fmt.Errorf("fail to unmarshal configuration file, details: %w", err)
 	}
 
 	return &config.Database, nil
@@ -306,11 +322,11 @@ func (c *DatabaseConfig) write(configFilePath string) error {
 
 	configBytes, err := yaml.Marshal(&config)
 	if err != nil {
-		return fmt.Errorf("fail to marshal config data, details: %w", err)
+		return fmt.Errorf("fail to marshal configuration data, details: %w", err)
 	}
 	err = os.WriteFile(configFilePath, configBytes, configFilePerm)
 	if err != nil {
-		return fmt.Errorf("fail to write config file, details: %w", err)
+		return fmt.Errorf("fail to write configuration file, details: %w", err)
 	}
 
 	return nil

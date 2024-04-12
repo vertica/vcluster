@@ -71,13 +71,13 @@ func (o *VRemoveScOptions) validatePathOptions() error {
 	return util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
 }
 
-func (o *VRemoveScOptions) validateParseOptions(config *DatabaseConfig, logger vlog.Printer) error {
+func (o *VRemoveScOptions) validateParseOptions(logger vlog.Printer) error {
 	err := o.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
 
-	err = o.validateEonOptions(config)
+	err = o.validateEonOptions()
 	if err != nil {
 		return err
 	}
@@ -85,14 +85,8 @@ func (o *VRemoveScOptions) validateParseOptions(config *DatabaseConfig, logger v
 	return o.validatePathOptions()
 }
 
-func (o *VRemoveScOptions) validateEonOptions(config *DatabaseConfig) error {
-	isEon, err := o.isEonMode(config)
-	if err != nil {
-		return err
-	}
-
-	if !isEon && config != nil {
-		// config file confirms that the db is not Eon
+func (o *VRemoveScOptions) validateEonOptions() error {
+	if !o.IsEon {
 		return fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
 			*o.DBName)
 	}
@@ -103,7 +97,7 @@ func (o *VRemoveScOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(o.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.OldIpv6.ToBool())
+		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.IPv6)
 		if err != nil {
 			return err
 		}
@@ -112,8 +106,8 @@ func (o *VRemoveScOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (o *VRemoveScOptions) validateAnalyzeOptions(config *DatabaseConfig, logger vlog.Printer) error {
-	if err := o.validateParseOptions(config, logger); err != nil {
+func (o *VRemoveScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := o.validateParseOptions(logger); err != nil {
 		return err
 	}
 	err := o.analyzeOptions()
@@ -131,20 +125,8 @@ func (o *VRemoveScOptions) validateAnalyzeOptions(config *DatabaseConfig, logger
 func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 
-	// set db name and hosts
-	err := removeScOpt.setDBNameAndHosts()
-	if err != nil {
-		return vdb, err
-	}
-
-	// get depot, data and catalog prefix from config file or options
-	*removeScOpt.DepotPrefix, *removeScOpt.DataPrefix, err = removeScOpt.getDepotAndDataPrefix(removeScOpt.Config)
-	if err != nil {
-		return vdb, err
-	}
-
 	// validate and analyze options
-	err = removeScOpt.validateAnalyzeOptions(removeScOpt.Config, vcc.Log)
+	err := removeScOpt.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
 	}

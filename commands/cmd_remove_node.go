@@ -37,11 +37,10 @@ type CmdRemoveNode struct {
 func makeCmdRemoveNode() *cobra.Command {
 	// CmdRemoveNode
 	newCmd := &CmdRemoveNode{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VRemoveNodeOptionsFactory()
 	newCmd.removeNodeOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		removeNodeSubCmd,
 		"Remove host(s) from an existing database",
@@ -62,11 +61,8 @@ Examples:
   vcluster db_remove_node --db-name test_db --remove 10.20.30.42 \
     --hosts 10.20.30.40 --data-path /data
 `,
+		[]string{dbNameFlag, configFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag, passwordFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, dataPathFlag,
-		depotPathFlag, passwordFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -100,7 +96,7 @@ func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.removeNodeOptions.DatabaseOptions)
 	return c.validateParse(logger)
 }
 
@@ -142,25 +138,18 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.removeNodeOptions
 
-	// get config from vertica_cluster.yaml
-	config, err := c.removeNodeOptions.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-
 	vdb, err := vcc.VRemoveNode(options)
 	if err != nil {
 		return err
 	}
+
+	// write db info to vcluster config file
+	err = writeConfig(&vdb, vcc.GetLog())
+	if err != nil {
+		vcc.PrintWarning("fail to write config file, details: %s", err)
+	}
 	vcc.PrintInfo("Successfully removed nodes %v from database %s", c.removeNodeOptions.HostsToRemove, *options.DBName)
 
-	// write cluster information to the YAML config file.
-	err = vdb.WriteClusterConfig(options.ConfigPath, vcc.GetLog())
-	if err != nil {
-		vcc.PrintWarning("failed to write config file, details: %s", err)
-	}
-	vcc.PrintInfo("Successfully updated config file")
 	return nil
 }
 

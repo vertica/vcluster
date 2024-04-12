@@ -147,7 +147,7 @@ func (c *CmdStartReplication) Parse(inputArgv []string, logger vlog.Printer) err
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.startRepOptions.DatabaseOptions)
 
 	// replication only works for an Eon db
 	// When eon mode cannot be found in config file, we set its value to true

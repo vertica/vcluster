@@ -39,11 +39,10 @@ type CmdInstallPackages struct {
 func makeCmdInstallPackages() *cobra.Command {
 	// CmdInstallPackages
 	newCmd := &CmdInstallPackages{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VInstallPackagesOptionsFactory()
 	newCmd.installPkgOpts = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		installPkgSubCmd,
 		"Install default package(s) in database",
@@ -61,11 +60,8 @@ Examples:
   vcluster install_packages --db-name test_db --force-reinstall \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
+		[]string{dbNameFlag, configFlag, hostsFlag, passwordFlag, outputFileFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, passwordFlag,
-		outputFileFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -90,7 +86,7 @@ func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) erro
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.installPkgOpts.DatabaseOptions)
 
 	return c.validateParse()
 }
@@ -116,15 +112,7 @@ func (c *CmdInstallPackages) Analyze(_ vlog.Printer) error {
 func (c *CmdInstallPackages) Run(vcc vclusterops.ClusterCommands) error {
 	options := c.installPkgOpts
 
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-
-	var status *vclusterops.InstallPackageStatus
-	status, err = vcc.VInstallPackages(options)
+	status, err := vcc.VInstallPackages(options)
 	if err != nil {
 		vcc.LogError(err, "failed to install the packages")
 		return err

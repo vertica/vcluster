@@ -117,7 +117,7 @@ func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.stopDBOptions.DatabaseOptions)
 
 	if !c.parser.Changed("drain-seconds") {
 		c.stopDBOptions.DrainSeconds = nil

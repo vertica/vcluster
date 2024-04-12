@@ -33,11 +33,10 @@ type CmdShowRestorePoints struct {
 func makeCmdShowRestorePoints() *cobra.Command {
 	// CmdShowRestorePoints
 	newCmd := &CmdShowRestorePoints{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VShowRestorePointsFactory()
 	newCmd.showRestorePointsOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		showRestorePointsSubCmd,
 		"Query and list restore point(s) in archive(s)",
@@ -78,11 +77,9 @@ Examples:
     --start-timestamp 2024-03-04 08:32:33.277569 \
     --end-timestamp 2024-03-04 08:32:34.176391
 `,
+		[]string{dbNameFlag, configFlag, passwordFlag, hostsFlag,
+			communalStorageLocationFlag, configParamFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, passwordFlag, hostsFlag,
-		communalStorageLocationFlag, configParamFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -131,7 +128,7 @@ func (c *CmdShowRestorePoints) Parse(inputArgv []string, logger vlog.Printer) er
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.showRestorePointsOptions.DatabaseOptions)
 
 	return c.validateParse(logger)
 }
@@ -160,11 +157,6 @@ func (c *CmdShowRestorePoints) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 
 	options := c.showRestorePointsOptions
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
 
 	restorePoints, err := vcc.VShowRestorePoints(options)
 	if err != nil {

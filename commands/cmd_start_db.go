@@ -40,13 +40,11 @@ type CmdStartDB struct {
 func makeCmdStartDB() *cobra.Command {
 	// CmdStartDB
 	newCmd := &CmdStartDB{}
-	newCmd.isEon = new(bool)
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VStartDatabaseOptionsFactory()
 	newCmd.startDBOptions = &opt
 	newCmd.startDBOptions.CommunalStorageLocation = new(string)
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		startDBSubCmd,
 		"Start a database",
@@ -69,11 +67,9 @@ Examples:
   vcluster start_db --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
+		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag,
+			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, communalStorageLocationFlag,
-		configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -141,16 +137,7 @@ func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
 
-	// remove eonModeFlag check in VER-92369
-	// for some options, we do not want to use their default values,
-	// if they are not provided in cli,
-	// reset the value of those options to nil
-	if !c.parser.Changed(eonModeFlag) {
-		c.CmdBase.isEon = nil
-	} else {
-		*c.CmdBase.isEon = true
-	}
-	c.OldResetUserInputOptions()
+	c.ResetUserInputOptions(&c.startDBOptions.DatabaseOptions)
 	return c.validateParse(logger)
 }
 
@@ -174,16 +161,6 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.startDBOptions
 
-	// VER-92369 should clean up the block below
-	// as the GetDBConfig function will be removed
-	// load vdb info from the YAML config file
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-
 	vdb, err := vcc.VStartDatabase(options)
 	if err != nil {
 		vcc.LogError(err, "failed to start the database")
@@ -193,7 +170,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.PrintInfo("Successfully start the database %s", *options.DBName)
 
 	// for Eon database, update config file to fill nodes' subcluster information
-	if options.OldIsEon.ToBool() {
+	if options.IsEon {
 		// write db info to vcluster config file
 		err := writeConfig(vdb, vcc.GetLog())
 		if err != nil {

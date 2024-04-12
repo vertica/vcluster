@@ -74,7 +74,7 @@ func (o *VRemoveNodeOptions) validateParseOptions(log vlog.Printer) error {
 }
 
 func (o *VRemoveNodeOptions) analyzeOptions() (err error) {
-	o.HostsToRemove, err = util.ResolveRawHostsToAddresses(o.HostsToRemove, o.OldIpv6.ToBool())
+	o.HostsToRemove, err = util.ResolveRawHostsToAddresses(o.HostsToRemove, o.IPv6)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (o *VRemoveNodeOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(o.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.OldIpv6.ToBool())
+		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.IPv6)
 		if err != nil {
 			return err
 		}
@@ -105,24 +105,8 @@ func (o *VRemoveNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
 func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {
 	vdb := makeVCoordinationDatabase()
 
-	// set db name and hosts
-	err := options.setDBNameAndHosts()
-	if err != nil {
-		return vdb, err
-	}
-
-	// get depot, data and catalog prefix from config file or options
-	*options.DepotPrefix, *options.DataPrefix, err = options.getDepotAndDataPrefix(options.Config)
-	if err != nil {
-		return vdb, err
-	}
-	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
-	if err != nil {
-		return vdb, err
-	}
-
 	// validate and analyze options
-	err = options.validateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
 	}
@@ -512,7 +496,7 @@ func (vcc VClusterCommands) findRemovedNodesInCatalog(options *VRemoveNodeOption
 	fetchNodeStateOpt := VFetchNodeStateOptionsFactory()
 	fetchNodeStateOpt.DBName = options.DBName
 	fetchNodeStateOpt.RawHosts = remainingHosts
-	fetchNodeStateOpt.OldIpv6 = options.OldIpv6
+	fetchNodeStateOpt.IPv6 = options.IPv6
 	fetchNodeStateOpt.UserName = options.UserName
 	fetchNodeStateOpt.Password = options.Password
 

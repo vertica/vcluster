@@ -63,7 +63,7 @@ func (options *VSandboxOptions) analyzeOptions() (err error) {
 	// we analyze hostnames when it is set in user input, otherwise we use hosts in yaml config
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func (options *VSandboxOptions) analyzeOptions() (err error) {
 
 	// resolve SCRawHosts to be IP addresses
 	if len(options.SCRawHosts) > 0 {
-		options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.OldIpv6.ToBool())
+		options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -160,7 +160,6 @@ func (vcc VClusterCommands) VSandbox(options *VSandboxOptions) error {
 // sandboxInterface is an interface that will be used by runSandboxCmd().
 // The purpose of this interface is to avoid code duplication.
 type sandboxInterface interface {
-	setDBNameAndHosts() error
 	ValidateAnalyzeOptions(vcc VClusterCommands) error
 	runCommand(vcc VClusterCommands) error
 }
@@ -188,13 +187,8 @@ func (options *VSandboxOptions) runCommand(vcc VClusterCommands) error {
 // runSandboxCmd is a help function to run sandbox/unsandbox command.
 // It can avoid code duplication between VSandbox and VUnsandbox.
 func runSandboxCmd(vcc VClusterCommands, i sandboxInterface) error {
-	err := i.setDBNameAndHosts()
-	if err != nil {
-		return err
-	}
-
 	// check required options
-	err = i.ValidateAnalyzeOptions(vcc)
+	err := i.ValidateAnalyzeOptions(vcc)
 	if err != nil {
 		vcc.Log.Error(err, "failed to validate the options")
 		return err

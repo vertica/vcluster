@@ -15,12 +15,7 @@ limitations under the License.
 package commands
 
 func init() {
-	// move below memory allocation code to setDefaultValues() in
-	// vcluster_database_options.go in VER-92369
-	// allocate memory to Password and LogPath for flags parse
 	dbOptions.Password = new(string)
-	dbOptions.LogPath = new(string)
-
 	// set the log path depending on executable path
 	setLogPath()
 

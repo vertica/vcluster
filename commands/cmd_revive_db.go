@@ -36,12 +36,11 @@ type CmdReviveDB struct {
 func makeCmdReviveDB() *cobra.Command {
 	// CmdReviveDB
 	newCmd := &CmdReviveDB{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VReviveDBOptionsFactory()
 	newCmd.reviveDBOptions = &opt
 	newCmd.reviveDBOptions.CommunalStorageLocation = new(string)
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		reviveDBSubCmd,
 		"Revive a database",
@@ -53,7 +52,7 @@ If access to communal storage requires access keys, these can be provided
 through the --config-param option.
 
 You must also specify a set of hosts that matches the number of hosts when the
-database was running. You can omit the hosts only if --diplays-only
+database was running. You can omit the hosts only if --display-only
 is specified.
 
 The name of the database must be provided.
@@ -64,7 +63,7 @@ by either --restore-point-index or --restore-point-id (not both).
 
 Examples:
   # Revive a database with user input and save the generated config file
-  # under given directory
+  # under the given directory
   vcluster revive_db --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --communal-storage-location /communal \
@@ -82,11 +81,8 @@ Examples:
     --ignore-cluster-lease --restore-point-archive db --restore-point-index 1
 
 `,
+		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag, configFlag, outputFileFlag, configParamFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, communalStorageLocationFlag,
-		configFlag, outputFileFlag, configParamFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -152,13 +148,6 @@ func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogArgParse(&c.argv)
 
-	// for some options, we do not want to use their default values,
-	// if they are not provided in cli,
-	// reset the value of those options to nil
-	if !c.parser.Changed(ipv6Flag) {
-		c.ipv6 = nil
-	}
-
 	return c.validateParse(logger)
 }
 
@@ -192,7 +181,8 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 		return nil
 	}
 
-	err = vdb.WriteClusterConfig(c.reviveDBOptions.ConfigPath, vcc.GetLog())
+	// write db info to vcluster config file
+	err = writeConfig(vdb, vcc.GetLog())
 	if err != nil {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}

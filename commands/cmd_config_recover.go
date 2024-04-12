@@ -46,7 +46,7 @@ func makeCmdConfigRecover() *cobra.Command {
 		"recover the content of the config file",
 		`This subcommand is used to recover the content of the config file.
 
-You must provide the all hosts that participate in the database.
+You must provide all the hosts that participate in the database.
 
 If there is an existing file at the provided config file location, the recover function
 will not create a new config file unless you explicitly specify --overwrite.

@@ -102,7 +102,7 @@ func (op *nmaBootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 		}
 		bootstrapData.SpreadLogging = *options.SpreadLogging
 		bootstrapData.SpreadLoggingLevel = *options.SpreadLoggingLevel
-		bootstrapData.Ipv6 = options.OldIpv6.ToBool()
+		bootstrapData.Ipv6 = options.IPv6
 		bootstrapData.SuperuserName = *options.UserName
 		bootstrapData.DBPassword = *options.Password
 

@@ -22,7 +22,6 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"golang.org/x/exp/slices"
 )
 
@@ -37,8 +36,6 @@ type DatabaseOptions struct {
 	Hosts []string
 	// whether using IPv6 for host addresses
 	IPv6 bool
-	// remove OldIpv6 in VER-92369
-	OldIpv6 vstruct.NullableBool
 	// path of catalog directory
 	CatalogPrefix *string
 	// path of data directory
@@ -52,8 +49,6 @@ type DatabaseOptions struct {
 	DepotPrefix *string
 	// whether the database is in Eon mode
 	IsEon bool
-	// remove OldIsEon in VER-92369
-	OldIsEon vstruct.NullableBool
 	// path of the communal storage
 	CommunalStorageLocation *string
 	// database configuration parameters
@@ -78,10 +73,6 @@ type DatabaseOptions struct {
 	LogPath *string
 	// whether use password
 	usePassword bool
-
-	// remove Config in VER-92369
-	// pointer to the db config object
-	Config *DatabaseConfig
 }
 
 const (
@@ -126,10 +117,9 @@ func (opt *DatabaseOptions) setDefaultValues() {
 	opt.DataPrefix = new(string)
 	opt.DepotPrefix = new(string)
 	opt.UserName = new(string)
-	opt.OldIpv6 = vstruct.NotSet
-	opt.OldIsEon = vstruct.NotSet
 	opt.CommunalStorageLocation = new(string)
 	opt.ConfigurationParameters = make(map[string]string)
+	opt.LogPath = new(string)
 }
 
 func (opt *DatabaseOptions) checkNilPointerParams() error {
@@ -237,8 +227,7 @@ func (opt *DatabaseOptions) validatePaths(commandName string) error {
 	}
 
 	// depot prefix
-	// remove `|| opt.OldIsEon == vstruct.True` in VER-92369
-	if opt.IsEon || opt.OldIsEon == vstruct.True {
+	if opt.IsEon {
 		err = util.ValidateRequiredAbsPath(opt.DepotPrefix, "depot path")
 		if err != nil {
 			return err
@@ -300,175 +289,6 @@ func (opt *DatabaseOptions) setUsePassword(log vlog.Printer) error {
 	}
 
 	return nil
-}
-
-// remove this function in VER-92369
-// isEonMode can choose the right eon mode from user input and config file
-func (opt *DatabaseOptions) isEonMode(config *DatabaseConfig) (bool, error) {
-	// if eon mode is set in user input, we use the value in user input
-	if opt.OldIsEon != vstruct.NotSet {
-		return opt.OldIsEon.ToBool(), nil
-	}
-
-	// when config file is not available, we do not return an error because we want
-	// to delay eon mode check in each command's validateAnalyzeOptions(), which is
-	// a central place to check all the options.
-	if config == nil {
-		return opt.OldIsEon.ToBool(), nil
-	}
-
-	// if db name from user input is different than the one in config file,
-	// we throw an error
-	if *opt.DBName != "" && config.Name != *opt.DBName {
-		return false, cannotFindDBFromConfigErr(*opt.DBName)
-	}
-
-	isEon := config.IsEon
-	return isEon, nil
-}
-
-// remove this function in VER-92369
-// setNameAndHosts can assign the right dbName and hosts to DatabaseOptions
-func (opt *DatabaseOptions) setDBNameAndHosts() error {
-	dbName, hosts, err := opt.getNameAndHosts(opt.Config)
-	if err != nil {
-		return err
-	}
-	opt.DBName = &dbName
-	opt.Hosts = hosts
-	return nil
-}
-
-// remove this function in VER-92369
-// getNameAndHosts can choose the right dbName and hosts from user input and config file
-func (opt *DatabaseOptions) getNameAndHosts(config *DatabaseConfig) (dbName string, hosts []string, err error) {
-	// DBName is now a required flag, we always get it from user input
-	dbName = opt.getDBName(config)
-	if dbName == "" {
-		return dbName, hosts, fmt.Errorf("must specify a database name")
-	}
-	hosts, err = opt.getHosts(config)
-	return dbName, hosts, err
-}
-
-// remove this function in VER-92369
-// getDBName chooses the right db name from user input and config file
-func (opt *DatabaseOptions) getDBName(config *DatabaseConfig) string {
-	// if db name is set in user input, we use the value in user input
-	if *opt.DBName != "" {
-		return *opt.DBName
-	}
-
-	if config == nil {
-		return ""
-	}
-
-	return config.Name
-}
-
-// remove this function in VER-92369
-// getHosts chooses the right hosts from user input and config file
-func (opt *DatabaseOptions) getHosts(config *DatabaseConfig) (hosts []string, err error) {
-	// if Hosts is set in user input, we use the value in user input
-	if len(opt.Hosts) > 0 {
-		return opt.Hosts, nil
-	}
-
-	// when config file is not available, we do not return an error because we want
-	// to delay hosts check in each command's validateAnalyzeOptions(), which is
-	// a central place to check all the options.
-	if config == nil {
-		return opt.Hosts, nil
-	}
-
-	// if db name from user input is different than the one in config file,
-	// we throw an error
-	if *opt.DBName != "" && config.Name != *opt.DBName {
-		return hosts, cannotFindDBFromConfigErr(*opt.DBName)
-	}
-
-	hosts = config.getHosts()
-	return hosts, nil
-}
-
-// remove this function in VER-92369
-// getCatalogPrefix can choose the right catalog prefix from user input and config file
-func (opt *DatabaseOptions) getCatalogPrefix(config *DatabaseConfig) (catalogPrefix *string, err error) {
-	// when config file is not available, we use user input
-	if config == nil {
-		return opt.CatalogPrefix, nil
-	}
-
-	catalogPrefix = new(string)
-	*catalogPrefix, _, _, err = config.getPathPrefix(*opt.DBName)
-	if err != nil {
-		return catalogPrefix, err
-	}
-
-	// if CatalogPrefix is set in user input, we use the value in user input
-	if *opt.CatalogPrefix != "" {
-		catalogPrefix = opt.CatalogPrefix
-	}
-	return catalogPrefix, nil
-}
-
-// remove this function in VER-92369
-// getCommunalStorageLocation can choose the right communal storage location from user input and config file
-func (opt *DatabaseOptions) getCommunalStorageLocation(config *DatabaseConfig) (communalStorageLocation *string, err error) {
-	// when config file is not available, we use user input
-	if config == nil {
-		return opt.CommunalStorageLocation, nil
-	}
-
-	communalStorageLocation = new(string)
-	*communalStorageLocation, err = config.getCommunalStorageLocation(*opt.DBName)
-	if err != nil {
-		return communalStorageLocation, err
-	}
-
-	// if CommunalStorageLocation is set in user input, we use the value in user input
-	if *opt.CommunalStorageLocation != "" {
-		communalStorageLocation = opt.CommunalStorageLocation
-	}
-	return communalStorageLocation, nil
-}
-
-// remove this function in VER-92369
-// getDepotAndDataPrefix chooses the right depot/data prefix from user input and config file.
-func (opt *DatabaseOptions) getDepotAndDataPrefix(
-	config *DatabaseConfig) (depotPrefix, dataPrefix string, err error) {
-	if config == nil {
-		return *opt.DepotPrefix, *opt.DataPrefix, nil
-	}
-
-	_, dataPrefix, depotPrefix, err = config.getPathPrefix(*opt.DBName)
-	if err != nil {
-		return "", "", err
-	}
-
-	// if DepotPrefix and DataPrefix are set in user input, we use the value in user input
-	if *opt.DepotPrefix != "" {
-		depotPrefix = *opt.DepotPrefix
-	}
-	if *opt.DataPrefix != "" {
-		dataPrefix = *opt.DataPrefix
-	}
-	return depotPrefix, dataPrefix, nil
-}
-
-// remove this function in VER-92369
-// GetDBConfig reads database configurations from the config file into a DatabaseConfig struct.
-// It returns the DatabaseConfig and any error encountered.
-func (opt *DatabaseOptions) GetDBConfig(vcc ClusterCommands) (config *DatabaseConfig, err error) {
-	config, err = ReadConfig(opt.ConfigPath, vcc.GetLog())
-	if err != nil {
-		// when we cannot read config file, config points to an empty DatabaseConfig with default values
-		// we want to reset config to nil so we will use user input later rather than those default values
-		config = nil
-		vcc.PrintWarning("Failed to read %s, details: %v", opt.ConfigPath, err)
-	}
-
-	return config, nil
 }
 
 // normalizePaths replaces all '//' to be '/', and trim

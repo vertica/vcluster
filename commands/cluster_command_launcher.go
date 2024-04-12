@@ -198,7 +198,6 @@ type cmdInterface interface {
 	Run(vcc vclusterops.ClusterCommands) error
 	SetDatabaseOptions(opt *vclusterops.DatabaseOptions)
 	SetParser(parser *pflag.FlagSet)
-	SetIPv6(cmd *cobra.Command)
 	setCommonFlags(cmd *cobra.Command, flags []string)
 	initCmdOutputFile() (*os.File, error)
 }
@@ -399,19 +398,8 @@ func makeBasicCobraCmd(i cmdInterface, use, short, long string, commonFlags []st
 			return nil
 		},
 	}
-	// remove length check of commonFlags in VER-92369
-	if len(commonFlags) > 0 {
-		i.setCommonFlags(cmd, commonFlags)
-	}
-	return cmd
-}
+	i.setCommonFlags(cmd, commonFlags)
 
-// remove this function in VER-92369
-// OldMakeBasicCobraCmd can make a basic cobra command for all vcluster commands.
-// It will be called inside cmd_create_db.go, cmd_stop_db.go, ...
-func OldMakeBasicCobraCmd(i cmdInterface, use, short, long string) *cobra.Command {
-	cmd := makeBasicCobraCmd(i, use, short, long, []string{})
-	i.SetIPv6(cmd)
 	return cmd
 }
 

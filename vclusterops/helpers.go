@@ -264,10 +264,6 @@ func getInitiatorFromUpHosts(upHosts, userProvidedHosts []string) string {
 	return ""
 }
 
-func cannotFindDBFromConfigErr(dbName string) error {
-	return fmt.Errorf("database %s cannot be found in the config file", dbName)
-}
-
 // validates each host has an entry in each map
 func validateHostMaps(hosts []string, maps ...map[string]string) error {
 	var allErrors error

@@ -39,9 +39,6 @@ type CmdBase struct {
 	argv   []string
 	parser *pflag.FlagSet
 
-	// remove below two fields in VER-92369
-	isEon *bool // need further processing to see if the user inputted this flag or not
-	ipv6  *bool // need further processing to see if the user inputted this flag or not
 	// for some commands like list_allnodes, we want to allow the output to be written
 	// to a file instead of being displayed in stdout. This is the file the output will
 	// be written to
@@ -60,12 +57,6 @@ func (c *CmdBase) ValidateParseBaseOptions(opt *vclusterops.DatabaseOptions) err
 		}
 	}
 
-	// remove IsEon and Ipv6 process below in VER-92369
-	// parse IsEon
-	opt.OldIsEon.FromBoolPointer(c.isEon)
-	// parse Ipv6
-	opt.OldIpv6.FromBoolPointer(c.ipv6)
-
 	return nil
 }
 
@@ -74,19 +65,11 @@ func (c *CmdBase) SetParser(parser *pflag.FlagSet) {
 	c.parser = parser
 }
 
-// remove this function in VER-92369
-// SetIPv6 can create the flag --ipv6 for a cobra command
-func (c *CmdBase) SetIPv6(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(
-		c.ipv6,
-		ipv6Flag,
-		false,
-		"Whether the hosts are using IPv6 addresses",
-	)
-}
-
 // setCommonFlags is a helper function to let subcommands set some shared flags among them
 func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
+	if len(flags) == 0 {
+		return
+	}
 	setConfigFlags(cmd, flags)
 	if util.StringInArray(passwordFlag, flags) {
 		c.setPasswordFlags(cmd)
@@ -218,7 +201,7 @@ func setConfigFlags(cmd *cobra.Command, flags []string) {
 			eonModeFlag,
 			false,
 			util.GetEonFlagMsg("indicate if the database is an Eon db."+
-				" Use it when you do not trust "+vclusterops.ConfigFileName))
+				" Use it when you do not trust the configuration file"))
 	}
 	if util.StringInArray(configParamFlag, flags) {
 		cmd.Flags().StringToStringVar(
@@ -260,15 +243,6 @@ func (c *CmdBase) setPasswordFlags(cmd *cobra.Command) {
 func (c *CmdBase) ResetUserInputOptions(opt *vclusterops.DatabaseOptions) {
 	if !c.parser.Changed(passwordFlag) {
 		opt.Password = nil
-	}
-}
-
-// remove this function in VER-92369
-// OldResetUserInputOptions reset password and ipv6 options to nil in each command
-// if they are not provided in cli
-func (c *CmdBase) OldResetUserInputOptions() {
-	if !c.parser.Changed(ipv6Flag) {
-		c.ipv6 = nil
 	}
 }
 

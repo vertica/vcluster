@@ -43,7 +43,7 @@ func (options *VInstallPackagesOptions) analyzeOptions() (err error) {
 	// we analyze hostnames when it is set in user input, otherwise we use hosts in yaml config
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -66,14 +66,8 @@ func (vcc VClusterCommands) VInstallPackages(options *VInstallPackagesOptions) (
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// set db name and hosts
-	err := options.setDBNameAndHosts()
-	if err != nil {
-		return nil, err
-	}
-
 	// validate and analyze all options
-	err = options.validateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return nil, err
 	}

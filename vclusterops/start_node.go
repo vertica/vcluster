@@ -75,7 +75,7 @@ func (options *VStartNodesOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func (options *VStartNodesOptions) analyzeOptions() (err error) {
 func (options *VStartNodesOptions) ParseNodesList(rawNodeMap map[string]string) error {
 	options.Nodes = make(map[string]string)
 	for k, v := range rawNodeMap {
-		ip, err := util.ResolveToOneIP(v, options.OldIpv6.ToBool())
+		ip, err := util.ResolveToOneIP(v, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -143,19 +143,13 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// set db name and hosts
-	err := options.setDBNameAndHosts()
-	if err != nil {
-		return err
-	}
-
 	// set default value to StatePollingTimeout
 	if options.StatePollingTimeout == 0 {
 		options.StatePollingTimeout = util.DefaultStatePollingTimeout
 	}
 
 	// validate and analyze options
-	err = options.validateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}

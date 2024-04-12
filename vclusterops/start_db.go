@@ -86,7 +86,7 @@ func (options *VStartDatabaseOptions) analyzeOptions() (err error) {
 	// we analyze hostnames when it is set in user input, otherwise we use hosts in yaml config
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -108,30 +108,6 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	// set db name and hosts
-	err = options.setDBNameAndHosts()
-	if err != nil {
-		return nil, err
-	}
-
-	isEon, err := options.isEonMode(options.Config)
-	if err != nil {
-		return nil, err
-	}
-	options.OldIsEon.FromBoolPointer(&isEon)
-
-	options.CatalogPrefix, err = options.getCatalogPrefix(options.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	if isEon {
-		options.CommunalStorageLocation, err = options.getCommunalStorageLocation(options.Config)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// set default value to StatePollingTimeout
 	if *options.StatePollingTimeout == 0 {
 		*options.StatePollingTimeout = util.DefaultStatePollingTimeout
@@ -147,7 +123,7 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	// from the config file
 	var vdb VCoordinationDatabase
 	// retrieve database information from cluster_config.json for Eon databases
-	if isEon {
+	if options.IsEon {
 		const warningMsg = " for an Eon database, start_db after revive_db could fail " +
 			"because we cannot retrieve the correct database information"
 		if *options.CommunalStorageLocation != "" {
@@ -348,7 +324,7 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 		&httpsPollNodeStateOp,
 	)
 
-	if options.OldIsEon.ToBool() {
+	if options.IsEon {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, *options.UserName, options.Password, StartDBSyncCat)
 		if err != nil {
 			return instructions, err

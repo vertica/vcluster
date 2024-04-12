@@ -162,7 +162,7 @@ func (options *VScrutinizeOptions) analyzeOptions(logger vlog.Printer) (err erro
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.OldIpv6.ToBool())
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
@@ -186,23 +186,8 @@ func (options *VScrutinizeOptions) ValidateAnalyzeOptions(logger vlog.Printer) e
 }
 
 func (vcc VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
-	// fill in vars from cluster config if necessary
-	err := options.setDBNameAndHosts()
-	if err != nil {
-		vcc.Log.Error(err, "failed to retrieve info from cluster config for database",
-			"dbname", *options.DBName)
-		return err
-	}
-	catPrefix, err := options.getCatalogPrefix(options.Config)
-	if err != nil {
-		vcc.Log.Error(err, "failed to retrieve info from cluster config for database",
-			"dbname", *options.DBName)
-		return err
-	}
-	options.CatalogPrefix = catPrefix
-
 	// check required options (including those that can come from cluster config)
-	err = options.ValidateAnalyzeOptions(vcc.Log)
+	err := options.ValidateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "validation of scrutinize arguments failed")
 		return err

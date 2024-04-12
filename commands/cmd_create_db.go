@@ -51,8 +51,7 @@ You must specify the database name, host list, catalog path, and data path.
 If --config is not provided, a configuration file is created in one of the
 following locations, in order of precedence:
 - path set in VCLUSTER_CONFIG environment variable
-- if running vcluster from /opt/vertica/bin, in
-  /opt/vertica/config/vertica_config.yaml
+- /opt/vertica/config/vertica_config.yaml if running vcluster from /opt/vertica/bin
 - $HOME/.config/vcluster/vertica_config.yaml
 
 You can pass --config-param a comma-separated list of NAME=VALUE pairs to set

@@ -36,11 +36,10 @@ type CmdReIP struct {
 
 func makeCmdReIP() *cobra.Command {
 	newCmd := &CmdReIP{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VReIPFactory()
 	newCmd.reIPOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		reIPSubCmd,
 		"Re-ip database nodes",
@@ -67,10 +66,8 @@ Examples:
   vcluster re_ip --db-name test_db --re-ip-file /data/re_ip_map.json \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
+		[]string{dbNameFlag, hostsFlag, catalogPathFlag, configParamFlag, configFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, hostsFlag, catalogPathFlag, configParamFlag, configFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -126,14 +123,6 @@ func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.LogInfo("fail to read config file: %v", err)
 		canUpdateConfig = false
 	}
-
-	// VER-92369 should clean up the block below
-	// as the GetDBConfig function will be removed
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
 
 	err = vcc.VReIP(options)
 	if err != nil {

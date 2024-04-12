@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -41,11 +42,10 @@ type CmdAddSubcluster struct {
 func makeCmdAddSubcluster() *cobra.Command {
 	// CmdAddSubcluster
 	newCmd := &CmdAddSubcluster{}
-	newCmd.ipv6 = new(bool)
 	opt := vclusterops.VAddSubclusterOptionsFactory()
 	newCmd.addSubclusterOptions = &opt
 
-	cmd := OldMakeBasicCobraCmd(
+	cmd := makeBasicCobraCmd(
 		newCmd,
 		addSCSubCmd,
 		"Add a subcluster",
@@ -77,11 +77,9 @@ Examples:
 	--hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
 	--is-primary --control-set-size -1 --new-hosts 10.20.30.43
 `,
+		[]string{dbNameFlag, configFlag, hostsFlag, eonModeFlag, passwordFlag,
+			dataPathFlag, depotPathFlag},
 	)
-
-	// common db flags
-	newCmd.setCommonFlags(cmd, []string{dbNameFlag, configFlag, hostsFlag, passwordFlag,
-		dataPathFlag, depotPathFlag})
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -92,6 +90,9 @@ Examples:
 
 	// require name of subcluster to add
 	markFlagsRequired(cmd, []string{subclusterFlag})
+
+	// hide eon mode flag since we expect it to come from config file, not from user input
+	hideLocalFlags(cmd, []string{eonModeFlag})
 
 	return cmd
 }
@@ -163,6 +164,15 @@ func (c *CmdAddSubcluster) setHiddenFlags(cmd *cobra.Command) {
 func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogMaskedArgParse(c.argv)
+
+	// reset some options that are not included in user input
+	c.ResetUserInputOptions(&c.addSubclusterOptions.DatabaseOptions)
+
+	// add_subcluster only works for an Eon db so we assume the user always runs this subcommand
+	// on an Eon db. When Eon mode cannot be found in config file, we set its value to true.
+	if !viper.IsSet(eonModeKey) {
+		c.addSubclusterOptions.IsEon = true
+	}
 	return c.validateParse(logger)
 }
 
@@ -191,14 +201,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.addSubclusterOptions
 
-	// get config from vertica_cluster.yaml
-	config, err := options.GetDBConfig(vcc)
-	if err != nil {
-		return err
-	}
-	options.Config = config
-
-	err = vcc.VAddSubcluster(options)
+	err := vcc.VAddSubcluster(options)
 	if err != nil {
 		vcc.LogError(err, "failed to add subcluster")
 		return err
