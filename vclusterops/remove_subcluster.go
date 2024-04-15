@@ -28,8 +28,8 @@ import (
 // database.
 type VRemoveScOptions struct {
 	DatabaseOptions
-	SubclusterToRemove *string // subcluster to remove from database
-	ForceDelete        *bool   // whether force delete directories
+	SubclusterToRemove string // subcluster to remove from database
+	ForceDelete        bool   // whether force delete directories
 }
 
 func VRemoveScOptionsFactory() VRemoveScOptions {
@@ -42,8 +42,6 @@ func VRemoveScOptionsFactory() VRemoveScOptions {
 
 func (o *VRemoveScOptions) setDefaultValues() {
 	o.DatabaseOptions.setDefaultValues()
-	o.SubclusterToRemove = new(string)
-	o.ForceDelete = new(bool)
 }
 
 func (o *VRemoveScOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -52,7 +50,7 @@ func (o *VRemoveScOptions) validateRequiredOptions(logger vlog.Printer) error {
 		return err
 	}
 
-	if o.SubclusterToRemove == nil || *o.SubclusterToRemove == "" {
+	if o.SubclusterToRemove == "" {
 		return fmt.Errorf("must specify a subcluster name")
 	}
 	return nil
@@ -88,7 +86,7 @@ func (o *VRemoveScOptions) validateParseOptions(logger vlog.Printer) error {
 func (o *VRemoveScOptions) validateEonOptions() error {
 	if !o.IsEon {
 		return fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
-			*o.DBName)
+			o.DBName)
 	}
 	return nil
 }
@@ -144,7 +142,7 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 	vcc.Log.V(1).Info("Nodes to be removed: %+v", hostsToRemove)
 	if len(hostsToRemove) == 0 {
 		vcc.Log.PrintInfo("no node found in subcluster %s",
-			*removeScOpt.SubclusterToRemove)
+			removeScOpt.SubclusterToRemove)
 		needRemoveNodes = false
 	} else {
 		needRemoveNodes = true
@@ -158,7 +156,7 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt.ForceDelete = removeScOpt.ForceDelete
 
 		vcc.Log.PrintInfo("Removing nodes %q from subcluster %s",
-			hostsToRemove, *removeScOpt.SubclusterToRemove)
+			hostsToRemove, removeScOpt.SubclusterToRemove)
 		vdb, err = vcc.VRemoveNode(&removeNodeOpt)
 		if err != nil {
 			return vdb, err
@@ -204,7 +202,7 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 	if !vdb.IsEon {
 		// info from running db confirms that the db is not Eon
 		return hostsToRemove, fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
-			*options.DBName)
+			options.DBName)
 	}
 
 	err = options.completeVDBSetting(vdb)
@@ -215,8 +213,8 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 	// get default subcluster
 	// cannot remove sandbox subcluster
 	httpsFindSubclusterOp, err := makeHTTPSFindSubclusterOp(options.Hosts,
-		options.usePassword, *options.UserName, options.Password,
-		*options.SubclusterToRemove,
+		options.usePassword, options.UserName, options.Password,
+		options.SubclusterToRemove,
 		false /*do not ignore not found*/, RemoveSubclusterCmd)
 	if err != nil {
 		return hostsToRemove, fmt.Errorf("fail to get default subcluster %s, details: %w",
@@ -242,13 +240,13 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 	}
 
 	// the default subcluster should not be removed
-	if *options.SubclusterToRemove == clusterOpEngine.execContext.defaultSCName {
-		return hostsToRemove, &removeDefaultSubclusterError{Name: *options.SubclusterToRemove}
+	if options.SubclusterToRemove == clusterOpEngine.execContext.defaultSCName {
+		return hostsToRemove, &removeDefaultSubclusterError{Name: options.SubclusterToRemove}
 	}
 
 	// get nodes of the to-be-removed subcluster
 	for h, vnode := range vdb.HostNodeMap {
-		if vnode.Subcluster == *options.SubclusterToRemove {
+		if vnode.Subcluster == options.SubclusterToRemove {
 			hostsToRemove = append(hostsToRemove, h)
 		}
 	}
@@ -259,8 +257,8 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 // completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet
 // from the https endpoints. We set those fields from options.
 func (o *VRemoveScOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
-	vdb.DataPrefix = *o.DataPrefix
-	vdb.DepotPrefix = *o.DepotPrefix
+	vdb.DataPrefix = o.DataPrefix
+	vdb.DepotPrefix = o.DepotPrefix
 
 	hostNodeMap := makeVHostNodeMap()
 	// TODO: we set the depot path from /nodes rather than manually
@@ -274,7 +272,7 @@ func (o *VRemoveScOptions) completeVDBSetting(vdb *VCoordinationDatabase) error 
 }
 
 func (vcc VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options *VRemoveScOptions) error {
-	dropScErrMsg := fmt.Sprintf("fail to drop subcluster %s", *options.SubclusterToRemove)
+	dropScErrMsg := fmt.Sprintf("fail to drop subcluster %s", options.SubclusterToRemove)
 
 	// the initiator is a list of one primary up host
 	// that will call the https /v1/subclusters/{scName}/drop endpoint
@@ -285,8 +283,8 @@ func (vcc VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options *
 	}
 
 	httpsDropScOp, err := makeHTTPSDropSubclusterOp([]string{initiator},
-		*options.SubclusterToRemove,
-		options.usePassword, *options.UserName, options.Password)
+		options.SubclusterToRemove,
+		options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		vcc.Log.Error(err, "details: %v", dropScErrMsg)
 		return err

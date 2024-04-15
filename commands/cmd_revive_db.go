@@ -38,7 +38,6 @@ func makeCmdReviveDB() *cobra.Command {
 	newCmd := &CmdReviveDB{}
 	opt := vclusterops.VReviveDBOptionsFactory()
 	newCmd.reviveDBOptions = &opt
-	newCmd.reviveDBOptions.CommunalStorageLocation = new(string)
 
 	cmd := makeBasicCobraCmd(
 		newCmd,
@@ -171,7 +170,7 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Called method Run()")
 	dbInfo, vdb, err := vcc.VReviveDatabase(c.reviveDBOptions)
 	if err != nil {
-		vcc.LogError(err, "fail to revive database", "DBName", *c.reviveDBOptions.DBName)
+		vcc.LogError(err, "fail to revive database", "DBName", c.reviveDBOptions.DBName)
 		return err
 	}
 
@@ -187,7 +186,7 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
 
-	vcc.PrintInfo("Successfully revived database %s", *c.reviveDBOptions.DBName)
+	vcc.PrintInfo("Successfully revived database %s", c.reviveDBOptions.DBName)
 
 	return nil
 }

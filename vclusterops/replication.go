@@ -73,7 +73,7 @@ func (opt *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Printer
 	}
 
 	// need to provide a password or TLSconfig if source and target username are different
-	if opt.TargetUserName != *opt.UserName {
+	if opt.TargetUserName != opt.UserName {
 		if opt.TargetPassword == nil && opt.SourceTLSConfig == "" {
 			return fmt.Errorf("only trust authentication can support username without password or TLSConfig")
 		}
@@ -178,7 +178,7 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	}
 
 	httpsGetUpNodesOp, err := makeHTTPSCheckNodeStateOp(options.Hosts,
-		options.usePassword, *options.UserName, options.Password)
+		options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
@@ -189,8 +189,8 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(options.Hosts, true, true /*IsEon*/)
 
 	initiatorTargetHost := getInitiator(options.TargetHosts)
-	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(*options.DBName, options.Hosts, options.usePassword,
-		*options.UserName, options.Password, targetUserPassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
+	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
+		options.UserName, options.Password, targetUserPassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
 		options.TargetPassword, options.SourceTLSConfig)
 	if err != nil {
 		return instructions, err

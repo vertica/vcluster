@@ -29,7 +29,7 @@ var tempConfigFilePath = os.TempDir() + "/test_vertica_cluster.yaml"
 
 func simulateVClusterCli(vclusterCmd string) error {
 	// if no log file is given, the log will go to stdout
-	*dbOptions.LogPath = ""
+	dbOptions.LogPath = ""
 
 	// convert the input string into a slice
 	// extra spaces will be trimmed

@@ -38,7 +38,7 @@ type VReviveDatabaseOptions struct {
 	// whether ignore the cluster lease
 	IgnoreClusterLease bool
 	// the restore policy
-	RestorePoint *RestorePointPolicy
+	RestorePoint RestorePointPolicy
 }
 
 type RestorePointPolicy struct {
@@ -51,15 +51,15 @@ type RestorePointPolicy struct {
 }
 
 func (options *VReviveDatabaseOptions) isRestoreEnabled() bool {
-	return options.RestorePoint != nil && options.RestorePoint.Archive != ""
+	return options.RestorePoint.Archive != ""
 }
 
 func (options *VReviveDatabaseOptions) hasValidRestorePointID() bool {
-	return options.RestorePoint != nil && options.RestorePoint.ID != ""
+	return options.RestorePoint.ID != ""
 }
 
 func (options *VReviveDatabaseOptions) hasValidRestorePointIndex() bool {
-	return options.RestorePoint != nil && options.RestorePoint.Index > 0
+	return options.RestorePoint.Index > 0
 }
 
 func (options *VReviveDatabaseOptions) findSpecifiedRestorePoint(allRestorePoints []RestorePoint) (string, error) {
@@ -122,15 +122,14 @@ func (options *VReviveDatabaseOptions) setDefaultValues() {
 
 	// set default values for revive db options
 	options.LoadCatalogTimeout = util.DefaultLoadCatalogTimeoutSeconds
-	options.RestorePoint = new(RestorePointPolicy)
 }
 
 func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 	// database name
-	if *options.DBName == "" {
+	if options.DBName == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	err := util.ValidateName(*options.DBName, "database")
+	err := util.ValidateName(options.DBName, "database")
 	if err != nil {
 		return err
 	}
@@ -142,7 +141,7 @@ func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 	}
 
 	// communal storage
-	return util.ValidateCommunalStorageLocation(*options.CommunalStorageLocation)
+	return util.ValidateCommunalStorageLocation(options.CommunalStorageLocation)
 }
 
 func (options *VReviveDatabaseOptions) validateRestoreOptions() error {
@@ -259,9 +258,9 @@ func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (db
 	}
 
 	// fill vdb with VReviveDatabaseOptions information
-	vdb.Name = *options.DBName
+	vdb.Name = options.DBName
 	vdb.IsEon = true
-	vdb.CommunalStorageLocation = *options.CommunalStorageLocation
+	vdb.CommunalStorageLocation = options.CommunalStorageLocation
 	vdb.Ipv6 = options.IPv6
 
 	return dbInfo, &vdb, nil
@@ -328,15 +327,15 @@ func (vcc VClusterCommands) producePreReviveDBInstructions(options *VReviveDatab
 		initiator := getInitiator(hosts)
 		bootstrapHost := []string{initiator}
 		filterOptions := ShowRestorePointFilterOptions{}
-		filterOptions.ArchiveName = &options.RestorePoint.Archive
+		filterOptions.ArchiveName = options.RestorePoint.Archive
 		if options.hasValidRestorePointID() {
-			filterOptions.ArchiveID = &options.RestorePoint.ID
+			filterOptions.ArchiveID = options.RestorePoint.ID
 		} else {
 			indexStr := strconv.Itoa(options.RestorePoint.Index)
-			filterOptions.ArchiveIndex = &indexStr
+			filterOptions.ArchiveIndex = indexStr
 		}
-		nmaShowRestorePointsOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.GetLog(), bootstrapHost, *options.DBName,
-			*options.CommunalStorageLocation, options.ConfigurationParameters, &filterOptions)
+		nmaShowRestorePointsOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.GetLog(), bootstrapHost, options.DBName,
+			options.CommunalStorageLocation, options.ConfigurationParameters, &filterOptions)
 		instructions = append(instructions,
 			&nmaShowRestorePointsOp,
 		)
@@ -411,7 +410,7 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(options.Hosts)
 
 	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(oldHosts, options.ConfigurationParameters,
-		&newVDB, options.LoadCatalogTimeout, options.RestorePoint)
+		&newVDB, options.LoadCatalogTimeout, &options.RestorePoint)
 
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,
@@ -426,8 +425,8 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 func (options *VReviveDatabaseOptions) generateReviveVDB(vdb *VCoordinationDatabase) (newVDB VCoordinationDatabase,
 	oldHosts []string, err error) {
 	newVDB = makeVCoordinationDatabase()
-	newVDB.Name = *options.DBName
-	newVDB.CommunalStorageLocation = *options.CommunalStorageLocation
+	newVDB.Name = options.DBName
+	newVDB.CommunalStorageLocation = options.CommunalStorageLocation
 	// use new cluster hosts
 	newVDB.HostList = options.Hosts
 

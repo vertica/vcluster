@@ -76,7 +76,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 	}
 	// log-path is a flag that all the subcommands need
 	cmd.Flags().StringVarP(
-		dbOptions.LogPath,
+		&dbOptions.LogPath,
 		logPathFlag,
 		"l",
 		logPath,
@@ -122,7 +122,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 	}
 	if util.StringInArray(dbUserFlag, flags) {
 		cmd.Flags().StringVar(
-			dbOptions.UserName,
+			&dbOptions.UserName,
 			dbUserFlag,
 			"",
 			"The username for connecting to the database",
@@ -135,7 +135,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 func setConfigFlags(cmd *cobra.Command, flags []string) {
 	if util.StringInArray(dbNameFlag, flags) {
 		cmd.Flags().StringVarP(
-			dbOptions.DBName,
+			&dbOptions.DBName,
 			dbNameFlag,
 			"d",
 			"",
@@ -159,7 +159,7 @@ func setConfigFlags(cmd *cobra.Command, flags []string) {
 	}
 	if util.StringInArray(catalogPathFlag, flags) {
 		cmd.Flags().StringVar(
-			dbOptions.CatalogPrefix,
+			&dbOptions.CatalogPrefix,
 			catalogPathFlag,
 			"",
 			"Path of catalog directory")
@@ -167,7 +167,7 @@ func setConfigFlags(cmd *cobra.Command, flags []string) {
 	}
 	if util.StringInArray(dataPathFlag, flags) {
 		cmd.Flags().StringVar(
-			dbOptions.DataPrefix,
+			&dbOptions.DataPrefix,
 			dataPathFlag,
 			"",
 			"Path of data directory")
@@ -175,14 +175,14 @@ func setConfigFlags(cmd *cobra.Command, flags []string) {
 	}
 	if util.StringInArray(communalStorageLocationFlag, flags) {
 		cmd.Flags().StringVar(
-			dbOptions.CommunalStorageLocation,
+			&dbOptions.CommunalStorageLocation,
 			communalStorageLocationFlag,
 			"",
 			util.GetEonFlagMsg("Location of communal storage"))
 	}
 	if util.StringInArray(depotPathFlag, flags) {
 		cmd.Flags().StringVar(
-			dbOptions.DepotPrefix,
+			&dbOptions.DepotPrefix,
 			depotPathFlag,
 			"",
 			util.GetEonFlagMsg("Path to depot directory"))

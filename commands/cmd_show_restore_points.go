@@ -90,31 +90,31 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdShowRestorePoints) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		c.showRestorePointsOptions.FilterOptions.ArchiveName,
+		&c.showRestorePointsOptions.FilterOptions.ArchiveName,
 		"restore-point-archive",
 		"",
 		"Archive name to filter restore points with",
 	)
 	cmd.Flags().StringVar(
-		c.showRestorePointsOptions.FilterOptions.ArchiveID,
+		&c.showRestorePointsOptions.FilterOptions.ArchiveID,
 		"restore-point-id",
 		"",
 		"ID to filter restore points with",
 	)
 	cmd.Flags().StringVar(
-		c.showRestorePointsOptions.FilterOptions.ArchiveIndex,
+		&c.showRestorePointsOptions.FilterOptions.ArchiveIndex,
 		"restore-point-index",
 		"",
 		"Index to filter restore points with",
 	)
 	cmd.Flags().StringVar(
-		c.showRestorePointsOptions.FilterOptions.StartTimestamp,
+		&c.showRestorePointsOptions.FilterOptions.StartTimestamp,
 		"start-timestamp",
 		"",
 		"Only show restores points created no earlier than this",
 	)
 	cmd.Flags().StringVar(
-		c.showRestorePointsOptions.FilterOptions.EndTimestamp,
+		&c.showRestorePointsOptions.FilterOptions.EndTimestamp,
 		"end-timestamp",
 		"",
 		"Only show restores points created no later than this",
@@ -160,11 +160,11 @@ func (c *CmdShowRestorePoints) Run(vcc vclusterops.ClusterCommands) error {
 
 	restorePoints, err := vcc.VShowRestorePoints(options)
 	if err != nil {
-		vcc.LogError(err, "fail to show restore points", "DBName", *options.DBName)
+		vcc.LogError(err, "fail to show restore points", "DBName", options.DBName)
 		return err
 	}
 
-	vcc.PrintInfo("Successfully show restore points %v in database %s", restorePoints, *options.DBName)
+	vcc.PrintInfo("Successfully show restore points %v in database %s", restorePoints, options.DBName)
 	return nil
 }
 

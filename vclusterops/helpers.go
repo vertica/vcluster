@@ -172,14 +172,14 @@ func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, 
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
 
-	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, vdb, allowUseSandboxRes, sandbox)
+	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.DBName, options.Hosts,
+		options.usePassword, options.UserName, options.Password, vdb, allowUseSandboxRes, sandbox)
 	if err != nil {
 		return fmt.Errorf("fail to produce httpsGetNodesInfo instructions while retrieving database configurations, %w", err)
 	}
 
-	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, vdb)
+	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(options.DBName, options.Hosts,
+		options.usePassword, options.UserName, options.Password, vdb)
 	if err != nil {
 		return fmt.Errorf("fail to produce httpsGetClusterInfo instructions while retrieving database configurations, %w", err)
 	}
@@ -204,8 +204,8 @@ func (vcc VClusterCommands) getClusterInfoFromRunningDB(vdb *VCoordinationDataba
 		return fmt.Errorf("fail to set userPassword while retrieving cluster configurations, %w", err)
 	}
 
-	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(*options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, vdb)
+	httpsGetClusterInfoOp, err := makeHTTPSGetClusterInfoOp(options.DBName, options.Hosts,
+		options.usePassword, options.UserName, options.Password, vdb)
 	if err != nil {
 		return fmt.Errorf("fail to produce httpsGetClusterInfo instructions while retrieving cluster configurations, %w", err)
 	}

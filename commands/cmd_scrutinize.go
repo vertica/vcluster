@@ -115,7 +115,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdScrutinize) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		dbOptions.UserName,
+		&dbOptions.UserName,
 		"db-user",
 		"",
 		"Database username. Consider using single quotes "+
@@ -252,7 +252,7 @@ func (c *CmdScrutinize) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.LogError(err, "scrutinize run failed")
 		return err
 	}
-	vcc.PrintInfo("Successfully completed scrutinize run for the database %s", *c.sOptions.DBName)
+	vcc.PrintInfo("Successfully completed scrutinize run for the database %s", c.sOptions.DBName)
 	return err
 }
 
@@ -445,16 +445,16 @@ func (c *CmdScrutinize) readOptionsFromK8sEnv(logger vlog.Printer) (allErrs erro
 	if !found || dbName == "" {
 		allErrs = errors.Join(allErrs, fmt.Errorf("unable to get database name from environment variable. "))
 	} else {
-		c.sOptions.DBName = &dbName
-		logger.Info("Setting database name from env as", "DBName", *c.sOptions.DBName)
+		c.sOptions.DBName = dbName
+		logger.Info("Setting database name from env as", "DBName", c.sOptions.DBName)
 	}
 
 	catPrefix, found := os.LookupEnv(catalogPathPref)
 	if !found || catPrefix == "" {
 		allErrs = errors.Join(allErrs, fmt.Errorf("unable to get catalog path from environment variable. "))
 	} else {
-		c.sOptions.CatalogPrefix = &catPrefix
-		logger.Info("Setting catalog path from env as", "CatalogPrefix", *c.sOptions.CatalogPrefix)
+		c.sOptions.CatalogPrefix = catPrefix
+		logger.Info("Setting catalog path from env as", "CatalogPrefix", c.sOptions.CatalogPrefix)
 	}
 	return
 }

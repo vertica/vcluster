@@ -234,14 +234,14 @@ func (vcc VClusterCommands) VScrutinize(options *VScrutinizeOptions) error {
 // abort scrutinize, so just prints a warning.
 func (options *VScrutinizeOptions) stageVclusterLog(id string, log vlog.Printer) {
 	// if using vcluster command line, the log path will always be set
-	if options.LogPath == nil {
+	if options.LogPath == "" {
 		log.PrintWarning("Path to scrutinize log not provided. " +
 			"The log for this scrutinize run will not be included.")
 		return
 	}
 
 	destPath := fmt.Sprintf("%s/%s/%s", scrutinizeRemoteOutputPath, id, scrutinizeLogFileName)
-	sourcePath := *options.LogPath
+	sourcePath := options.LogPath
 
 	// copy the log instead of symlinking to avoid issues with tar
 	log.Info("Copying scrutinize log", "source", sourcePath, "dest", destPath)
@@ -282,8 +282,8 @@ func (options *VScrutinizeOptions) getVDBForScrutinize(logger vlog.Printer,
 	}
 
 	// get map of host to node name and fully qualified catalog path
-	getNodesInfoOp := makeNMAGetNodesInfoOp(vdb.HostList, *options.DBName,
-		*options.CatalogPrefix, true /* ignore internal errors */, vdb)
+	getNodesInfoOp := makeNMAGetNodesInfoOp(vdb.HostList, options.DBName,
+		options.CatalogPrefix, true /* ignore internal errors */, vdb)
 	err = options.runClusterOpEngine(logger, []clusterOp{&getNodesInfoOp})
 	if err != nil {
 		return err
@@ -326,8 +326,8 @@ func (vcc VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeOp
 	}
 
 	// Get up database nodes for the system table task
-	getUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, ScrutinizeCmd)
+	getUpNodesOp, err := makeHTTPSGetUpNodesOp(options.DBName, options.Hosts,
+		options.usePassword, options.UserName, options.Password, ScrutinizeCmd)
 	if err != nil {
 		return nil, err
 	}
@@ -428,7 +428,7 @@ func getNodeInfoForScrutinize(hosts []string, vdb *VCoordinationDatabase,
 		if nodeName == "" {
 			allErrors = errors.Join(allErrors, fmt.Errorf("host %s has empty name", host))
 		}
-		err = util.ValidateRequiredAbsPath(&catPath, "catalog path")
+		err = util.ValidateRequiredAbsPath(catPath, "catalog path")
 		if err != nil {
 			allErrors = errors.Join(allErrors, fmt.Errorf("host %s has problematic catalog path %s, details: %w", host, catPath, err))
 		}
@@ -453,7 +453,7 @@ func getStageSystemTablesInstructions(logger vlog.Printer, options *VScrutinizeO
 
 	// Get a list of existing system tables for staging system tables operation
 	getSystemTablesOp, err := makeHTTPSGetSystemTablesOp(logger, options.Hosts,
-		options.usePassword, *options.UserName, options.Password)
+		options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +461,7 @@ func getStageSystemTablesInstructions(logger vlog.Printer, options *VScrutinizeO
 
 	// Stage system tables stored in execContext
 	stageSystemTablesOp, err := makeHTTPSStageSystemTablesOp(logger,
-		options.usePassword, *options.UserName, options.Password, options.ID, hostNodeNameMap, &stagingDir,
+		options.usePassword, options.UserName, options.Password, options.ID, hostNodeNameMap, &stagingDir,
 		options.ExcludeContainers, options.ExcludeActiveQueries, options.IncludeRos, options.IncludeExternalTableDetails,
 		options.IncludeUDXDetails,
 	)

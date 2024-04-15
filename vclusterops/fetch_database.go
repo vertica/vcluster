@@ -52,7 +52,7 @@ func (opt *VFetchCoordinationDatabaseOptions) analyzeOptions() error {
 	}
 
 	// process correct catalog path
-	*opt.CatalogPrefix = util.GetCleanPath(*opt.CatalogPrefix)
+	opt.CatalogPrefix = util.GetCleanPath(opt.CatalogPrefix)
 
 	// check existing config file at the same location
 	if !opt.readOnly && !opt.Overwrite {
@@ -87,10 +87,10 @@ func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinati
 	}
 
 	// pre-fill vdb from the user input
-	vdb.Name = *options.DBName
+	vdb.Name = options.DBName
 	vdb.HostList = options.Hosts
-	vdb.CatalogPrefix = *options.CatalogPrefix
-	vdb.DepotPrefix = *options.DepotPrefix
+	vdb.CatalogPrefix = options.CatalogPrefix
+	vdb.DepotPrefix = options.DepotPrefix
 	vdb.Ipv6 = options.IPv6
 
 	// produce list_allnodes instructions
@@ -148,7 +148,7 @@ func (vcc VClusterCommands) produceRecoverConfigInstructions(
 	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix,
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
 		true /* ignore internal errors */, vdb)
 	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
 	if err != nil {

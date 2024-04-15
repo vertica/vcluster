@@ -29,7 +29,7 @@ type DatabaseOptions struct {
 	/* part 1: basic database info */
 
 	// name of the database
-	DBName *string
+	DBName string
 	// expected to be IP addresses or hostnames
 	RawHosts []string
 	// expected to be IP addresses resolved from RawHosts
@@ -37,27 +37,27 @@ type DatabaseOptions struct {
 	// whether using IPv6 for host addresses
 	IPv6 bool
 	// path of catalog directory
-	CatalogPrefix *string
+	CatalogPrefix string
 	// path of data directory
-	DataPrefix *string
+	DataPrefix string
 	// File path to YAML config file
 	ConfigPath string
 
 	/* part 2: Eon database info */
 
 	// path of depot directory
-	DepotPrefix *string
+	DepotPrefix string
 	// whether the database is in Eon mode
 	IsEon bool
 	// path of the communal storage
-	CommunalStorageLocation *string
+	CommunalStorageLocation string
 	// database configuration parameters
 	ConfigurationParameters map[string]string
 
 	/* part 3: authentication info */
 
 	// user name
-	UserName *string
+	UserName string
 	// password
 	Password *string
 	// TLS Key
@@ -70,7 +70,7 @@ type DatabaseOptions struct {
 	/* part 4: other info */
 
 	// path of the log file
-	LogPath *string
+	LogPath string
 	// whether use password
 	usePassword bool
 }
@@ -112,42 +112,17 @@ func DatabaseOptionsFactory() DatabaseOptions {
 }
 
 func (opt *DatabaseOptions) setDefaultValues() {
-	opt.DBName = new(string)
-	opt.CatalogPrefix = new(string)
-	opt.DataPrefix = new(string)
-	opt.DepotPrefix = new(string)
-	opt.UserName = new(string)
-	opt.CommunalStorageLocation = new(string)
 	opt.ConfigurationParameters = make(map[string]string)
-	opt.LogPath = new(string)
-}
-
-func (opt *DatabaseOptions) checkNilPointerParams() error {
-	// basic params
-	if opt.DBName == nil {
-		return util.ParamNotSetErrorMsg("name")
-	}
-	if opt.CatalogPrefix == nil {
-		return util.ParamNotSetErrorMsg("catalog-path")
-	}
-	if opt.DataPrefix == nil {
-		return util.ParamNotSetErrorMsg("data-path")
-	}
-	if opt.DepotPrefix == nil {
-		return util.ParamNotSetErrorMsg("depot-path")
-	}
-
-	return nil
 }
 
 func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Printer) error {
 	// get vcluster commands
 	log.WithName(commandName)
 	// database name
-	if *opt.DBName == "" {
+	if opt.DBName == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	err := util.ValidateDBName(*opt.DBName)
+	err := util.ValidateDBName(opt.DBName)
 	if err != nil {
 		return err
 	}
@@ -205,7 +180,6 @@ func (opt *DatabaseOptions) validateHostsAndPwd(commandName string, log vlog.Pri
 // validate catalog, data, and depot paths
 func (opt *DatabaseOptions) validatePaths(commandName string) error {
 	// validate for the following commands only
-	// TODO: add other commands into the command list
 	commands := []string{commandCreateDB, commandDropDB, commandConfigRecover}
 	if !slices.Contains(commands, commandName) {
 		return nil
@@ -255,7 +229,7 @@ func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 		return nil
 	}
 
-	err := util.ValidateAbsPath(&opt.ConfigPath, "config")
+	err := util.ValidateAbsPath(opt.ConfigPath, "config")
 	if err != nil {
 		return err
 	}
@@ -264,14 +238,14 @@ func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 }
 
 func (opt *DatabaseOptions) validateUserName(log vlog.Printer) error {
-	if *opt.UserName == "" {
+	if opt.UserName == "" {
 		username, err := util.GetCurrentUsername()
 		if err != nil {
 			return err
 		}
-		*opt.UserName = username
+		opt.UserName = username
 	}
-	log.Info("Current username", "username", *opt.UserName)
+	log.Info("Current username", "username", opt.UserName)
 
 	return nil
 }
@@ -295,9 +269,9 @@ func (opt *DatabaseOptions) setUsePassword(log vlog.Printer) error {
 // catalog, data and depot prefixes.
 func (opt *DatabaseOptions) normalizePaths() {
 	// process correct catalog path, data path and depot path prefixes
-	*opt.CatalogPrefix = util.GetCleanPath(*opt.CatalogPrefix)
-	*opt.DataPrefix = util.GetCleanPath(*opt.DataPrefix)
-	*opt.DepotPrefix = util.GetCleanPath(*opt.DepotPrefix)
+	opt.CatalogPrefix = util.GetCleanPath(opt.CatalogPrefix)
+	opt.DataPrefix = util.GetCleanPath(opt.DataPrefix)
+	opt.DepotPrefix = util.GetCleanPath(opt.DepotPrefix)
 }
 
 // getVDBWhenDBIsDown can retrieve db configurations from NMA /nodes endpoint and cluster_config.json when db is down
@@ -319,7 +293,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 	vdb1 := VCoordinationDatabase{}
 	var instructions1 []clusterOp
 	nmaHealthOp := makeNMAHealthOp(opt.Hosts)
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(opt.Hosts, *opt.DBName, *opt.CatalogPrefix,
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(opt.Hosts, opt.DBName, opt.CatalogPrefix,
 		false /* report all errors */, &vdb1)
 	instructions1 = append(instructions1,
 		&nmaHealthOp,
@@ -382,7 +356,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 func (opt *DatabaseOptions) getCurrConfigFilePath() string {
 	// description file will be in the location: {communal_storage_location}/metadata/{db_name}/cluster_config.json
 	// an example: s3://tfminio/test_loc/metadata/test_db/cluster_config.json
-	descriptionFilePath := filepath.Join(*opt.CommunalStorageLocation, descriptionFileMetadataFolder, *opt.DBName, descriptionFileName)
+	descriptionFilePath := filepath.Join(opt.CommunalStorageLocation, descriptionFileMetadataFolder, opt.DBName, descriptionFileName)
 	// filepath.Join() will change "://" of the remote communal storage path to ":/"
 	// as a result, we need to change the separator back to url format
 	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)
@@ -399,8 +373,8 @@ func (options *VReviveDatabaseOptions) getRestorePointConfigFilePath(validatedRe
 	// description file will be in the location:
 	// {communal_storage_location}/metadata/{db_name}/archives/{archive_name}/{restore_point_id}/cluster_config.json
 	// an example: s3://tfminio/test_loc/metadata/test_db/archives/test_archive_name/2251e5cc-3e16-4fb1-8cd0-e4b8651f5779/cluster_config.json
-	descriptionFilePath := filepath.Join(*options.CommunalStorageLocation, descriptionFileMetadataFolder,
-		*options.DBName, archivesFolder, options.RestorePoint.Archive, validatedRestorePointID, descriptionFileName)
+	descriptionFilePath := filepath.Join(options.CommunalStorageLocation, descriptionFileMetadataFolder,
+		options.DBName, archivesFolder, options.RestorePoint.Archive, validatedRestorePointID, descriptionFileName)
 	// filepath.Join() will change "://" of the remote communal storage path to ":/"
 	// as a result, we need to change the separator back to url format
 	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)

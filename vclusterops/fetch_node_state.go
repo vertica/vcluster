@@ -142,7 +142,7 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeS
 	}
 
 	httpsCheckNodeStateOp, err := makeHTTPSCheckNodeStateOp(hosts,
-		usePassword, *options.UserName, options.Password)
+		usePassword, options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}

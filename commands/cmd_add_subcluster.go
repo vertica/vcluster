@@ -100,19 +100,19 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		c.addSubclusterOptions.SCName,
+		&c.addSubclusterOptions.SCName,
 		subclusterFlag,
 		"",
 		"The name of the new subcluster",
 	)
 	cmd.Flags().BoolVar(
-		c.addSubclusterOptions.IsPrimary,
+		&c.addSubclusterOptions.IsPrimary,
 		"is-primary",
 		false,
 		"The new subcluster will be a primary subcluster",
 	)
 	cmd.Flags().IntVar(
-		c.addSubclusterOptions.ControlSetSize,
+		&c.addSubclusterOptions.ControlSetSize,
 		"control-set-size",
 		vclusterops.ControlSetSizeDefaultValue,
 		"The number of nodes that will run spread within the subcluster",
@@ -124,7 +124,7 @@ func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 		"Comma-separated list of host(s) to add to the new subcluster",
 	)
 	cmd.Flags().BoolVar(
-		c.addSubclusterOptions.ForceRemoval,
+		&c.addSubclusterOptions.ForceRemoval,
 		"force-removal",
 		false,
 		"Whether to force clean-up of existing directories before adding host(s)",
@@ -136,7 +136,7 @@ func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 		util.GetEonFlagMsg("Skip the subcluster shards rebalancing"),
 	)
 	cmd.Flags().StringVar(
-		c.addSubclusterOptions.DepotSize,
+		&c.addSubclusterOptions.DepotSize,
 		"depot-size",
 		"",
 		util.GetEonFlagMsg("Size of depot"),
@@ -153,7 +153,7 @@ func (c *CmdAddSubcluster) setHiddenFlags(cmd *cobra.Command) {
 		"",
 	)
 	cmd.Flags().StringVar(
-		c.addSubclusterOptions.CloneSC,
+		&c.addSubclusterOptions.CloneSC,
 		"like",
 		"",
 		"",
@@ -209,7 +209,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	if len(options.NewHosts) > 0 {
 		fmt.Printf("Adding hosts %v to subcluster %s\n",
-			options.NewHosts, *options.SCName)
+			options.NewHosts, options.SCName)
 
 		options.VAddNodeOptions.DatabaseOptions = c.addSubclusterOptions.DatabaseOptions
 		options.VAddNodeOptions.SCName = c.addSubclusterOptions.SCName
@@ -228,9 +228,9 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	if len(options.NewHosts) > 0 {
 		vcc.PrintInfo("Added subcluster %s with nodes %v to database %s",
-			*options.SCName, options.NewHosts, *options.DBName)
+			options.SCName, options.NewHosts, options.DBName)
 	} else {
-		vcc.PrintInfo("Added subcluster %s to database %s", *options.SCName, *options.DBName)
+		vcc.PrintInfo("Added subcluster %s to database %s", options.SCName, options.DBName)
 	}
 	return nil
 }

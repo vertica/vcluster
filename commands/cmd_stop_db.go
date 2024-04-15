@@ -79,13 +79,13 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 			" When the time expires, connections will be forcibly closed and the db will shut down"),
 	)
 	cmd.Flags().StringVar(
-		c.stopDBOptions.Sandbox,
+		&c.stopDBOptions.Sandbox,
 		sandboxFlag,
 		"",
 		"Name of the sandbox to stop",
 	)
 	cmd.Flags().BoolVar(
-		c.stopDBOptions.MainCluster,
+		&c.stopDBOptions.MainCluster,
 		"main-cluster-only",
 		false,
 		"Stop the database, but don't stop any of the sandboxes",
@@ -96,13 +96,13 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 // These hidden flags will not be shown in help and usage of the command, and they will be used internally.
 func (c *CmdStopDB) setHiddenFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(
-		c.stopDBOptions.CheckUserConn,
+		&c.stopDBOptions.CheckUserConn,
 		"if-no-users",
 		false,
 		"",
 	)
 	cmd.Flags().BoolVar(
-		c.stopDBOptions.ForceKill,
+		&c.stopDBOptions.ForceKill,
 		"force-kill",
 		false,
 		"",
@@ -150,13 +150,13 @@ func (c *CmdStopDB) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.LogError(err, "failed to stop the database")
 		return err
 	}
-	msg := fmt.Sprintf("Stopped a database with name %s", *options.DBName)
-	if *options.Sandbox != "" {
-		sandboxMsg := fmt.Sprintf(" on sandbox %s", *options.Sandbox)
+	msg := fmt.Sprintf("Stopped a database with name %s", options.DBName)
+	if options.Sandbox != "" {
+		sandboxMsg := fmt.Sprintf(" on sandbox %s", options.Sandbox)
 		vcc.PrintInfo(msg + sandboxMsg)
 		return nil
 	}
-	if *options.MainCluster {
+	if options.MainCluster {
 		stopMsg := " on main cluster"
 		vcc.PrintInfo(msg + stopMsg)
 		return nil

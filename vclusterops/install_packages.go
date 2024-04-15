@@ -27,13 +27,11 @@ type VInstallPackagesOptions struct {
 	DatabaseOptions
 
 	// If true, the packages will be reinstalled even if they are already installed.
-	ForceReinstall *bool
+	ForceReinstall bool
 }
 
 func VInstallPackagesOptionsFactory() VInstallPackagesOptions {
-	opt := VInstallPackagesOptions{
-		ForceReinstall: new(bool),
-	}
+	opt := VInstallPackagesOptions{}
 	opt.DatabaseOptions.setDefaultValues()
 	return opt
 }
@@ -113,15 +111,15 @@ func (vcc *VClusterCommands) produceInstallPackagesInstructions(opts *VInstallPa
 		}
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*opts.DBName, opts.Hosts,
-		usePassword, *opts.UserName, opts.Password, InstallPackageCmd)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(opts.DBName, opts.Hosts,
+		usePassword, opts.UserName, opts.Password, InstallPackageCmd)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var noHosts = []string{} // We pass in no hosts so that this op picks an up node from the previous call.
 	verbose := false         // Silence verbose output as we will print package status at the end
-	installOp, err := makeHTTPSInstallPackagesOp(noHosts, usePassword, *opts.UserName, opts.Password, *opts.ForceReinstall, verbose)
+	installOp, err := makeHTTPSInstallPackagesOp(noHosts, usePassword, opts.UserName, opts.Password, opts.ForceReinstall, verbose)
 	if err != nil {
 		return nil, nil, err
 	}

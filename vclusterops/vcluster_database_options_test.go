@@ -23,27 +23,27 @@ import (
 
 func TestGetDescriptionFilePath(t *testing.T) {
 	opt := VReviveDBOptionsFactory()
-	*opt.DBName = "test_eon_db"
+	opt.DBName = "test_eon_db"
 
 	// local communal storage:
 	targetPath := "/communal/metadata/test_eon_db/cluster_config.json"
 	// case 1: normal communal storage path
-	*opt.CommunalStorageLocation = "/communal"
+	opt.CommunalStorageLocation = "/communal"
 	path := opt.getCurrConfigFilePath()
 	assert.Equal(t, targetPath, path)
 
 	// case 2: double-slash communal storage path
-	*opt.CommunalStorageLocation = "//communal"
+	opt.CommunalStorageLocation = "//communal"
 	path = opt.getCurrConfigFilePath()
 	assert.Equal(t, targetPath, path)
 
 	// case 3: double-slash communal storage path followed by a slash
-	*opt.CommunalStorageLocation = "//communal/"
+	opt.CommunalStorageLocation = "//communal/"
 	path = opt.getCurrConfigFilePath()
 	assert.Equal(t, targetPath, path)
 
 	// case 4: double-slash communal storage path followed by a double-slash
-	*opt.CommunalStorageLocation = "//communal//"
+	opt.CommunalStorageLocation = "//communal//"
 	path = opt.getCurrConfigFilePath()
 	assert.Equal(t, targetPath, path)
 
@@ -51,17 +51,17 @@ func TestGetDescriptionFilePath(t *testing.T) {
 	targetS3Path := "s3://vertica-fleeting/k8s/revive_eon_5/metadata/test_eon_db/cluster_config.json"
 	targetGCPPath := "gs://vertica-fleeting/k8s/revive_eon_5/metadata/test_eon_db/cluster_config.json"
 	// case 1 - normal s3 communal storage:
-	*opt.CommunalStorageLocation = "s3://vertica-fleeting/k8s/revive_eon_5"
+	opt.CommunalStorageLocation = "s3://vertica-fleeting/k8s/revive_eon_5"
 	path = opt.getCurrConfigFilePath()
 	assert.Equal(t, targetS3Path, path)
 
 	// case 2: double-slash s3 communal storage path
-	*opt.CommunalStorageLocation = "s3://vertica-fleeting//k8s//revive_eon_5"
+	opt.CommunalStorageLocation = "s3://vertica-fleeting//k8s//revive_eon_5"
 	path = opt.getCurrConfigFilePath()
 	assert.Equal(t, targetS3Path, path)
 
 	// case 3: other cloud communal storage paths like GCP
-	*opt.CommunalStorageLocation = "gs://vertica-fleeting/k8s/revive_eon_5"
+	opt.CommunalStorageLocation = "gs://vertica-fleeting/k8s/revive_eon_5"
 	path = opt.getCurrConfigFilePath()
 	assert.Equal(t, targetGCPPath, path)
 }

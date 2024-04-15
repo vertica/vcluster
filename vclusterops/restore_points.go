@@ -27,7 +27,7 @@ type VShowRestorePointsOptions struct {
 	DatabaseOptions
 	// Optional arguments to list only restore points that
 	// meet the specified condition(s)
-	FilterOptions *ShowRestorePointFilterOptions
+	FilterOptions ShowRestorePointFilterOptions
 }
 
 func VShowRestorePointsFactory() VShowRestorePointsOptions {
@@ -35,23 +35,17 @@ func VShowRestorePointsFactory() VShowRestorePointsOptions {
 	// set default values to the params
 	opt.setDefaultValues()
 
-	opt.FilterOptions = &ShowRestorePointFilterOptions{
-		ArchiveName:    new(string),
-		StartTimestamp: new(string),
-		EndTimestamp:   new(string),
-		ArchiveID:      new(string),
-		ArchiveIndex:   new(string),
-	}
+	opt.FilterOptions = ShowRestorePointFilterOptions{}
 
 	return opt
 }
 
 func (p *ShowRestorePointFilterOptions) hasNonEmptyStartTimestamp() bool {
-	return (p.StartTimestamp != nil && *p.StartTimestamp != "")
+	return (p.StartTimestamp != "")
 }
 
 func (p *ShowRestorePointFilterOptions) hasNonEmptyEndTimestamp() bool {
-	return (p.EndTimestamp != nil && *p.EndTimestamp != "")
+	return (p.EndTimestamp != "")
 }
 
 // Check that all non-empty timestamps specified have valid date time or date only format,
@@ -74,11 +68,11 @@ func (p *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIfAny() 
 		if dateOnlyErr != nil {
 			// give up
 			return fmt.Errorf("start timestamp %q is invalid; cannot parse as a datetime: %w; "+
-				"cannot parse as a date as well: %w", *p.StartTimestamp, dateTimeErr, dateOnlyErr)
+				"cannot parse as a date as well: %w", p.StartTimestamp, dateTimeErr, dateOnlyErr)
 		}
 		// default value of time parsed from date only string is already indicating the start of a day
 		// invoke this function here to only rewrite p.StartTimestamp in date time format
-		util.FillInDefaultTimeForStartTimestamp(p.StartTimestamp)
+		util.FillInDefaultTimeForStartTimestamp(&p.StartTimestamp)
 	}
 
 	// try date time first
@@ -89,10 +83,10 @@ func (p *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIfAny() 
 		if dateOnlyErr != nil {
 			// give up
 			return fmt.Errorf("end timestamp %q is invalid; cannot parse as a datetime: %w; "+
-				"cannot parse as a date as well: %w", *p.EndTimestamp, dateTimeErr, dateOnlyErr)
+				"cannot parse as a date as well: %w", p.EndTimestamp, dateTimeErr, dateOnlyErr)
 		}
 		// fill in default value for time and update the end timestamp
-		parsedEndDatetime = util.FillInDefaultTimeForEndTimestamp(p.EndTimestamp)
+		parsedEndDatetime = util.FillInDefaultTimeForEndTimestamp(&p.EndTimestamp)
 	}
 
 	// check if endTime is after start time if both of them are non-empty
@@ -113,7 +107,7 @@ func (opt *VShowRestorePointsOptions) validateParseOptions(logger vlog.Printer) 
 		return err
 	}
 
-	err = util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
+	err = util.ValidateCommunalStorageLocation(opt.CommunalStorageLocation)
 	if err != nil {
 		return err
 	}
@@ -197,8 +191,8 @@ func (vcc VClusterCommands) produceShowRestorePointsInstructions(options *VShowR
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOp(hosts, true, true /*IsEon*/)
 
-	nmaShowRestorePointOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.Log, bootstrapHost, *options.DBName,
-		*options.CommunalStorageLocation, options.ConfigurationParameters, options.FilterOptions)
+	nmaShowRestorePointOp := makeNMAShowRestorePointsOpWithFilterOptions(vcc.Log, bootstrapHost, options.DBName,
+		options.CommunalStorageLocation, options.ConfigurationParameters, &options.FilterOptions)
 
 	instructions = append(instructions,
 		&nmaHealthOp,

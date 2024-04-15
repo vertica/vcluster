@@ -24,8 +24,8 @@ import (
 
 type VSandboxOptions struct {
 	DatabaseOptions
-	SandboxName *string
-	SCName      *string
+	SandboxName string
+	SCName      string
 	SCHosts     []string
 	SCRawHosts  []string
 }
@@ -38,8 +38,6 @@ func VSandboxOptionsFactory() VSandboxOptions {
 
 func (options *VSandboxOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
-	options.SCName = new(string)
-	options.SandboxName = new(string)
 }
 
 func (options *VSandboxOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -48,11 +46,11 @@ func (options *VSandboxOptions) validateRequiredOptions(logger vlog.Printer) err
 		return err
 	}
 
-	if *options.SCName == "" {
+	if options.SCName == "" {
 		return fmt.Errorf("must specify a subcluster name")
 	}
 
-	if *options.SandboxName == "" {
+	if options.SandboxName == "" {
 		return fmt.Errorf("must specify a sandbox name")
 	}
 	return nil
@@ -112,31 +110,31 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 		}
 	}
 
-	username := *options.UserName
+	username := options.UserName
 
 	// Get all up nodes
-	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(*options.DBName, options.Hosts,
-		usePassword, username, options.Password, SandboxCmd, *options.SCName)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(options.DBName, options.Hosts,
+		usePassword, username, options.Password, SandboxCmd, options.SCName)
 	if err != nil {
 		return instructions, err
 	}
 
 	// Get subcluster sandboxing information and remove sandboxed nodes from prospective initator hosts list
 	httpsCheckSubclusterSandboxOp, err := makeHTTPSCheckSubclusterSandboxOp(options.Hosts,
-		*options.SCName, *options.SandboxName, usePassword, username, options.Password)
+		options.SCName, options.SandboxName, usePassword, username, options.Password)
 	if err != nil {
 		return instructions, err
 	}
 
 	// Run Sandboxing
-	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, *options.SCName, *options.SandboxName,
+	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, options.SCName, options.SandboxName,
 		usePassword, username, options.Password)
 	if err != nil {
 		return instructions, err
 	}
 
 	// Poll for sandboxed nodes to be up
-	httpsPollSubclusterNodeOp, err := makeHTTPSPollSubclusterNodeStateUpOp(*options.SCName,
+	httpsPollSubclusterNodeOp, err := makeHTTPSPollSubclusterNodeStateUpOp(options.SCName,
 		usePassword, username, options.Password)
 	if err != nil {
 		return instructions, err
@@ -179,7 +177,7 @@ func (options *VSandboxOptions) runCommand(vcc VClusterCommands) error {
 	// run the engine
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return fmt.Errorf("fail to sandbox subcluster %s, %w", *options.SCName, runError)
+		return fmt.Errorf("fail to sandbox subcluster %s, %w", options.SCName, runError)
 	}
 	return nil
 }

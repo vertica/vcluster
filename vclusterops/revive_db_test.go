@@ -12,7 +12,7 @@ func TestFindSpecifiedRestorePoint(t *testing.T) {
 	idVal := "id1"
 	indexVal := 0
 	options := VReviveDatabaseOptions{
-		RestorePoint: &RestorePointPolicy{
+		RestorePoint: RestorePointPolicy{
 			Archive: archiveVal,
 			ID:      idVal,
 			Index:   indexVal,

@@ -214,7 +214,7 @@ func Execute() {
 func initVcc(cmd *cobra.Command) vclusterops.VClusterCommands {
 	// setup logs
 	logger := vlog.Printer{ForCli: true}
-	logger.SetupOrDie(*dbOptions.LogPath)
+	logger.SetupOrDie(dbOptions.LogPath)
 
 	vcc := vclusterops.VClusterCommands{
 		VClusterCommandsLogger: vclusterops.VClusterCommandsLogger{
@@ -230,17 +230,17 @@ func initVcc(cmd *cobra.Command) vclusterops.VClusterCommands {
 func setDBOptionsUsingViper(flag string) error {
 	switch flag {
 	case dbNameFlag:
-		*dbOptions.DBName = viper.GetString(dbNameKey)
+		dbOptions.DBName = viper.GetString(dbNameKey)
 	case hostsFlag:
 		dbOptions.RawHosts = viper.GetStringSlice(hostsKey)
 	case catalogPathFlag:
-		*dbOptions.CatalogPrefix = viper.GetString(catalogPathKey)
+		dbOptions.CatalogPrefix = viper.GetString(catalogPathKey)
 	case depotPathFlag:
-		*dbOptions.DepotPrefix = viper.GetString(depotPathKey)
+		dbOptions.DepotPrefix = viper.GetString(depotPathKey)
 	case dataPathFlag:
-		*dbOptions.DataPrefix = viper.GetString(dataPathKey)
+		dbOptions.DataPrefix = viper.GetString(dataPathKey)
 	case communalStorageLocationFlag:
-		*dbOptions.CommunalStorageLocation = viper.GetString(communalStorageLocationKey)
+		dbOptions.CommunalStorageLocation = viper.GetString(communalStorageLocationKey)
 	case ipv6Flag:
 		dbOptions.IPv6 = viper.GetBool(ipv6Key)
 	case eonModeFlag:
@@ -248,7 +248,7 @@ func setDBOptionsUsingViper(flag string) error {
 	case configParamFlag:
 		dbOptions.ConfigurationParameters = viper.GetStringMapString(configParamKey)
 	case logPathFlag:
-		*dbOptions.LogPath = viper.GetString(logPathKey)
+		dbOptions.LogPath = viper.GetString(logPathKey)
 	case keyFileFlag:
 		globals.keyFile = viper.GetString(keyFileKey)
 	case certFileFlag:

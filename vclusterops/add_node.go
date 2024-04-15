@@ -29,20 +29,20 @@ type VAddNodeOptions struct {
 	// Hosts to add to database
 	NewHosts []string
 	// Name of the subcluster that the new nodes will be added to
-	SCName *string
+	SCName string
 	// A primary up host that will be used to execute add_node operations
 	Initiator string
-	// Depot size, e.g. 10G
-	DepotSize *string
+	// Depot size, e.g., 10G
+	DepotSize string
 	// Skip rebalance shards if true
 	SkipRebalanceShards *bool
 	// Use force remove if true
-	ForceRemoval *bool
+	ForceRemoval bool
 	// If the path is set, the NMA will store the Vertica start command at the path
 	// instead of executing it. This is useful in containerized environments where
 	// you may not want to have both the NMA and Vertica server in the same container.
 	// This feature requires version 24.2.0+.
-	StartUpConf *string
+	StartUpConf string
 	// Names of the existing nodes in the cluster. This option can be
 	// used to remove partially added nodes from catalog.
 	ExpectedNodeNames []string
@@ -59,15 +59,11 @@ func VAddNodeOptionsFactory() VAddNodeOptions {
 func (o *VAddNodeOptions) setDefaultValues() {
 	o.DatabaseOptions.setDefaultValues()
 
-	o.SCName = new(string)
 	o.SkipRebalanceShards = new(bool)
-	o.DepotSize = new(string)
-	o.ForceRemoval = new(bool)
-	o.StartUpConf = new(string)
 }
 
 func (o *VAddNodeOptions) validateEonOptions() error {
-	if *o.DepotPrefix != "" {
+	if o.DepotPrefix != "" {
 		return util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
 	}
 	return nil
@@ -75,7 +71,7 @@ func (o *VAddNodeOptions) validateEonOptions() error {
 
 func (o *VAddNodeOptions) validateExtraOptions() error {
 	// data prefix
-	if *o.DataPrefix != "" {
+	if o.DataPrefix != "" {
 		return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
 	}
 	return nil
@@ -168,7 +164,7 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 		return vdb, err
 	}
 
-	err = vdb.addHosts(options.NewHosts, *options.SCName)
+	err = vdb.addHosts(options.NewHosts, options.SCName)
 	if err != nil {
 		return vdb, err
 	}
@@ -200,8 +196,8 @@ func checkAddNodeRequirements(vdb *VCoordinationDatabase, hostsToAdd []string) e
 // completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet
 // from the https endpoints. We set those fields from options.
 func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
-	vdb.DataPrefix = *o.DataPrefix
-	vdb.DepotPrefix = *o.DepotPrefix
+	vdb.DataPrefix = o.DataPrefix
+	vdb.DepotPrefix = o.DepotPrefix
 
 	hostNodeMap := makeVHostNodeMap()
 	// TODO: we set the depot and data path from /nodes rather than manually
@@ -269,7 +265,7 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	// mark k-safety
 	if len(aliveHosts) < ksafetyThreshold {
 		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(initiator,
-			options.usePassword, *options.UserName, options.Password,
+			options.usePassword, options.UserName, options.Password,
 			ksafeValueZero)
 		if err != nil {
 			return err
@@ -280,7 +276,7 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	// remove down nodes from catalog
 	for _, nodeName := range nodesToTrim {
 		httpsDropNodeOp, err := makeHTTPSDropNodeOp(nodeName, initiator,
-			options.usePassword, *options.UserName, options.Password, vdb.IsEon)
+			options.usePassword, options.UserName, options.Password, vdb.IsEon)
 		if err != nil {
 			return err
 		}
@@ -327,7 +323,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	initiatorHost := []string{options.Initiator}
 	newHosts := options.NewHosts
 	allExistingHosts := util.SliceDiff(vdb.HostList, options.NewHosts)
-	username := *options.UserName
+	username := options.UserName
 	usePassword := options.usePassword
 	password := options.Password
 
@@ -336,7 +332,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 
 	if vdb.IsEon {
 		httpsFindSubclusterOp, e := makeHTTPSFindSubclusterOp(
-			allExistingHosts, usePassword, username, password, *options.SCName,
+			allExistingHosts, usePassword, username, password, options.SCName,
 			true /*ignore not found*/, AddNodeCmd)
 		if e != nil {
 			return instructions, e
@@ -352,13 +348,13 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	// contains the hosts to add.
 	newHostNodeMap := vdb.copyHostNodeMap(options.NewHosts)
 	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(newHostNodeMap,
-		*options.ForceRemoval /*force cleanup*/, false /*for db revive*/)
+		options.ForceRemoval /*force cleanup*/, false /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(vdb.HostList)
 	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newHosts, initiatorHost,
-		usePassword, username, password, vdb, *options.SCName)
+		usePassword, username, password, vdb, options.SCName)
 	if err != nil {
 		return instructions, err
 	}
@@ -384,7 +380,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		vdb.HostList,
 		vdb /*db configurations retrieved from a running db*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, *options.StartUpConf, vdb)
+	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, options.StartUpConf, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password)
 	if err != nil {
 		return instructions, err
@@ -420,7 +416,7 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 		instructions = append(instructions, &httpsSyncCatalogOp)
 		if !*options.SkipRebalanceShards {
 			httpsRBSCShardsOp, err := makeHTTPSRebalanceSubclusterShardsOp(
-				initiatorHost, usePassword, username, options.Password, *options.SCName)
+				initiatorHost, usePassword, username, options.Password, options.SCName)
 			if err != nil {
 				return instructions, err
 			}

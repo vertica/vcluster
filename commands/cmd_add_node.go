@@ -93,7 +93,7 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		"Comma-separated list of host(s) to add to the database",
 	)
 	cmd.Flags().BoolVar(
-		c.addNodeOptions.ForceRemoval,
+		&c.addNodeOptions.ForceRemoval,
 		"force-removal",
 		false,
 		"Whether to force clean-up of existing directories before adding host(s)",
@@ -105,14 +105,14 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		util.GetEonFlagMsg("Skip the subcluster shards rebalancing"),
 	)
 	cmd.Flags().StringVar(
-		c.addNodeOptions.SCName,
+		&c.addNodeOptions.SCName,
 		subclusterFlag,
 		"",
 		util.GetEonFlagMsg("The Name of subcluster"+
 			" to which the host(s) must be added. If empty default subcluster is considered"),
 	)
 	cmd.Flags().StringVar(
-		c.addNodeOptions.DepotSize,
+		&c.addNodeOptions.DepotSize,
 		"depot-size",
 		"",
 		util.GetEonFlagMsg("Size of depot"),
@@ -179,7 +179,7 @@ func (c *CmdAddNode) parseNodeNameList() error {
 	if c.parser.Changed("node-names") {
 		if c.nodeNameListStr == "" {
 			return fmt.Errorf("when --node-names is specified, "+
-				"must provide all existing node names in %q", *c.addNodeOptions.DBName)
+				"must provide all existing node names in %q", c.addNodeOptions.DBName)
 		}
 
 		c.addNodeOptions.ExpectedNodeNames = strings.Split(c.nodeNameListStr, ",")
@@ -204,7 +204,7 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
 
-	vcc.PrintInfo("Added nodes %v to database %s", c.addNodeOptions.NewHosts, *options.DBName)
+	vcc.PrintInfo("Added nodes %v to database %s", c.addNodeOptions.NewHosts, options.DBName)
 	return nil
 }
 

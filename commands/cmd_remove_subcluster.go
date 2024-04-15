@@ -77,13 +77,13 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		c.removeScOptions.SubclusterToRemove,
+		&c.removeScOptions.SubclusterToRemove,
 		subclusterFlag,
 		"",
 		"Name of subcluster to be removed",
 	)
 	cmd.Flags().BoolVar(
-		c.removeScOptions.ForceDelete,
+		&c.removeScOptions.ForceDelete,
 		"force-delete",
 		true,
 		"Whether force delete directories if they are not empty",
@@ -139,7 +139,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
 	vcc.PrintInfo("Successfully removed subcluster %s from database %s",
-		*options.SubclusterToRemove, *options.DBName)
+		options.SubclusterToRemove, options.DBName)
 
 	return nil
 }

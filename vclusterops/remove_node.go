@@ -29,7 +29,7 @@ type VRemoveNodeOptions struct {
 	DatabaseOptions
 	HostsToRemove []string // Hosts to remove from database
 	Initiator     string   // A primary up host that will be used to execute remove_node operations.
-	ForceDelete   *bool    // whether force delete directories
+	ForceDelete   bool     // whether force delete directories
 }
 
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
@@ -43,8 +43,7 @@ func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
 func (o *VRemoveNodeOptions) setDefaultValues() {
 	o.DatabaseOptions.setDefaultValues()
 
-	o.ForceDelete = new(bool)
-	*o.ForceDelete = true
+	o.ForceDelete = true
 }
 
 func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
@@ -57,7 +56,7 @@ func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
 
 func (o *VRemoveNodeOptions) validateExtraOptions() error {
 	// data prefix
-	if *o.DataPrefix != "" {
+	if o.DataPrefix != "" {
 		return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
 	}
 	return nil
@@ -193,7 +192,7 @@ func (vcc VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinat
 	vcc.Log.Info("Doing cleanup of hosts missing from database", "hostsNotInCatalog", missingHosts)
 
 	// We need to find the paths for the hosts we are removing.
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(missingHosts, *options.DBName, *options.CatalogPrefix,
+	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(missingHosts, options.DBName, options.CatalogPrefix,
 		false /* report all errors */, vdb)
 	instructions := []clusterOp{&nmaGetNodesInfoOp}
 	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
@@ -213,7 +212,7 @@ func (vcc VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinat
 
 	// Using the paths fetched earlier, we can now build the list of directories
 	// that the NMA should remove.
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&vdbForDeleteDir, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&vdbForDeleteDir, options.ForceDelete)
 	if err != nil {
 		return *vdb, err
 	}
@@ -253,9 +252,9 @@ func checkRemoveNodeRequirements(vdb *VCoordinationDatabase, options *VRemoveNod
 // completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet
 // from the https endpoints. We set those fields from options.
 func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
-	vdb.DataPrefix = *o.DataPrefix
+	vdb.DataPrefix = o.DataPrefix
 
-	if *o.DepotPrefix == "" {
+	if o.DepotPrefix == "" {
 		return nil
 	}
 	if vdb.IsEon {
@@ -267,7 +266,7 @@ func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) erro
 			return err
 		}
 	}
-	vdb.DepotPrefix = *o.DepotPrefix
+	vdb.DepotPrefix = o.DepotPrefix
 	hostNodeMap := makeVHostNodeMap()
 	// TODO: we set the depot path from /nodes rather than manually
 	// (VER-92725). This is useful for nmaDeleteDirectoriesOp.
@@ -309,7 +308,7 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	var initiatorHost []string
 	initiatorHost = append(initiatorHost, options.Initiator)
 
-	username := *options.UserName
+	username := options.UserName
 	usePassword := options.usePassword
 	password := options.Password
 
@@ -381,7 +380,7 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	}
 	instructions = append(instructions, &httpsReloadSpreadOp)
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, options.ForceDelete)
 	if err != nil {
 		return instructions, err
 	}

@@ -164,14 +164,14 @@ func (vcc *VClusterCommands) produceFetchNodesDetailsInstructions(options *VFetc
 		return instructions, err
 	}
 
-	httpsGetNodeStateOp, err := makeHTTPSGetLocalNodeStateOp(*options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, hostsWithNodeDetails)
+	httpsGetNodeStateOp, err := makeHTTPSGetLocalNodeStateOp(options.DBName, options.Hosts,
+		options.usePassword, options.UserName, options.Password, hostsWithNodeDetails)
 	if err != nil {
 		return instructions, err
 	}
 
 	httpsGetStorageLocationsOp, err := makeHTTPSGetStorageLocsOp(options.Hosts, options.usePassword,
-		*options.UserName, options.Password, hostsWithNodeDetails)
+		options.UserName, options.Password, hostsWithNodeDetails)
 	if err != nil {
 		return instructions, err
 	}

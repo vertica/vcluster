@@ -29,15 +29,14 @@ func TestRemoveSubcluster(t *testing.T) {
 	options.RawHosts = []string{"vnode1", "vnode2"}
 	options.Password = new(string)
 	// input db name
-	*options.DBName = dbName
+	options.DBName = dbName
 
 	// options without sc name, data path, and depot path
 	err := options.validateParseOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify a subcluster name")
 
 	// input sc name
-	options.SubclusterToRemove = new(string)
-	*options.SubclusterToRemove = "sc1"
+	options.SubclusterToRemove = "sc1"
 
 	// verify Eon mode is set
 	options.IsEon = false
@@ -49,12 +48,12 @@ func TestRemoveSubcluster(t *testing.T) {
 	assert.ErrorContains(t, err, "must specify an absolute data path")
 
 	// input data path
-	*options.DataPrefix = defaultPath
+	options.DataPrefix = defaultPath
 	err = options.validateParseOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify an absolute depot path")
 
 	// input depot path
-	*options.DepotPrefix = defaultPath
+	options.DepotPrefix = defaultPath
 	err = options.validateParseOptions(vlog.Printer{})
 	assert.NoError(t, err)
 }

@@ -35,7 +35,6 @@ func makeCmdDropDB() *cobra.Command {
 	newCmd := &CmdDropDB{}
 	opt := vclusterops.VDropDatabaseOptionsFactory()
 	newCmd.dropDBOptions = &opt
-	newCmd.dropDBOptions.ForceDelete = new(bool)
 
 	// VER-92345 update the long description about the hosts option
 	cmd := makeBasicCobraCmd(
@@ -75,7 +74,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdDropDB) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(
-		c.dropDBOptions.ForceDelete,
+		&c.dropDBOptions.ForceDelete,
 		"force-delete",
 		false,
 		"Delete local directories like catalog, depot, and data.",
@@ -107,7 +106,7 @@ func (c *CmdDropDB) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	vcc.PrintInfo("Successfully dropped database %s", *c.dropDBOptions.DBName)
+	vcc.PrintInfo("Successfully dropped database %s", c.dropDBOptions.DBName)
 	// if the database is successfully dropped, the config file will be removed
 	// if failed to remove it, we will ask users to manually do it
 	err = removeConfig(vcc.GetLog())

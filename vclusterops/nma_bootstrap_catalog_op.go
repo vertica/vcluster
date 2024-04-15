@@ -94,20 +94,20 @@ func (op *nmaBootstrapCatalogOp) setupRequestBody(vdb *VCoordinationDatabase, op
 
 		bootstrapData.LicenseKey = vdb.LicensePathOnNode
 		// large cluster mode temporariliy disabled
-		bootstrapData.LargeCluster = *options.LargeCluster
-		if *options.P2p {
+		bootstrapData.LargeCluster = options.LargeCluster
+		if options.P2p {
 			bootstrapData.NetworkingMode = "pt2pt"
 		} else {
 			bootstrapData.NetworkingMode = "broadcast"
 		}
-		bootstrapData.SpreadLogging = *options.SpreadLogging
-		bootstrapData.SpreadLoggingLevel = *options.SpreadLoggingLevel
+		bootstrapData.SpreadLogging = options.SpreadLogging
+		bootstrapData.SpreadLoggingLevel = options.SpreadLoggingLevel
 		bootstrapData.Ipv6 = options.IPv6
-		bootstrapData.SuperuserName = *options.UserName
+		bootstrapData.SuperuserName = options.UserName
 		bootstrapData.DBPassword = *options.Password
 
 		// Flag to generate certs and tls configuration
-		bootstrapData.GenerateHTTPCerts = *options.GenerateHTTPCerts
+		bootstrapData.GenerateHTTPCerts = options.GenerateHTTPCerts
 
 		// Eon params
 		bootstrapData.NumShards = vdb.NumShards

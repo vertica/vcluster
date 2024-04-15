@@ -121,92 +121,92 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		c.createDBOptions.LicensePathOnNode,
+		&c.createDBOptions.LicensePathOnNode,
 		"license",
 		"",
 		"Database license",
 	)
 	cmd.Flags().StringVar(
-		c.createDBOptions.Policy,
+		&c.createDBOptions.Policy,
 		"policy",
 		util.DefaultRestartPolicy,
 		"Restart policy of the database",
 	)
 	cmd.Flags().StringVar(
-		c.createDBOptions.SQLFile,
+		&c.createDBOptions.SQLFile,
 		"sql",
 		"",
 		"SQL file to run (as dbadmin) immediately on database creation",
 	)
 	markFlagsFileName(cmd, map[string][]string{"sql": {"sql"}})
 	cmd.Flags().IntVar(
-		c.createDBOptions.ShardCount,
+		&c.createDBOptions.ShardCount,
 		"shard-count",
 		0,
 		util.GetEonFlagMsg("Number of shards in the database"),
 	)
 	cmd.Flags().StringVar(
-		c.createDBOptions.DepotSize,
+		&c.createDBOptions.DepotSize,
 		"depot-size",
 		"",
 		util.GetEonFlagMsg("Size of depot"),
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.GetAwsCredentialsFromEnv,
+		&c.createDBOptions.GetAwsCredentialsFromEnv,
 		"get-aws-credentials-from-env-vars",
 		false,
 		util.GetEonFlagMsg("Read AWS credentials from environment variables"),
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.P2p,
+		&c.createDBOptions.P2p,
 		"point-to-point",
 		true,
 		"Configure Spread to use point-to-point communication between all Vertica nodes",
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.Broadcast,
+		&c.createDBOptions.Broadcast,
 		"broadcast",
 		false,
 		"Configure Spread to use UDP broadcast traffic between nodes on the same subnet",
 	)
 	cmd.Flags().IntVar(
-		c.createDBOptions.LargeCluster,
+		&c.createDBOptions.LargeCluster,
 		"large-cluster",
 		-1,
 		"Enables a large cluster layout",
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.SpreadLogging,
+		&c.createDBOptions.SpreadLogging,
 		"spread-logging",
 		false,
 		"Whether enable spread logging",
 	)
 	cmd.Flags().IntVar(
-		c.createDBOptions.SpreadLoggingLevel,
+		&c.createDBOptions.SpreadLoggingLevel,
 		"spread-logging-level",
 		-1,
 		"Spread logging level",
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.ForceCleanupOnFailure,
+		&c.createDBOptions.ForceCleanupOnFailure,
 		"force-cleanup-on-failure",
 		false,
 		"Force removal of existing directories on failure of command",
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.ForceRemovalAtCreation,
+		&c.createDBOptions.ForceRemovalAtCreation,
 		"force-removal-at-creation",
 		false,
 		"Force removal of existing directories before creating the database",
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.SkipPackageInstall,
+		&c.createDBOptions.SkipPackageInstall,
 		"skip-package-install",
 		false,
 		"Skip the installation of packages from /opt/vertica/packages.",
 	)
 	cmd.Flags().IntVar(
-		c.createDBOptions.TimeoutNodeStartupSeconds,
+		&c.createDBOptions.TimeoutNodeStartupSeconds,
 		"startup-timeout",
 		util.DefaultTimeoutSeconds,
 		"The timeout to wait for the nodes to start",
@@ -217,13 +217,13 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 // These hidden flags will not be shown in help and usage of the command, and they will be used internally.
 func (c *CmdCreateDB) setHiddenFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(
-		c.createDBOptions.ClientPort,
+		&c.createDBOptions.ClientPort,
 		"client-port",
 		util.DefaultClientPort,
 		"",
 	)
 	cmd.Flags().BoolVar(
-		c.createDBOptions.SkipStartupPolling,
+		&c.createDBOptions.SkipStartupPolling,
 		"skip-startup-polling",
 		false,
 		"",

@@ -31,7 +31,7 @@ func TestRequiredOptions(t *testing.T) {
 	assert.ErrorContains(t, err, `must specify a database name`)
 
 	// hosts are required
-	*options.DBName = "testDB"
+	options.DBName = "testDB"
 	nodesDetails, err = vcc.VFetchNodesDetails(&options)
 	assert.Empty(t, nodesDetails)
 	assert.ErrorContains(t, err, `must specify a host or host list`)

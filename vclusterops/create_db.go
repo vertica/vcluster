@@ -29,40 +29,41 @@ import (
 // VCreateDatabase.
 type VCreateDatabaseOptions struct {
 	/* part 1: basic db info */
+
 	DatabaseOptions
-	Policy            *string // database restart policy
-	SQLFile           *string // SQL file to run (as dbadmin) immediately on database creation
-	LicensePathOnNode *string // required to be a fully qualified path
+	Policy            string // database restart policy
+	SQLFile           string // SQL file to run (as dbadmin) immediately on database creation
+	LicensePathOnNode string // required to be a fully qualified path
 
 	/* part 2: eon db info */
 
-	ShardCount               *int    // number of shards in the database"
-	DepotSize                *string // depot size with two supported formats: % and KMGT, e.g., 50% or 10G
-	GetAwsCredentialsFromEnv *bool   // whether get AWS credentials from environmental variables
+	ShardCount               int    // number of shards in the database"
+	DepotSize                string // depot size with two supported formats: % and KMGT, e.g., 50% or 10G
+	GetAwsCredentialsFromEnv bool   // whether get AWS credentials from environmental variables
 	// part 3: optional info
-	ForceCleanupOnFailure     *bool // whether force remove existing directories on failure
-	ForceRemovalAtCreation    *bool // whether force remove existing directories before creating the database
-	SkipPackageInstall        *bool // whether skip package installation
-	TimeoutNodeStartupSeconds *int  // timeout in seconds for polling node start up state
+	ForceCleanupOnFailure     bool // whether force remove existing directories on failure
+	ForceRemovalAtCreation    bool // whether force remove existing directories before creating the database
+	SkipPackageInstall        bool // whether skip package installation
+	TimeoutNodeStartupSeconds int  // timeout in seconds for polling node start up state
 
 	/* part 3: new params originally in installer generated admintools.conf, now in create db op */
 
-	Broadcast          *bool // configure Spread to use UDP broadcast traffic between nodes on the same subnet
-	P2p                *bool // configure Spread to use point-to-point communication between all Vertica nodes
-	LargeCluster       *int  // whether enables a large cluster layout
-	ClientPort         *int  // for internal QA test only, do not abuse
-	SpreadLogging      *bool // whether enable spread logging
-	SpreadLoggingLevel *int  // spread logging level
+	Broadcast          bool // configure Spread to use UDP broadcast traffic between nodes on the same subnet
+	P2p                bool // configure Spread to use point-to-point communication between all Vertica nodes
+	LargeCluster       int  // whether enables a large cluster layout
+	ClientPort         int  // for internal QA test only, do not abuse
+	SpreadLogging      bool // whether enable spread logging
+	SpreadLoggingLevel int  // spread logging level
 
 	/* part 4: other params */
 
-	SkipStartupPolling *bool // whether skip startup polling
-	GenerateHTTPCerts  *bool // whether generate http certificates
+	SkipStartupPolling bool // whether skip startup polling
+	GenerateHTTPCerts  bool // whether generate http certificates
 	// If the path is set, the NMA will store the Vertica start command at the path
 	// instead of executing it. This is useful in containerized environments where
 	// you may not want to have both the NMA and Vertica server in the same container.
 	// This feature requires version 24.2.0+.
-	StartUpConf *string
+	StartUpConf string
 
 	/* hidden options (which cache information only) */
 
@@ -82,117 +83,16 @@ func (opt *VCreateDatabaseOptions) setDefaultValues() {
 
 	// basic db info
 	defaultPolicy := util.DefaultRestartPolicy
-	opt.Policy = &defaultPolicy
-	opt.SQLFile = new(string)
-	opt.LicensePathOnNode = new(string)
-
-	// eon db Info
-	opt.ShardCount = new(int)
-	opt.DepotSize = new(string)
-	opt.GetAwsCredentialsFromEnv = new(bool)
+	opt.Policy = defaultPolicy
 
 	// optional info
-	opt.ForceCleanupOnFailure = new(bool)
-	opt.ForceRemovalAtCreation = new(bool)
-	opt.SkipPackageInstall = new(bool)
-	opt.GenerateHTTPCerts = new(bool)
-	opt.StartUpConf = new(string)
-
-	defaultTimeoutNodeStartupSeconds := util.DefaultTimeoutSeconds
-	opt.TimeoutNodeStartupSeconds = &defaultTimeoutNodeStartupSeconds
+	opt.TimeoutNodeStartupSeconds = util.DefaultTimeoutSeconds
 
 	// new params originally in installer generated admintools.conf, now in create db op
-	opt.Broadcast = new(bool)
-
-	defaultP2p := true
-	opt.P2p = &defaultP2p
-
-	defaultLargeCluster := -1
-	opt.LargeCluster = &defaultLargeCluster
-
-	defaultClientPort := util.DefaultClientPort
-	opt.ClientPort = &defaultClientPort
-	opt.SpreadLogging = new(bool)
-
-	defaultSpreadLoggingLevel := -1
-	opt.SpreadLoggingLevel = &defaultSpreadLoggingLevel
-
-	// other params
-	opt.SkipStartupPolling = new(bool)
-}
-
-func (opt *VCreateDatabaseOptions) checkNilPointerParams() error {
-	if err := opt.DatabaseOptions.checkNilPointerParams(); err != nil {
-		return err
-	}
-
-	// basic params
-	if opt.Policy == nil {
-		return util.ParamNotSetErrorMsg("policy")
-	}
-	if opt.SQLFile == nil {
-		return util.ParamNotSetErrorMsg("sql")
-	}
-	if opt.LicensePathOnNode == nil {
-		return util.ParamNotSetErrorMsg("license")
-	}
-
-	// eon params
-	if opt.ShardCount == nil {
-		return util.ParamNotSetErrorMsg("shard-count")
-	}
-	if opt.CommunalStorageLocation == nil {
-		return util.ParamNotSetErrorMsg("communal-storage-location")
-	}
-	if opt.DepotSize == nil {
-		return util.ParamNotSetErrorMsg("depot-size")
-	}
-	if opt.GetAwsCredentialsFromEnv == nil {
-		return util.ParamNotSetErrorMsg("get-aws-credentials-from-env-vars")
-	}
-
-	return opt.checkExtraNilPointerParams()
-}
-
-func (opt *VCreateDatabaseOptions) checkExtraNilPointerParams() error {
-	// optional params
-	if opt.ForceCleanupOnFailure == nil {
-		return util.ParamNotSetErrorMsg("force-cleanup-on-failure")
-	}
-	if opt.ForceRemovalAtCreation == nil {
-		return util.ParamNotSetErrorMsg("force-removal-at-creation")
-	}
-	if opt.SkipPackageInstall == nil {
-		return util.ParamNotSetErrorMsg("skip-package-install")
-	}
-	if opt.TimeoutNodeStartupSeconds == nil {
-		return util.ParamNotSetErrorMsg("startup-timeout")
-	}
-
-	// other params
-	if opt.Broadcast == nil {
-		return util.ParamNotSetErrorMsg("broadcast")
-	}
-	if opt.P2p == nil {
-		return util.ParamNotSetErrorMsg("point-to-point")
-	}
-	if opt.LargeCluster == nil {
-		return util.ParamNotSetErrorMsg("large-cluster")
-	}
-	if opt.ClientPort == nil {
-		return util.ParamNotSetErrorMsg("client-port")
-	}
-	if opt.SpreadLogging == nil {
-		return util.ParamNotSetErrorMsg("spread-logging")
-	}
-	if opt.SpreadLoggingLevel == nil {
-		return util.ParamNotSetErrorMsg("spread-logging-level")
-	}
-	if opt.SkipStartupPolling == nil {
-		return util.ParamNotSetErrorMsg("skip-startup-polling")
-	}
-
-	return nil
+	opt.P2p = util.DefaultP2p
+	opt.LargeCluster = util.DefaultLargeCluster
+	opt.ClientPort = util.DefaultClientPort
+	opt.SpreadLoggingLevel = util.DefaultSpreadLoggingLevel
 }
 
 func (opt *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -203,7 +103,7 @@ func (opt *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) 
 		logger.Info("no password specified, using none")
 	}
 
-	if !util.StringInArray(*opt.Policy, util.RestartPolicyList) {
+	if !util.StringInArray(opt.Policy, util.RestartPolicyList) {
 		return fmt.Errorf("policy must be one of %v", util.RestartPolicyList)
 	}
 
@@ -214,7 +114,7 @@ func (opt *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) 
 	//
 	// empty string ("") will be converted to the default license path (/opt/vertica/share/license.key)
 	// in the /bootstrap-catalog endpoint
-	if *opt.LicensePathOnNode != "" && !util.IsAbsPath(*opt.LicensePathOnNode) {
+	if opt.LicensePathOnNode != "" && !util.IsAbsPath(opt.LicensePathOnNode) {
 		return fmt.Errorf("must provide a fully qualified path for license file")
 	}
 
@@ -291,29 +191,29 @@ func validateDepotSize(size string) (bool, error) {
 }
 
 func (opt *VCreateDatabaseOptions) validateEonOptions() error {
-	if *opt.CommunalStorageLocation != "" {
-		err := util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
+	if opt.CommunalStorageLocation != "" {
+		err := util.ValidateCommunalStorageLocation(opt.CommunalStorageLocation)
 		if err != nil {
 			return err
 		}
-		if *opt.DepotPrefix == "" {
+		if opt.DepotPrefix == "" {
 			return fmt.Errorf("must specify a depot path with commual storage location")
 		}
-		if *opt.ShardCount == 0 {
+		if opt.ShardCount == 0 {
 			return fmt.Errorf("must specify a shard count greater than 0 with communal storage location")
 		}
 	}
-	if *opt.DepotPrefix != "" && *opt.CommunalStorageLocation == "" {
+	if opt.DepotPrefix != "" && opt.CommunalStorageLocation == "" {
 		return fmt.Errorf("when depot path is given, communal storage location cannot be empty")
 	}
-	if *opt.GetAwsCredentialsFromEnv && *opt.CommunalStorageLocation == "" {
+	if opt.GetAwsCredentialsFromEnv && opt.CommunalStorageLocation == "" {
 		return fmt.Errorf("AWS credentials are only used in Eon mode")
 	}
-	if *opt.DepotSize != "" {
-		if *opt.DepotPrefix == "" {
+	if opt.DepotSize != "" {
+		if opt.DepotPrefix == "" {
 			return fmt.Errorf("when depot size is given, depot path cannot be empty")
 		}
-		validDepotSize, err := validateDepotSize(*opt.DepotSize)
+		validDepotSize, err := validateDepotSize(opt.DepotSize)
 		if !validDepotSize {
 			return err
 		}
@@ -322,25 +222,19 @@ func (opt *VCreateDatabaseOptions) validateEonOptions() error {
 }
 
 func (opt *VCreateDatabaseOptions) validateExtraOptions() error {
-	if *opt.Broadcast && *opt.P2p {
+	if opt.Broadcast && opt.P2p {
 		return fmt.Errorf("cannot use both Broadcast and Point-to-point networking mode")
 	}
 	// -1 is the default large cluster value, meaning 120 control nodes
-	if *opt.LargeCluster != util.DefaultLargeCluster && (*opt.LargeCluster < 1 || *opt.LargeCluster > util.MaxLargeCluster) {
+	if opt.LargeCluster != util.DefaultLargeCluster && (opt.LargeCluster < 1 || opt.LargeCluster > util.MaxLargeCluster) {
 		return fmt.Errorf("must specify a valid large cluster value in range [1, 120]")
 	}
 	return nil
 }
 
 func (opt *VCreateDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
-	// check nil pointers in the required options
-	err := opt.checkNilPointerParams()
-	if err != nil {
-		return err
-	}
-
 	// validate base options
-	err = opt.validateBaseOptions("create_db", logger)
+	err := opt.validateBaseOptions("create_db", logger)
 	if err != nil {
 		return err
 	}
@@ -375,15 +269,10 @@ func (opt *VCreateDatabaseOptions) analyzeOptions() error {
 	}
 
 	// process correct catalog path, data path and depot path prefixes
-	*opt.CatalogPrefix = util.GetCleanPath(*opt.CatalogPrefix)
-	*opt.DataPrefix = util.GetCleanPath(*opt.DataPrefix)
-	*opt.DepotPrefix = util.GetCleanPath(*opt.DepotPrefix)
-	if opt.ClientPort == nil {
-		*opt.ClientPort = util.DefaultClientPort
-	}
-	if opt.LargeCluster == nil {
-		*opt.LargeCluster = util.DefaultLargeCluster
-	}
+	opt.CatalogPrefix = util.GetCleanPath(opt.CatalogPrefix)
+	opt.DataPrefix = util.GetCleanPath(opt.DataPrefix)
+	opt.DepotPrefix = util.GetCleanPath(opt.DepotPrefix)
+
 	return nil
 }
 
@@ -496,13 +385,13 @@ func (vcc VClusterCommands) produceCreateDBBootstrapInstructions(
 	}
 
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, true, /* use password auth */
-		*options.UserName, options.Password, CreateDB)
+		options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err
 	}
 
 	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(vdb.HostNodeMap,
-		*options.ForceRemovalAtCreation, false /*for db revive*/)
+		options.ForceRemovalAtCreation, false /*for db revive*/)
 	if err != nil {
 		return instructions, err
 	}
@@ -539,10 +428,10 @@ func (vcc VClusterCommands) produceCreateDBBootstrapInstructions(
 		)
 	}
 
-	nmaStartNodeOp := makeNMAStartNodeOp(bootstrapHost, *options.StartUpConf)
+	nmaStartNodeOp := makeNMAStartNodeOp(bootstrapHost, options.StartUpConf)
 
 	httpsPollBootstrapNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(bootstrapHost, true, /* useHTTPPassword */
-		*options.UserName, options.Password, *options.TimeoutNodeStartupSeconds, CreateDBCmd)
+		options.UserName, options.Password, options.TimeoutNodeStartupSeconds, CreateDBCmd)
 	if err != nil {
 		return instructions, err
 	}
@@ -567,7 +456,7 @@ func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 	newNodeHosts := util.SliceDiff(hosts, bootstrapHost)
 	if len(hosts) > 1 {
 		httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newNodeHosts, bootstrapHost,
-			true /* use password auth */, *options.UserName, options.Password, vdb, "")
+			true /* use password auth */, options.UserName, options.Password, vdb, "")
 		if err != nil {
 			return instructions, err
 		}
@@ -575,7 +464,7 @@ func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 	}
 
 	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(bootstrapHost,
-		true /* use password auth */, *options.UserName, options.Password)
+		true /* use password auth */, options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
@@ -587,14 +476,14 @@ func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 	}
 
 	if len(hosts) > 1 {
-		httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(*options.DBName, bootstrapHost,
-			true /* use password auth */, *options.UserName, options.Password, vdb, false, util.MainClusterSandbox)
+		httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.DBName, bootstrapHost,
+			true /* use password auth */, options.UserName, options.Password, vdb, false, util.MainClusterSandbox)
 		if err != nil {
 			return instructions, err
 		}
 
 		httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOp(true, /*use https password*/
-			*options.UserName, options.Password, vdb)
+			options.UserName, options.Password, vdb)
 		if err != nil {
 			return instructions, err
 		}
@@ -606,7 +495,7 @@ func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 			bootstrapHost,
 			vdb.HostList,
 			vdb /*db configurations retrieved from a running db*/)
-		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newNodeHosts, *options.StartUpConf, vdb)
+		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newNodeHosts, options.StartUpConf, vdb)
 		instructions = append(instructions, &nmaStartNewNodesOp)
 	}
 
@@ -620,11 +509,11 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 
 	hosts := vdb.HostList
 	bootstrapHost := options.bootstrapHost
-	username := *options.UserName
+	username := options.UserName
 
-	if !*options.SkipStartupPolling {
+	if !options.SkipStartupPolling {
 		httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(hosts, true, username, options.Password,
-			*options.TimeoutNodeStartupSeconds, CreateDBCmd)
+			options.TimeoutNodeStartupSeconds, CreateDBCmd)
 		if err != nil {
 			return instructions, err
 		}
@@ -648,7 +537,7 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 		instructions = append(instructions, &httpsMarkDesignKSafeOp)
 	}
 
-	if !*options.SkipPackageInstall {
+	if !options.SkipPackageInstall {
 		httpsInstallPackagesOp, err := makeHTTPSInstallPackagesOp(bootstrapHost, true, username, options.Password,
 			false /* forceReinstall */, true /* verbose */)
 		if err != nil {

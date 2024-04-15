@@ -144,7 +144,7 @@ func (c *CmdRestartNodes) Run(vcc vclusterops.ClusterCommands) error {
 	for _, ip := range options.Nodes {
 		hostToRestart = append(hostToRestart, ip)
 	}
-	vcc.PrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, *options.DBName)
+	vcc.PrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, options.DBName)
 
 	return nil
 }

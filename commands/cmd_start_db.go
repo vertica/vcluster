@@ -42,7 +42,6 @@ func makeCmdStartDB() *cobra.Command {
 	newCmd := &CmdStartDB{}
 	opt := vclusterops.VStartDatabaseOptionsFactory()
 	newCmd.startDBOptions = &opt
-	newCmd.startDBOptions.CommunalStorageLocation = new(string)
 
 	cmd := makeBasicCobraCmd(
 		newCmd,
@@ -84,7 +83,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(
-		c.startDBOptions.StatePollingTimeout,
+		&c.startDBOptions.StatePollingTimeout,
 		"timeout",
 		util.DefaultTimeoutSeconds,
 		"The timeout (in seconds) to wait for polling node state operation",
@@ -125,7 +124,7 @@ func (c *CmdStartDB) setHiddenFlags(cmd *cobra.Command) {
 		"",
 	)
 	cmd.Flags().BoolVar(
-		c.startDBOptions.TrimHostList,
+		&c.startDBOptions.TrimHostList,
 		"trim-hosts",
 		false,
 		"",
@@ -167,7 +166,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	vcc.PrintInfo("Successfully start the database %s", *options.DBName)
+	vcc.PrintInfo("Successfully start the database %s", options.DBName)
 
 	// for Eon database, update config file to fill nodes' subcluster information
 	if options.IsEon {

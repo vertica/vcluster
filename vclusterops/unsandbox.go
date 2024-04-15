@@ -25,7 +25,7 @@ import (
 
 type VUnsandboxOptions struct {
 	DatabaseOptions
-	SCName     *string
+	SCName     string
 	SCHosts    []string
 	SCRawHosts []string
 	// if restart the subcluster after unsandboxing it, the default value of it is true
@@ -42,7 +42,6 @@ func VUnsandboxOptionsFactory() VUnsandboxOptions {
 
 func (options *VUnsandboxOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
-	options.SCName = new(string)
 	options.RestartSC = true
 }
 
@@ -52,7 +51,7 @@ func (options *VUnsandboxOptions) validateRequiredOptions(logger vlog.Printer) e
 		return err
 	}
 
-	if *options.SCName == "" {
+	if options.SCName == "" {
 		return fmt.Errorf("must specify a subcluster name")
 	}
 	return nil
@@ -111,21 +110,21 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase, optio
 	}
 	if !vdb.IsEon {
 		return fmt.Errorf(`cannot unsandbox subclusters for an enterprise database '%s'`,
-			*options.DBName)
+			options.DBName)
 	}
 
 	scFound := false
 	var sandboxedHosts []string
 
 	for _, vnode := range vdb.HostNodeMap {
-		if !scFound && vnode.Subcluster == *options.SCName {
+		if !scFound && vnode.Subcluster == options.SCName {
 			scFound = true
 		}
 
-		if vnode.Subcluster == *options.SCName {
+		if vnode.Subcluster == options.SCName {
 			// if the subcluster is not sandboxed, return error immediately
 			if vnode.Sandbox == "" {
-				return &SubclusterNotSandboxedError{SCName: *options.SCName}
+				return &SubclusterNotSandboxedError{SCName: options.SCName}
 			}
 			sandboxedHosts = append(sandboxedHosts, vnode.Address)
 			// when the node state is not "DOWN" ("UP" or "UNKNOWN"), we consider
@@ -137,14 +136,14 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase, optio
 	}
 
 	if !scFound {
-		vcc.Log.PrintError(`subcluster '%s' does not exist`, *options.SCName)
+		vcc.Log.PrintError(`subcluster '%s' does not exist`, options.SCName)
 		rfcErr := rfc7807.New(rfc7807.SubclusterNotFound).WithHost(options.Hosts[0])
 		return rfcErr
 	}
 
 	mainClusterHost := util.SliceDiff(options.Hosts, sandboxedHosts)
 	if len(mainClusterHost) == 0 {
-		return fmt.Errorf(`require at least one UP host outside of the sandbox subcluster '%s'in the input host list`, *options.SCName)
+		return fmt.Errorf(`require at least one UP host outside of the sandbox subcluster '%s'in the input host list`, options.SCName)
 	}
 	return nil
 }
@@ -179,11 +178,11 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		}
 	}
 
-	username := *options.UserName
+	username := options.UserName
 
 	// Get all up nodes
-	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(*options.DBName, options.Hosts,
-		usePassword, username, options.Password, UnsandboxCmd, *options.SCName)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(options.DBName, options.Hosts,
+		usePassword, username, options.Password, UnsandboxCmd, options.SCName)
 	if err != nil {
 		return instructions, err
 	}
@@ -198,7 +197,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		}
 
 		// Poll for nodes down
-		httpsPollScDown, e := makeHTTPSPollSubclusterNodeStateDownOp(*options.SCName,
+		httpsPollScDown, e := makeHTTPSPollSubclusterNodeStateDownOp(options.SCName,
 			usePassword, username, options.Password)
 		if e != nil {
 			return instructions, e
@@ -211,7 +210,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	}
 
 	// Run Unsandboxing
-	httpsUnsandboxSubclusterOp, err := makeHTTPSUnsandboxingOp(*options.SCName,
+	httpsUnsandboxSubclusterOp, err := makeHTTPSUnsandboxingOp(options.SCName,
 		usePassword, username, options.Password)
 	if err != nil {
 		return instructions, err
@@ -230,7 +229,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 
 	if options.RestartSC {
 		// NMA check vertica versions before restart
-		nmaVersionCheck := makeNMAVerticaVersionOpAfterUnsandbox(true, *options.SCName)
+		nmaVersionCheck := makeNMAVerticaVersionOpAfterUnsandbox(true, options.SCName)
 
 		// Get startup commands
 		httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOpAfterUnsandbox(usePassword, username, options.Password)
@@ -242,7 +241,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		nmaRestartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
 
 		// Poll for nodes UP
-		httpsPollScUp, err := makeHTTPSPollSubclusterNodeStateUpOp(*options.SCName,
+		httpsPollScUp, err := makeHTTPSPollSubclusterNodeStateUpOp(options.SCName,
 			usePassword, username, options.Password)
 		if err != nil {
 			return instructions, err
@@ -284,7 +283,7 @@ func (options *VUnsandboxOptions) runCommand(vcc VClusterCommands) error {
 	// run the engine
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return fmt.Errorf("fail to unsandbox subcluster %s, %w", *options.SCName, runError)
+		return fmt.Errorf("fail to unsandbox subcluster %s, %w", options.SCName, runError)
 	}
 	return nil
 }

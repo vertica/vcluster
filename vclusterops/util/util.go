@@ -17,7 +17,6 @@ package util
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -472,29 +471,23 @@ func GetEonFlagMsg(message string) string {
 	return "[Eon only] " + message
 }
 
-func ValidateAbsPath(path *string, pathName string) error {
-	if path != nil {
-		err := AbsPathCheck(*path)
-		if err != nil {
-			return fmt.Errorf("must specify an absolute %s", pathName)
-		}
+func ValidateAbsPath(path, pathName string) error {
+	err := AbsPathCheck(path)
+	if err != nil {
+		return fmt.Errorf("must specify an absolute %s", pathName)
 	}
+
 	return nil
 }
 
 // ValidateRequiredAbsPath check whether a required path is set
 // then validate it
-func ValidateRequiredAbsPath(path *string, pathName string) error {
-	pathNotSpecifiedMsg := fmt.Sprintf("must specify an absolute %s", pathName)
-
-	if path != nil {
-		if *path == "" {
-			return errors.New(pathNotSpecifiedMsg)
-		}
-		return ValidateAbsPath(path, pathName)
+func ValidateRequiredAbsPath(path, pathName string) error {
+	if path == "" {
+		return fmt.Errorf("must specify an absolute %s", pathName)
 	}
 
-	return errors.New(pathNotSpecifiedMsg)
+	return ValidateAbsPath(path, pathName)
 }
 
 func ParamNotSetErrorMsg(param string) error {
@@ -586,11 +579,11 @@ const DefaultDateOnlyFormat = time.DateOnly
 // import time package in this util file so other files don't need to import time
 // wrapper function to handle empty input string, returns an error if the time is invalid
 // caller responsible for passing in correct layout
-func IsEmptyOrValidTimeStr(layout string, value *string) (*time.Time, error) {
-	if value == nil || *value == "" {
+func IsEmptyOrValidTimeStr(layout, value string) (*time.Time, error) {
+	if value == "" {
 		return nil, nil
 	}
-	parsedTime, err := time.Parse(layout, *value)
+	parsedTime, err := time.Parse(layout, value)
 	if err != nil {
 		return nil, err
 	}

@@ -43,11 +43,11 @@ func TestShowRestorePointsRequestBody(t *testing.T) {
 
 	op = makeNMAShowRestorePointsOpWithFilterOptions(vlog.Printer{}, []string{hostName},
 		dbName, communalLocation, nil, &ShowRestorePointFilterOptions{
-			ArchiveName:    &archiveName,
-			ArchiveID:      &archiveID,
-			ArchiveIndex:   &archiveIndex,
-			StartTimestamp: &startTimestamp,
-			EndTimestamp:   &endTimestamp,
+			ArchiveName:    archiveName,
+			ArchiveID:      archiveID,
+			ArchiveIndex:   archiveIndex,
+			StartTimestamp: startTimestamp,
+			EndTimestamp:   endTimestamp,
 		})
 
 	requestBody, err = op.setupRequestBody()
@@ -63,9 +63,9 @@ func TestShowRestorePointsRequestBody(t *testing.T) {
 
 	op = makeNMAShowRestorePointsOpWithFilterOptions(vlog.Printer{}, []string{hostName},
 		dbName, communalLocation, nil, &ShowRestorePointFilterOptions{
-			ArchiveName:  &archiveName,
-			ArchiveID:    &archiveID,
-			ArchiveIndex: &archiveIndex,
+			ArchiveName:  archiveName,
+			ArchiveID:    archiveID,
+			ArchiveIndex: archiveIndex,
 		})
 
 	requestBody, err = op.setupRequestBody()

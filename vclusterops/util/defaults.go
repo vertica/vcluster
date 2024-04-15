@@ -32,10 +32,13 @@ const (
 	DefaultLoadCatalogTimeoutSeconds = 3600
 	DefaultStatePollingTimeout       = 1200
 	DefaultLargeCluster              = -1
+	DefaultP2p                       = true
+	DefaultSpreadLoggingLevel        = -1
 	MaxLargeCluster                  = 120
 	MinDepotSize                     = 0
 	MaxDepotSize                     = 100
 	DefaultDrainSeconds              = 60
+	DefaultControlSetSize            = -1
 	NodeUpState                      = "UP"
 	NodeDownState                    = "DOWN"
 	SuppressHelp                     = "SUPPRESS_HELP"

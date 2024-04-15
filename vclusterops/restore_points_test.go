@@ -10,8 +10,8 @@ import (
 func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *testing.T) {
 	// Test case 1: No validation needed
 	filterOptions := ShowRestorePointFilterOptions{
-		StartTimestamp: nil,
-		EndTimestamp:   nil,
+		StartTimestamp: "",
+		EndTimestamp:   "",
 	}
 	err := filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
@@ -19,8 +19,8 @@ func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *
 	// Test case 2: Invalid start timestamp
 	startTimestamp := "invalid_start_timestamp"
 	filterOptions = ShowRestorePointFilterOptions{
-		StartTimestamp: &startTimestamp,
-		EndTimestamp:   nil,
+		StartTimestamp: startTimestamp,
+		EndTimestamp:   "",
 	}
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	expectedErr := fmt.Errorf("start timestamp %q is invalid;", startTimestamp)
@@ -29,8 +29,8 @@ func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *
 	// Test case 3: Invalid end timestamp
 	endTimestamp := "invalid_end_timestamp"
 	filterOptions = ShowRestorePointFilterOptions{
-		StartTimestamp: nil,
-		EndTimestamp:   &endTimestamp,
+		StartTimestamp: "",
+		EndTimestamp:   endTimestamp,
 	}
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	expectedErr = fmt.Errorf("end timestamp %q is invalid;", endTimestamp)
@@ -43,44 +43,43 @@ func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *
 	startTimestamp = earlierDate + " 00:00:00"
 	endTimestamp = laterDate + " 00:00:00"
 	filterOptions = ShowRestorePointFilterOptions{
-		StartTimestamp: &startTimestamp,
-		EndTimestamp:   &endTimestamp,
+		StartTimestamp: startTimestamp,
+		EndTimestamp:   endTimestamp,
 	}
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
 
-	startTimestamp = earlierDate
-	endTimestamp = laterDate
+	filterOptions.StartTimestamp = earlierDate
+	filterOptions.EndTimestamp = laterDate
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
-	assert.Equal(t, earlierDate+" 00:00:00.000000000", *filterOptions.StartTimestamp)
-	assert.Equal(t, laterDate+" 23:59:59.999999999", *filterOptions.EndTimestamp)
+	assert.Equal(t, earlierDate+" 00:00:00.000000000", filterOptions.StartTimestamp)
+	assert.Equal(t, laterDate+" 23:59:59.999999999", filterOptions.EndTimestamp)
 
-	startTimestamp = earlierDate
-	endTimestamp = earlierDate
-	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
-	assert.NoError(t, err)
-
-	startTimestamp = earlierDate
-	endTimestamp = laterDate + " 23:59:59"
+	filterOptions.StartTimestamp = earlierDate
+	filterOptions.EndTimestamp = earlierDate
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
 
-	startTimestamp = earlierDate + " 01:01:01.010101010"
-	endTimestamp = laterDate
+	filterOptions.StartTimestamp = earlierDate
+	filterOptions.EndTimestamp = laterDate + " 23:59:59"
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
-	assert.Equal(t, startTimestamp, *filterOptions.StartTimestamp)
 
-	startTimestamp = earlierDate + " 23:59:59"
-	endTimestamp = earlierDate + " 23:59:59.123456789"
+	filterOptions.StartTimestamp = earlierDate + " 01:01:01.010101010"
+	filterOptions.EndTimestamp = laterDate
+	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
+	assert.NoError(t, err)
+
+	filterOptions.StartTimestamp = earlierDate + " 23:59:59"
+	filterOptions.EndTimestamp = earlierDate + " 23:59:59.123456789"
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
 
 	// Test case 5: Start timestamp after end timestamp
 	filterOptions = ShowRestorePointFilterOptions{
-		StartTimestamp: &endTimestamp,
-		EndTimestamp:   &startTimestamp,
+		StartTimestamp: endTimestamp,
+		EndTimestamp:   startTimestamp,
 	}
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.EqualError(t, err, "start timestamp must be before end timestamp")

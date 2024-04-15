@@ -52,8 +52,8 @@ func (opt *VReIPOptions) validateParseOptions(logger vlog.Printer) error {
 		return err
 	}
 
-	if *opt.CommunalStorageLocation != "" {
-		return util.ValidateCommunalStorageLocation(*opt.CommunalStorageLocation)
+	if opt.CommunalStorageLocation != "" {
+		return util.ValidateCommunalStorageLocation(opt.CommunalStorageLocation)
 	}
 
 	return opt.validateBaseOptions("re_ip", logger)
@@ -136,7 +136,7 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 	if options.IsEon {
 		const warningMsg = " for an Eon database, re_ip after revive_db could fail " +
 			"because we cannot retrieve the correct database information"
-		if *options.CommunalStorageLocation != "" {
+		if options.CommunalStorageLocation != "" {
 			vdb, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {
 				// show a warning message if we cannot get VDB from a down database
@@ -203,7 +203,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
 	if vdb == nil {
 		vdb = new(VCoordinationDatabase)
-		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, *options.DBName, *options.CatalogPrefix,
+		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
 			false /* report all errors */, vdb)
 		// read catalog editor to get hosts with latest catalog
 		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(vdb)

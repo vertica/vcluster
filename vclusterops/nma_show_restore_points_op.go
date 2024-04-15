@@ -28,22 +28,22 @@ type nmaShowRestorePointsOp struct {
 	dbName                  string
 	communalLocation        string
 	configurationParameters map[string]string
-	filterOptions           *ShowRestorePointFilterOptions
+	filterOptions           ShowRestorePointFilterOptions
 }
 
 // Optional arguments to list only restore points that
 // meet the specified condition(s)
 type ShowRestorePointFilterOptions struct {
 	// Only list restore points with given archive name
-	ArchiveName *string
+	ArchiveName string
 	// Only list restore points created no earlier than this timestamp (must be UTC timezone)
-	StartTimestamp *string
+	StartTimestamp string
 	// Only list restore points created no later than this timestamp (must be UTC timezone)
-	EndTimestamp *string
+	EndTimestamp string
 	// Only list restore points with given ID
-	ArchiveID *string
+	ArchiveID string
 	// Only list restore points with given index
-	ArchiveIndex *string
+	ArchiveIndex string
 }
 
 type showRestorePointsRequestData struct {
@@ -70,7 +70,6 @@ func makeNMAShowRestorePointsOp(logger vlog.Printer,
 		dbName:                  dbName,
 		configurationParameters: configurationParameters,
 		communalLocation:        communalLocation,
-		filterOptions:           nil,
 	}
 }
 
@@ -79,7 +78,7 @@ func makeNMAShowRestorePointsOpWithFilterOptions(logger vlog.Printer,
 	hosts []string, dbName, communalLocation string, configurationParameters map[string]string,
 	filterOptions *ShowRestorePointFilterOptions) nmaShowRestorePointsOp {
 	op := makeNMAShowRestorePointsOp(logger, hosts, dbName, communalLocation, configurationParameters)
-	op.filterOptions = filterOptions
+	op.filterOptions = *filterOptions
 	return op
 }
 
@@ -91,23 +90,11 @@ func (op *nmaShowRestorePointsOp) setupRequestBody() (map[string]string, error) 
 		requestData.DBName = op.dbName
 		requestData.CommunalLocation = op.communalLocation
 		requestData.Parameters = op.configurationParameters
-		if op.filterOptions != nil {
-			if op.filterOptions.ArchiveName != nil {
-				requestData.ArchiveName = *op.filterOptions.ArchiveName
-			}
-			if op.filterOptions.StartTimestamp != nil {
-				requestData.StartTimestamp = *op.filterOptions.StartTimestamp
-			}
-			if op.filterOptions.EndTimestamp != nil {
-				requestData.EndTimestamp = *op.filterOptions.EndTimestamp
-			}
-			if op.filterOptions.ArchiveID != nil {
-				requestData.ArchiveID = *op.filterOptions.ArchiveID
-			}
-			if op.filterOptions.ArchiveIndex != nil {
-				requestData.ArchiveIndex = *op.filterOptions.ArchiveIndex
-			}
-		}
+		requestData.ArchiveName = op.filterOptions.ArchiveName
+		requestData.StartTimestamp = op.filterOptions.StartTimestamp
+		requestData.EndTimestamp = op.filterOptions.EndTimestamp
+		requestData.ArchiveID = op.filterOptions.ArchiveID
+		requestData.ArchiveIndex = op.filterOptions.ArchiveIndex
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {

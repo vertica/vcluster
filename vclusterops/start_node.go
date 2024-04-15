@@ -36,7 +36,7 @@ type VStartNodesOptions struct {
 	// instead of executing it. This is useful in containerized environments where
 	// you may not want to have both the NMA and Vertica server in the same container.
 	// This feature requires version 24.2.0+.
-	StartUpConf *string
+	StartUpConf string
 }
 
 type VStartNodesInfo struct {
@@ -63,7 +63,6 @@ func VStartNodesOptionsFactory() VStartNodesOptions {
 
 func (options *VStartNodesOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
-	options.StartUpConf = new(string)
 }
 
 func (options *VStartNodesOptions) validateParseOptions(logger vlog.Printer) error {
@@ -263,8 +262,8 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		return instructions, err
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.DBName, options.Hosts,
-		options.usePassword, *options.UserName, options.Password, StartNodeCommand)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(options.DBName, options.Hosts,
+		options.usePassword, options.UserName, options.Password, StartNodeCommand)
 	if err != nil {
 		return instructions, err
 	}
@@ -278,19 +277,19 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	if len(startNodeInfo.ReIPList) != 0 {
 		nmaNetworkProfileOp := makeNMANetworkProfileOp(startNodeInfo.ReIPList)
 		httpsReIPOp, e := makeHTTPSReIPOp(startNodeInfo.NodeNamesToStart, startNodeInfo.ReIPList,
-			options.usePassword, *options.UserName, options.Password)
+			options.usePassword, options.UserName, options.Password)
 		if e != nil {
 			return instructions, e
 		}
 		// host is set to nil value in the reload spread step
 		// we use information from node information to find the up host later
-		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOp(true, *options.UserName, options.Password)
+		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOp(true, options.UserName, options.Password)
 		if e != nil {
 			return instructions, e
 		}
 		// update new vdb information after re-ip
-		httpsGetNodesInfoOp, e := makeHTTPSGetNodesInfoOp(*options.DBName, options.Hosts,
-			options.usePassword, *options.UserName, options.Password, vdb, true, startNodeInfo.Sandbox)
+		httpsGetNodesInfoOp, e := makeHTTPSGetNodesInfoOp(options.DBName, options.Hosts,
+			options.usePassword, options.UserName, options.Password, vdb, true, startNodeInfo.Sandbox)
 		if e != nil {
 			return instructions, e
 		}
@@ -316,15 +315,15 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		startNodeInfo.HostsToStart,
 		vdb)
 
-	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(options.usePassword, *options.UserName, options.Password,
+	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(options.usePassword, options.UserName, options.Password,
 		vdb, startNodeInfo.Sandbox)
 	if err != nil {
 		return instructions, err
 	}
 
-	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(startNodeInfo.HostsToStart, *options.StartUpConf, vdb)
+	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(startNodeInfo.HostsToStart, options.StartUpConf, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(startNodeInfo.HostsToStart,
-		options.usePassword, *options.UserName, options.Password, options.StatePollingTimeout, StartNodeCmd)
+		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout, StartNodeCmd)
 	if err != nil {
 		return instructions, err
 	}
@@ -336,7 +335,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	)
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, *options.UserName,
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, options.UserName,
 			options.Password, StartNodeSyncCat)
 		if err != nil {
 			return instructions, err

@@ -72,7 +72,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdInstallPackages) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(
-		c.installPkgOpts.ForceReinstall,
+		&c.installPkgOpts.ForceReinstall,
 		"force-reinstall",
 		false,
 		"Install the packages, even if they are already installed.",

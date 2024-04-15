@@ -81,8 +81,8 @@ func TestScrutinCmd(t *testing.T) {
 	c.SetParser(&pflag.FlagSet{})
 	err := c.Run(vclusterops.VClusterCommands{})
 	assert.ErrorContains(t, err, "must specify a host or host list")
-	assert.Equal(t, dbName, *c.sOptions.DBName)
-	assert.Equal(t, catalogPath, *c.sOptions.CatalogPrefix)
+	assert.Equal(t, dbName, c.sOptions.DBName)
+	assert.Equal(t, catalogPath, c.sOptions.CatalogPrefix)
 
 	// Catalog Path not provided
 	os.Setenv(catalogPathPref, "")

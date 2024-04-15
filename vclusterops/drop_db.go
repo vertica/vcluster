@@ -24,7 +24,7 @@ import (
 // VDropDatabaseOptions adds to VCreateDatabaseOptions the option to force delete directories.
 type VDropDatabaseOptions struct {
 	VCreateDatabaseOptions
-	ForceDelete *bool // whether force delete directories
+	ForceDelete bool // whether force delete directories
 }
 
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
@@ -50,7 +50,7 @@ func (options *VDropDatabaseOptions) analyzeOptions() error {
 }
 
 func (options *VDropDatabaseOptions) validateAnalyzeOptions() error {
-	if *options.DBName == "" {
+	if options.DBName == "" {
 		return fmt.Errorf("database name must be provided")
 	}
 	return options.analyzeOptions()
@@ -121,12 +121,12 @@ func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, usePassword,
-		*options.UserName, options.Password, CreateDB)
+		options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err
 	}
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, *options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, options.ForceDelete)
 	if err != nil {
 		return instructions, err
 	}

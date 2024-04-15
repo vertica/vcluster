@@ -88,7 +88,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdUnsandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		c.usOptions.SCName,
+		&c.usOptions.SCName,
 		subclusterFlag,
 		"",
 		"The name of the subcluster to be unsandboxed",

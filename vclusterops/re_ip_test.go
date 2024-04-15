@@ -29,12 +29,12 @@ func TestReIPOptions(t *testing.T) {
 	err := opt.validateAnalyzeOptions(vlog.Printer{})
 	assert.Error(t, err)
 
-	*opt.DBName = "test_db"
+	opt.DBName = "test_db"
 	opt.RawHosts = []string{"192.168.1.101", "192.168.1.102"}
 	err = opt.validateAnalyzeOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "must specify an absolute catalog path")
 
-	*opt.CatalogPrefix = "/data"
+	opt.CatalogPrefix = "/data"
 	err = opt.validateAnalyzeOptions(vlog.Printer{})
 	assert.ErrorContains(t, err, "the re-ip list is not provided")
 

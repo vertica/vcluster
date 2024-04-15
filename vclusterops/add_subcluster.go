@@ -32,12 +32,12 @@ type VAddSubclusterOptions struct {
 	// part 1: basic db info
 	DatabaseOptions
 	// part 2: subcluster info
-	SCName         *string
+	SCName         string
 	SCHosts        []string
 	SCRawHosts     []string
-	IsPrimary      *bool
-	ControlSetSize *int
-	CloneSC        *string
+	IsPrimary      bool
+	ControlSetSize int
+	CloneSC        string
 	// part 3: add node info
 	VAddNodeOptions
 }
@@ -67,11 +67,7 @@ func VAddSubclusterOptionsFactory() VAddSubclusterOptions {
 func (options *VAddSubclusterOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
 
-	options.SCName = new(string)
-	options.IsPrimary = new(bool)
-	options.ControlSetSize = new(int)
-	*options.ControlSetSize = -1
-	options.CloneSC = new(string)
+	options.ControlSetSize = util.DefaultControlSetSize
 }
 
 func (options *VAddSubclusterOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -80,7 +76,7 @@ func (options *VAddSubclusterOptions) validateRequiredOptions(logger vlog.Printe
 		return err
 	}
 
-	if *options.SCName == "" {
+	if options.SCName == "" {
 		return fmt.Errorf("must specify a subcluster name")
 	}
 	return nil
@@ -95,13 +91,13 @@ func (options *VAddSubclusterOptions) validateEonOptions() error {
 
 func (options *VAddSubclusterOptions) validateExtraOptions(logger vlog.Printer) error {
 	// control-set-size can only be -1 or [1 to 120]
-	if !(*options.ControlSetSize == ControlSetSizeDefaultValue ||
-		(*options.ControlSetSize >= ControlSetSizeLowerBound && *options.ControlSetSize <= ControlSetSizeUpperBound)) {
+	if !(options.ControlSetSize == ControlSetSizeDefaultValue ||
+		(options.ControlSetSize >= ControlSetSizeLowerBound && options.ControlSetSize <= ControlSetSizeUpperBound)) {
 		return fmt.Errorf("control-set-size is out of bounds: valid values are %d or [%d to %d]",
 			ControlSetSizeDefaultValue, ControlSetSizeLowerBound, ControlSetSizeUpperBound)
 	}
 
-	if *options.CloneSC != "" {
+	if options.CloneSC != "" {
 		// TODO remove this log after we supported subcluster clone
 		logger.PrintWarning("option CloneSC is not implemented yet so it will be ignored")
 	}
@@ -119,7 +115,7 @@ func (options *VAddSubclusterOptions) validateExtraOptions(logger vlog.Printer) 
 			}
 		}
 		if len(dupHosts) > 0 {
-			return fmt.Errorf("new subcluster has hosts %v which already exist in database %s", dupHosts, *options.DBName)
+			return fmt.Errorf("new subcluster has hosts %v which already exist in database %s", dupHosts, options.DBName)
 		}
 
 		// TODO remove this log after we supported adding subcluster with nodes
@@ -208,7 +204,7 @@ func (vcc VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return fmt.Errorf("fail to add subcluster %s, %w", *options.SCName, runError)
+		return fmt.Errorf("fail to add subcluster %s, %w", options.SCName, runError)
 	}
 
 	return nil
@@ -242,21 +238,21 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(options *VAddSubcl
 		return instructions, fmt.Errorf("add subcluster is only supported in Eon mode")
 	}
 
-	username := *options.UserName
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(*options.DBName, options.Hosts,
+	username := options.UserName
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(options.DBName, options.Hosts,
 		options.usePassword, username, options.Password, AddSubclusterCmd)
 	if err != nil {
 		return instructions, err
 	}
 
 	httpsAddSubclusterOp, err := makeHTTPSAddSubclusterOp(options.usePassword, username, options.Password,
-		*options.SCName, *options.IsPrimary, *options.ControlSetSize)
+		options.SCName, options.IsPrimary, options.ControlSetSize)
 	if err != nil {
 		return instructions, err
 	}
 
 	httpsCheckSubclusterOp, err := makeHTTPSCheckSubclusterOp(options.usePassword, username, options.Password,
-		*options.SCName, *options.IsPrimary, *options.ControlSetSize)
+		options.SCName, options.IsPrimary, options.ControlSetSize)
 	if err != nil {
 		return instructions, err
 	}

@@ -71,21 +71,21 @@ func makeVCoordinationDatabase() VCoordinationDatabase {
 func (vdb *VCoordinationDatabase) setFromBasicDBOptions(options *VCreateDatabaseOptions) error {
 	// we trust the information in the config file
 	// so we do not perform validation here
-	vdb.Name = *options.DBName
-	vdb.CatalogPrefix = *options.CatalogPrefix
-	vdb.DataPrefix = *options.DataPrefix
-	vdb.DepotPrefix = *options.DepotPrefix
+	vdb.Name = options.DBName
+	vdb.CatalogPrefix = options.CatalogPrefix
+	vdb.DataPrefix = options.DataPrefix
+	vdb.DepotPrefix = options.DepotPrefix
 
 	vdb.IsEon = false
-	if *options.CommunalStorageLocation != "" {
+	if options.CommunalStorageLocation != "" {
 		vdb.IsEon = true
-		vdb.CommunalStorageLocation = *options.CommunalStorageLocation
-		vdb.DepotPrefix = *options.DepotPrefix
-		vdb.DepotSize = *options.DepotSize
+		vdb.CommunalStorageLocation = options.CommunalStorageLocation
+		vdb.DepotPrefix = options.DepotPrefix
+		vdb.DepotSize = options.DepotSize
 	}
 
 	vdb.UseDepot = false
-	if *options.DepotPrefix != "" {
+	if options.DepotPrefix != "" {
 		vdb.UseDepot = true
 	}
 
@@ -120,15 +120,15 @@ func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabas
 	// set additional db info from the create db options
 	vdb.HostList = make([]string, len(options.Hosts))
 	vdb.HostList = options.Hosts
-	vdb.LicensePathOnNode = *options.LicensePathOnNode
+	vdb.LicensePathOnNode = options.LicensePathOnNode
 
-	if *options.GetAwsCredentialsFromEnv {
+	if options.GetAwsCredentialsFromEnv {
 		err := vdb.getAwsCredentialsFromEnv()
 		if err != nil {
 			return err
 		}
 	}
-	vdb.NumShards = *options.ShardCount
+	vdb.NumShards = options.ShardCount
 
 	return nil
 }
@@ -342,7 +342,7 @@ func (vnode *VCoordinationNode) setFromBasicDBOptions(
 	options *VCreateDatabaseOptions,
 	host string,
 ) error {
-	dbName := *options.DBName
+	dbName := options.DBName
 	dbNameInNode := strings.ToLower(dbName)
 	// compute node name and complete paths for each node
 	for i, h := range options.Hosts {
@@ -351,17 +351,17 @@ func (vnode *VCoordinationNode) setFromBasicDBOptions(
 		}
 
 		vnode.Address = host
-		vnode.Port = *options.ClientPort
+		vnode.Port = options.ClientPort
 		nodeNameSuffix := i + 1
 		vnode.Name = fmt.Sprintf("v_%s_node%04d", dbNameInNode, nodeNameSuffix)
 		catalogSuffix := fmt.Sprintf("%s_catalog", vnode.Name)
-		vnode.CatalogPath = filepath.Join(*options.CatalogPrefix, dbName, catalogSuffix)
+		vnode.CatalogPath = filepath.Join(options.CatalogPrefix, dbName, catalogSuffix)
 		dataSuffix := fmt.Sprintf("%s_data", vnode.Name)
-		dataPath := filepath.Join(*options.DataPrefix, dbName, dataSuffix)
+		dataPath := filepath.Join(options.DataPrefix, dbName, dataSuffix)
 		vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
-		if *options.DepotPrefix != "" {
+		if options.DepotPrefix != "" {
 			depotSuffix := fmt.Sprintf("%s_depot", vnode.Name)
-			vnode.DepotPath = filepath.Join(*options.DepotPrefix, dbName, depotSuffix)
+			vnode.DepotPath = filepath.Join(options.DepotPrefix, dbName, depotSuffix)
 		}
 		if options.IPv6 {
 			vnode.ControlAddressFamily = util.IPv6ControlAddressFamily

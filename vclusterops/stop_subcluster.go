@@ -163,24 +163,24 @@ func (vcc *VClusterCommands) produceStopSCInstructions(options *VStopSubclusterO
 		}
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(*options.DBName, options.Hosts,
-		usePassword, *options.UserName, options.Password, StopSubclusterCmd, options.SCName)
+	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(options.DBName, options.Hosts,
+		usePassword, options.UserName, options.Password, StopSubclusterCmd, options.SCName)
 	if err != nil {
 		return instructions, err
 	}
 
-	httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, *options.UserName, options.Password, StopSCSyncCat)
+	httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, options.UserName, options.Password, StopSCSyncCat)
 	if err != nil {
 		return instructions, err
 	}
 
-	httpsStopSCOp, err := makeHTTPSStopSCOp(usePassword, *options.UserName, options.Password,
+	httpsStopSCOp, err := makeHTTPSStopSCOp(usePassword, options.UserName, options.Password,
 		options.SCName, options.DrainSeconds, options.Force)
 	if err != nil {
 		return instructions, err
 	}
 
-	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBOpWithoutHosts(usePassword, *options.UserName, options.Password, StopSC)
+	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBOpWithoutHosts(usePassword, options.UserName, options.Password, StopSC)
 	if err != nil {
 		return instructions, err
 	}
