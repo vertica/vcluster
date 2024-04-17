@@ -141,11 +141,14 @@ func (op *httpsFindSubclusterOp) processResult(execContext *opEngineExecContext)
 			return allErrs
 		}
 
-		// Process subclusters
+		// process subclusters
 		if err := op.processSubclusters(subclusterResp, execContext); err != nil {
 			allErrs = errors.Join(allErrs, err)
 			return allErrs
 		}
+
+		// good response from one node is enough for us
+		return nil
 	}
 	return allErrs
 }
