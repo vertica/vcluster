@@ -17,12 +17,14 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 var tempConfigFilePath = os.TempDir() + "/test_vertica_cluster.yaml"
@@ -84,9 +86,41 @@ func TestManageReplication(t *testing.T) {
 	assert.ErrorContains(t, err, `unknown command "test" for "vcluster replication start"`)
 }
 
-func TestStartReplication(t *testing.T) {
-	// vcluster replication start should succeed
-	// since there is no op for this subcommand
-	err := simulateVClusterCli("vcluster replication start")
-	assert.ErrorContains(t, err, `required flag(s) "target-db-name", "target-hosts" not set`)
+func TestCreateConnection(t *testing.T) {
+	var tempConnFilePath = os.TempDir() + "/vertica_connection.yaml"
+	dbName := "platform_test_db"
+	hosts := "192.168.1.101"
+	tempConfig, _ := os.Create(tempConnFilePath)
+	defer tempConfig.Close()
+	defer os.Remove(tempConnFilePath)
+
+	// vcluster create_connection should succeed
+	err := simulateVClusterCli("vcluster create_connection --db-name " + dbName + " --hosts " + hosts +
+		" --conn " + tempConnFilePath)
+	assert.NoError(t, err)
+
+	// verify the file content
+	file, err := os.Open(tempConnFilePath)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file.Close()
+
+	buf := make([]byte, 1024)
+	n, err := file.Read(buf)
+	if err != nil && err != io.EOF {
+		fmt.Println("Error reading file:", err)
+		return
+	}
+
+	var dbConn DatabaseConnection
+	err = yaml.Unmarshal([]byte(string(buf[:n])), &dbConn)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	assert.Equal(t, dbName, dbConn.TargetDB)
+	assert.Equal(t, hosts, dbConn.TargetHosts[0])
 }

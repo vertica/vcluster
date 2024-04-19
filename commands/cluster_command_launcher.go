@@ -80,6 +80,8 @@ const (
 	subclusterFlag              = "subcluster"
 	addNodeFlag                 = "new-hosts"
 	sandboxFlag                 = "sandbox"
+	connFlag                    = "conn"
+	connKey                     = "conn"
 )
 
 // Flag and key for database replication
@@ -126,11 +128,20 @@ var flagKeyMap = map[string]string{
 	sourceTLSConfigFlag:         sourceTLSConfigKey,
 }
 
+// target database flags to viper key map
+var targetFlagKeyMap = map[string]string{
+	targetDBNameFlag:       targetDBNameKey,
+	targetHostsFlag:        targetHostsKey,
+	targetUserNameFlag:     targetUserNameKey,
+	targetPasswordFileFlag: targetPasswordFileKey,
+}
+
 const (
 	createDBSubCmd          = "create_db"
 	stopDBSubCmd            = "stop_db"
 	reviveDBSubCmd          = "revive_db"
 	manageConfigSubCmd      = "manage_config"
+	createConnectionSubCmd  = "create_connection"
 	configRecoverSubCmd     = "recover"
 	configShowSubCmd        = "show"
 	replicationSubCmd       = "replication"
@@ -159,6 +170,13 @@ type cmdGlobals struct {
 	file     *os.File
 	keyFile  string
 	certFile string
+
+	// Global variables for targetDB are used for the replication subcommand
+	targetHosts        []string
+	targetPasswordFile string
+	targetDB           string
+	targetUserName     string
+	connFile           string
 }
 
 var (
@@ -262,19 +280,44 @@ func setDBOptionsUsingViper(flag string) error {
 	return nil
 }
 
+// setTargetDBOptionsUsingViper can set the value of flag using the relevant key
+// in viper
+func setTargetDBOptionsUsingViper(flag string) error {
+	switch flag {
+	case targetDBNameFlag:
+		globals.targetDB = viper.GetString(targetDBNameKey)
+	case targetHostsFlag:
+		globals.targetHosts = viper.GetStringSlice(targetHostsKey)
+	case targetUserNameFlag:
+		globals.targetUserName = viper.GetString(targetUserNameKey)
+	case targetPasswordFileFlag:
+		globals.targetPasswordFile = viper.GetString(targetPasswordFileKey)
+	default:
+		return fmt.Errorf("cannot find the relevant target database option for flag %q", flag)
+	}
+	return nil
+}
+
 // configViper configures viper to load database options using this order:
 // user input -> environment variables -> vcluster config file
 func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 	// initialize config file
 	initConfig()
 
+	// target-flags are only available for replication start command
+	if cmd.CalledAs() == startReplicationSubCmd {
+		for targetFlag := range targetFlagKeyMap {
+			flagsInConfig = append(flagsInConfig, targetFlag)
+		}
+	}
 	// log-path is a flag that all the subcommands need
 	flagsInConfig = append(flagsInConfig, logPathFlag)
 	// cert-file and key-file are not available for
 	// - manage_config
 	// - manage_config show
+	// - create_connection
 	if cmd.CalledAs() != manageConfigSubCmd &&
-		cmd.CalledAs() != configShowSubCmd {
+		cmd.CalledAs() != configShowSubCmd && cmd.CalledAs() != createConnectionSubCmd {
 		flagsInConfig = append(flagsInConfig, certFileFlag, keyFileFlag)
 	}
 
@@ -289,7 +332,21 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 		}
 	}
 
-	// bind viper keys to env vars
+	// Bind viper keys to environment variables
+	if err := bindKeysToEnv(); err != nil {
+		return err
+	}
+
+	// Load config options from file to viper
+	if err := loadConfig(cmd); err != nil {
+		return err
+	}
+
+	return handleViperUserInput(flagsInConfig)
+}
+
+// bind viper keys to env vars
+func bindKeysToEnv() error {
 	err := viper.BindEnv(logPathKey, vclusterLogPathEnv)
 	if err != nil {
 		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", logPathKey, vclusterLogPathEnv, err)
@@ -302,7 +359,11 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 	if err != nil {
 		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", certFileKey, vclusterCertFileEnv, err)
 	}
+	return nil
+}
 
+// load db options from file to viper
+func loadConfig(cmd *cobra.Command) (err error) {
 	// load db options from config file to viper
 	// note: config file is not available for create_db and revive_db
 	//       manage_config does not need viper to load config file info
@@ -310,21 +371,29 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 		cmd.CalledAs() != reviveDBSubCmd &&
 		cmd.CalledAs() != configRecoverSubCmd &&
 		cmd.CalledAs() != configShowSubCmd {
-		err = loadConfigToViper()
+		err := loadConfigToViper()
 		if err != nil {
 			return err
 		}
 	}
 
-	return handleViperUserInput(flagsInConfig)
+	// load target db options from connection file to viper
+	// conn file is only available for replication subcommand
+	if cmd.CalledAs() == startReplicationSubCmd {
+		err := loadConnToViper()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func handleViperUserInput(flagsInConfig []string) error {
-	// if a flag is set in viper through user input, env var or config file, we assign its viper value
+	// if a flag is set in viper through user input, env var or config/connection file, we assign its viper value
 	// to database options. viper can automatically retrieve the correct value following below order:
 	// 1. user input
 	// 2. environment variable
-	// 3. config file
+	// 3. config/connection file
 	// if the flag is not set in viper, the default value of it will be used
 	for _, flag := range flagsInConfig {
 		if _, ok := flagKeyMap[flag]; !ok {
@@ -332,9 +401,16 @@ func handleViperUserInput(flagsInConfig []string) error {
 			continue
 		}
 		if viper.IsSet(flagKeyMap[flag]) {
-			err := setDBOptionsUsingViper(flag)
-			if err != nil {
-				return fmt.Errorf("fail to set flag %q using viper: %w", flag, err)
+			if _, ok := targetFlagKeyMap[flag]; !ok {
+				err := setDBOptionsUsingViper(flag)
+				if err != nil {
+					return fmt.Errorf("fail to set flag %q using viper: %w", flag, err)
+				}
+			} else {
+				err := setTargetDBOptionsUsingViper(flag)
+				if err != nil {
+					return fmt.Errorf("fail to set target flag %q using viper: %w", flag, err)
+				}
 			}
 		}
 	}
@@ -442,6 +518,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdScrutinize(),
 		makeCmdManageConfig(),
 		makeCmdReplication(),
+		makeCmdCreateConnection(),
 	}
 }
 

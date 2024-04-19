@@ -92,8 +92,8 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 		"Show the details of VCluster run in the console",
 	)
 	// keyFile and certFile are flags that all subcommands require,
-	// except for manage_config and `manage_config show`
-	if cmd.Name() != configShowSubCmd {
+	// except for create_connection and manage_config show
+	if cmd.Name() != configShowSubCmd && cmd.Name() != createConnectionSubCmd {
 		cmd.Flags().StringVar(
 			&globals.keyFile,
 			keyFileFlag,
@@ -272,6 +272,17 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 		return nil
 	}
 
+	// hyphen(`-`) is used to indicate that input should come
+	// from stdin rather than from a file
+	if c.passwordFile == "-" {
+		password, err := readFromStdin()
+		if err != nil {
+			return err
+		}
+		*opt.Password = strings.TrimSuffix(password, "\n")
+		return nil
+	}
+
 	password, err := c.passwordFileHelper(c.passwordFile)
 	if err != nil {
 		return err
@@ -283,15 +294,6 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 func (c *CmdBase) passwordFileHelper(passwordFile string) (string, error) {
 	if passwordFile == "" {
 		return "", fmt.Errorf("password file path is empty")
-	}
-	// hyphen(`-`) is used to indicate that input should come
-	// from stdin rather than from a file
-	if passwordFile == "-" {
-		password, err := readFromStdin()
-		if err != nil {
-			return "", err
-		}
-		return strings.TrimSuffix(password, "\n"), nil
 	}
 
 	// Read password from file

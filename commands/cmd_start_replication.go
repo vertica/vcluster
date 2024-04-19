@@ -33,7 +33,6 @@ type CmdStartReplication struct {
 	startRepOptions *vclusterops.VReplicationDatabaseOptions
 	CmdBase
 	targetPasswordFile string
-	targetConnPath     string
 }
 
 func makeCmdStartReplication() *cobra.Command {
@@ -82,15 +81,15 @@ Examples:
 		// Temporarily, the Vcluster CLI doesn't support a config file for this subcommand.
 		// It will include all hosts from the config file.
 		// VER-93450 will add 2 options for sandboxes, "source-sandbox" and "target-sandbox", to get the correct sourceHosts
-		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag, dbUserFlag, eonModeFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag, dbUserFlag, eonModeFlag, connFlag},
 	)
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// Temporarily, targetDBName and targetHost are required.
-	// They will be removed after target-conn is implemented in VER-93130
-	markFlagsRequired(cmd, []string{targetDBNameFlag, targetHostsFlag})
+	// either target dbname/hosts or connection file must be provided
+	cmd.MarkFlagsOneRequired(targetConnFlag, targetDBNameFlag)
+	cmd.MarkFlagsOneRequired(targetConnFlag, targetHostsFlag)
 
 	// hide eon mode flag since we expect it to come from config file, not from user input
 	hideLocalFlags(cmd, []string{eonModeFlag})
@@ -124,19 +123,17 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 			", must exist in the source database",
 	)
 	cmd.Flags().StringVar(
-		&c.targetConnPath,
+		&globals.connFile,
 		targetConnFlag,
 		"",
-		"Path to the target connection file")
-	markFlagsFileName(cmd, map[string][]string{configFlag: {"yaml"}})
-
+		"Path to the connection file")
+	markFlagsFileName(cmd, map[string][]string{targetConnFlag: {"yaml"}})
 	//  password flags
 	cmd.Flags().StringVar(
 		&c.targetPasswordFile,
 		targetPasswordFileFlag,
 		"",
-		"Path to the file to read the password for target database. "+
-			"If - is passed, the password is read from stdin",
+		"Path to the file to read the password for target database. ",
 	)
 }
 
@@ -195,7 +192,7 @@ func (c *CmdStartReplication) parseTargetHostList() error {
 
 func (c *CmdStartReplication) parseTargetPassword() error {
 	options := c.startRepOptions
-	if !c.parser.Changed(targetPasswordFileFlag) {
+	if !viper.IsSet(targetPasswordFileKey) {
 		// reset password option to nil if password is not provided in cli
 		options.TargetPassword = nil
 		return nil
@@ -229,4 +226,8 @@ func (c *CmdStartReplication) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance
 func (c *CmdStartReplication) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.startRepOptions.DatabaseOptions = *opt
+	c.startRepOptions.TargetUserName = globals.targetUserName
+	c.startRepOptions.TargetDB = globals.targetDB
+	c.startRepOptions.TargetHosts = globals.targetHosts
+	c.targetPasswordFile = globals.targetPasswordFile
 }

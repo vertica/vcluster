@@ -164,9 +164,9 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	}
 
 	// verify the username for connecting to the target database
-	targetUserPassword := false
+	targetUsePassword := false
 	if options.TargetPassword != nil {
-		targetUserPassword = true
+		targetUsePassword = true
 		if options.TargetUserName == "" {
 			username, e := util.GetCurrentUsername()
 			if e != nil {
@@ -190,7 +190,7 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 
 	initiatorTargetHost := getInitiator(options.TargetHosts)
 	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
-		options.UserName, options.Password, targetUserPassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
+		options.UserName, options.Password, targetUsePassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
 		options.TargetPassword, options.SourceTLSConfig)
 	if err != nil {
 		return instructions, err
