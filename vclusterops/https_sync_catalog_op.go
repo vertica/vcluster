@@ -132,10 +132,12 @@ func (op *httpsSyncCatalogOp) processResult(_ *opEngineExecContext) error {
 			if !ok {
 				err = fmt.Errorf(`[%s] response does not contain field "new_truncation_version"`, op.name)
 				allErrs = errors.Join(allErrs, err)
+				continue
 			}
 			op.logger.PrintInfo(`[%s] the_latest_truncation_catalog_version: %s"`, op.name, version)
-		} else {
-			allErrs = errors.Join(allErrs, result.err)
+
+			// good response from one node is enough for us
+			return nil
 		}
 	}
 	return allErrs
