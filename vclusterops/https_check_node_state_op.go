@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023] Open Text.
+ (c) Copyright [2023-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -89,6 +89,7 @@ func (op *httpsCheckNodeStateOp) processResult(execContext *opEngineExecContext)
 
 		if result.isUnauthorizedRequest() {
 			op.logger.PrintError("[%s] unauthorized request: %s", op.name, result.content)
+			execContext.hostsWithWrongAuth = append(execContext.hostsWithWrongAuth, host)
 			// return here because we assume that
 			// we will get the same error across other nodes
 			allErrs = errors.Join(allErrs, result.err)

@@ -148,18 +148,23 @@ func (vcc VClusterCommands) produceRecoverConfigInstructions(
 	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+
 	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
 		true /* ignore internal errors */, vdb)
+
 	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
 	if err != nil {
 		return instructions, err
 	}
+
+	nmaReadVerticaVersionOp := makeNMAReadVerticaVersionOp(vdb)
 
 	instructions = append(
 		instructions,
 		&nmaHealthOp,
 		&nmaGetNodesInfoOp,
 		&nmaReadCatalogEditorOp,
+		&nmaReadVerticaVersionOp,
 	)
 
 	return instructions, nil

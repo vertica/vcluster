@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023] Open Text.
+ (c) Copyright [2023-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -107,9 +107,9 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
 		}
 	}
 
-	bytes, err := json.MarshalIndent(nodeStates, "", "  ")
+	bytes, err := c.marshalNoteStates(nodeStates)
 	if err != nil {
-		return fmt.Errorf("fail to marshal the node state result, details %w", err)
+		return err
 	}
 
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
@@ -120,4 +120,38 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdListAllNodes
 func (c *CmdListAllNodes) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.fetchNodeStateOptions.DatabaseOptions = *opt
+}
+
+func (c *CmdListAllNodes) marshalNoteStates(nodeStates []vclusterops.NodeInfo) (bytes []byte, err error) {
+	var isEon bool
+	if len(nodeStates) > 0 {
+		// node in Eon database should not have an empty sc name
+		if nodeStates[0].Subcluster != "" {
+			isEon = true
+		}
+	}
+
+	if isEon {
+		bytes, err = json.MarshalIndent(nodeStates, "", "  ")
+		if err != nil {
+			return bytes, fmt.Errorf("fail to marshal the node state result, details %w", err)
+		}
+	} else {
+		var nodeStatesEnterprise []vclusterops.NodeInfoEnterprise
+		for _, n := range nodeStates {
+			var nEnterprise vclusterops.NodeInfoEnterprise
+			nEnterprise.Address = n.Address
+			nEnterprise.Name = n.Name
+			nEnterprise.State = n.State
+			nEnterprise.CatalogPath = n.CatalogPath
+			nEnterprise.Version = n.Version
+			nodeStatesEnterprise = append(nodeStatesEnterprise, nEnterprise)
+		}
+		bytes, err = json.MarshalIndent(nodeStatesEnterprise, "", "  ")
+		if err != nil {
+			return bytes, fmt.Errorf("fail to marshal the node state result, details %w", err)
+		}
+	}
+
+	return bytes, nil
 }

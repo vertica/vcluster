@@ -186,7 +186,7 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(options.Hosts, true, true /*IsEon*/)
+	nmaVerticaVersionOp := makeNMACheckVerticaVersionOp(options.Hosts, true, true /*IsEon*/)
 
 	initiatorTargetHost := getInitiator(options.TargetHosts)
 	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,

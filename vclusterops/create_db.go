@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023] Open Text.
+ (c) Copyright [2023-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -376,7 +376,7 @@ func (vcc VClusterCommands) produceCreateDBBootstrapInstructions(
 	nmaHealthOp := makeNMAHealthOp(hosts)
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOp(hosts, true, vdb.IsEon)
+	nmaVerticaVersionOp := makeNMACheckVerticaVersionOp(hosts, true, vdb.IsEon)
 
 	// need username for https operations
 	err := options.validateUserName(vcc.Log)

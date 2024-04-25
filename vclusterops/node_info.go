@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023] Open Text.
+ (c) Copyright [2023-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -26,7 +26,15 @@ type NodeInfo struct {
 	Subcluster  string `json:"subcluster"`
 	IsPrimary   bool   `json:"is_primary"`
 	Version     string `json:"version"`
-	Revision    string `json:"revision"`
+}
+
+// NodeInfo does not contain Eon specific information
+type NodeInfoEnterprise struct {
+	Address     string `json:"address"`
+	Name        string `json:"name"` // vnode name, e.g., v_dbname_node0001
+	State       string `json:"state"`
+	CatalogPath string `json:"catalog_path"`
+	Version     string `json:"version"`
 }
 
 type nodesInfo struct {

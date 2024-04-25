@@ -79,6 +79,12 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 		return nodeStates, nil
 	}
 
+	// error out in case of wrong certificate or password
+	if len(clusterOpEngine.execContext.hostsWithWrongAuth) > 0 {
+		return nodeStates,
+			fmt.Errorf("wrong certificate or password on hosts %v", clusterOpEngine.execContext.hostsWithWrongAuth)
+	}
+
 	// if failed to get node info from a running database,
 	// we will try to get it by reading catalog editor
 	upNodeCount := 0
@@ -90,7 +96,8 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 
 	if upNodeCount == 0 {
 		const msg = "Cannot get node information from running database. " +
-			"Try to get node information by reading catalog editor."
+			"Try to get node information by reading catalog editor.\n" +
+			"The states of the nodes are shown as DOWN because we failed to fetch the node states."
 		fmt.Println(msg)
 		vcc.Log.PrintInfo(msg)
 
@@ -113,6 +120,7 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 			nodeInfo.CatalogPath = n.CatalogPath
 			nodeInfo.Subcluster = n.Subcluster
 			nodeInfo.IsPrimary = n.IsPrimary
+			nodeInfo.Version = n.Version
 			nodeInfo.State = util.NodeDownState
 			downNodeStates = append(downNodeStates, nodeInfo)
 		}

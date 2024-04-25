@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023] Open Text.
+ (c) Copyright [2023-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -118,10 +118,8 @@ func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
 	verWithoutHotfix := 2
 	if parts := strings.Split(node.Version, "-"); len(parts) == verWithHotfix {
 		n.Version = parts[0] + "-" + parts[1]
-		n.Revision = parts[2]
 	} else if len(parts) == verWithoutHotfix {
 		n.Version = parts[0]
-		n.Revision = parts[1]
 	} else {
 		err = fmt.Errorf("failed to parse version '%s'", node.Version)
 	}
