@@ -24,6 +24,7 @@ type NodeInfo struct {
 	State       string `json:"state"`
 	CatalogPath string `json:"catalog_path"`
 	Subcluster  string `json:"subcluster"`
+	Sandbox     string `json:"sandbox"`
 	IsPrimary   bool   `json:"is_primary"`
 	Version     string `json:"version"`
 }

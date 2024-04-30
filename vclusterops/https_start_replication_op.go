@@ -30,6 +30,7 @@ type httpsStartReplicationOp struct {
 	sourceDB           string
 	targetHosts        string
 	targetDB           string
+	sandbox            string
 	targetUserName     string
 	targetPassword     *string
 	tlsConfig          string
@@ -38,7 +39,7 @@ type httpsStartReplicationOp struct {
 func makeHTTPSStartReplicationOp(dbName string, sourceHosts []string,
 	sourceUseHTTPPassword bool, sourceUserName string,
 	sourceHTTPPassword *string, targetUseHTTPPassword bool, targetDB, targetUserName, targetHosts string,
-	targetHTTPSPassword *string, tlsConfig string) (httpsStartReplicationOp, error) {
+	targetHTTPSPassword *string, tlsConfig, sandbox string) (httpsStartReplicationOp, error) {
 	op := httpsStartReplicationOp{}
 	op.name = "HTTPSStartReplicationOp"
 	op.description = "Start database replication"
@@ -48,6 +49,7 @@ func makeHTTPSStartReplicationOp(dbName string, sourceHosts []string,
 	op.targetDB = targetDB
 	op.targetHosts = targetHosts
 	op.tlsConfig = tlsConfig
+	op.sandbox = sandbox
 
 	if sourceUseHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, sourceUseHTTPPassword, sourceUserName)
@@ -118,17 +120,23 @@ func (op *httpsStartReplicationOp) prepare(execContext *opEngineExecContext) err
 	if len(execContext.nodesInfo) == 0 {
 		return fmt.Errorf(`[%s] cannot find any hosts in OpEngineExecContext`, op.name)
 	}
-	// a source host will be an up host based on the input provided for hosts
+	// source hosts will be :
+	// 1. up hosts from the main subcluster if the sandbox is empty
+	// 2. up hosts from the sandbox if the sandbox is specified
 	var sourceHosts []string
 	for _, node := range execContext.nodesInfo {
-		if node.State != util.NodeDownState {
+		if node.State != util.NodeDownState && node.Sandbox == op.sandbox {
 			sourceHosts = append(sourceHosts, node.Address)
 		}
 	}
 	sourceHosts = util.SliceCommon(op.hosts, sourceHosts)
 	if len(sourceHosts) == 0 {
-		return fmt.Errorf(`[%s] cannot find any up hosts from source database %s`, op.name, op.sourceDB)
+		if op.sandbox == "" {
+			return fmt.Errorf("[%s] cannot find any up hosts from source database %s", op.name, op.sourceDB)
+		}
+		return fmt.Errorf("[%s] cannot find any up hosts in the sandbox %s", op.name, op.sandbox)
 	}
+
 	op.hosts = []string{sourceHosts[0]}
 
 	err := op.setupRequestBody(op.hosts)

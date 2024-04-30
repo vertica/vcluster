@@ -12,8 +12,8 @@ import (
 type DatabaseConnection struct {
 	TargetPasswordFile string   `yaml:"targetPasswordFile" mapstructure:"targetPasswordFile"`
 	TargetHosts        []string `yaml:"targetHosts" mapstructure:"targetHosts"`
-	TargetDB           string   `yaml:"targetDB" mapstructure:"targetDB"`
-	TargetUserName     string   `yaml:"targetUserName" mapstructure:"targetUserName"`
+	TargetDBName       string   `yaml:"targetDBName" mapstructure:"targetDBName"`
+	TargetDBUser       string   `yaml:"targetDBUser" mapstructure:"targetDBUser"`
 }
 
 func MakeTargetDatabaseConn() DatabaseConnection {
@@ -22,31 +22,13 @@ func MakeTargetDatabaseConn() DatabaseConnection {
 
 // loadConnToViper can fill viper keys using the connection file
 func loadConnToViper() error {
-	// read connection file
+	// read connection file and merge it into viper
 	viper.SetConfigFile(globals.connFile)
-	err := viper.ReadInConfig()
+	err := viper.MergeInConfig()
 	if err != nil {
-		fmt.Printf("Warning: fail to read connection file %q for viper: %v\n", globals.connFile, err)
-		return nil
+		fmt.Printf("Warning: fail to merge connection file %q for viper: %v\n", globals.connFile, err)
 	}
 
-	// retrieve dbconn info in viper
-	dbConn := MakeTargetDatabaseConn()
-	err = viper.Unmarshal(&dbConn)
-	if err != nil {
-		fmt.Printf("Warning: fail to unmarshal connection file %q: %v\n", globals.connFile, err)
-		return nil
-	}
-
-	if !viper.IsSet(targetDBNameKey) {
-		viper.Set(targetDBNameKey, dbConn.TargetDB)
-	}
-	if !viper.IsSet(targetHostsKey) {
-		viper.Set(targetHostsKey, dbConn.TargetHosts)
-	}
-	if !viper.IsSet(targetUserNameKey) {
-		viper.Set(targetUserNameKey, dbConn.TargetUserName)
-	}
 	return nil
 }
 
@@ -70,10 +52,10 @@ func writeConn(targetdb *vclusterops.VReplicationDatabaseOptions) error {
 // readTargetDBToDBConn converts target database to DatabaseConnection
 func readTargetDBToDBConn(cnn *vclusterops.VReplicationDatabaseOptions) DatabaseConnection {
 	targetDBconn := MakeTargetDatabaseConn()
-	targetDBconn.TargetDB = cnn.TargetDB
+	targetDBconn.TargetDBName = cnn.TargetDB
 	targetDBconn.TargetHosts = cnn.TargetHosts
 	targetDBconn.TargetPasswordFile = *cnn.TargetPassword
-	targetDBconn.TargetUserName = cnn.TargetUserName
+	targetDBconn.TargetDBUser = cnn.TargetUserName
 	return targetDBconn
 }
 

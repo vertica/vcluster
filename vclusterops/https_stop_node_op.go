@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
@@ -27,6 +28,7 @@ type httpsStopNodeOp struct {
 	opBase
 	opHTTPSBase
 	RequestParams map[string]string
+	StopNodes     map[string]string // map with nodename as key and host as value
 }
 
 func makeHTTPSStopNodeOp(useHTTPPassword bool, userName string,
@@ -53,6 +55,16 @@ func makeHTTPSStopNodeOp(useHTTPPassword bool, userName string,
 	return op, nil
 }
 
+func makeHTTPSStopInputNodesOp(stopNodes map[string]string, useHTTPPassword bool, userName string,
+	httpsPassword *string, timeout *int) (httpsStopNodeOp, error) {
+	op, err := makeHTTPSStopNodeOp(useHTTPPassword, userName, httpsPassword, timeout)
+	if err != nil {
+		return op, err
+	}
+	op.StopNodes = stopNodes
+	return op, nil
+}
+
 func (op *httpsStopNodeOp) setupClusterHTTPRequest(hosts, nodenames []string) error {
 	for i, nodename := range nodenames {
 		httpRequest := hostHTTPRequest{}
@@ -71,13 +83,19 @@ func (op *httpsStopNodeOp) setupClusterHTTPRequest(hosts, nodenames []string) er
 
 func (op *httpsStopNodeOp) prepare(execContext *opEngineExecContext) error {
 	var hosts, nodenames []string
-	if len(execContext.nodesInfo) == 0 {
-		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+	if len(op.StopNodes) == 0 && len(execContext.nodesInfo) == 0 {
+		return fmt.Errorf(`[%s] List of nodes to be stopped is empty`, op.name)
 	}
-
-	for _, node := range execContext.nodesInfo {
-		nodenames = append(nodenames, node.Name)
-		hosts = append(hosts, node.Address)
+	if len(op.StopNodes) == 0 {
+		for _, node := range execContext.nodesInfo {
+			nodenames = append(nodenames, node.Name)
+			hosts = append(hosts, node.Address)
+		}
+	} else {
+		for nodename, host := range op.StopNodes {
+			nodenames = append(nodenames, nodename)
+			hosts = append(hosts, host)
+		}
 	}
 	execContext.dispatcher.setup(hosts)
 
@@ -106,7 +124,14 @@ func (op *httpsStopNodeOp) processResult(_ *opEngineExecContext) error {
 		op.logResponse(host, result)
 
 		if !result.isPassing() {
-			allErrs = errors.Join(allErrs, result.err)
+			// If we can't connect to the host, it's already down. That's not an error
+			// Note: We should improve the error handling here.
+			//       VER-93730 tracks this issue
+			if strings.Contains(result.err.Error(), "connection refused") {
+				op.logger.PrintInfo("[%s] host %s is already down", op.name, host)
+			} else {
+				allErrs = errors.Join(allErrs, result.err)
+			}
 			continue
 		}
 

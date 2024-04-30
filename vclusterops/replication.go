@@ -33,6 +33,7 @@ type VReplicationDatabaseOptions struct {
 	TargetUserName  string
 	TargetPassword  *string
 	SourceTLSConfig string
+	Sandbox         string
 }
 
 func VReplicationDatabaseFactory() VReplicationDatabaseOptions {
@@ -191,7 +192,7 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	initiatorTargetHost := getInitiator(options.TargetHosts)
 	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
 		options.UserName, options.Password, targetUsePassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
-		options.TargetPassword, options.SourceTLSConfig)
+		options.TargetPassword, options.SourceTLSConfig, options.Sandbox)
 	if err != nil {
 		return instructions, err
 	}

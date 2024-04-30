@@ -80,8 +80,10 @@ const (
 	subclusterFlag              = "subcluster"
 	addNodeFlag                 = "new-hosts"
 	sandboxFlag                 = "sandbox"
+	sandboxKey                  = "sandbox"
 	connFlag                    = "conn"
 	connKey                     = "conn"
+	stopNodeFlag                = "stop-hosts"
 )
 
 // Flag and key for database replication
@@ -121,6 +123,7 @@ var flagKeyMap = map[string]string{
 	configFlag:                  configKey,
 	verboseFlag:                 verboseKey,
 	outputFileFlag:              outputFileKey,
+	sandboxFlag:                 sandboxKey,
 	targetDBNameFlag:            targetDBNameKey,
 	targetHostsFlag:             targetHostsKey,
 	targetUserNameFlag:          targetUserNameKey,
@@ -153,6 +156,7 @@ const (
 	removeSCSubCmd          = "db_remove_subcluster"
 	stopSCSubCmd            = "stop_subcluster"
 	addNodeSubCmd           = "db_add_node"
+	stopNodeCmd             = "stop_node"
 	removeNodeSubCmd        = "db_remove_node"
 	restartNodeSubCmd       = "restart_node"
 	reIPSubCmd              = "re_ip"
@@ -513,6 +517,7 @@ func constructCmds() []*cobra.Command {
 		// node-scope cmds
 		makeCmdRestartNodes(),
 		makeCmdAddNode(),
+		makeCmdStopNode(),
 		makeCmdRemoveNode(),
 		// others
 		makeCmdScrutinize(),

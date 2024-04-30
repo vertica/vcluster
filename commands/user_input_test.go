@@ -121,6 +121,6 @@ func TestCreateConnection(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, dbName, dbConn.TargetDB)
+	assert.Equal(t, dbName, dbConn.TargetDBName)
 	assert.Equal(t, hosts, dbConn.TargetHosts[0])
 }

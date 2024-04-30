@@ -53,6 +53,11 @@ The --target-conn option serves as a collection file for gathering necessary
 target information for replication. You need to run vcluster manage_connection
 to generate this connection file in order to use this option.
 
+The --sandbox option is used to replicate from a sandbox to a target database
+or another sandbox. You must specify the hosts of the target sandbox to replicate 
+to a target sandbox. You can provide the --target-hosts option or specify the 
+target hosts in the connection file. 
+
 If the source database has EnableConnectCredentialForwarding enabled, the
 target username and password can be ignored. If the target database uses trust
 authentication, the password can be ignored.
@@ -61,6 +66,11 @@ Examples:
   # Start database replication with config and connection file
   vcluster replication start --config /opt/vertica/config/vertica_cluster.yaml \
     --target-conn /opt/vertica/config/target_connection.yaml 
+
+  # Replicate data from a sandbox in the source database to a target database
+  # specified in the connection file.
+  vcluster replication start --config /opt/vertica/config/vertica_cluster.yaml \
+    --target-conn /opt/vertica/config/target_connection.yaml --sandbox sand
 
   # Start database replication with user input and connection file
   vcluster replication start --db-name test_db --hosts 10.20.30.40 \
@@ -78,9 +88,6 @@ Examples:
     --target-hosts 10.20.30.43 --password-file /path/to/password-file --target-db-user dbadmin \ 
     --target-password-file /path/to/password-file
 `,
-		// Temporarily, the Vcluster CLI doesn't support a config file for this subcommand.
-		// It will include all hosts from the config file.
-		// VER-93450 will add 2 options for sandboxes, "source-sandbox" and "target-sandbox", to get the correct sourceHosts
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag, dbUserFlag, eonModeFlag, connFlag},
 	)
 
@@ -103,6 +110,12 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 		targetDBNameFlag,
 		"",
 		"The target database that we will replicate to",
+	)
+	cmd.Flags().StringVar(
+		&c.startRepOptions.Sandbox,
+		sandboxFlag,
+		"",
+		"The source sandbox that we will replicate from",
 	)
 	cmd.Flags().StringSliceVar(
 		&c.startRepOptions.TargetHosts,

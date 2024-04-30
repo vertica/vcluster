@@ -56,6 +56,8 @@ type httpsPollNodeStateOp struct {
 	// The timeout for each http request. Requests will be repeated if timeout hasn't been exceeded.
 	httpRequestTimeout int
 	cmdType            CmdType
+	// poll for nodes down: Set to true if nodes need to be polled to be down
+	checkDown bool
 }
 
 func makeHTTPSPollNodeStateOpHelper(hosts []string,
@@ -66,7 +68,7 @@ func makeHTTPSPollNodeStateOpHelper(hosts []string,
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
 	op.httpRequestTimeout = defaultHTTPRequestTimeoutSeconds
-
+	op.checkDown = false // setting default to poll nodes UP
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
 		return op, err
@@ -88,7 +90,23 @@ func makeHTTPSPollNodeStateOpWithTimeoutAndCommand(hosts []string,
 	op.cmdType = cmdType
 	return op, nil
 }
-
+func makeHTTPSPollNodeStateDownOp(hosts []string,
+	useHTTPPassword bool, userName string,
+	httpsPassword *string) (httpsPollNodeStateOp, error) {
+	op, err := makeHTTPSPollNodeStateOpHelper(hosts, useHTTPPassword, userName, httpsPassword)
+	if err != nil {
+		return op, err
+	}
+	timeoutSecondStr := util.GetEnv("NODE_STATE_POLLING_TIMEOUT", strconv.Itoa(StartupPollingTimeout))
+	timeoutSecond, err := strconv.Atoi(timeoutSecondStr)
+	if err != nil {
+		return httpsPollNodeStateOp{}, err
+	}
+	op.timeout = timeoutSecond
+	op.checkDown = true
+	op.description = fmt.Sprintf("Wait for %d node(s) to go DOWN", len(hosts))
+	return op, nil
+}
 func makeHTTPSPollNodeStateOp(hosts []string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string) (httpsPollNodeStateOp, error) {
@@ -145,7 +163,7 @@ func (op *httpsPollNodeStateOp) finalize(_ *opEngineExecContext) error {
 }
 
 func (op *httpsPollNodeStateOp) processResult(execContext *opEngineExecContext) error {
-	op.logger.PrintInfo("[%s] expecting %d up host(s)", op.name, len(op.hosts))
+	op.logger.PrintInfo("[%s] expecting %d %s host(s)", op.name, len(op.hosts), checkStatusToString(op.checkDown))
 
 	err := pollState(op, execContext)
 	if err != nil {
@@ -159,6 +177,9 @@ func (op *httpsPollNodeStateOp) processResult(execContext *opEngineExecContext) 
 }
 
 func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
+	if op.checkDown {
+		return op.shouldStopPollingForDown()
+	}
 	upNodeCount := 0
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -219,6 +240,54 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 
 	op.logger.PrintInfo("[%s] All nodes are up", op.name)
 	op.updateSpinnerStopMessage("all nodes are up")
+
+	return true, nil
+}
+
+func (op *httpsPollNodeStateOp) shouldStopPollingForDown() (bool, error) {
+	upNodeCount := 0
+	upHosts := make(map[string]bool)
+	exceptionHosts := make(map[string]bool)
+	downHosts := make(map[string]bool)
+	var allErrs error
+
+	for host, result := range op.clusterHTTPRequest.ResultCollection {
+		op.currentHost = host
+
+		// when we get timeout error, we know that the host is unreachable/dead
+		if result.isTimeout() {
+			return true, fmt.Errorf("[%s] cannot connect to host %s, please check if the host is still alive", op.name, host)
+		}
+
+		// We don't need to wait until timeout to determine if all nodes are down or not.
+		// If we find the wrong password for the HTTPS service on any hosts, we should fail immediately.
+		// We also need to let user know to wait until all nodes are down
+		if result.isPasswordAndCertificateError(op.logger) {
+			return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
+				op.name, host)
+		}
+		if !result.isPassing() {
+			allErrs = errors.Join(allErrs, result.err)
+		}
+		if result.isFailing() && !result.isHTTPRunning() {
+			downHosts[host] = true
+			continue
+		} else if result.isException() {
+			exceptionHosts[host] = true
+			continue
+		}
+
+		upHosts[host] = true
+		upNodeCount++
+	}
+
+	if upNodeCount != 0 {
+		op.logger.PrintInfo("[%s] %d host(s) up", op.name, upNodeCount)
+		op.updateSpinnerMessage("%d host(s) up, expecting %d host(s) to be down", upNodeCount, len(op.hosts))
+		return false, nil
+	}
+	op.logger.PrintInfo("[%s] All nodes are down", op.name)
+	op.updateSpinnerStopMessage("all nodes are down")
 
 	return true, nil
 }
