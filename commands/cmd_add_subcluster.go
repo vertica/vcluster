@@ -54,7 +54,7 @@ func makeCmdAddSubcluster() *cobra.Command {
 You must provide a subcluster name with the --subcluster option.
 
 By default, the new subcluster is secondary. To add a primary subcluster, use
-the --is-primary flag.
+the --is-primary option.
 
 Examples:
   # Add a subcluster with config file

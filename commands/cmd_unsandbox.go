@@ -56,8 +56,6 @@ main cluster.
 When all subclusters are removed from a sandbox, the sandbox catalog and
 metadata are deleted. To reuse the sandbox name, you must manually clean the 
 /metadata/<sandbox-name> directory in your communal storage location.
-To reuse the sandbox name, you must manually clean the /metadata/<sandbox-name>
-directory in your communal storage location.
 
 The comma-separated list of hosts passed to the --hosts option must include at
 least one up host in the main cluster.

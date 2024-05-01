@@ -46,7 +46,7 @@ func makeCmdRemoveNode() *cobra.Command {
 		"Remove host(s) from an existing database",
 		`This subcommand removes one or more nodes from an existing database.
 
-You need to provide the --remove option followed by one or more hosts to
+You must provide the --remove option followed by one or more hosts to
 remove as a comma-separated list.
 
 You cannot remove nodes from a sandboxed subcluster in an Eon Mode database.

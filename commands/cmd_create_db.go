@@ -54,17 +54,15 @@ following locations, in order of precedence:
 - /opt/vertica/config/vertica_config.yaml if running vcluster from /opt/vertica/bin
 - $HOME/.config/vcluster/vertica_config.yaml
 
-You can pass --config-param a comma-separated list of NAME=VALUE pairs to set
-multiple configuration parameters when the database is created
-(see Example below).
+To set multiple configuration parameters when the database is created, pass
+--config-param a comma-separated list of NAME=VALUE pairs.
 
-To remove the local directories like catalog, depot, and data, you can use the
+Remove the local directories like catalog, depot, and data, with the
 --force-cleanup-on-failure or --force-removal-at-creation options.
 The data deleted with these options is unrecoverable.
 
-The password for the dbadmin user of this new database can be provided in a few ways. 
-It can be read from a file using --password-file, prompted by the CLI with 
---read-password-from-prompt, or passed as plain text with --password as an option.
+Provide the dbadmin password with the --password-file, --read-password-from-prompt,
+or --password options.
 
 Examples:
   # Create a database and save the generated config file under custom directory

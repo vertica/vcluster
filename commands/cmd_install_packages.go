@@ -48,15 +48,18 @@ func makeCmdInstallPackages() *cobra.Command {
 		"Install default package(s) in database",
 		`This subcommand installs default packages in the database.
 
-The default packages are those under /opt/vertica/packages where Autoinstall
-is marked true. Per package installation status will be returned.
+You must provide the --hosts option followed by all hosts in the database as a
+comma-separated list.
+
+Default packages are located in /opt/vertica/packages. During installation, the
+status for each package is returned.
 
 Examples:
-  # Install default packages with user input.
+  # Install default packages with user input
   vcluster install_packages --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42
 
-  # Force (re)install default packages with config file.
+  # Force (re)install default packages with config file
   vcluster install_packages --db-name test_db --force-reinstall \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,

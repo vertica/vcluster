@@ -44,17 +44,17 @@ func makeListAllNodes() *cobra.Command {
 		newCmd,
 		listAllNodesSubCmd,
 		"List all nodes in the database",
-		`This subcommand queries the status of the nodes in the consensus and prints
-whether they are currently up or down.
+		`This subcommand queries the status of the nodes in the database and prints
+whether they are up or down.
 
-The --hosts option specifies one or more hosts that the program
-should communicate with. The program will return the first response it
-receives from any of the specified hosts.
+To provide its status, each host must run the spread daemon.
 
-The --db-name and --catalog-path options are only needed when VCluster cannot
-obtain node information from a running database and the config file is not provided.
+You must provide the --hosts option one or more hosts as a comma-separated
+list. list_allnodes returns the first response it receives from any host.
 
-The only requirement for each host is that it is running the spread daemon.
+The --db-name and --catalog-path options are required only when vcluster cannot
+obtain node information from a running database and the config file is not
+provided.
 
 Examples:
   # List the status of nodes with config file where password authentication is

@@ -40,6 +40,7 @@ type nmaVerticaVersionOp struct {
 	sandbox            bool
 	scName             string
 	readOnly           bool
+	targetNodeIPs      []string // used to filter desired nodes' info
 }
 
 func makeHostVersionMap() hostVersionMap {
@@ -75,10 +76,13 @@ func makeNMAReadVerticaVersionOp(vdb *VCoordinationDatabase) nmaVerticaVersionOp
 	return op
 }
 
-// makeNMAVerticaVersionOpWithoutHosts is used when db is down
-func makeNMAVerticaVersionOpWithoutHosts(sameVersion bool) nmaVerticaVersionOp {
+// makeNMAVerticaVersionOpWithTargetHosts is used in start_db, VCluster will check Vertica
+// version for the subclusters which contain target hosts
+func makeNMAVerticaVersionOpWithTargetHosts(sameVersion bool, hosts []string) nmaVerticaVersionOp {
 	// We set hosts to nil and isEon to false temporarily, and they will get the correct value from execute context in prepare()
-	return makeNMACheckVerticaVersionOp(nil /*hosts*/, sameVersion, false /*isEon*/)
+	op := makeNMACheckVerticaVersionOp(nil /*hosts*/, sameVersion, false /*isEon*/)
+	op.targetNodeIPs = hosts
+	return op
 }
 
 // makeNMAVerticaVersionOpAfterUnsandbox is used after unsandboxing
@@ -175,12 +179,16 @@ func (op *nmaVerticaVersionOp) prepare(execContext *opEngineExecContext) error {
 				op.SCToHostVersionMap[sc][host] = ""
 			}
 		} else {
-			// db is down
+			// start db
 			op.HasIncomingSCNames = true
 			if execContext.nmaVDatabase.CommunalStorageLocation != "" {
 				op.IsEon = true
 			}
-			for host, vnode := range execContext.nmaVDatabase.HostNodeMap {
+			hostNodeMap, err := op.prepareHostNodeMap(execContext)
+			if err != nil {
+				return err
+			}
+			for host, vnode := range hostNodeMap {
 				op.hosts = append(op.hosts, host)
 				// initialize the SCToHostVersionMap with empty versions
 				sc := vnode.Subcluster.Name
@@ -342,4 +350,40 @@ func (op *nmaVerticaVersionOp) readVersion() error {
 	}
 
 	return nil
+}
+
+// prepareHostNodeMap is a helper to make a host-node map for nodes in target subclusters
+func (op *nmaVerticaVersionOp) prepareHostNodeMap(execContext *opEngineExecContext) (map[string]*nmaVNode, error) {
+	hostNodeMap := execContext.nmaVDatabase.HostNodeMap
+	if len(op.targetNodeIPs) > 0 {
+		hostSCMap := make(map[string]string)
+		scHostsMap := make(map[string][]string)
+		for host, vnode := range execContext.nmaVDatabase.HostNodeMap {
+			hostSCMap[host] = vnode.Subcluster.Name
+			scHostsMap[vnode.Subcluster.Name] = append(scHostsMap[vnode.Subcluster.Name], host)
+		}
+		// find subclusters that hold the target hosts
+		targetSCs := []string{}
+		for _, host := range op.targetNodeIPs {
+			sc, ok := hostSCMap[host]
+			if ok {
+				targetSCs = append(targetSCs, sc)
+			} else {
+				return hostNodeMap, fmt.Errorf("[%s] host %s does not exist in the database", op.name, host)
+			}
+		}
+		// find all hosts that in target subclusters
+		allHostsInTargetSCs := []string{}
+		for _, sc := range targetSCs {
+			hosts, ok := scHostsMap[sc]
+			if ok {
+				allHostsInTargetSCs = append(allHostsInTargetSCs, hosts...)
+			} else {
+				return hostNodeMap, fmt.Errorf("[%s] internal error: subcluster %s was lost when preparing the hosts", op.name, sc)
+			}
+		}
+		// get host-node map for all hosts in target subclusters
+		hostNodeMap = util.FilterMapByKey(execContext.nmaVDatabase.HostNodeMap, allHostsInTargetSCs)
+	}
+	return hostNodeMap, nil
 }

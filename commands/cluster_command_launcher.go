@@ -189,13 +189,13 @@ var (
 	rootCmd   = &cobra.Command{
 		Use:   "vcluster",
 		Short: "Administer a Vertica cluster",
-		Long: `This CLI is used to manage a Vertica cluster with a REST API. The REST API endpoints are
-exposed by the following services:
+		Long: `The vcluster CLI manages a Vertica cluster with a REST API. The REST API
+endpoints are exposed by the following services:
 - Node Management Agent (NMA)
 - Embedded HTTPS service
 
-This CLI tool combines REST calls to provide an interface so that you can
-perform the following administrator operations:
+vcluster combines REST calls to provide an interface so that you can perform
+the following administrator operations:
 - Create a database
 - Scale a cluster up and down
 - Restart a database
@@ -204,7 +204,7 @@ perform the following administrator operations:
 - Revive an Eon database
 - Add/Remove a subcluster
 - Sandbox/Unsandbox a subcluster
-- Scrutinize a database
+- Run scrutinize on a database
 - View the state of a database
 - Install packages on a database`,
 		Version: CLIVersion,

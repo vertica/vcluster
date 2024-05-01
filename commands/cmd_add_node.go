@@ -50,13 +50,13 @@ func makeCmdAddNode() *cobra.Command {
 		"Add host(s) to an existing database",
 		`This subcommand adds one or more hosts to an existing database.
 
-You need to provide the --add option followed by one or more hosts to add as a
+You must provide the --add option followed by one or more hosts to add as a
 comma-separated list.
 
 You cannot add hosts to a sandbox subcluster in an Eon Mode database.
 
-The --node-names option is utilized to address issues resulting from a failed
-node addition attempt. It's crucial to include all expected nodes in the catalog
+Use the --node-names option to address issues resulting from a failed node 
+addition attempt. It's crucial to include all expected nodes in the catalog
 when using this option. This subcommand removes any surplus nodes from the
 catalog, provided they are down, before commencing the node addition process.
 Omitting the option will skip this node trimming process.

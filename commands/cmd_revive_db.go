@@ -43,22 +43,21 @@ func makeCmdReviveDB() *cobra.Command {
 		newCmd,
 		reviveDBSubCmd,
 		"Revive a database",
-		`This subcommand revives an Eon Mode database to a given set of hosts.
-This could also restore an Eon Mode database to a given restore point.
+		`This subcommand revives an Eon Mode database on the specified hosts or restores
+an Eon Mode database to the specified restore point.
 
-The communal storage path must be provided and it cannot be empty.
-If access to communal storage requires access keys, these can be provided
-through the --config-param option.
+The --communal-storage-location option is required. If access to communal
+storage requires access keys, provide the keys with the --config-param option.
 
-You must also specify a set of hosts that matches the number of hosts when the
-database was running. You can omit the hosts only if --display-only
-is specified.
+The number of hosts that you provide to the --hosts option must match the
+number of hosts in the existing database. You can omit the hosts only if
+--display-only is specified.
 
 The name of the database must be provided.
 
-When restoring to a restore point, the --restore-point-archive option must be
-provided, and the targeted restore point within an archive must be specified
-by either --restore-point-index or --restore-point-id (not both).
+To restore a database to a restore point, you must provide the
+--restore-point-archive option, and specify the restore point with either the
+--restore-point-index or --restore-point-id option.
 
 Examples:
   # Revive a database with user input and save the generated config file

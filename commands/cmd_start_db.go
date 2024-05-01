@@ -129,7 +129,13 @@ func (c *CmdStartDB) setHiddenFlags(cmd *cobra.Command) {
 		false,
 		"",
 	)
-	hideLocalFlags(cmd, []string{"unsafe", "force", "allow_fallback_keygen", "ignore_cluster_lease", "fast", "trim-hosts"})
+	cmd.Flags().BoolVar(
+		&c.startDBOptions.HostsInSandbox,
+		"hosts-in-sandbox",
+		false,
+		"",
+	)
+	hideLocalFlags(cmd, []string{"unsafe", "force", "allow_fallback_keygen", "ignore_cluster_lease", "fast", "trim-hosts", "hosts-in-sandbox"})
 }
 
 func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {

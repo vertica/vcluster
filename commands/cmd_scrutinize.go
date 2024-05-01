@@ -86,16 +86,17 @@ func makeCmdScrutinize() *cobra.Command {
 		newCmd,
 		scrutinizeSubCmd,
 		"Scrutinize a database",
-		`This scrutinizes a database on a given set of hosts.
+		`This subcommand runs scrutinize to collect diagnostic information about a
+database.
 		
-This subcommand is usually requested by Vertica support to collect 
-diagnostics from each host.
+Vertica support might request that you run scrutinize when resolving a support
+case.
 
-If the --hosts option is specified, diagnostics will only be gathered from those 
-specific nodes. These nodes may be a subset of all the nodes in the database.
+If you use the --hosts option, scrutinize gathers diagnostics from only the
+specified hosts.
 
-The diagnostics are bundled together in a tarball and stored at the following 
-directory: `+vclusterops.ScrutinizeOutputBasePath+`/VerticaScrutinize.<timestamp>.tar.
+The diagnostics are bundled together in a tar file and stored in 
+`+vclusterops.ScrutinizeOutputBasePath+`/VerticaScrutinize.<timestamp>.tar.
 
 Examples:
   # Scrutinize all nodes in the database with config file

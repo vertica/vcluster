@@ -36,6 +36,8 @@ type VStartDatabaseOptions struct {
 	// you may not want to have both the NMA and Vertica server in the same container.
 	// This feature requires version 24.2.0+.
 	StartUpConf string
+	// whether the provided hosts are in a sandbox
+	HostsInSandbox bool
 }
 
 func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
@@ -114,8 +116,10 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	// VER-93369 may improve this if the CLI knows which nodes are primary
 	// from the config file
 	var vdb VCoordinationDatabase
-	// retrieve database information from cluster_config.json for Eon databases
-	if options.IsEon {
+	// retrieve database information from cluster_config.json for Eon databases,
+	// skip this step for starting a sandbox because cluster_config.json does not
+	// contain accurate info of nodes in a sandbox
+	if !options.HostsInSandbox && options.IsEon {
 		const warningMsg = " for an Eon database, start_db after revive_db could fail " +
 			"because we cannot retrieve the correct database information"
 		if options.CommunalStorageLocation != "" {
@@ -276,13 +280,13 @@ func (vcc VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOption
 func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	// vdb here should contains only primary nodes
+	// vdb here should contain only primary nodes
 	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
 	if err != nil {
 		return instructions, err
 	}
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithoutHosts(true)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithTargetHosts(true, options.Hosts)
 	instructions = append(instructions,
 		&nmaReadCatalogEditorOp,
 		&nmaVerticaVersionOp,

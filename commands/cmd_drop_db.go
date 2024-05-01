@@ -46,12 +46,16 @@ func makeCmdDropDB() *cobra.Command {
 For an Eon database, communal storage is not deleted. You can recover 
 the dropped database with revive_db.
 
-The config file must be specified to retrieve host information. If the config
-file path is not specified via --config, the default path will be used (refer
-to create_db subcommand for information about how the default config file path 
-is determined). When the command completes, the config file is removed.
+The config file must be specified to retrieve host information. If --config
+is not provided, a configuration file is created in one of the following 
+locations, in order of precedence:
+- path set in VCLUSTER_CONFIG environment variable
+- /opt/vertica/config/vertica_config.yaml if running vcluster from /opt/vertica/bin
+- $HOME/.config/vcluster/vertica_config.yaml
 
-To remove the local directories like catalog, depot, and data, you can use the 
+When the command completes, the config file is removed.
+
+To remove the local directories like catalog, depot, and data, use the 
 --force-delete option. The data deleted with this option is unrecoverable.
 
 Examples:

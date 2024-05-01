@@ -40,13 +40,13 @@ func makeCmdShowRestorePoints() *cobra.Command {
 		newCmd,
 		showRestorePointsSubCmd,
 		"Query and list restore point(s) in archive(s)",
-		`This subcommand queries and lists restore point(s) in archive(s).
+		`This subcommand queries and displays restore points in archives.
 
-Then --start-timestamp and --end-timestamp options both limit the scope of
-creation timestamps of listed restore points. Both of them expect a timestamp
-in date-time format or date-only format, for example:
+The --start-timestamp and --end-timestamp options limit the restore points
+query by creation timestamp. Both options accept UTC timestamps in date-time
+and date-only format. For example:
+
 "2006-01-02 15:04:05", "2006-01-02", "2006-01-02 15:04:05.000000000".
-Both of them expect a timestamp in UTC timezone.
 
 Examples:
   # List restore points without filters with user input

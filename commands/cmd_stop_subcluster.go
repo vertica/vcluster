@@ -51,8 +51,7 @@ func makeCmdStopSubcluster() *cobra.Command {
 
 You must provide the subcluster name with the --subcluster option.
 
-All hosts in the subcluster will be stopped. You cannot stop a sandboxed
-subcluster.
+All hosts in the subcluster will be stopped.
 
 Examples:
   # Gracefully stop a subcluster with config file
@@ -92,7 +91,7 @@ func (c *CmdStopSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.stopSCOptions.DrainSeconds,
 		"drain-seconds",
 		util.DefaultDrainSeconds,
-		util.GetEonFlagMsg("seconds to wait for user connections to close."+
+		util.GetEonFlagMsg("seconds to wait for non-dbadmin user connections to close."+
 			" Default value is "+strconv.Itoa(util.DefaultDrainSeconds)+" seconds."+
 			" When the time expires, connections will be forcibly closed and the subcluster will shut down."+
 			" If the value is 0, VCluster closes all user connections immediately."+
