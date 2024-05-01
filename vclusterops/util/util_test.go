@@ -108,6 +108,13 @@ func TestResolveToOneIP(t *testing.T) {
 	res, err = ResolveToOneIP(hostname, false)
 	assert.NotNil(t, err)
 	assert.Equal(t, res, "")
+
+	// given IP does not match its IP version
+	_, err = ResolveToOneIP("192.168.1.101", true)
+	assert.ErrorContains(t, err, "cannot resolve 192.168.1.101 as IPv6 address")
+
+	_, err = ResolveToOneIP("2001:db8::8:800:200c:417a", false)
+	assert.ErrorContains(t, err, "cannot resolve 2001:db8::8:800:200c:417a as IPv4 address")
 }
 
 func TestGetCleanPath(t *testing.T) {

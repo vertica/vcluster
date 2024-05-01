@@ -121,11 +121,8 @@ func (op *httpsCheckNodeStateOp) processResult(execContext *opEngineExecContext)
 
 		nodesInfo := nodesInfo{}
 		for _, node := range nodesStates.NodeList {
-			if n, err := node.asNodeInfo(); err != nil {
-				op.logger.PrintError("[%s] %s", op.name, err.Error())
-			} else {
-				nodesInfo.NodeList = append(nodesInfo.NodeList, n)
-			}
+			n := node.asNodeInfoWithoutVer()
+			nodesInfo.NodeList = append(nodesInfo.NodeList, n)
 		}
 		// successful case, write the result into exec context
 		execContext.nodesInfo = nodesInfo.NodeList

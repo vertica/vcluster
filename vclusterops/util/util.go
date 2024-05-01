@@ -222,11 +222,15 @@ func ResolveToAbsPath(path string) (string, error) {
 
 // IP util functions
 func IsIPv4(ip string) bool {
-	return net.ParseIP(ip).To4() != nil
+	// To4() may not return nil even if the given address is ipv6
+	// we need to double check whether the ip string contains `:`
+	return !strings.Contains(ip, ":") && net.ParseIP(ip).To4() != nil
 }
 
 func IsIPv6(ip string) bool {
-	return net.ParseIP(ip).To16() != nil
+	// To16() may not return nil even if the given address is ipv4
+	// we need to double check whether the ip string contains `:`
+	return strings.Contains(ip, ":") && net.ParseIP(ip).To16() != nil
 }
 
 func AddressCheck(address string, ipv6 bool) error {
@@ -283,14 +287,26 @@ func ResolveToOneIP(hostname string, ipv6 bool) (string, error) {
 	if ipv6 && IsIPv6(hostname) {
 		return hostname, nil
 	}
+
+	// resolve host name to address
 	addrs, err := ResolveToIPAddrs(hostname, ipv6)
 	// contains the case where the hostname cannot be resolved to be IP
 	if err != nil {
 		return "", err
 	}
+
+	ipVersion := ipv4Str
+	if ipv6 {
+		ipVersion = ipv6Str
+	}
+	if len(addrs) == 0 {
+		return "", fmt.Errorf("cannot resolve %s as %s address", hostname, ipVersion)
+	}
+
 	if len(addrs) > 1 {
 		return "", fmt.Errorf("%s is resolved to more than one IP addresss: %v", hostname, addrs)
 	}
+
 	return addrs[0], nil
 }
 

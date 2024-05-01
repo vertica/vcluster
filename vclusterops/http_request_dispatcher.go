@@ -22,7 +22,7 @@ import (
 
 type requestDispatcher struct {
 	opBase
-	pool adapterPool
+	pool *adapterPool
 }
 
 func makeHTTPRequestDispatcher(logger vlog.Printer) requestDispatcher {

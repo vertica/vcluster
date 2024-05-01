@@ -344,7 +344,7 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 				}
 			} else if node.State == util.NodeDownState {
 				// for "DOWN" node, we cannot get its version from https response
-				n = node.asNodeInfoWoVer()
+				n = node.asNodeInfoWithoutVer()
 				scNodes.Add(n)
 			}
 		}

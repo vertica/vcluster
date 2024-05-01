@@ -62,8 +62,15 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 		return nil, err
 	}
 
+	// this vdb is used to fetch node version
+	var vdb VCoordinationDatabase
+	err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	if err != nil {
+		return vcc.fetchNodeStateFromDownDB(options)
+	}
+
 	// produce list_allnodes instructions
-	instructions, err := vcc.produceListAllNodesInstructions(options)
+	instructions, err := vcc.produceListAllNodesInstructions(options, &vdb)
 	if err != nil {
 		return nil, fmt.Errorf("fail to produce instructions, %w", err)
 	}
@@ -76,6 +83,19 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 	runError := clusterOpEngine.run(vcc.Log)
 	nodeStates := clusterOpEngine.execContext.nodesInfo
 	if runError == nil {
+		// fill node version
+		for i, nodeInfo := range nodeStates {
+			vnode, ok := vdb.HostNodeMap[nodeInfo.Address]
+			if ok {
+				nodeStates[i].Version = vnode.Version
+			} else {
+				// we do not let this fail
+				// but the version for this node will be empty
+				vcc.Log.PrintWarning("Cannot find host %s in fetched node versions",
+					nodeInfo.Address)
+			}
+		}
+
 		return nodeStates, nil
 	}
 
@@ -95,45 +115,50 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 	}
 
 	if upNodeCount == 0 {
-		const msg = "Cannot get node information from running database. " +
-			"Try to get node information by reading catalog editor.\n" +
-			"The states of the nodes are shown as DOWN because we failed to fetch the node states."
-		fmt.Println(msg)
-		vcc.Log.PrintInfo(msg)
-
-		var downNodeStates []NodeInfo
-
-		var fetchDatabaseOptions VFetchCoordinationDatabaseOptions
-		fetchDatabaseOptions.DatabaseOptions = options.DatabaseOptions
-		fetchDatabaseOptions.readOnly = true
-
-		vdb, err := vcc.VFetchCoordinationDatabase(&fetchDatabaseOptions)
-		if err != nil {
-			return downNodeStates, err
-		}
-
-		for _, h := range vdb.HostList {
-			var nodeInfo NodeInfo
-			n := vdb.HostNodeMap[h]
-			nodeInfo.Address = n.Address
-			nodeInfo.Name = n.Name
-			nodeInfo.CatalogPath = n.CatalogPath
-			nodeInfo.Subcluster = n.Subcluster
-			nodeInfo.IsPrimary = n.IsPrimary
-			nodeInfo.Version = n.Version
-			nodeInfo.State = util.NodeDownState
-			downNodeStates = append(downNodeStates, nodeInfo)
-		}
-
-		return downNodeStates, nil
+		return vcc.fetchNodeStateFromDownDB(options)
 	}
 
 	return nodeStates, runError
 }
 
+func (vcc VClusterCommands) fetchNodeStateFromDownDB(options *VFetchNodeStateOptions) ([]NodeInfo, error) {
+	const msg = "Cannot get node information from running database. " +
+		"Try to get node information by reading catalog editor.\n" +
+		"The states of the nodes are shown as DOWN because we failed to fetch the node states."
+	fmt.Println(msg)
+	vcc.Log.PrintInfo(msg)
+
+	var nodeStates []NodeInfo
+
+	var fetchDatabaseOptions VFetchCoordinationDatabaseOptions
+	fetchDatabaseOptions.DatabaseOptions = options.DatabaseOptions
+	fetchDatabaseOptions.readOnly = true
+	vdb, err := vcc.VFetchCoordinationDatabase(&fetchDatabaseOptions)
+	if err != nil {
+		return nodeStates, err
+	}
+
+	for _, h := range vdb.HostList {
+		var nodeInfo NodeInfo
+		n := vdb.HostNodeMap[h]
+		nodeInfo.Address = n.Address
+		nodeInfo.Name = n.Name
+		nodeInfo.CatalogPath = n.CatalogPath
+		nodeInfo.Subcluster = n.Subcluster
+		nodeInfo.IsPrimary = n.IsPrimary
+		nodeInfo.Version = n.Version
+		nodeInfo.State = util.NodeDownState
+		nodeStates = append(nodeStates, nodeInfo)
+	}
+
+	return nodeStates, nil
+}
+
 // produceListAllNodesInstructions will build a list of instructions to execute for
 // the fetch node state operation.
-func (vcc VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeStateOptions) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceListAllNodesInstructions(
+	options *VFetchNodeStateOptions,
+	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// get hosts
@@ -149,13 +174,20 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(options *VFetchNodeS
 		}
 	}
 
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+	nmaReadVerticaVersionOp := makeNMAReadVerticaVersionOp(vdb)
+
 	httpsCheckNodeStateOp, err := makeHTTPSCheckNodeStateOp(hosts,
 		usePassword, options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
 
-	instructions = append(instructions, &httpsCheckNodeStateOp)
+	instructions = append(instructions,
+		&nmaHealthOp,
+		&nmaReadVerticaVersionOp,
+		&httpsCheckNodeStateOp,
+	)
 
 	return instructions, nil
 }

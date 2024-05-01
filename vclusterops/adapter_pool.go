@@ -32,19 +32,20 @@ type adapterPool struct {
 }
 
 var (
-	poolInstance adapterPool
+	poolInstance *adapterPool
 	once         sync.Once
 )
 
 // return a singleton instance of the AdapterPool
-func getPoolInstance(logger vlog.Printer) adapterPool {
+func getPoolInstance(logger vlog.Printer) *adapterPool {
 	/* if once.Do(f) is called multiple times,
 	 * only the first call will invoke f,
 	 * even if f has a different value in each invocation.
 	 * Reference: https://pkg.go.dev/sync#Once
 	 */
 	once.Do(func() {
-		poolInstance = makeAdapterPool(logger)
+		pool := makeAdapterPool(logger)
+		poolInstance = &pool
 	})
 
 	return poolInstance

@@ -112,7 +112,7 @@ type nodeStateInfo struct {
 }
 
 func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
-	n = node.asNodeInfoWoVer()
+	n = node.asNodeInfoWithoutVer()
 	// version can be, eg, v24.0.0-<revision> or v23.4.0-<hotfix|date>-<revision> including a hotfix or daily build date
 	verWithHotfix := 3
 	verWithoutHotfix := 2
@@ -126,8 +126,8 @@ func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
 	return
 }
 
-// asNodeInfoWoVer will create a NodeInfo with empty Version and Revision
-func (node *nodeStateInfo) asNodeInfoWoVer() (n NodeInfo) {
+// asNodeInfoWithoutVer will create a NodeInfo with empty Version and Revision
+func (node *nodeStateInfo) asNodeInfoWithoutVer() (n NodeInfo) {
 	n.Address = node.Address
 	n.Name = node.Name
 	n.State = node.State
