@@ -61,6 +61,7 @@ type NodeConfig struct {
 	CatalogPath string `yaml:"catalogPath" mapstructure:"catalogPath"`
 	DataPath    string `yaml:"dataPath" mapstructure:"dataPath"`
 	DepotPath   string `yaml:"depotPath" mapstructure:"depotPath"`
+	Sandbox     string `yaml:"sandbox" mapstructure:"sandbox"` // Name of the sandbox the node belongs to
 }
 
 // MakeDatabaseConfig() can create an instance of DatabaseConfig
@@ -243,6 +244,7 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 		nodeConfig.Name = vnode.Name
 		nodeConfig.Address = vnode.Address
 		nodeConfig.Subcluster = vnode.Subcluster
+		nodeConfig.Sandbox = vnode.Sandbox
 
 		// VER-91869 will replace the path prefixes with full paths
 		if vdb.CatalogPrefix == "" {

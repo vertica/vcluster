@@ -131,8 +131,44 @@ func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	options := c.sbOptions
 
 	err := vcc.VSandbox(&options)
-	vcc.PrintInfo("Completed method Run() for command " + sandboxSubCmd)
-	return err
+	if err != nil {
+		return err
+	}
+
+	defer vcc.PrintInfo("Successfully sandboxed subcluster " + c.sbOptions.SCName + " as " + c.sbOptions.SandboxName)
+	// Read and then update the sandbox information on config file
+	dbConfig, configErr := readConfig()
+	if configErr != nil {
+		vcc.PrintWarning("fail to read config file, skipping config file update", "error", configErr)
+		return nil
+	}
+	// Update config
+	updatedConfig := c.updateSandboxInfo(dbConfig)
+	if !updatedConfig {
+		vcc.PrintWarning("did not update node info for sandboxed sc " + c.sbOptions.SCName +
+			", info about the subcluster nodes are missing in config file, skipping config update")
+		return nil
+	}
+
+	writeErr := dbConfig.write(options.ConfigPath)
+	if writeErr != nil {
+		vcc.PrintWarning("fail to write the config file, details: " + writeErr.Error())
+		return nil
+	}
+	return nil
+}
+
+// updateSandboxInfo will update sandbox info for the sandboxed subcluster in the config object
+// returns true if the info are updated, returns false if no info is updated
+func (c *CmdSandboxSubcluster) updateSandboxInfo(dbConfig *DatabaseConfig) bool {
+	needToUpdate := false
+	for _, n := range dbConfig.Nodes {
+		if c.sbOptions.SCName == n.Subcluster {
+			n.Sandbox = c.sbOptions.SandboxName
+			needToUpdate = true
+		}
+	}
+	return needToUpdate
 }
 
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdSandboxSubcluster

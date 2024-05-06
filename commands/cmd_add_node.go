@@ -50,8 +50,8 @@ func makeCmdAddNode() *cobra.Command {
 		"Add host(s) to an existing database",
 		`This subcommand adds one or more hosts to an existing database.
 
-You must provide the --add option followed by one or more hosts to add as a
-comma-separated list.
+You must provide the --new-hosts option followed by one or more hosts to add as
+a comma-separated list.
 
 You cannot add hosts to a sandbox subcluster in an Eon Mode database.
 

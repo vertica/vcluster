@@ -134,6 +134,8 @@ func (adapter *httpAdapter) sendRequest(request *hostHTTPRequest, resultChannel 
 		resultChannel <- adapter.makeExceptionResult(err)
 		return
 	}
+	// close the connection after sending the request (for clients)
+	req.Close = true
 
 	// set username and password
 	// which is only used for HTTPS endpoints

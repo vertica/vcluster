@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -129,8 +131,44 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	options := c.usOptions
 
 	err := vcc.VUnsandbox(&options)
-	vcc.PrintInfo("Completed method Run() for command " + unsandboxSubCmd)
-	return err
+	if err != nil {
+		return err
+	}
+
+	defer vcc.PrintInfo("Successfully unsandboxed subcluster " + c.usOptions.SCName)
+	// Read and then update the sandbox information on config file
+	dbConfig, configErr := c.resetSandboxInfo()
+	if configErr != nil {
+		vcc.PrintWarning("fail to update config file : ", "error", configErr)
+		return nil
+	}
+
+	writeErr := dbConfig.write(options.ConfigPath)
+	if writeErr != nil {
+		vcc.PrintWarning("fail to write the config file, details: " + writeErr.Error())
+		return nil
+	}
+	return nil
+}
+
+// resetSandboxInfo will reset sandbox info for the unsandboxed subcluster to empty in the config object
+func (c *CmdUnsandboxSubcluster) resetSandboxInfo() (*DatabaseConfig, error) {
+	writeRequired := false
+	dbConfig, err := readConfig()
+	if err != nil {
+		return nil, fmt.Errorf("fail to read config file: %v", err)
+	}
+	for _, n := range dbConfig.Nodes {
+		if c.usOptions.SCName == n.Subcluster {
+			n.Sandbox = ""
+			writeRequired = true
+		}
+	}
+	if !writeRequired {
+		return dbConfig, fmt.Errorf("node info for sc %s missing in config file",
+			c.usOptions.SCName)
+	}
+	return dbConfig, nil
 }
 
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdUnsandboxSubcluster
