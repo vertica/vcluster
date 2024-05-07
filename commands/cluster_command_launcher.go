@@ -156,6 +156,7 @@ const (
 	removeSCSubCmd          = "db_remove_subcluster"
 	stopSCSubCmd            = "stop_subcluster"
 	addNodeSubCmd           = "db_add_node"
+	startSCSubCmd           = "start_subcluster"
 	stopNodeCmd             = "stop_node"
 	removeNodeSubCmd        = "db_remove_node"
 	restartNodeSubCmd       = "restart_node"
@@ -512,6 +513,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdAddSubcluster(),
 		makeCmdRemoveSubcluster(),
 		makeCmdStopSubcluster(),
+		makeCmdStartSubcluster(),
 		makeCmdSandboxSubcluster(),
 		makeCmdUnsandboxSubcluster(),
 		// node-scope cmds

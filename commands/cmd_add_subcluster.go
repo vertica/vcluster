@@ -220,7 +220,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 			return err
 		}
 		// update db info in the config file
-		err = writeConfig(&vdb, vcc.GetLog())
+		err = writeConfig(&vdb)
 		if err != nil {
 			vcc.PrintWarning("fail to write config file, details: %s", err)
 		}

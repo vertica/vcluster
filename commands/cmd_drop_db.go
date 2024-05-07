@@ -113,7 +113,7 @@ func (c *CmdDropDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.PrintInfo("Successfully dropped database %s", c.dropDBOptions.DBName)
 	// if the database is successfully dropped, the config file will be removed
 	// if failed to remove it, we will ask users to manually do it
-	err = removeConfig(vcc.GetLog())
+	err = removeConfig()
 	if err != nil {
 		vcc.PrintWarning("Fail to remove config file %q, "+
 			"please manually do it. Details: %v", c.dropDBOptions.ConfigPath, err)

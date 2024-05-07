@@ -177,7 +177,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	// for Eon database, update config file to fill nodes' subcluster information
 	if options.IsEon {
 		// write db info to vcluster config file
-		err := writeConfig(vdb, vcc.GetLog())
+		err := writeConfig(vdb)
 		if err != nil {
 			vcc.PrintWarning("fail to update config file, details: %s", err)
 		}

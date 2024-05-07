@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,7 +33,6 @@ const (
 	// default file name that we'll use.
 	defConfigFileName        = "vertica_cluster.yaml"
 	currentConfigFileVersion = "1.0"
-	configBackupName         = "vertica_cluster.yaml.backup"
 	configFilePerm           = 0600
 )
 
@@ -189,19 +187,12 @@ func loadConfigToViper() error {
 
 // writeConfig can write database information to vertica_cluster.yaml.
 // It will be called in the end of some subcommands that will change the db state.
-func writeConfig(vdb *vclusterops.VCoordinationDatabase, logger vlog.Printer) error {
+func writeConfig(vdb *vclusterops.VCoordinationDatabase) error {
 	if dbOptions.ConfigPath == "" {
 		return fmt.Errorf("configuration file path is empty")
 	}
 
 	dbConfig, err := readVDBToDBConfig(vdb)
-	if err != nil {
-		return err
-	}
-
-	// if the config file exists already,
-	// create its backup before overwriting it
-	err = backupConfigFile(dbOptions.ConfigPath, logger)
 	if err != nil {
 		return err
 	}
@@ -217,14 +208,9 @@ func writeConfig(vdb *vclusterops.VCoordinationDatabase, logger vlog.Printer) er
 
 // removeConfig remove the config file vertica_cluster.yaml.
 // It will be called in the end of drop_db subcommands.
-func removeConfig(logger vlog.Printer) error {
+func removeConfig() error {
 	if dbOptions.ConfigPath == "" {
 		return fmt.Errorf("configuration file path is empty")
-	}
-	// back up the old config file
-	err := backupConfigFile(dbOptions.ConfigPath, logger)
-	if err != nil {
-		return err
 	}
 
 	// remove the old db config
@@ -271,24 +257,6 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 	dbConfig.Name = vdb.Name
 
 	return dbConfig, nil
-}
-
-// backupConfigFile backs up config file before we update it.
-// This function will add ".backup" suffix to previous config file.
-func backupConfigFile(configFilePath string, logger vlog.Printer) error {
-	if util.CanReadAccessDir(configFilePath) == nil {
-		// copy file to vertica_cluster.yaml.backup
-		configDirPath := filepath.Dir(configFilePath)
-		configFileBackup := filepath.Join(configDirPath, configBackupName)
-		logger.Info("Configuration file exists and, creating a backup", "config file", configFilePath,
-			"backup file", configFileBackup)
-		err := util.CopyFile(configFilePath, configFileBackup, configFilePerm)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // read reads information from configFilePath to a DatabaseConfig object.

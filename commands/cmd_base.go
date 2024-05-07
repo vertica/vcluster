@@ -283,6 +283,9 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 		return nil
 	}
 
+	if c.passwordFile == "" {
+		return fmt.Errorf("password file path is empty")
+	}
 	password, err := c.passwordFileHelper(c.passwordFile)
 	if err != nil {
 		return err
@@ -292,10 +295,6 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 }
 
 func (c *CmdBase) passwordFileHelper(passwordFile string) (string, error) {
-	if passwordFile == "" {
-		return "", fmt.Errorf("password file path is empty")
-	}
-
 	// Read password from file
 	passwordBytes, err := os.ReadFile(passwordFile)
 	if err != nil {

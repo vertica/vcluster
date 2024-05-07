@@ -110,7 +110,7 @@ func (c *CmdConfigRecover) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 	// write db info to vcluster config file
-	err = writeConfig(&vdb, vcc.GetLog())
+	err = writeConfig(&vdb)
 	if err != nil {
 		return fmt.Errorf("fail to write config file, details: %s", err)
 	}

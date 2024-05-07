@@ -37,6 +37,8 @@ type VStartNodesOptions struct {
 	// you may not want to have both the NMA and Vertica server in the same container.
 	// This feature requires version 24.2.0+.
 	StartUpConf string
+
+	vdb *VCoordinationDatabase
 }
 
 type VStartNodesInfo struct {
@@ -51,6 +53,8 @@ type VStartNodesInfo struct {
 	// sandbox that we need to get nodes info from
 	// empty string means that we need to get info from main cluster nodes
 	Sandbox string
+	// this can help decide whether there are nodes down that do not need to re-ip
+	hasDownNodeNoNeedToReIP bool
 }
 
 func VStartNodesOptionsFactory() VStartNodesOptions {
@@ -154,13 +158,17 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	}
 
 	// retrieve database information to execute the command so we do not always rely on some user input
+	// if VStartNodes is called from VStartSubcluster, we can reuse the vdb from VStartSubcluster
 	vdb := makeVCoordinationDatabase()
-	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, AnySandbox)
-	if err != nil {
-		return err
+	if options.vdb == nil {
+		err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, AnySandbox)
+		if err != nil {
+			return err
+		}
+	} else {
+		vdb = *options.vdb
 	}
 
-	var hostsNoNeedToReIP []string
 	hostNodeNameMap := make(map[string]string)
 	restartNodeInfo := new(VStartNodesInfo)
 	for _, vnode := range vdb.HostNodeMap {
@@ -182,25 +190,19 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 		return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the database"))
 	}
 
-	for nodename, newIP := range options.Nodes {
-		oldIP, ok := hostNodeNameMap[nodename]
-		if !ok {
-			// We can get here if the caller requests a node that we were in the
-			// middle of removing. Log a warning and continue without starting
-			// that node.
-			vcc.Log.Info("skipping start of node that doesn't exist in the catalog",
-				"nodename", nodename, "newIP", newIP)
-			continue
-		}
-		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
-		if oldIP != newIP {
-			restartNodeInfo.ReIPList = append(restartNodeInfo.ReIPList, newIP)
-			restartNodeInfo.NodeNamesToStart = append(restartNodeInfo.NodeNamesToStart, nodename)
-			vcc.Log.Info("the nodes need to be re-IP", "nodeNames", restartNodeInfo.NodeNamesToStart, "IPs", restartNodeInfo.ReIPList)
-		} else {
-			// otherwise, we don't need to re-ip
-			hostsNoNeedToReIP = append(hostsNoNeedToReIP, newIP)
-		}
+	// find out hosts
+	// - that need to re-ip, and
+	// - that don't need to re-ip
+	hostsNoNeedToReIP := options.separateHostsBasedOnReIPNeed(hostNodeNameMap, restartNodeInfo, &vdb, vcc.Log)
+
+	// for the hosts that don't need to re-ip,
+	// if none of them is down and no other nodes to re-ip,
+	// we will early stop as there is no need to start them
+	if !restartNodeInfo.hasDownNodeNoNeedToReIP && len(restartNodeInfo.ReIPList) == 0 {
+		const msg = "The provided nodes are either not in catalog or already up. There is nothing to start."
+		fmt.Println(msg)
+		vcc.Log.Info(msg)
+		return nil
 	}
 
 	// we can proceed to restart both nodes with and without IP changes
@@ -210,7 +212,9 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	// If no nodes found to start. We can simply exit here. This can happen if
 	// given a list of nodes that aren't in the catalog any longer.
 	if len(restartNodeInfo.HostsToStart) == 0 {
-		vcc.Log.Info("None of the nodes provided are in the catalog. There is nothing to start.")
+		const msg = "None of the nodes provided are in the catalog. There is nothing to start."
+		fmt.Println(msg)
+		vcc.Log.Info(msg)
 		return nil
 	}
 
@@ -344,4 +348,38 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	}
 
 	return instructions, nil
+}
+
+func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
+	hostNodeNameMap map[string]string,
+	restartNodeInfo *VStartNodesInfo,
+	vdb *VCoordinationDatabase,
+	logger vlog.Printer) (hostsNoNeedToReIP []string) {
+	for nodename, newIP := range options.Nodes {
+		oldIP, ok := hostNodeNameMap[nodename]
+		if !ok {
+			// We can get here if the caller requests a node that we were in the
+			// middle of removing. Log a warning and continue without starting
+			// that node.
+			logger.Info("skipping start of node that doesn't exist in the catalog",
+				"nodename", nodename, "newIP", newIP)
+			continue
+		}
+		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
+		if oldIP != newIP {
+			restartNodeInfo.ReIPList = append(restartNodeInfo.ReIPList, newIP)
+			restartNodeInfo.NodeNamesToStart = append(restartNodeInfo.NodeNamesToStart, nodename)
+			logger.Info("the nodes need to be re-IP", "nodeNames", restartNodeInfo.NodeNamesToStart, "IPs", restartNodeInfo.ReIPList)
+		} else {
+			// otherwise, we don't need to re-ip
+			hostsNoNeedToReIP = append(hostsNoNeedToReIP, newIP)
+
+			vnode, ok := vdb.HostNodeMap[newIP]
+			if ok && vnode.State == util.NodeDownState {
+				restartNodeInfo.hasDownNodeNoNeedToReIP = true
+			}
+		}
+	}
+
+	return hostsNoNeedToReIP
 }

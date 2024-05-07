@@ -224,9 +224,9 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 					upNodeCount++
 				}
 			} else {
-				// if NMA endpoint cannot function well on any of the hosts, we do not want to retry polling
+				// if HTTPS endpoint cannot function well on any of the hosts, we do not want to retry polling
 				return true, fmt.Errorf("[%s] expect one node's information, but got %d nodes' information"+
-					" from NMA /v1/nodes/{node} endpoint on host %s",
+					" from HTTPS /v1/nodes/<host> endpoint on host %s",
 					op.name, len(nodesInformation.NodeList), host)
 			}
 		}

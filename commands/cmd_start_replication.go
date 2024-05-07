@@ -50,7 +50,7 @@ This subcommand copies table or schema data directly from one Eon Mode
 database's communal storage to another.
 
 The --target-conn option serves as a collection file for gathering necessary
-target information for replication. You need to run vcluster manage_connection
+target information for replication. You need to run vcluster create_connection
 to generate this connection file in order to use this option.
 
 The --sandbox option is used to replicate from a sandbox to a target database
@@ -214,6 +214,9 @@ func (c *CmdStartReplication) parseTargetPassword() error {
 		options.TargetPassword = new(string)
 	}
 
+	if c.targetPasswordFile == "" {
+		return fmt.Errorf("target password file path is empty")
+	}
 	password, err := c.passwordFileHelper(c.targetPasswordFile)
 	if err != nil {
 		return err

@@ -76,7 +76,8 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 		util.DefaultDrainSeconds,
 		util.GetEonFlagMsg("seconds to wait for user connections to close."+
 			" Default value is "+strconv.Itoa(util.DefaultDrainSeconds)+" seconds."+
-			" When the time expires, connections will be forcibly closed and the db will shut down"),
+			" When the time expires, connections will be forcibly closed and the db will shut down."+
+			" Set this to 0 for Eon database, if you want to forcibly stop the database."),
 	)
 	cmd.Flags().StringVar(
 		&c.stopDBOptions.Sandbox,
