@@ -84,6 +84,9 @@ const (
 	connFlag                    = "conn"
 	connKey                     = "conn"
 	stopNodeFlag                = "stop-hosts"
+	// VER-90436: restart -> start
+	startNodeFlag = "restart"
+	startHostFlag = "start-hosts"
 )
 
 // Flag and key for database replication

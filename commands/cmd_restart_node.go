@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -30,8 +32,11 @@ type CmdRestartNodes struct {
 	CmdBase
 	restartNodesOptions *vclusterops.VStartNodesOptions
 
-	// Comma-separated list of vnode=host
-	vnodeListStr map[string]string
+	// comma-separated list of vnode=host
+	vnodeHostMap map[string]string
+
+	// comma-separated list of hosts
+	rawStartHostList []string
 }
 
 func makeCmdRestartNodes() *cobra.Command {
@@ -76,8 +81,8 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// require nodes to restart
-	markFlagsRequired(cmd, []string{"restart"})
+	// require nodes or hosts to restart
+	cmd.MarkFlagsOneRequired([]string{startNodeFlag, startHostFlag}...)
 
 	return cmd
 }
@@ -85,10 +90,16 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdRestartNodes) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringToStringVar(
-		&c.vnodeListStr,
-		"restart",
+		&c.vnodeHostMap,
+		startNodeFlag,
 		map[string]string{},
 		"Comma-separated list of <node_name=re_ip_host> pairs part of the database nodes that need to be restarted",
+	)
+	cmd.Flags().StringSliceVar(
+		&c.rawStartHostList,
+		startHostFlag,
+		[]string{},
+		"Comma-separated list of hosts that need to be started",
 	)
 	cmd.Flags().IntVar(
 		&c.restartNodesOptions.StatePollingTimeout,
@@ -96,6 +107,10 @@ func (c *CmdRestartNodes) setLocalFlags(cmd *cobra.Command) {
 		util.DefaultTimeoutSeconds,
 		"The timeout (in seconds) to wait for polling node state operation",
 	)
+
+	// VER-90436: restart -> start
+	// users only input --restart or --start-hosts
+	cmd.MarkFlagsMutuallyExclusive([]string{startNodeFlag, startHostFlag}...)
 }
 
 func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -112,12 +127,23 @@ func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 
 func (c *CmdRestartNodes) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.restartNodesOptions.ParseNodesList(c.vnodeListStr)
-	if err != nil {
-		return err
+
+	// VER-90436: restart -> start
+	// the node-host map can be loaded from the value of
+	// either --restart or --start-hosts
+	if len(c.rawStartHostList) > 0 {
+		err := c.buildRestartNodeHostMap()
+		if err != nil {
+			return err
+		}
+	} else {
+		err := c.restartNodesOptions.ParseNodesList(c.vnodeHostMap)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.getCertFilesFromCertPaths(&c.restartNodesOptions.DatabaseOptions)
+	err := c.getCertFilesFromCertPaths(&c.restartNodesOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
@@ -152,4 +178,32 @@ func (c *CmdRestartNodes) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdRestartNodes
 func (c *CmdRestartNodes) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.restartNodesOptions.DatabaseOptions = *opt
+}
+
+func (c *CmdRestartNodes) buildRestartNodeHostMap() error {
+	dbConfig, err := readConfig()
+	if err != nil {
+		return fmt.Errorf("--start-hosts can only be used when "+
+			"the config file is available, detail: %w", err)
+	}
+
+	hostNodeMap := make(map[string]string)
+	for _, n := range dbConfig.Nodes {
+		hostNodeMap[n.Address] = n.Name
+	}
+
+	for _, rawHost := range c.rawStartHostList {
+		ip, err := util.ResolveToOneIP(rawHost, c.restartNodesOptions.IPv6)
+		if err != nil {
+			return err
+		}
+		nodeName, ok := hostNodeMap[ip]
+		if !ok {
+			return fmt.Errorf("cannot find the address %s (of host %s) from the config file",
+				ip, rawHost)
+		}
+		c.restartNodesOptions.Nodes[nodeName] = ip
+	}
+
+	return nil
 }
