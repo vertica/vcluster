@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	outputFilePerm = 0600
+	outputFilePerm = 0644
 )
 
 /* CmdBase

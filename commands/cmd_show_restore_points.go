@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"encoding/json"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -163,6 +165,11 @@ func (c *CmdShowRestorePoints) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.LogError(err, "fail to show restore points", "DBName", options.DBName)
 		return err
 	}
+	bytes, err := json.MarshalIndent(restorePoints, "", "  ")
+	if err != nil {
+		return err
+	}
+	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 
 	vcc.PrintInfo("Successfully show restore points %v in database %s", restorePoints, options.DBName)
 	return nil

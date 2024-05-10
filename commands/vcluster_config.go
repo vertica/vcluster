@@ -33,7 +33,7 @@ const (
 	// default file name that we'll use.
 	defConfigFileName        = "vertica_cluster.yaml"
 	currentConfigFileVersion = "1.0"
-	configFilePerm           = 0600
+	configFilePerm           = 0644
 )
 
 // Config is the struct of vertica_cluster.yaml

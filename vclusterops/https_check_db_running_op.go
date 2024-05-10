@@ -34,6 +34,7 @@ const (
 	StartDB
 	ReviveDB
 	StopSC
+	ReIP
 
 	checkDBRunningOpName = "HTTPSCheckDBRunningOp"
 	checkDBRunningOpDesc = "Verify database is running"
@@ -51,6 +52,8 @@ func (op opType) String() string {
 		return "Revive DB"
 	case StopSC:
 		return "Stop Subcluster"
+	case ReIP:
+		return "Re-ip Hosts"
 	}
 	return "unknown operation"
 }
@@ -218,6 +221,10 @@ func (op *httpsCheckRunningDBOp) isDBRunningOnHost(host string,
 				op.name, host)
 		case StopDB, StartDB, ReviveDB, StopSC:
 			msg = fmt.Sprintf("[%s] Detected HTTPS service running on host %s", op.name, host)
+		case ReIP:
+			msg = fmt.Sprintf(`[%s] Detected HTTPS service running on host %s, 
+			please consider using start_node to re-ip nodes for the running database`,
+				op.name, host)
 		}
 		// check whether the node is starting and hasn't pulled the latest catalog yet
 		rfcError := &rfc7807.VProblem{}
@@ -352,6 +359,10 @@ func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHo
 		const reviveDBMsg = "aborting database revival"
 		op.logger.PrintInfo(reviveDBMsg)
 		op.updateSpinnerMessage(reviveDBMsg)
+	case ReIP:
+		const reIPMsg = "aborting re-ip hosts"
+		op.logger.PrintInfo(reIPMsg)
+		op.updateSpinnerMessage(reIPMsg)
 	}
 
 	// when db is running, append an error to allErrs for stopping VClusterOpEngine
@@ -401,7 +412,7 @@ func (op *httpsCheckRunningDBOp) checkProcessedResult(sandboxedHosts map[string]
 func (op *httpsCheckRunningDBOp) execute(execContext *opEngineExecContext) error {
 	op.logger.Info("Execute() called", "opType", op.opType)
 	switch op.opType {
-	case CreateDB, StartDB, ReviveDB:
+	case CreateDB, StartDB, ReviveDB, ReIP:
 		return op.checkDBConnection(execContext)
 	case StopDB, StopSC:
 		return op.pollForDBDown(execContext)
