@@ -51,6 +51,7 @@ func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
 
 func (options *VStartDatabaseOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
+	// set default value to StatePollingTimeout
 	options.StatePollingTimeout = util.DefaultStatePollingTimeout
 }
 

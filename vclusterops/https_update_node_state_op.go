@@ -25,6 +25,8 @@ type httpsUpdateNodeStateOp struct {
 	opBase
 	opHTTPSBase
 	vdb *VCoordinationDatabase
+	// The timeout for each http request. Requests will be repeated if timeout hasn't been exceeded.
+	httpRequestTimeout int
 }
 
 func makeHTTPSUpdateNodeStateOp(vdb *VCoordinationDatabase,
@@ -35,9 +37,9 @@ func makeHTTPSUpdateNodeStateOp(vdb *VCoordinationDatabase,
 	op := httpsUpdateNodeStateOp{}
 	op.name = "HTTPSUpdateNodeStateOp"
 	op.description = "Update node state from running database"
-	op.hosts = vdb.HostList
 	op.vdb = vdb
 	op.useHTTPPassword = useHTTPPassword
+	op.httpRequestTimeout = defaultHTTPSRequestTimeoutSeconds
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -53,6 +55,7 @@ func (op *httpsUpdateNodeStateOp) setupClusterHTTPRequest(hosts []string) error 
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
+		httpRequest.Timeout = op.httpRequestTimeout
 		httpRequest.buildHTTPSEndpoint("nodes/" + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
@@ -65,6 +68,7 @@ func (op *httpsUpdateNodeStateOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *httpsUpdateNodeStateOp) prepare(execContext *opEngineExecContext) error {
+	op.hosts = op.vdb.HostList
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)

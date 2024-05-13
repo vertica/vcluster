@@ -154,6 +154,7 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt.DatabaseOptions = removeScOpt.DatabaseOptions
 		removeNodeOpt.HostsToRemove = hostsToRemove
 		removeNodeOpt.ForceDelete = removeScOpt.ForceDelete
+		removeNodeOpt.IsSubcluster = true
 
 		vcc.Log.PrintInfo("Removing nodes %q from subcluster %s",
 			hostsToRemove, removeScOpt.SubclusterToRemove)

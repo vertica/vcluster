@@ -75,7 +75,7 @@ Examples:
     --restart v_test_db_node0003=10.20.30.42,v_test_db_node0004=10.20.30.43 \
     --password testpassword --config /opt/vertica/config/vertica_cluster.yaml	
 `,
-		[]string{dbNameFlag, hostsFlag, configFlag, passwordFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag},
 	)
 
 	// local flags

@@ -66,7 +66,7 @@ Examples:
   vcluster start_db --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
-		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag,
+		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag, ipv6Flag,
 			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag},
 	)
 

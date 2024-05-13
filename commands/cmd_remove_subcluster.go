@@ -59,7 +59,7 @@ Examples:
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1 \
     --data-path /data --depot-path /data
 `,
-		[]string{dbNameFlag, configFlag, hostsFlag, eonModeFlag, dataPathFlag, depotPathFlag, passwordFlag},
+		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, eonModeFlag, dataPathFlag, depotPathFlag, passwordFlag},
 	)
 
 	// local flags

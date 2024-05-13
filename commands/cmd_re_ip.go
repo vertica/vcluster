@@ -67,7 +67,7 @@ Examples:
   vcluster re_ip --db-name test_db --re-ip-file /data/re_ip_map.json \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
-		[]string{dbNameFlag, hostsFlag, catalogPathFlag, configParamFlag, configFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, catalogPathFlag, configParamFlag, configFlag},
 	)
 
 	// local flags
@@ -93,7 +93,9 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogArgParse(&c.argv)
-
+	// Set CheckDBRunning to true so that CLI can check running db for Re_IP
+	// Re-IP should only be used for down DB, checking if db is running
+	c.reIPOptions.CheckDBRunning = true
 	return c.validateParse(logger)
 }
 

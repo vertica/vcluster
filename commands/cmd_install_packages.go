@@ -63,7 +63,7 @@ Examples:
   vcluster install_packages --db-name test_db --force-reinstall \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
-		[]string{dbNameFlag, configFlag, hostsFlag, passwordFlag, outputFileFlag},
+		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, passwordFlag, outputFileFlag},
 	)
 
 	// local flags

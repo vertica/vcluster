@@ -56,7 +56,7 @@ Examples:
   vcluster start_subcluster --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1
 `,
-		[]string{dbNameFlag, configFlag, hostsFlag, eonModeFlag, passwordFlag},
+		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, eonModeFlag, passwordFlag},
 	)
 
 	// local flags

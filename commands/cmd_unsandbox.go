@@ -73,7 +73,7 @@ Examples:
   vcluster unsandbox_subcluster --subcluster sc1 \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
 `,
-		[]string{dbNameFlag, configFlag, passwordFlag, hostsFlag},
+		[]string{dbNameFlag, configFlag, ipv6Flag, passwordFlag, hostsFlag},
 	)
 
 	// local flags

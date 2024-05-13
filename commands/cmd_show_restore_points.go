@@ -79,7 +79,7 @@ Examples:
     --start-timestamp 2024-03-04 08:32:33.277569 \
     --end-timestamp 2024-03-04 08:32:34.176391
 `,
-		[]string{dbNameFlag, configFlag, passwordFlag, hostsFlag,
+		[]string{dbNameFlag, configFlag, passwordFlag, hostsFlag, ipv6Flag,
 			communalStorageLocationFlag, configParamFlag},
 	)
 

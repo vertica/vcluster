@@ -30,6 +30,7 @@ type VRemoveNodeOptions struct {
 	HostsToRemove []string // Hosts to remove from database
 	Initiator     string   // A primary up host that will be used to execute remove_node operations.
 	ForceDelete   bool     // whether force delete directories
+	IsSubcluster  bool     // is removing all nodes for a subcluster
 }
 
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
@@ -44,6 +45,7 @@ func (o *VRemoveNodeOptions) setDefaultValues() {
 	o.DatabaseOptions.setDefaultValues()
 
 	o.ForceDelete = true
+	o.IsSubcluster = false
 }
 
 func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
@@ -288,6 +290,18 @@ func getMainClusterNodes(vdb *VCoordinationDatabase, options *VRemoveNodeOptions
 	}
 }
 
+func getSortedHosts(hostsToRemove []string, hostNodeMap vHostNodeMap) []string {
+	var sortedHosts []string
+	for _, host := range hostsToRemove {
+		if hostNodeMap[host].IsControlNode {
+			sortedHosts = append(sortedHosts, host)
+		} else {
+			sortedHosts = append([]string{host}, sortedHosts...)
+		}
+	}
+	return sortedHosts
+}
+
 // produceRemoveNodeInstructions will build a list of instructions to execute for
 // the remove node operation.
 //
@@ -368,8 +382,10 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 		return instructions, err
 	}
 
-	err = vcc.produceDropNodeOps(&instructions, options.HostsToRemove, initiatorHost,
-		usePassword, username, password, vdb.HostNodeMap, vdb.IsEon)
+	sortedHosts := getSortedHosts(options.HostsToRemove, vdb.HostNodeMap)
+
+	err = vcc.produceDropNodeOps(&instructions, sortedHosts, initiatorHost,
+		usePassword, username, password, vdb.HostNodeMap, vdb.IsEon, options.IsSubcluster)
 	if err != nil {
 		return instructions, err
 	}
@@ -433,11 +449,11 @@ func (vcc VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[]
 // This is because we must drop node one by one to avoid losing quorum.
 func (vcc VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, targetHosts, hosts []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-	hostNodeMap vHostNodeMap, isEon bool) error {
+	hostNodeMap vHostNodeMap, isEon bool, isSubcluster bool) error {
 	for _, host := range targetHosts {
 		httpsDropNodeOp, err := makeHTTPSDropNodeOp(hostNodeMap[host].Name, hosts,
 			useHTTPPassword, userName, httpsPassword,
-			isEon && hostNodeMap[host].State == util.NodeDownState)
+			isSubcluster || (isEon && hostNodeMap[host].State == util.NodeDownState))
 		if err != nil {
 			return err
 		}

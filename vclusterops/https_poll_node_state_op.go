@@ -26,7 +26,7 @@ import (
 // Timeout set to 30 seconds for each GET /v1/nodes/{node} call.
 // 30 seconds is long enough for normal http request.
 // If this timeout is reached, it might imply that the target IP is unreachable
-const defaultHTTPRequestTimeoutSeconds = 30
+const defaultHTTPSRequestTimeoutSeconds = 30
 const (
 	StartDBCmd CmdType = iota
 	StartNodeCmd
@@ -67,7 +67,7 @@ func makeHTTPSPollNodeStateOpHelper(hosts []string,
 	op.description = fmt.Sprintf("Wait for %d node(s) to come up", len(hosts))
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
-	op.httpRequestTimeout = defaultHTTPRequestTimeoutSeconds
+	op.httpRequestTimeout = defaultHTTPSRequestTimeoutSeconds
 	op.checkDown = false // setting default to poll nodes UP
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {

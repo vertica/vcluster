@@ -67,6 +67,8 @@ func VStartNodesOptionsFactory() VStartNodesOptions {
 
 func (options *VStartNodesOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
+	// set default value to StatePollingTimeout
+	options.StatePollingTimeout = util.DefaultStatePollingTimeout
 	options.Nodes = make(map[string]string)
 }
 
@@ -145,11 +147,6 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
-
-	// set default value to StatePollingTimeout
-	if options.StatePollingTimeout == 0 {
-		options.StatePollingTimeout = util.DefaultStatePollingTimeout
-	}
 
 	// validate and analyze options
 	err := options.validateAnalyzeOptions(vcc.Log)

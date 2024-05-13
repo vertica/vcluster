@@ -32,20 +32,22 @@ type adapterPool struct {
 }
 
 var (
-	poolInstance *adapterPool
+	poolInstance adapterPool
 	once         sync.Once
 )
 
-// return a singleton instance of the AdapterPool
-func getPoolInstance(logger vlog.Printer) *adapterPool {
+// return a new instance of an adapterPool. The adapterPool cannot be shared
+// between Go routines. Otherwise, they will clobber each other state causing
+// HTTP request errors. It is the callers responsibility to ensure it doesn't
+// get shared.
+func getPoolInstance(logger vlog.Printer) adapterPool {
 	/* if once.Do(f) is called multiple times,
 	 * only the first call will invoke f,
 	 * even if f has a different value in each invocation.
 	 * Reference: https://pkg.go.dev/sync#Once
 	 */
 	once.Do(func() {
-		pool := makeAdapterPool(logger)
-		poolInstance = &pool
+		poolInstance = makeAdapterPool(logger)
 	})
 
 	return poolInstance

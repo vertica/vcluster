@@ -79,7 +79,7 @@ Examples:
     --ignore-cluster-lease --restore-point-archive db --restore-point-index 1
 
 `,
-		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag, configFlag, outputFileFlag, configParamFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, communalStorageLocationFlag, configFlag, outputFileFlag, configParamFlag},
 	)
 
 	// local flags

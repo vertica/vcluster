@@ -61,7 +61,7 @@ Examples:
   vcluster db_remove_node --db-name test_db --remove 10.20.30.42 \
     --hosts 10.20.30.40 --data-path /data
 `,
-		[]string{dbNameFlag, configFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag, passwordFlag},
+		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, catalogPathFlag, dataPathFlag, depotPathFlag, passwordFlag},
 	)
 
 	// local flags

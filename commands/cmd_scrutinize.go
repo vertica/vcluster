@@ -104,7 +104,7 @@ Examples:
   vcluster scrutinize --db-name test_db --db-user dbadmin \
     --password testpassword --config /opt/vertica/config/vertica_cluster.yaml
 `,
-		[]string{dbNameFlag, hostsFlag, configFlag, catalogPathFlag, passwordFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, catalogPathFlag, passwordFlag},
 	)
 
 	// local flags

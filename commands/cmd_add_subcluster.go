@@ -77,7 +77,7 @@ Examples:
 	--hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
 	--is-primary --control-set-size -1 --new-hosts 10.20.30.43
 `,
-		[]string{dbNameFlag, configFlag, hostsFlag, eonModeFlag, passwordFlag,
+		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, eonModeFlag, passwordFlag,
 			dataPathFlag, depotPathFlag},
 	)
 

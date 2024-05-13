@@ -71,7 +71,7 @@ Examples:
     --data-path /data --hosts 10.20.30.40 \
     --node-names v_test_db_node0001,v_test_db_node0002
 `,
-		[]string{dbNameFlag, configFlag, hostsFlag, dataPathFlag, depotPathFlag,
+		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, dataPathFlag, depotPathFlag,
 			passwordFlag},
 	)
 

@@ -53,7 +53,7 @@ Examples:
   vcluster stop_node --db-name test_db --stop-hosts 10.20.30.40,10.20.30.41 \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 
 `,
-		[]string{dbNameFlag, hostsFlag, configFlag, passwordFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag},
 	)
 
 	// local flags

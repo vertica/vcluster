@@ -8,6 +8,10 @@ import (
 
 type VFetchNodeStateOptions struct {
 	DatabaseOptions
+	// retrieve the version for down nodes by invoking two additional
+	// operations: NMAHealth and NMA readCatalogEditor. This is useful
+	// when we cannot get the version for down nodes from a running database
+	GetVersion bool
 }
 
 func VFetchNodeStateOptionsFactory() VFetchNodeStateOptions {
@@ -183,9 +187,13 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(
 		return instructions, err
 	}
 
+	if options.GetVersion {
+		instructions = append(instructions,
+			&nmaHealthOp,
+			&nmaReadVerticaVersionOp)
+	}
+
 	instructions = append(instructions,
-		&nmaHealthOp,
-		&nmaReadVerticaVersionOp,
 		&httpsCheckNodeStateOp,
 	)
 

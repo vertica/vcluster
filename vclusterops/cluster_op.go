@@ -365,7 +365,7 @@ func (op *opBase) loadCertsIfNeeded(certs *httpsCerts, findCertsInOptions bool) 
 
 	// this step is executed after Prepare() so all http requests should be set up
 	if len(op.clusterHTTPRequest.RequestCollection) == 0 {
-		return fmt.Errorf("[%s] has not set up a http request", op.name)
+		return fmt.Errorf("[%s] clusterHTTPRequest.RequestCollection is empty", op.name)
 	}
 
 	if certs == nil {

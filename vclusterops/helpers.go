@@ -109,6 +109,7 @@ type nodeStateInfo struct {
 	Name             string   `json:"name"`
 	Sandbox          string   `json:"sandbox_name"`
 	Version          string   `json:"build_info"`
+	IsControlNode    bool     `json:"is_control_node"`
 }
 
 func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
