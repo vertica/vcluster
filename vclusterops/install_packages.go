@@ -31,9 +31,18 @@ type VInstallPackagesOptions struct {
 }
 
 func VInstallPackagesOptionsFactory() VInstallPackagesOptions {
-	opt := VInstallPackagesOptions{}
-	opt.DatabaseOptions.setDefaultValues()
-	return opt
+	options := VInstallPackagesOptions{}
+	options.DatabaseOptions.setDefaultValues()
+	return options
+}
+
+func (options *VInstallPackagesOptions) validateParseOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions(commandInstallPackages, logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // resolve hostnames to be IPs
@@ -50,8 +59,8 @@ func (options *VInstallPackagesOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VInstallPackagesOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	if err := options.validateBaseOptions("install_packages", log); err != nil {
+func (options *VInstallPackagesOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
 	return options.analyzeOptions()

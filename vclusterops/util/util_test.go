@@ -256,7 +256,7 @@ func TestNewErrorFormatVerb(t *testing.T) {
 	assert.EqualError(t, oldErr3, newErr3.Error())
 }
 
-func TestValidateDBName(t *testing.T) {
+func TestValidateName(t *testing.T) {
 	// positive cases
 	obj := "database"
 	err := ValidateName("test_db", obj)
@@ -274,6 +274,9 @@ func TestValidateDBName(t *testing.T) {
 
 	err = ValidateName("!!??!!db1", obj)
 	assert.ErrorContains(t, err, "invalid character in "+obj+" name: !")
+
+	err = ValidateName("test-db", obj)
+	assert.ErrorContains(t, err, "invalid character in "+obj+" name: -")
 }
 
 func TestSetEonFlagHelpMsg(t *testing.T) {

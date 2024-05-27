@@ -55,13 +55,13 @@ type VAddSubclusterInfo struct {
 }
 
 func VAddSubclusterOptionsFactory() VAddSubclusterOptions {
-	opt := VAddSubclusterOptions{}
+	options := VAddSubclusterOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	options.setDefaultValues()
 	// set default values for VAddNodeOptions
-	opt.VAddNodeOptions.setDefaultValues()
+	options.VAddNodeOptions.setDefaultValues()
 
-	return opt
+	return options
 }
 
 func (options *VAddSubclusterOptions) setDefaultValues() {
@@ -71,7 +71,7 @@ func (options *VAddSubclusterOptions) setDefaultValues() {
 }
 
 func (options *VAddSubclusterOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions("db_add_subcluster", logger)
+	err := options.validateBaseOptions(commandAddSubcluster, logger)
 	if err != nil {
 		return err
 	}
@@ -79,6 +79,12 @@ func (options *VAddSubclusterOptions) validateRequiredOptions(logger vlog.Printe
 	if options.SCName == "" {
 		return fmt.Errorf("must specify a subcluster name")
 	}
+
+	err = util.ValidateScName(options.SCName)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -125,9 +131,9 @@ func (options *VAddSubclusterOptions) validateExtraOptions(logger vlog.Printer) 
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateParseOptions(vcc VClusterCommands) error {
+func (options *VAddSubclusterOptions) validateParseOptions(logger vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := options.validateRequiredOptions(vcc.Log)
+	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -137,7 +143,7 @@ func (options *VAddSubclusterOptions) validateParseOptions(vcc VClusterCommands)
 		return err
 	}
 	// batch 3: validate all other params
-	err = options.validateExtraOptions(vcc.Log)
+	err = options.validateExtraOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -166,28 +172,31 @@ func (options *VAddSubclusterOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateAnalyzeOptions(vcc VClusterCommands) error {
-	if err := options.validateParseOptions(vcc); err != nil {
+func (options *VAddSubclusterOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
 	err := options.analyzeOptions()
 	if err != nil {
 		return err
 	}
-	return options.setUsePassword(vcc.Log)
+	return options.setUsePassword(logger)
 }
 
 // VAddSubcluster adds to a running database a new subcluster with provided options.
 // It returns any error encountered.
+//
+//nolint:dupl
 func (vcc VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error {
 	/*
+	 *   - Validate Options
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
 	// validate and analyze all options
-	err := options.validateAnalyzeOptions(vcc)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -215,16 +224,19 @@ func (vcc VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error
 //
 // The generated instructions will later perform the following operations necessary
 // for a successful add_subcluster:
-//   - TODO: add nma connectivity check and nma version check
 //   - Get cluster info from running db and exit error if the db is an enterprise db
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for adding a new subcluster
 //   - Add the subcluster catalog object through HTTPS call, and check the response to error out
 //     if the subcluster name already exists
 //   - Check if the new subcluster is created in database through HTTPS call
-//   - TODO: add new nodes to the subcluster
 func (vcc *VClusterCommands) produceAddSubclusterInstructions(options *VAddSubclusterOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 	vdb := makeVCoordinationDatabase()
+
+	// NMA health check
+	// this is not needed for adding subcluster
+	// but if this failed, adding nodes may fail and may give users confusing messages
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
 	// get cluster info
 	err := vcc.getClusterInfoFromRunningDB(&vdb, &options.DatabaseOptions)
@@ -232,7 +244,7 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(options *VAddSubcl
 		return instructions, err
 	}
 
-	// db_add_subcluster only works with Eon database
+	// add_subcluster only works with Eon database
 	if !vdb.IsEon {
 		// info from running db confirms that the db is not Eon
 		return instructions, fmt.Errorf("add subcluster is only supported in Eon mode")
@@ -258,6 +270,7 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(options *VAddSubcl
 	}
 
 	instructions = append(instructions,
+		&nmaHealthOp,
 		&httpsGetUpNodesOp,
 		&httpsAddSubclusterOp,
 		&httpsCheckSubclusterOp,

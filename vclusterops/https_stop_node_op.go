@@ -123,6 +123,11 @@ func (op *httpsStopNodeOp) processResult(_ *opEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
+		// EOF is expected in node shutdown: we expect the node's HTTPS service to go down quickly
+		// and the Server HTTPS service does not guarantee that the response being sent back to the client before it closes
+		if result.isEOF() {
+			continue
+		}
 		if !result.isPassing() {
 			// If we can't connect to the host, it's already down. That's not an error
 			// Note: We should improve the error handling here.

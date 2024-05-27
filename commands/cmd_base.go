@@ -39,7 +39,7 @@ type CmdBase struct {
 	argv   []string
 	parser *pflag.FlagSet
 
-	// for some commands like list_allnodes, we want to allow the output to be written
+	// for some commands like list_all_nodes, we want to allow the output to be written
 	// to a file instead of being displayed in stdout. This is the file the output will
 	// be written to
 	output                 string

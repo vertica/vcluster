@@ -80,7 +80,7 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 			" Set this to 0 for Eon database, if you want to forcibly stop the database."),
 	)
 	cmd.Flags().StringVar(
-		&c.stopDBOptions.Sandbox,
+		&c.stopDBOptions.SandboxName,
 		sandboxFlag,
 		"",
 		"Name of the sandbox to stop",
@@ -152,8 +152,8 @@ func (c *CmdStopDB) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 	msg := fmt.Sprintf("Stopped a database with name %s", options.DBName)
-	if options.Sandbox != "" {
-		sandboxMsg := fmt.Sprintf(" on sandbox %s", options.Sandbox)
+	if options.SandboxName != "" {
+		sandboxMsg := fmt.Sprintf(" on sandbox %s", options.SandboxName)
 		vcc.PrintInfo(msg + sandboxMsg)
 		return nil
 	}

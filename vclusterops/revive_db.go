@@ -109,12 +109,12 @@ func (e *ReviveDBRestorePointNotFoundError) Error() string {
 }
 
 func VReviveDBOptionsFactory() VReviveDatabaseOptions {
-	opt := VReviveDatabaseOptions{}
+	options := VReviveDatabaseOptions{}
 
 	// set default values to the params
-	opt.setDefaultValues()
+	options.setDefaultValues()
 
-	return opt
+	return options
 }
 
 func (options *VReviveDatabaseOptions) setDefaultValues() {
@@ -129,7 +129,7 @@ func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 	if options.DBName == "" {
 		return fmt.Errorf("must specify a database name")
 	}
-	err := util.ValidateName(options.DBName, "database")
+	err := util.ValidateDBName(options.DBName)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func (options *VReviveDatabaseOptions) validateRequiredOptions() error {
 	return util.ValidateCommunalStorageLocation(options.CommunalStorageLocation)
 }
 
-func (options *VReviveDatabaseOptions) validateRestoreOptions() error {
+func (options *VReviveDatabaseOptions) validateExtraOptions() error {
 	if options.isRestoreEnabled() &&
 		options.hasValidRestorePointID() == options.hasValidRestorePointIndex() {
 		return fmt.Errorf("for a restore, must specify exactly one of (1-based) restore point index or id, " +
@@ -155,12 +155,18 @@ func (options *VReviveDatabaseOptions) validateRestoreOptions() error {
 }
 
 func (options *VReviveDatabaseOptions) validateParseOptions() error {
+	// batch 1: validate required parameters
 	err := options.validateRequiredOptions()
 	if err != nil {
 		return err
 	}
 
-	return options.validateRestoreOptions()
+	// batch 2: validate all other params
+	err = options.validateExtraOptions()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // analyzeOptions will modify some options based on what is chosen

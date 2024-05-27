@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -148,7 +149,11 @@ func (adapter *httpAdapter) sendRequest(request *hostHTTPRequest, resultChannel 
 	if err != nil {
 		err = fmt.Errorf("fail to send request %v on host %s, details %w",
 			request.Endpoint, adapter.host, err)
-		resultChannel <- adapter.makeExceptionResult(err)
+		if errors.Is(err, io.EOF) {
+			resultChannel <- adapter.makeEOFResult(err)
+		} else {
+			resultChannel <- adapter.makeExceptionResult(err)
+		}
 		return
 	}
 	defer resp.Body.Close()
@@ -244,6 +249,16 @@ func (adapter *httpAdapter) makeFailResult(header http.Header, respBody string, 
 		statusCode: statusCode,
 		content:    respBody,
 		err:        adapter.extractErrorFromResponse(header, respBody, statusCode),
+	}
+}
+
+// makeEOFResult is a factory method for hostHTTPSResult when an EOF response
+// is received from a REST endpoint.
+func (adapter *httpAdapter) makeEOFResult(err error) hostHTTPResult {
+	return hostHTTPResult{
+		host:   adapter.host,
+		status: EOF,
+		err:    err,
 	}
 }
 

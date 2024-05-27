@@ -202,9 +202,14 @@ var (
 		"Target path does not exist",
 		http.StatusBadRequest,
 	)
-	CECatalogDirEmptyError = newProblemID(
-		path.Join(errorEndpointsPrefix, "catalog-dir-empty-error"),
+	CECatalogContentDirEmptyError = newProblemID(
+		path.Join(errorEndpointsPrefix, "catalog-content-dir-empty-error"),
 		"Target directory is empty",
+		http.StatusInternalServerError,
+	)
+	CECatalogContentDirNotExistError = newProblemID(
+		path.Join(errorEndpointsPrefix, "catalog-content-dir-not-exist-error"),
+		"Target directory does not exist",
 		http.StatusInternalServerError,
 	)
 )

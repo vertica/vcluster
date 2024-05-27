@@ -154,6 +154,35 @@ func getInitiatorHost(primaryUpNodes, hostsToSkip []string) (string, error) {
 	return initiatorHosts[0], nil
 }
 
+// getInitiatorHostInCluster returns an initiator that is the first up node of a subcluster in the main cluster
+// or a sandbox other than the target subcluster
+func getInitiatorHostInCluster(name, sandbox, scname string, vdb *VCoordinationDatabase) ([]string, error) {
+	// up hosts will be :
+	// 1. up hosts from the main subcluster if the sandbox is empty
+	// 2. up hosts from the sandbox if the sandbox is specified
+	var upHost string
+	for _, node := range vdb.HostNodeMap {
+		if node.State == util.NodeDownState {
+			continue
+		}
+		// the up host is used to promote/demote subcluster
+		// should not be a part of this subcluster
+		if node.Sandbox == sandbox && node.Subcluster != scname {
+			upHost = node.Address
+			break
+		}
+	}
+	if upHost == "" {
+		if sandbox == "" {
+			return nil, fmt.Errorf(`[%s] cannot find any up hosts for subcluster %s in main subcluster`, name, scname)
+		}
+		return nil, fmt.Errorf("[%s] cannot find any up hosts for subcluster %s in the sandbox %s", name, scname, sandbox)
+	}
+	// use first up host to execute https post request
+	initiatorHost := []string{upHost}
+	return initiatorHost, nil
+}
+
 // getVDBFromRunningDB will retrieve db configurations from a non-sandboxed host by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
 	return vcc.getVDBFromRunningDBImpl(vdb, options, false, util.MainClusterSandbox)
@@ -254,6 +283,16 @@ func appendHTTPSFailureError(allErrs error) error {
 func getInitiator(hosts []string) string {
 	// simply use the first one in user input
 	return hosts[0]
+}
+
+func getInitiatorInSandbox(targetSandbox string, hosts []string,
+	upHostsToSandboxes map[string]string) (string, error) {
+	for _, host := range hosts {
+		if sandbox, ok := upHostsToSandboxes[host]; ok && sandbox == targetSandbox {
+			return host, nil
+		}
+	}
+	return "", fmt.Errorf("no hosts among %v are both UP and within sandbox %v", hosts, targetSandbox)
 }
 
 // getInitiator will pick an initiator from the up host list to execute https calls

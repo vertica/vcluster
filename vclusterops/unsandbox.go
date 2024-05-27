@@ -35,9 +35,9 @@ type VUnsandboxOptions struct {
 }
 
 func VUnsandboxOptionsFactory() VUnsandboxOptions {
-	opt := VUnsandboxOptions{}
-	opt.setDefaultValues()
-	return opt
+	options := VUnsandboxOptions{}
+	options.setDefaultValues()
+	return options
 }
 
 func (options *VUnsandboxOptions) setDefaultValues() {
@@ -46,13 +46,27 @@ func (options *VUnsandboxOptions) setDefaultValues() {
 }
 
 func (options *VUnsandboxOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions("unsandbox_subcluster", logger)
+	err := options.validateBaseOptions(commandUnsandboxSC, logger)
 	if err != nil {
 		return err
 	}
 
 	if options.SCName == "" {
 		return fmt.Errorf("must specify a subcluster name")
+	}
+
+	err = util.ValidateScName(options.SCName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (options *VUnsandboxOptions) validateParseOptions(logger vlog.Printer) error {
+	// batch 1: validate required parameters
+	err := options.validateRequiredOptions(logger)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -79,8 +93,8 @@ func (options *VUnsandboxOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VUnsandboxOptions) ValidateAnalyzeOptions(vcc VClusterCommands) error {
-	if err := options.validateRequiredOptions(vcc.Log); err != nil {
+func (options *VUnsandboxOptions) ValidateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
 	return options.analyzeOptions()

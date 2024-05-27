@@ -28,11 +28,11 @@ type VDropDatabaseOptions struct {
 }
 
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
-	opt := VDropDatabaseOptions{}
+	options := VDropDatabaseOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	options.setDefaultValues()
 
-	return opt
+	return options
 }
 
 // analyzeOptions verifies the host options for the VDropDatabaseOptions struct and
@@ -49,10 +49,24 @@ func (options *VDropDatabaseOptions) analyzeOptions() error {
 	return nil
 }
 
-func (options *VDropDatabaseOptions) validateAnalyzeOptions() error {
+func (options *VDropDatabaseOptions) validateParseOptions() error {
 	if options.DBName == "" {
 		return fmt.Errorf("database name must be provided")
 	}
+
+	err := util.ValidateDBName(options.DBName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (options *VDropDatabaseOptions) validateAnalyzeOptions() error {
+	err := options.validateParseOptions()
+	if err != nil {
+		return err
+	}
+
 	return options.analyzeOptions()
 }
 
@@ -121,7 +135,7 @@ func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, usePassword,
-		options.UserName, options.Password, CreateDB)
+		options.UserName, options.Password, DropDB)
 	if err != nil {
 		return instructions, err
 	}

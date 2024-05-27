@@ -47,6 +47,9 @@ func makeCmdConfigRecover() *cobra.Command {
 		`This subcommand is used to recover the content of the config file.
 
 You must provide all the hosts that participate in the database.
+db-name and password are required fields in case of running db. In case the password 
+is wrong or not provided, config info is recovered from the catalog editor.
+For accurate sandbox information recovery, the database needs to be running.
 
 If there is an existing file at the provided config file location, the recover function
 will not create a new config file unless you explicitly specify --overwrite.
@@ -55,15 +58,15 @@ Examples:
   # Recover the config file to the default location
   vcluster manage_config recover --db-name test_db \
 	--hosts 10.20.30.41,10.20.30.42,10.20.30.43 \
-	--catalog-path /data --depot-path /data
+	--catalog-path /data --depot-path /data --password ""
 
   # Recover the config file to /tmp/vertica_cluster.yaml
   vcluster manage_config recover --db-name test_db \
 	--hosts 10.20.30.41,10.20.30.42,10.20.30.43 \
 	--catalog-path /data --depot-path /data \
-	--config /tmp/vertica_cluster.yaml
+	--config /tmp/vertica_cluster.yaml --password ""
 `,
-		[]string{dbNameFlag, hostsFlag, catalogPathFlag, depotPathFlag, ipv6Flag, configFlag},
+		[]string{dbNameFlag, hostsFlag, catalogPathFlag, depotPathFlag, ipv6Flag, configFlag, passwordFlag},
 	)
 
 	// require db-name, hosts, catalog-path, and data-path
@@ -83,6 +86,12 @@ func (c *CmdConfigRecover) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"overwrite the existing config file",
 	)
+	cmd.Flags().BoolVar(
+		&c.recoverConfigOptions.AfterRevive,
+		"after-revive",
+		false,
+		"whether recover config file right after reviving a database",
+	)
 }
 
 func (c *CmdConfigRecover) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -100,7 +109,7 @@ func (c *CmdConfigRecover) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	return nil
+	return c.setDBPassword(&c.recoverConfigOptions.DatabaseOptions)
 }
 
 func (c *CmdConfigRecover) Run(vcc vclusterops.ClusterCommands) error {
@@ -110,6 +119,7 @@ func (c *CmdConfigRecover) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 	// write db info to vcluster config file
+	vdb.FirstStartAfterRevive = c.recoverConfigOptions.AfterRevive
 	err = writeConfig(&vdb)
 	if err != nil {
 		return fmt.Errorf("fail to write config file, details: %s", err)

@@ -126,6 +126,7 @@ func (op *httpsCheckNodeStateOp) processResult(execContext *opEngineExecContext)
 		}
 		// successful case, write the result into exec context
 		execContext.nodesInfo = nodesInfo.NodeList
+		op.logger.PrintInfo("reporting results as obtained from the host [%s] ", host)
 		return nil
 	}
 

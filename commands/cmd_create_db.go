@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -268,7 +270,7 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	// write db info to vcluster config file
 	err := writeConfig(&vdb)
 	if err != nil {
-		vcc.PrintWarning("fail to write config file, details: %s", err)
+		fmt.Printf("Warning: Fail to write config file, details: %s\n", err)
 	}
 	vcc.PrintInfo("Created a database with name [%s]", vdb.Name)
 	return nil

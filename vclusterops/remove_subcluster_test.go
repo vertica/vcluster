@@ -36,7 +36,7 @@ func TestRemoveSubcluster(t *testing.T) {
 	assert.ErrorContains(t, err, "must specify a subcluster name")
 
 	// input sc name
-	options.SubclusterToRemove = "sc1"
+	options.SCName = "sc1"
 
 	// verify Eon mode is set
 	options.IsEon = false

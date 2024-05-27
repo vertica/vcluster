@@ -49,6 +49,7 @@ type DatabaseConfig struct {
 	IsEon                   bool          `yaml:"eonMode" mapstructure:"eonMode"`
 	CommunalStorageLocation string        `yaml:"communalStorageLocation" mapstructure:"communalStorageLocation"`
 	Ipv6                    bool          `yaml:"ipv6" mapstructure:"ipv6"`
+	FirstStartAfterRevive   bool          `yaml:"firstStartAfterRevive" mapstructure:"firstStartAfterRevive"`
 }
 
 // NodeConfig contains node information in the database
@@ -232,21 +233,20 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 		nodeConfig.Subcluster = vnode.Subcluster
 		nodeConfig.Sandbox = vnode.Sandbox
 
-		// VER-91869 will replace the path prefixes with full paths
 		if vdb.CatalogPrefix == "" {
-			nodeConfig.CatalogPath = util.GetPathPrefix(vnode.CatalogPath)
+			nodeConfig.CatalogPath = vnode.CatalogPath
 		} else {
-			nodeConfig.CatalogPath = vdb.CatalogPrefix
+			nodeConfig.CatalogPath = vdb.GenCatalogPath(vnode.Name)
 		}
 		if vdb.DataPrefix == "" && len(vnode.StorageLocations) > 0 {
-			nodeConfig.DataPath = util.GetPathPrefix(vnode.StorageLocations[0])
+			nodeConfig.DataPath = vnode.StorageLocations[0]
 		} else {
-			nodeConfig.DataPath = vdb.DataPrefix
+			nodeConfig.DataPath = vdb.GenDataPath(vnode.Name)
 		}
 		if vdb.IsEon && vdb.DepotPrefix == "" {
-			nodeConfig.DepotPath = util.GetPathPrefix(vnode.DepotPath)
-		} else {
-			nodeConfig.DepotPath = vdb.DepotPrefix
+			nodeConfig.DepotPath = vnode.DepotPath
+		} else if vdb.DepotPrefix != "" {
+			nodeConfig.DepotPath = vdb.GenDepotPath(vnode.Name)
 		}
 
 		dbConfig.Nodes = append(dbConfig.Nodes, &nodeConfig)
@@ -255,6 +255,7 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 	dbConfig.CommunalStorageLocation = vdb.CommunalStorageLocation
 	dbConfig.Ipv6 = vdb.Ipv6
 	dbConfig.Name = vdb.Name
+	dbConfig.FirstStartAfterRevive = vdb.FirstStartAfterRevive
 
 	return dbConfig, nil
 }
@@ -320,5 +321,5 @@ func (c *DatabaseConfig) getPathPrefixes() (catalogPrefix string,
 		return "", "", ""
 	}
 
-	return c.Nodes[0].CatalogPath, c.Nodes[0].DataPath, c.Nodes[0].DepotPath
+	return util.GetPathPrefix(c.Nodes[0].CatalogPath), util.GetPathPrefix(c.Nodes[0].DataPath), util.GetPathPrefix(c.Nodes[0].DepotPath)
 }

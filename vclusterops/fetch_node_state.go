@@ -68,12 +68,13 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 
 	// this vdb is used to fetch node version
 	var vdb VCoordinationDatabase
-	err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, util.MainClusterSandbox)
 	if err != nil {
+		vcc.Log.PrintInfo("Error from vdb build: %s", err.Error())
 		return vcc.fetchNodeStateFromDownDB(options)
 	}
 
-	// produce list_allnodes instructions
+	// produce list_all_nodes instructions
 	instructions, err := vcc.produceListAllNodesInstructions(options, &vdb)
 	if err != nil {
 		return nil, fmt.Errorf("fail to produce instructions, %w", err)
@@ -181,6 +182,9 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	nmaReadVerticaVersionOp := makeNMAReadVerticaVersionOp(vdb)
 
+	// Trim host list
+	hosts = options.updateHostlist(vcc, vdb, hosts)
+
 	httpsCheckNodeStateOp, err := makeHTTPSCheckNodeStateOp(hosts,
 		usePassword, options.UserName, options.Password)
 	if err != nil {
@@ -198,4 +202,37 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(
 	)
 
 	return instructions, nil
+}
+
+// Update and limit the hostlist based on status and sandbox info
+// Note: if we have any UP main cluster host in the input list, the trimmed hostlist would always contain
+//
+//	only main cluster UP hosts.
+func (options *VFetchNodeStateOptions) updateHostlist(vcc VClusterCommands, vdb *VCoordinationDatabase, inputHosts []string) []string {
+	var mainClusterHosts []string
+	var upSandboxHosts []string
+
+	for _, h := range inputHosts {
+		vnode, ok := vdb.HostNodeMap[h]
+		if !ok {
+			// host address not found in vdb, skip it
+			continue
+		}
+		if vnode.Sandbox == "" && (vnode.State == util.NodeUpState || vnode.State == util.NodeUnknownState) {
+			mainClusterHosts = append(mainClusterHosts, vnode.Address)
+		} else if vnode.State == util.NodeUpState {
+			upSandboxHosts = append(upSandboxHosts, vnode.Address)
+		}
+	}
+	if len(mainClusterHosts) > 0 {
+		vcc.Log.PrintWarning("Main cluster UP node found in host list. The status would be fetched from a main cluster host!")
+		return mainClusterHosts
+	}
+	if len(upSandboxHosts) > 0 {
+		vcc.Log.PrintWarning("Only sandboxed UP nodes found in host list. The status would be fetched from a sandbox host!")
+		return upSandboxHosts
+	}
+
+	// We do not have an up host, so better try with complete input hostlist
+	return inputHosts
 }

@@ -24,10 +24,13 @@ import (
 
 type nmaStageCommandsOp struct {
 	scrutinizeOpBase
+	skipCollectLibs bool
 }
 
 type stageCommandsRequestData struct {
-	CatalogPath string `json:"catalog_path"`
+	CatalogPath        string `json:"catalog_path"`
+	SkipCollectLibs    bool   `json:"skip_collect_libs,omitempty"`
+	IncludeCatalogLibs bool   `json:"include_catalog_libs,omitempty"`
 }
 
 type stageCommandsResponseData struct {
@@ -37,8 +40,8 @@ type stageCommandsResponseData struct {
 func makeNMAStageCommandsOp(logger vlog.Printer,
 	id, batch string,
 	hosts []string,
-	hostNodeNameMap map[string]string,
-	hostCatPathMap map[string]string) (nmaStageCommandsOp, error) {
+	hostNodeNameMap, hostCatPathMap map[string]string,
+	skipCollectLibs bool) (nmaStageCommandsOp, error) {
 	// base members
 	op := nmaStageCommandsOp{}
 	op.name = "NMAStageCommandsOp"
@@ -54,6 +57,9 @@ func makeNMAStageCommandsOp(logger vlog.Printer,
 	op.httpMethod = PostMethod
 	op.urlSuffix = "/commands"
 
+	// custom members
+	op.skipCollectLibs = skipCollectLibs
+
 	// the caller is responsible for making sure hosts and maps match up exactly
 	err := validateHostMaps(hosts, hostNodeNameMap, hostCatPathMap)
 	return op, err
@@ -61,9 +67,14 @@ func makeNMAStageCommandsOp(logger vlog.Printer,
 
 func (op *nmaStageCommandsOp) setupRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string, len(hosts))
-	for _, host := range hosts {
+	for i, host := range hosts {
 		stageCommandsData := stageCommandsRequestData{}
 		stageCommandsData.CatalogPath = op.hostCatPathMap[host]
+		stageCommandsData.SkipCollectLibs = op.skipCollectLibs
+		if i == 0 {
+			// on one host, we collect all .so files in the catalog/Libraries directory
+			stageCommandsData.IncludeCatalogLibs = true
+		}
 
 		dataBytes, err := json.Marshal(stageCommandsData)
 		if err != nil {

@@ -49,7 +49,7 @@ The database must be down to change the IP addresses with re_ip. If
 the database is up, you must run restart_node after re_ip for the 
 IP changes to take effect.
 
-The file specified by the re_ip-file option must be a JSON file in the
+The file specified by the re-ip-file option must be a JSON file in the
 following format:
 [  
 	{"from_address": "10.20.30.40", "to_address": "10.20.30.41"},  

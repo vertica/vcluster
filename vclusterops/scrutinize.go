@@ -54,6 +54,7 @@ type VScrutinizeOptions struct {
 	IncludeRos                  bool
 	IncludeExternalTableDetails bool
 	IncludeUDXDetails           bool
+	SkipCollectLibs             bool
 	LogAgeOldestTime            string
 	LogAgeNewestTime            string
 	LogAgeHours                 int // max log age from input
@@ -64,9 +65,9 @@ type VScrutinizeOptions struct {
 }
 
 func VScrutinizeOptionsFactory() VScrutinizeOptions {
-	opt := VScrutinizeOptions{}
-	opt.setDefaultValues()
-	return opt
+	options := VScrutinizeOptions{}
+	options.setDefaultValues()
+	return options
 }
 
 // human description of the scrutinize formats for archived log time range parameters
@@ -154,7 +155,12 @@ func (options *VScrutinizeOptions) validateRequiredOptions(logger vlog.Printer) 
 }
 
 func (options *VScrutinizeOptions) validateParseOptions(logger vlog.Printer) error {
-	return options.validateRequiredOptions(logger)
+	// batch 1: validate required parameters
+	err := options.validateRequiredOptions(logger)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // analyzeOptions will modify some options based on what is chosen
@@ -376,7 +382,7 @@ func (vcc VClusterCommands) produceScrutinizeInstructions(options *VScrutinizeOp
 
 	// run and stage diagnostic command results -- see NMA for what commands are run
 	stageCommandsOp, err := makeNMAStageCommandsOp(vcc.Log, options.ID, scrutinizeBatchContext,
-		options.Hosts, hostNodeNameMap, hostCatPathMap)
+		options.Hosts, hostNodeNameMap, hostCatPathMap, options.SkipCollectLibs)
 	if err != nil {
 		return nil, err
 	}

@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
@@ -219,4 +220,10 @@ func (p *Printer) SetupOrDie(logFile string) {
 
 func isVerboseOutputEnabled() bool {
 	return os.Getenv("VERBOSE_OUTPUT") == "yes"
+}
+
+// DisplayColorInfo prints a colored line into console
+func DisplayColorInfo(msg string, v ...any) {
+	clr := color.New(color.FgBlue)
+	clr.Printf("\u25b6 "+msg+"\n", v...)
 }

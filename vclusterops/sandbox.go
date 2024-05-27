@@ -31,9 +31,9 @@ type VSandboxOptions struct {
 }
 
 func VSandboxOptionsFactory() VSandboxOptions {
-	opt := VSandboxOptions{}
-	opt.setDefaultValues()
-	return opt
+	options := VSandboxOptions{}
+	options.setDefaultValues()
+	return options
 }
 
 func (options *VSandboxOptions) setDefaultValues() {
@@ -41,7 +41,7 @@ func (options *VSandboxOptions) setDefaultValues() {
 }
 
 func (options *VSandboxOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions("sandbox_subcluster", logger)
+	err := options.validateBaseOptions(commandSandboxSC, logger)
 	if err != nil {
 		return err
 	}
@@ -50,8 +50,27 @@ func (options *VSandboxOptions) validateRequiredOptions(logger vlog.Printer) err
 		return fmt.Errorf("must specify a subcluster name")
 	}
 
+	err = util.ValidateScName(options.SCName)
+	if err != nil {
+		return err
+	}
+
 	if options.SandboxName == "" {
 		return fmt.Errorf("must specify a sandbox name")
+	}
+
+	err = util.ValidateSandboxName(options.SandboxName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (options *VSandboxOptions) validateParseOptions(logger vlog.Printer) error {
+	// batch 1: validate required parameters
+	err := options.validateRequiredOptions(logger)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -78,8 +97,9 @@ func (options *VSandboxOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (options *VSandboxOptions) ValidateAnalyzeOptions(vcc VClusterCommands) error {
-	if err := options.validateRequiredOptions(vcc.Log); err != nil {
+func (options *VSandboxOptions) ValidateAnalyzeOptions(logger vlog.Printer) error {
+	err := options.validateParseOptions(logger)
+	if err != nil {
 		return err
 	}
 	return options.analyzeOptions()
@@ -158,7 +178,7 @@ func (vcc VClusterCommands) VSandbox(options *VSandboxOptions) error {
 // sandboxInterface is an interface that will be used by runSandboxCmd().
 // The purpose of this interface is to avoid code duplication.
 type sandboxInterface interface {
-	ValidateAnalyzeOptions(vcc VClusterCommands) error
+	ValidateAnalyzeOptions(logger vlog.Printer) error
 	runCommand(vcc VClusterCommands) error
 }
 
@@ -186,7 +206,7 @@ func (options *VSandboxOptions) runCommand(vcc VClusterCommands) error {
 // It can avoid code duplication between VSandbox and VUnsandbox.
 func runSandboxCmd(vcc VClusterCommands, i sandboxInterface) error {
 	// check required options
-	err := i.ValidateAnalyzeOptions(vcc)
+	err := i.ValidateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "failed to validate the options")
 		return err

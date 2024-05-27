@@ -24,52 +24,53 @@ import (
 
 type VFetchCoordinationDatabaseOptions struct {
 	DatabaseOptions
-	Overwrite bool // overwrite existing config file at the same location
+	Overwrite   bool // overwrite existing config file at the same location
+	AfterRevive bool // whether recover config right after revive_db
 
 	// hidden option
 	readOnly bool // this should be only used if we don't want to update the config file
 }
 
 func VRecoverConfigOptionsFactory() VFetchCoordinationDatabaseOptions {
-	opt := VFetchCoordinationDatabaseOptions{}
+	options := VFetchCoordinationDatabaseOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
-	return opt
+	options.setDefaultValues()
+	return options
 }
 
-func (opt *VFetchCoordinationDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
-	return opt.validateBaseOptions(commandConfigRecover, logger)
+func (options *VFetchCoordinationDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
+	return options.validateBaseOptions(commandConfigRecover, logger)
 }
 
-func (opt *VFetchCoordinationDatabaseOptions) analyzeOptions() error {
+func (options *VFetchCoordinationDatabaseOptions) analyzeOptions() error {
 	// resolve RawHosts to be IP addresses
-	if len(opt.RawHosts) > 0 {
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
+	if len(options.RawHosts) > 0 {
+		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
-		opt.Hosts = hostAddresses
+		options.Hosts = hostAddresses
 	}
 
 	// process correct catalog path
-	opt.CatalogPrefix = util.GetCleanPath(opt.CatalogPrefix)
+	options.CatalogPrefix = util.GetCleanPath(options.CatalogPrefix)
 
 	// check existing config file at the same location
-	if !opt.readOnly && !opt.Overwrite {
-		if util.CanWriteAccessPath(opt.ConfigPath) == util.FileExist {
+	if !options.readOnly && !options.Overwrite {
+		if util.CanWriteAccessPath(options.ConfigPath) == util.FileExist {
 			return fmt.Errorf("config file exists at %s. "+
-				"You can use --overwrite to overwrite this existing config file", opt.ConfigPath)
+				"You can use --overwrite to overwrite this existing config file", options.ConfigPath)
 		}
 	}
 
 	return nil
 }
 
-func (opt *VFetchCoordinationDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer) error {
-	if err := opt.validateParseOptions(logger); err != nil {
+func (options *VFetchCoordinationDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
-	return opt.analyzeOptions()
+	return options.analyzeOptions()
 }
 
 func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error) {
@@ -93,7 +94,7 @@ func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinati
 	vdb.DepotPrefix = options.DepotPrefix
 	vdb.Ipv6 = options.IPv6
 
-	// produce list_allnodes instructions
+	// produce list_all_nodes instructions
 	instructions, err := vcc.produceRecoverConfigInstructions(options, &vdb)
 	if err != nil {
 		return vdb, fmt.Errorf("fail to produce instructions, %w", err)
@@ -148,22 +149,27 @@ func (vcc VClusterCommands) produceRecoverConfigInstructions(
 	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+	instructions = append(instructions, &nmaHealthOp)
 
-	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
-		true /* ignore internal errors */, vdb)
-
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
+	// Try fetching nodes info from a running db, if possible.
+	err := vcc.getVDBFromRunningDBIncludeSandbox(vdb, &options.DatabaseOptions, AnySandbox)
 	if err != nil {
-		return instructions, err
+		vcc.PrintWarning("No running db found. For eon db, restart the database to recover accurate sandbox information")
+		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
+			true /* ignore internal errors */, vdb)
+		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(
+			instructions,
+			&nmaGetNodesInfoOp,
+			&nmaReadCatalogEditorOp)
 	}
-
 	nmaReadVerticaVersionOp := makeNMAReadVerticaVersionOp(vdb)
 
 	instructions = append(
 		instructions,
-		&nmaHealthOp,
-		&nmaGetNodesInfoOp,
-		&nmaReadCatalogEditorOp,
 		&nmaReadVerticaVersionOp,
 	)
 

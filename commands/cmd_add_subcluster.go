@@ -58,22 +58,22 @@ the --is-primary option.
 
 Examples:
   # Add a subcluster with config file
-  vcluster db_add_subcluster --subcluster sc1 \
+  vcluster add_subcluster --subcluster sc1 \
     --config /opt/vertica/config/vertica_cluster.yaml \
     --is-primary --control-set-size 1
 
   # Add a subcluster with user input
-  vcluster db_add_subcluster --subcluster sc1 --db-name test_db \
+  vcluster add_subcluster --subcluster sc1 --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --is-primary --control-set-size -1
 
   # Add a subcluster and new nodes in the subcluster with config file
-  vcluster db_add_subcluster --subcluster sc1 \
+  vcluster add_subcluster --subcluster sc1 \
     --config /opt/vertica/config/vertica_cluster.yaml \
     --is-primary --control-set-size 1 --new-hosts 10.20.30.43
 
   # Add a subcluster new nodes in the subcluster with user input
-  vcluster db_add_subcluster --subcluster sc1 --db-name test_db \
+  vcluster add_subcluster --subcluster sc1 --db-name test_db \
 	--hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
 	--is-primary --control-set-size -1 --new-hosts 10.20.30.43
 `,
@@ -208,15 +208,17 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	if len(options.NewHosts) > 0 {
-		fmt.Printf("Adding hosts %v to subcluster %s\n",
-			options.NewHosts, options.SCName)
+		vlog.DisplayColorInfo("Adding hosts %v to subcluster %s", options.NewHosts, options.SCName)
 
 		options.VAddNodeOptions.DatabaseOptions = c.addSubclusterOptions.DatabaseOptions
 		options.VAddNodeOptions.SCName = c.addSubclusterOptions.SCName
 
 		vdb, err := vcc.VAddNode(&options.VAddNodeOptions)
 		if err != nil {
-			vcc.LogError(err, "failed to add nodes into the new subcluster")
+			const msg = "Failed to add nodes into the new subcluster"
+			vcc.LogError(err, msg)
+			fmt.Printf("%s\nHint: subcluster %q is successfully created, you should use add_node to add nodes\n",
+				msg, options.VAddNodeOptions.SCName)
 			return err
 		}
 		// update db info in the config file

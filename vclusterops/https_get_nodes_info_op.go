@@ -99,8 +99,9 @@ func (op *httpsGetNodesInfoOp) shouldUseResponse(host string, nodesStates *nodes
 	if responseSandbox != "" && !op.allowUseSandboxResponse {
 		return false
 	}
+
 	// continue to parse next response if a response from a different sandbox is expected
-	if op.sandbox != AnySandbox && responseSandbox != op.sandbox {
+	if op.sandbox != AnySandbox && responseSandbox != op.sandbox && op.sandbox != util.MainClusterSandbox {
 		return false
 	}
 	return true

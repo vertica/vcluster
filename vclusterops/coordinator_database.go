@@ -55,7 +55,8 @@ type VCoordinationDatabase struct {
 	// more to add when useful
 	Ipv6 bool
 
-	PrimaryUpNodes []string
+	PrimaryUpNodes        []string
+	FirstStartAfterRevive bool
 }
 
 type vHostNodeMap map[string]*VCoordinationNode
@@ -266,20 +267,20 @@ func (vdb *VCoordinationDatabase) hasAtLeastOneDownNode() bool {
 	return false
 }
 
-// genDataPath builds and returns the data path
-func (vdb *VCoordinationDatabase) genDataPath(nodeName string) string {
+// GenDataPath builds and returns the data path
+func (vdb *VCoordinationDatabase) GenDataPath(nodeName string) string {
 	dataSuffix := fmt.Sprintf("%s_data", nodeName)
 	return filepath.Join(vdb.DataPrefix, vdb.Name, dataSuffix)
 }
 
-// genDepotPath builds and returns the depot path
-func (vdb *VCoordinationDatabase) genDepotPath(nodeName string) string {
+// GenDepotPath builds and returns the depot path
+func (vdb *VCoordinationDatabase) GenDepotPath(nodeName string) string {
 	depotSuffix := fmt.Sprintf("%s_depot", nodeName)
 	return filepath.Join(vdb.DepotPrefix, vdb.Name, depotSuffix)
 }
 
-// genCatalogPath builds and returns the catalog path
-func (vdb *VCoordinationDatabase) genCatalogPath(nodeName string) string {
+// GenCatalogPath builds and returns the catalog path
+func (vdb *VCoordinationDatabase) GenCatalogPath(nodeName string) string {
 	catalogSuffix := fmt.Sprintf("%s_catalog", nodeName)
 	return filepath.Join(vdb.CatalogPrefix, vdb.Name, catalogSuffix)
 }
@@ -382,11 +383,11 @@ func (vnode *VCoordinationNode) setNode(vdb *VCoordinationDatabase, address, nam
 	vnode.Address = address
 	vnode.Name = name
 	vnode.Subcluster = scName
-	vnode.CatalogPath = vdb.genCatalogPath(vnode.Name)
-	dataPath := vdb.genDataPath(vnode.Name)
+	vnode.CatalogPath = vdb.GenCatalogPath(vnode.Name)
+	dataPath := vdb.GenDataPath(vnode.Name)
 	vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
 	if vdb.DepotPrefix != "" {
-		vnode.DepotPath = vdb.genDepotPath(vnode.Name)
+		vnode.DepotPath = vdb.GenDepotPath(vnode.Name)
 	}
 	if vdb.Ipv6 {
 		vnode.ControlAddressFamily = util.IPv6ControlAddressFamily

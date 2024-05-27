@@ -74,7 +74,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdStartSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		&c.startScOptions.SubclusterToStart,
+		&c.startScOptions.SCName,
 		subclusterFlag,
 		"",
 		"Name of subcluster to start",
@@ -131,7 +131,7 @@ func (c *CmdStartSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	vcc.PrintInfo("Successfully started subcluster %s for database %s",
-		options.SubclusterToStart, options.DBName)
+		options.SCName, options.DBName)
 
 	return nil
 }

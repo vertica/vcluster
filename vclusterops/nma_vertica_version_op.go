@@ -165,7 +165,7 @@ func (op *nmaVerticaVersionOp) prepare(execContext *opEngineExecContext) error {
 				op.hosts = append(op.hosts, host)
 				sc := vnode.Subcluster
 				// Update subcluster of new nodes that will be assigned to default subcluster.
-				// When we created vdb in db_add_node without specifying subcluster, we did not know the default subcluster name
+				// When we created vdb in add_node without specifying subcluster, we did not know the default subcluster name
 				// so new nodes is using "" as their subclusters. Below line will correct node nodes' subclusters.
 				if op.vdb.IsEon && sc == "" && execContext.defaultSCName != "" {
 					op.vdb.HostNodeMap[host].Subcluster = execContext.defaultSCName

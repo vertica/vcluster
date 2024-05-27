@@ -28,73 +28,84 @@ import (
 type VStartScOptions struct {
 	DatabaseOptions
 	VStartNodesOptions
-	SubclusterToStart string // subcluster to start
+	SCName string // subcluster to start
 }
 
 func VStartScOptionsFactory() VStartScOptions {
-	opt := VStartScOptions{}
+	options := VStartScOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	options.setDefaultValues()
 
-	return opt
+	return options
 }
 
-func (o *VStartScOptions) setDefaultValues() {
-	o.DatabaseOptions.setDefaultValues()
-	o.VStartNodesOptions.setDefaultValues()
+func (options *VStartScOptions) setDefaultValues() {
+	options.DatabaseOptions.setDefaultValues()
+	options.VStartNodesOptions.setDefaultValues()
 }
 
-func (o *VStartScOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := o.validateBaseOptions("start_subcluster", logger)
+func (options *VStartScOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions(commandStartSubcluster, logger)
 	if err != nil {
 		return err
 	}
 
-	if o.SubclusterToStart == "" {
+	if options.SCName == "" {
 		return fmt.Errorf("must specify a subcluster name")
 	}
-	return nil
-}
 
-func (o *VStartScOptions) validateEonOptions() error {
-	if !o.IsEon {
-		return fmt.Errorf(`cannot start subcluster from an enterprise database '%s'`,
-			o.DBName)
+	err = util.ValidateScName(options.SCName)
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-func (o *VStartScOptions) validateParseOptions(logger vlog.Printer) error {
-	err := o.validateRequiredOptions(logger)
+func (options *VStartScOptions) validateEonOptions() error {
+	if !options.IsEon {
+		return fmt.Errorf(`cannot start subcluster from an enterprise database '%s'`,
+			options.DBName)
+	}
+	return nil
+}
+
+func (options *VStartScOptions) validateParseOptions(logger vlog.Printer) error {
+	// batch 1: validate required parameters
+	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
 
-	return o.validateEonOptions()
+	// batch 2: validate eon params
+	err = options.validateEonOptions()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (o *VStartScOptions) analyzeOptions() (err error) {
+func (options *VStartScOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
-	if len(o.RawHosts) > 0 {
+	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.IPv6)
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
-		o.normalizePaths()
+		options.normalizePaths()
 	}
 	return nil
 }
 
-func (o *VStartScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
-	if err := o.validateParseOptions(logger); err != nil {
+func (options *VStartScOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
-	err := o.analyzeOptions()
+	err := options.analyzeOptions()
 	if err != nil {
 		return err
 	}
-	return o.setUsePassword(logger)
+	return options.setUsePassword(logger)
 }
 
 // VStartSubcluster start nodes in a subcluster. It returns any error encountered.
@@ -119,14 +130,14 @@ func (vcc VClusterCommands) VStartSubcluster(options *VStartScOptions) error {
 
 	// collect down nodes to start in the target subcluster
 	for _, vnode := range vdb.HostNodeMap {
-		if vnode.Subcluster == options.SubclusterToStart && vnode.State == util.NodeDownState {
+		if vnode.Subcluster == options.SCName && vnode.State == util.NodeDownState {
 			nodesToStart[vnode.Name] = vnode.Address
 		}
 	}
 
 	if len(nodesToStart) == 0 {
 		return fmt.Errorf("cannot find down node to start in subcluster %s",
-			options.SubclusterToStart)
+			options.SCName)
 	}
 
 	var startNodesOptions VStartNodesOptions
@@ -135,6 +146,7 @@ func (vcc VClusterCommands) VStartSubcluster(options *VStartScOptions) error {
 	startNodesOptions.StatePollingTimeout = options.StatePollingTimeout
 	startNodesOptions.vdb = &vdb
 
-	fmt.Printf("Starting nodes %v in subcluster %s\n", maps.Keys(nodesToStart), options.SubclusterToStart)
+	vlog.DisplayColorInfo("Starting nodes %v in subcluster %s", maps.Keys(nodesToStart), options.SCName)
+
 	return vcc.VStartNodes(&startNodesOptions)
 }

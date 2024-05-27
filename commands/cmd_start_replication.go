@@ -112,7 +112,7 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 		"The target database that we will replicate to",
 	)
 	cmd.Flags().StringVar(
-		&c.startRepOptions.Sandbox,
+		&c.startRepOptions.SandboxName,
 		sandboxFlag,
 		"",
 		"The source sandbox that we will replicate from",

@@ -46,6 +46,7 @@ const (
 	SUCCESS   resultStatus = 0
 	FAILURE   resultStatus = 1
 	EXCEPTION resultStatus = 2
+	EOF       resultStatus = 3
 )
 
 const (
@@ -83,7 +84,7 @@ type hostHTTPResult struct {
 	statusCode int
 	host       string
 	content    string
-	err        error // This is set if the http response ends in a failure scenario
+	err        error // This is set if the http response with a status code that is not 2XX
 }
 
 type httpsResponseStatus struct {
@@ -133,6 +134,7 @@ func (hostResult *hostHTTPResult) isHTTPRunning() bool {
 	return false
 }
 
+// HTTP status code >= 200 and < 300
 func (hostResult *hostHTTPResult) isPassing() bool {
 	return hostResult.err == nil
 }
@@ -153,6 +155,10 @@ func (hostResult *hostHTTPResult) isTimeout() bool {
 		}
 	}
 	return false
+}
+
+func (hostResult *hostHTTPResult) isEOF() bool {
+	return hostResult.status == EOF
 }
 
 // getStatusString converts ResultStatus to string
@@ -506,6 +512,8 @@ type ClusterCommands interface {
 	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
 	VUnsandbox(options *VUnsandboxOptions) error
 	VStopSubcluster(options *VStopSubclusterOptions) error
+	VAlterSubclusterType(options *VAlterSubclusterTypeOptions) error
+	VRenameSubcluster(options *VRenameSubclusterOptions) error
 	VFetchNodesDetails(options *VFetchNodesDetailsOptions) (NodesDetails, error)
 }
 

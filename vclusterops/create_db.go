@@ -72,38 +72,44 @@ type VCreateDatabaseOptions struct {
 }
 
 func VCreateDatabaseOptionsFactory() VCreateDatabaseOptions {
-	opt := VCreateDatabaseOptions{}
+	options := VCreateDatabaseOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
-	return opt
+	options.setDefaultValues()
+	return options
 }
 
-func (opt *VCreateDatabaseOptions) setDefaultValues() {
-	opt.DatabaseOptions.setDefaultValues()
+func (options *VCreateDatabaseOptions) setDefaultValues() {
+	options.DatabaseOptions.setDefaultValues()
 
 	// basic db info
 	defaultPolicy := util.DefaultRestartPolicy
-	opt.Policy = defaultPolicy
+	options.Policy = defaultPolicy
 
 	// optional info
-	opt.TimeoutNodeStartupSeconds = util.DefaultTimeoutSeconds
+	options.TimeoutNodeStartupSeconds = util.DefaultTimeoutSeconds
 
 	// new params originally in installer generated admintools.conf, now in create db op
-	opt.P2p = util.DefaultP2p
-	opt.LargeCluster = util.DefaultLargeCluster
-	opt.ClientPort = util.DefaultClientPort
-	opt.SpreadLoggingLevel = util.DefaultSpreadLoggingLevel
+	options.P2p = util.DefaultP2p
+	options.LargeCluster = util.DefaultLargeCluster
+	options.ClientPort = util.DefaultClientPort
+	options.SpreadLoggingLevel = util.DefaultSpreadLoggingLevel
 }
 
-func (opt *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
+func (options *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
+	// validate base options
+	err := options.validateBaseOptions(commandCreateDB, logger)
+	if err != nil {
+		return err
+	}
+
 	// validate required parameters with default values
-	if opt.Password == nil {
-		opt.Password = new(string)
-		*opt.Password = ""
+	if options.Password == nil {
+		options.Password = new(string)
+		*options.Password = ""
 		logger.Info("no password specified, using none")
 	}
 
-	if !util.StringInArray(opt.Policy, util.RestartPolicyList) {
+	if !util.StringInArray(options.Policy, util.RestartPolicyList) {
 		return fmt.Errorf("policy must be one of %v", util.RestartPolicyList)
 	}
 
@@ -114,7 +120,7 @@ func (opt *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) 
 	//
 	// empty string ("") will be converted to the default license path (/opt/vertica/share/license.key)
 	// in the /bootstrap-catalog endpoint
-	if opt.LicensePathOnNode != "" && !util.IsAbsPath(opt.LicensePathOnNode) {
+	if options.LicensePathOnNode != "" && !util.IsAbsPath(options.LicensePathOnNode) {
 		return fmt.Errorf("must provide a fully qualified path for license file")
 	}
 
@@ -190,30 +196,30 @@ func validateDepotSize(size string) (bool, error) {
 	return true, nil
 }
 
-func (opt *VCreateDatabaseOptions) validateEonOptions() error {
-	if opt.CommunalStorageLocation != "" {
-		err := util.ValidateCommunalStorageLocation(opt.CommunalStorageLocation)
+func (options *VCreateDatabaseOptions) validateEonOptions() error {
+	if options.CommunalStorageLocation != "" {
+		err := util.ValidateCommunalStorageLocation(options.CommunalStorageLocation)
 		if err != nil {
 			return err
 		}
-		if opt.DepotPrefix == "" {
+		if options.DepotPrefix == "" {
 			return fmt.Errorf("must specify a depot path with commual storage location")
 		}
-		if opt.ShardCount == 0 {
+		if options.ShardCount == 0 {
 			return fmt.Errorf("must specify a shard count greater than 0 with communal storage location")
 		}
 	}
-	if opt.DepotPrefix != "" && opt.CommunalStorageLocation == "" {
+	if options.DepotPrefix != "" && options.CommunalStorageLocation == "" {
 		return fmt.Errorf("when depot path is given, communal storage location cannot be empty")
 	}
-	if opt.GetAwsCredentialsFromEnv && opt.CommunalStorageLocation == "" {
+	if options.GetAwsCredentialsFromEnv && options.CommunalStorageLocation == "" {
 		return fmt.Errorf("AWS credentials are only used in Eon mode")
 	}
-	if opt.DepotSize != "" {
-		if opt.DepotPrefix == "" {
+	if options.DepotSize != "" {
+		if options.DepotPrefix == "" {
 			return fmt.Errorf("when depot size is given, depot path cannot be empty")
 		}
-		validDepotSize, err := validateDepotSize(opt.DepotSize)
+		validDepotSize, err := validateDepotSize(options.DepotSize)
 		if !validDepotSize {
 			return err
 		}
@@ -221,36 +227,30 @@ func (opt *VCreateDatabaseOptions) validateEonOptions() error {
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateExtraOptions() error {
-	if opt.Broadcast && opt.P2p {
+func (options *VCreateDatabaseOptions) validateExtraOptions() error {
+	if options.Broadcast && options.P2p {
 		return fmt.Errorf("cannot use both Broadcast and Point-to-point networking mode")
 	}
 	// -1 is the default large cluster value, meaning 120 control nodes
-	if opt.LargeCluster != util.DefaultLargeCluster && (opt.LargeCluster < 1 || opt.LargeCluster > util.MaxLargeCluster) {
+	if options.LargeCluster != util.DefaultLargeCluster && (options.LargeCluster < 1 || options.LargeCluster > util.MaxLargeCluster) {
 		return fmt.Errorf("must specify a valid large cluster value in range [1, 120]")
 	}
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
-	// validate base options
-	err := opt.validateBaseOptions("create_db", logger)
-	if err != nil {
-		return err
-	}
-
+func (options *VCreateDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
 	// batch 1: validate required parameters without default values
-	err = opt.validateRequiredOptions(logger)
+	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
 	// batch 2: validate eon params
-	err = opt.validateEonOptions()
+	err = options.validateEonOptions()
 	if err != nil {
 		return err
 	}
 	// batch 3: validate all other params
-	err = opt.validateExtraOptions()
+	err = options.validateExtraOptions()
 	if err != nil {
 		return err
 	}
@@ -258,29 +258,29 @@ func (opt *VCreateDatabaseOptions) validateParseOptions(logger vlog.Printer) err
 }
 
 // Do advanced analysis on the options inputs, like resolve hostnames to be IPs
-func (opt *VCreateDatabaseOptions) analyzeOptions() error {
+func (options *VCreateDatabaseOptions) analyzeOptions() error {
 	// resolve RawHosts to be IP addresses
-	if len(opt.RawHosts) > 0 {
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
+	if len(options.RawHosts) > 0 {
+		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
-		opt.Hosts = hostAddresses
+		options.Hosts = hostAddresses
 	}
 
 	// process correct catalog path, data path and depot path prefixes
-	opt.CatalogPrefix = util.GetCleanPath(opt.CatalogPrefix)
-	opt.DataPrefix = util.GetCleanPath(opt.DataPrefix)
-	opt.DepotPrefix = util.GetCleanPath(opt.DepotPrefix)
+	options.CatalogPrefix = util.GetCleanPath(options.CatalogPrefix)
+	options.DataPrefix = util.GetCleanPath(options.DataPrefix)
+	options.DepotPrefix = util.GetCleanPath(options.DepotPrefix)
 
 	return nil
 }
 
-func (opt *VCreateDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer) error {
-	if err := opt.validateParseOptions(logger); err != nil {
+func (options *VCreateDatabaseOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
-	return opt.analyzeOptions()
+	return options.analyzeOptions()
 }
 
 func (vcc VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error) {
@@ -469,11 +469,6 @@ func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 		return instructions, err
 	}
 	instructions = append(instructions, &httpsReloadSpreadOp)
-
-	hostNodeMap := make(map[string]string)
-	for _, host := range hosts {
-		hostNodeMap[host] = vdb.HostNodeMap[host].CatalogPath
-	}
 
 	if len(hosts) > 1 {
 		httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.DBName, bootstrapHost,

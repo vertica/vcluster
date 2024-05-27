@@ -126,6 +126,11 @@ func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
+		// EOF is expected in DB shutdown: we expect the Server HTTPS service to go down quickly
+		// and the Server HTTPS service does not guarantee that the response being sent back to the client before it closes
+		if result.isEOF() {
+			continue
+		}
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 			continue

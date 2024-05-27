@@ -185,6 +185,12 @@ func (c *CmdScrutinize) setLocalFlags(cmd *cobra.Command) {
 		"Include information describing all UDX functions, "+
 			"which can be expensive to gather on Eon",
 	)
+	cmd.Flags().BoolVar(
+		&c.sOptions.SkipCollectLibs,
+		"skip-collect-libraries",
+		false,
+		"Skip gathering linked and catalog shared libraries",
+	)
 }
 
 func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {

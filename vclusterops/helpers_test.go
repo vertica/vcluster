@@ -71,6 +71,27 @@ func TestForGetPrimaryHostsWithLatestCatalog(t *testing.T) {
 	assert.Equal(t, primaryHostsWithLatestCatalog, []string{})
 }
 
+func TestForGetInitiatorHostInMainCluster(t *testing.T) {
+	// successfully get an initiator host for subcluster sc1 to promote/demote in the sandbox
+	mockHostNodeMap := map[string]*VCoordinationNode{
+		"192.168.1.101": {Address: "192.168.1.101", State: "UP", Sandbox: "sand", Subcluster: "sc1"},
+		"192.168.1.102": {Address: "192.168.1.102", State: "UP", Sandbox: "sand", Subcluster: "sc2"},
+		"192.168.1.103": {Address: "192.168.1.103", State: "UP", Sandbox: "", Subcluster: "default_subcluster"},
+		"192.168.1.104": {Address: "192.168.1.104", State: "UP", Sandbox: "", Subcluster: "sc4"}}
+	vdb := VCoordinationDatabase{HostNodeMap: mockHostNodeMap}
+	initiatorHost, _ := getInitiatorHostInCluster("", "sand", "sc1", &vdb)
+	assert.Equal(t, initiatorHost, []string{"192.168.1.102"})
+	// successfully get an initiator host for default_subcluster to promote/demote in the main subcluster
+	initiatorHost, _ = getInitiatorHostInCluster("", "", "default_subcluster", &vdb)
+	assert.Equal(t, initiatorHost, []string{"192.168.1.104"})
+	// unable to find any up hosts for default_subcluster in the main subcluster
+	mockHostNodeMap = map[string]*VCoordinationNode{
+		"192.168.1.103": {Address: "192.168.1.103", State: "UP", Sandbox: "", Subcluster: "default_subcluster"}}
+	vdb = VCoordinationDatabase{HostNodeMap: mockHostNodeMap}
+	_, err := getInitiatorHostInCluster("", "", "default_subcluster", &vdb)
+	assert.ErrorContains(t, err, "cannot find any up hosts for subcluster default_subcluster in main subcluster")
+}
+
 func TestForgetInitiatorHost(t *testing.T) {
 	nodesList1 := []string{"10.0.0.0", "10.0.0.1", "10.0.0.2"}
 	hostsToSkip1 := []string{"10.0.0.10", "10.0.0.11"}

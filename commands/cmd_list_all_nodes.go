@@ -50,7 +50,7 @@ whether they are up or down.
 To provide its status, each host must run the spread daemon.
 
 You must provide the --hosts option one or more hosts as a comma-separated
-list. list_allnodes returns the first response it receives from any host.
+list. list_all_nodes returns the first response it receives from any host.
 
 The --db-name and --catalog-path options are required only when vcluster cannot
 obtain node information from a running database and the config file is not
@@ -59,7 +59,7 @@ provided.
 Examples:
   # List the status of nodes with config file where password authentication is
   # used to access the database
-  vcluster list_allnodes --password testpassword \
+  vcluster list_all_nodes --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
 		[]string{dbNameFlag, hostsFlag, passwordFlag, ipv6Flag, catalogPathFlag, configFlag, outputFileFlag},

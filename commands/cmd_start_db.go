@@ -30,9 +30,9 @@ type CmdStartDB struct {
 	CmdBase
 	startDBOptions *vclusterops.VStartDatabaseOptions
 
-	Force               bool // force cleanup to start the database
+	Force               bool // Force cleanup to start the database
 	AllowFallbackKeygen bool // Generate spread encryption key from Vertica. Use under support guidance only
-	IgnoreClusterLease  bool // ignore the cluster lease in communal storage
+	IgnoreClusterLease  bool // Ignore the cluster lease in communal storage
 	Unsafe              bool // Start database unsafely, skipping recovery.
 	Fast                bool // Attempt fast startup database
 }
@@ -88,6 +88,8 @@ func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
 		util.DefaultTimeoutSeconds,
 		"The timeout (in seconds) to wait for polling node state operation",
 	)
+	// Update description of hosts flag locally for a detailed hint
+	cmd.Flags().Lookup(hostsFlag).Usage = "Comma-separated list of hosts in database. This is used to start sandboxed hosts"
 }
 
 // setHiddenFlags will set the hidden flags the command has.
@@ -165,6 +167,12 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 
 	options := c.startDBOptions
+	dbConfig, readConfigErr := readConfig()
+	if readConfigErr == nil {
+		options.FirstStartAfterRevive = dbConfig.FirstStartAfterRevive
+	} else {
+		vcc.PrintWarning("fail to read config file", "error", readConfigErr)
+	}
 
 	vdb, err := vcc.VStartDatabase(options)
 	if err != nil {
@@ -175,8 +183,9 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.PrintInfo("Successfully start the database %s", options.DBName)
 
 	// for Eon database, update config file to fill nodes' subcluster information
-	if options.IsEon {
+	if readConfigErr == nil && options.IsEon {
 		// write db info to vcluster config file
+		vdb.FirstStartAfterRevive = false
 		err := writeConfig(vdb)
 		if err != nil {
 			vcc.PrintWarning("fail to update config file, details: %s", err)

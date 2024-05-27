@@ -49,72 +49,89 @@ type VAddNodeOptions struct {
 }
 
 func VAddNodeOptionsFactory() VAddNodeOptions {
-	opt := VAddNodeOptions{}
+	options := VAddNodeOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	options.setDefaultValues()
 
-	return opt
+	return options
 }
 
-func (o *VAddNodeOptions) setDefaultValues() {
-	o.DatabaseOptions.setDefaultValues()
+func (options *VAddNodeOptions) setDefaultValues() {
+	options.DatabaseOptions.setDefaultValues()
 
-	o.SkipRebalanceShards = new(bool)
+	options.SkipRebalanceShards = new(bool)
 }
 
-func (o *VAddNodeOptions) validateEonOptions() error {
-	if o.DepotPrefix != "" {
-		return util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
+func (options *VAddNodeOptions) validateEonOptions() error {
+	if options.DepotPrefix != "" {
+		return util.ValidateRequiredAbsPath(options.DepotPrefix, "depot path")
 	}
 	return nil
 }
 
-func (o *VAddNodeOptions) validateExtraOptions() error {
+func (options *VAddNodeOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions(commandAddNode, logger)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (options *VAddNodeOptions) validateExtraOptions() error {
 	// data prefix
-	if o.DataPrefix != "" {
-		return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
+	if options.DataPrefix != "" {
+		return util.ValidateRequiredAbsPath(options.DataPrefix, "data path")
+	}
+
+	err := util.ValidateScName(options.SCName)
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-func (o *VAddNodeOptions) validateParseOptions(logger vlog.Printer) error {
+func (options *VAddNodeOptions) validateParseOptions(logger vlog.Printer) error {
 	// batch 1: validate required parameters
-	err := o.validateBaseOptions("db_add_node", logger)
+	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
 
 	// batch 2: validate all other params
-	return o.validateExtraOptions()
+	err = options.validateExtraOptions()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // analyzeOptions will modify some options based on what is chosen
-func (o *VAddNodeOptions) analyzeOptions() (err error) {
-	o.NewHosts, err = util.ResolveRawHostsToAddresses(o.NewHosts, o.IPv6)
+func (options *VAddNodeOptions) analyzeOptions() (err error) {
+	options.NewHosts, err = util.ResolveRawHostsToAddresses(options.NewHosts, options.IPv6)
 	if err != nil {
 		return err
 	}
 
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	// resolve RawHosts to be IP addresses
-	if len(o.RawHosts) > 0 {
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.IPv6)
+	if len(options.RawHosts) > 0 {
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
-		o.normalizePaths()
+		options.normalizePaths()
 	}
 
 	return nil
 }
 
-func (o *VAddNodeOptions) validateAnalyzeOptions(logger vlog.Printer) error {
-	err := o.validateParseOptions(logger)
+func (options *VAddNodeOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	err := options.validateParseOptions(logger)
 	if err != nil {
 		return err
 	}
 
-	return o.analyzeOptions()
+	return options.analyzeOptions()
 }
 
 // VAddNode adds one or more nodes to an existing database.
@@ -195,18 +212,18 @@ func checkAddNodeRequirements(vdb *VCoordinationDatabase, hostsToAdd []string) e
 
 // completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet
 // from the https endpoints. We set those fields from options.
-func (o *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
-	vdb.DataPrefix = o.DataPrefix
-	vdb.DepotPrefix = o.DepotPrefix
+func (options *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
+	vdb.DataPrefix = options.DataPrefix
+	vdb.DepotPrefix = options.DepotPrefix
 
 	hostNodeMap := makeVHostNodeMap()
 	// TODO: we set the depot and data path from /nodes rather than manually
 	// (VER-92725). This is useful for nmaDeleteDirectoriesOp.
 	for h, vnode := range vdb.HostNodeMap {
-		dataPath := vdb.genDataPath(vnode.Name)
+		dataPath := vdb.GenDataPath(vnode.Name)
 		vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
 		if vdb.DepotPrefix != "" {
-			vnode.DepotPath = vdb.genDepotPath(vnode.Name)
+			vnode.DepotPath = vdb.GenDepotPath(vnode.Name)
 		}
 		hostNodeMap[h] = vnode
 	}
@@ -428,11 +445,11 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 }
 
 // setInitiator sets the initiator as the first primary up node
-func (o *VAddNodeOptions) setInitiator(primaryUpNodes []string) error {
+func (options *VAddNodeOptions) setInitiator(primaryUpNodes []string) error {
 	initiatorHost, err := getInitiatorHost(primaryUpNodes, []string{})
 	if err != nil {
 		return err
 	}
-	o.Initiator = initiatorHost
+	options.Initiator = initiatorHost
 	return nil
 }

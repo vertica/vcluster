@@ -51,11 +51,11 @@ subcluster.
 
 Examples:
   # Remove a subcluster with config file
-  vcluster db_remove_subcluster --subcluster sc1 \
+  vcluster remove_subcluster --subcluster sc1 \
     --config /opt/vertica/config/vertica_cluster.yaml
 
   # Remove a subcluster with user input
-  vcluster db_remove_subcluster --db-name test_db \
+  vcluster remove_subcluster --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1 \
     --data-path /data --depot-path /data
 `,
@@ -77,7 +77,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		&c.removeScOptions.SubclusterToRemove,
+		&c.removeScOptions.SCName,
 		subclusterFlag,
 		"",
 		"Name of subcluster to be removed",
@@ -139,7 +139,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}
 	vcc.PrintInfo("Successfully removed subcluster %s from database %s",
-		options.SubclusterToRemove, options.DBName)
+		options.SCName, options.DBName)
 
 	return nil
 }

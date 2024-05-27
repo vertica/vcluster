@@ -53,12 +53,12 @@ You cannot remove nodes from a sandboxed subcluster in an Eon Mode database.
 
 Examples:
   # Remove multiple nodes from the existing database with config file
-  vcluster db_remove_node --db-name test_db \
+  vcluster remove_node --db-name test_db \
     --remove 10.20.30.40,10.20.30.42 \
     --config /opt/vertica/config/vertica_cluster.yaml
 
   # Remove a single node from the existing database with user input
-  vcluster db_remove_node --db-name test_db --remove 10.20.30.42 \
+  vcluster remove_node --db-name test_db --remove 10.20.30.42 \
     --hosts 10.20.30.40 --data-path /data
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, catalogPathFlag, dataPathFlag, depotPathFlag, passwordFlag},

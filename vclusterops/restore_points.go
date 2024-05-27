@@ -31,29 +31,29 @@ type VShowRestorePointsOptions struct {
 }
 
 func VShowRestorePointsFactory() VShowRestorePointsOptions {
-	opt := VShowRestorePointsOptions{}
+	options := VShowRestorePointsOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	options.setDefaultValues()
 
-	opt.FilterOptions = ShowRestorePointFilterOptions{}
+	options.FilterOptions = ShowRestorePointFilterOptions{}
 
-	return opt
+	return options
 }
 
-func (p *ShowRestorePointFilterOptions) hasNonEmptyStartTimestamp() bool {
-	return (p.StartTimestamp != "")
+func (options *ShowRestorePointFilterOptions) hasNonEmptyStartTimestamp() bool {
+	return (options.StartTimestamp != "")
 }
 
-func (p *ShowRestorePointFilterOptions) hasNonEmptyEndTimestamp() bool {
-	return (p.EndTimestamp != "")
+func (options *ShowRestorePointFilterOptions) hasNonEmptyEndTimestamp() bool {
+	return (options.EndTimestamp != "")
 }
 
 // Check that all non-empty timestamps specified have valid date time or date only format,
 // convert date only format to date time format when applicable, and make sure end timestamp
 // is no earlier than start timestamp
-func (p *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIfAny() (err error) {
+func (options *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIfAny() (err error) {
 	// shortcut of no validation needed
-	if !p.hasNonEmptyStartTimestamp() && !p.hasNonEmptyEndTimestamp() {
+	if !options.hasNonEmptyStartTimestamp() && !options.hasNonEmptyEndTimestamp() {
 		return nil
 	}
 
@@ -61,36 +61,36 @@ func (p *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIfAny() 
 	var dateTimeErr, dateOnlyErr error
 
 	// try date time first
-	parsedStartDatetime, dateTimeErr := util.IsEmptyOrValidTimeStr(util.DefaultDateTimeFormat, p.StartTimestamp)
+	parsedStartDatetime, dateTimeErr := util.IsEmptyOrValidTimeStr(util.DefaultDateTimeFormat, options.StartTimestamp)
 	if dateTimeErr != nil {
 		// fallback to date only
-		parsedStartDatetime, dateOnlyErr = util.IsEmptyOrValidTimeStr(util.DefaultDateOnlyFormat, p.StartTimestamp)
+		parsedStartDatetime, dateOnlyErr = util.IsEmptyOrValidTimeStr(util.DefaultDateOnlyFormat, options.StartTimestamp)
 		if dateOnlyErr != nil {
 			// give up
 			return fmt.Errorf("start timestamp %q is invalid; cannot parse as a datetime: %w; "+
-				"cannot parse as a date as well: %w", p.StartTimestamp, dateTimeErr, dateOnlyErr)
+				"cannot parse as a date as well: %w", options.StartTimestamp, dateTimeErr, dateOnlyErr)
 		}
 		// default value of time parsed from date only string is already indicating the start of a day
-		// invoke this function here to only rewrite p.StartTimestamp in date time format
-		util.FillInDefaultTimeForStartTimestamp(&p.StartTimestamp)
+		// invoke this function here to only rewrite options.StartTimestamp in date time format
+		util.FillInDefaultTimeForStartTimestamp(&options.StartTimestamp)
 	}
 
 	// try date time first
-	parsedEndDatetime, dateTimeErr := util.IsEmptyOrValidTimeStr(util.DefaultDateTimeFormat, p.EndTimestamp)
+	parsedEndDatetime, dateTimeErr := util.IsEmptyOrValidTimeStr(util.DefaultDateTimeFormat, options.EndTimestamp)
 	if dateTimeErr != nil {
 		// fallback to date only
-		_, dateOnlyErr = util.IsEmptyOrValidTimeStr(util.DefaultDateOnlyFormat, p.EndTimestamp)
+		_, dateOnlyErr = util.IsEmptyOrValidTimeStr(util.DefaultDateOnlyFormat, options.EndTimestamp)
 		if dateOnlyErr != nil {
 			// give up
 			return fmt.Errorf("end timestamp %q is invalid; cannot parse as a datetime: %w; "+
-				"cannot parse as a date as well: %w", p.EndTimestamp, dateTimeErr, dateOnlyErr)
+				"cannot parse as a date as well: %w", options.EndTimestamp, dateTimeErr, dateOnlyErr)
 		}
 		// fill in default value for time and update the end timestamp
-		parsedEndDatetime = util.FillInDefaultTimeForEndTimestamp(&p.EndTimestamp)
+		parsedEndDatetime = util.FillInDefaultTimeForEndTimestamp(&options.EndTimestamp)
 	}
 
 	// check if endTime is after start time if both of them are non-empty
-	if p.hasNonEmptyStartTimestamp() && p.hasNonEmptyEndTimestamp() {
+	if options.hasNonEmptyStartTimestamp() && options.hasNonEmptyEndTimestamp() {
 		validRange := util.IsTimeEqualOrAfter(*parsedStartDatetime, *parsedEndDatetime)
 		if !validRange {
 			return errors.New("start timestamp must be before end timestamp")
@@ -101,44 +101,62 @@ func (p *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIfAny() 
 	return nil
 }
 
-func (opt *VShowRestorePointsOptions) validateParseOptions(logger vlog.Printer) error {
-	err := opt.validateBaseOptions("show_restore_points", logger)
+func (options *VShowRestorePointsOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions(commandShowRestorePoints, logger)
 	if err != nil {
 		return err
 	}
 
-	err = util.ValidateCommunalStorageLocation(opt.CommunalStorageLocation)
+	err = util.ValidateCommunalStorageLocation(options.CommunalStorageLocation)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (options *VShowRestorePointsOptions) validateExtraOptions() error {
+	err := options.FilterOptions.ValidateAndStandardizeTimestampsIfAny()
 	if err != nil {
 		return err
 	}
 
-	err = opt.FilterOptions.ValidateAndStandardizeTimestampsIfAny()
+	return nil
+}
+
+func (options *VShowRestorePointsOptions) validateParseOptions(logger vlog.Printer) error {
+	// batch 1: validate required parameters
+	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
 
+	// batch 2: validate all other params
+	err = options.validateExtraOptions()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // analyzeOptions will modify some options based on what is chosen
-func (opt *VShowRestorePointsOptions) analyzeOptions() (err error) {
+func (options *VShowRestorePointsOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
-	if len(opt.RawHosts) > 0 {
+	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		hostAddresses, err := util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
+		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
-		opt.Hosts = hostAddresses
+		options.Hosts = hostAddresses
 	}
 	return nil
 }
 
-func (opt *VShowRestorePointsOptions) validateAnalyzeOptions(logger vlog.Printer) error {
-	if err := opt.validateParseOptions(logger); err != nil {
+func (options *VShowRestorePointsOptions) validateAnalyzeOptions(logger vlog.Printer) error {
+	if err := options.validateParseOptions(logger); err != nil {
 		return err
 	}
-	return opt.analyzeOptions()
+	return options.analyzeOptions()
 }
 
 // VShowRestorePoints can query the restore points from an archive

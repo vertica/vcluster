@@ -34,73 +34,77 @@ type VRemoveNodeOptions struct {
 }
 
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
-	opt := VRemoveNodeOptions{}
+	options := VRemoveNodeOptions{}
 	// set default values to the params
-	opt.setDefaultValues()
+	options.setDefaultValues()
 
-	return opt
+	return options
 }
 
-func (o *VRemoveNodeOptions) setDefaultValues() {
-	o.DatabaseOptions.setDefaultValues()
+func (options *VRemoveNodeOptions) setDefaultValues() {
+	options.DatabaseOptions.setDefaultValues()
 
-	o.ForceDelete = true
-	o.IsSubcluster = false
+	options.ForceDelete = true
+	options.IsSubcluster = false
 }
 
-func (o *VRemoveNodeOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := o.validateBaseOptions("db_remove_node", log)
+func (options *VRemoveNodeOptions) validateRequiredOptions(logger vlog.Printer) error {
+	err := options.validateBaseOptions(commandRemoveNode, logger)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (o *VRemoveNodeOptions) validateExtraOptions() error {
+func (options *VRemoveNodeOptions) validateExtraOptions() error {
 	// data prefix
-	if o.DataPrefix != "" {
-		return util.ValidateRequiredAbsPath(o.DataPrefix, "data path")
+	if options.DataPrefix != "" {
+		return util.ValidateRequiredAbsPath(options.DataPrefix, "data path")
 	}
 	return nil
 }
 
-func (o *VRemoveNodeOptions) validateParseOptions(log vlog.Printer) error {
+func (options *VRemoveNodeOptions) validateParseOptions(logger vlog.Printer) error {
 	// batch 1: validate required params
-	err := o.validateRequiredOptions(log)
+	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
 	}
 	// batch 2: validate all other params
-	return o.validateExtraOptions()
+	err = options.validateExtraOptions()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (o *VRemoveNodeOptions) analyzeOptions() (err error) {
-	o.HostsToRemove, err = util.ResolveRawHostsToAddresses(o.HostsToRemove, o.IPv6)
+func (options *VRemoveNodeOptions) analyzeOptions() (err error) {
+	options.HostsToRemove, err = util.ResolveRawHostsToAddresses(options.HostsToRemove, options.IPv6)
 	if err != nil {
 		return err
 	}
 
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
-	if len(o.RawHosts) > 0 {
+	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		o.Hosts, err = util.ResolveRawHostsToAddresses(o.RawHosts, o.IPv6)
+		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}
-		o.normalizePaths()
+		options.normalizePaths()
 	}
 	return nil
 }
 
-func (o *VRemoveNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
-	if err := o.validateParseOptions(log); err != nil {
+func (options *VRemoveNodeOptions) validateAnalyzeOptions(log vlog.Printer) error {
+	if err := options.validateParseOptions(log); err != nil {
 		return err
 	}
-	err := o.analyzeOptions()
+	err := options.analyzeOptions()
 	if err != nil {
 		return err
 	}
-	return o.setUsePassword(log)
+	return options.setUsePassword(log)
 }
 
 func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {
@@ -253,27 +257,27 @@ func checkRemoveNodeRequirements(vdb *VCoordinationDatabase, options *VRemoveNod
 
 // completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet
 // from the https endpoints. We set those fields from options.
-func (o *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
-	vdb.DataPrefix = o.DataPrefix
+func (options *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) error {
+	vdb.DataPrefix = options.DataPrefix
 
-	if o.DepotPrefix == "" {
+	if options.DepotPrefix == "" {
 		return nil
 	}
 	if vdb.IsEon {
 		// checking this here because now we have got eon value from
 		// the running db. This will be removed once we are able to get
 		// the depot path from db through an https endpoint(VER-88122).
-		err := util.ValidateRequiredAbsPath(o.DepotPrefix, "depot path")
+		err := util.ValidateRequiredAbsPath(options.DepotPrefix, "depot path")
 		if err != nil {
 			return err
 		}
 	}
-	vdb.DepotPrefix = o.DepotPrefix
+	vdb.DepotPrefix = options.DepotPrefix
 	hostNodeMap := makeVHostNodeMap()
 	// TODO: we set the depot path from /nodes rather than manually
 	// (VER-92725). This is useful for nmaDeleteDirectoriesOp.
 	for h, vnode := range vdb.HostNodeMap {
-		vnode.DepotPath = vdb.genDepotPath(vnode.Name)
+		vnode.DepotPath = vdb.GenDepotPath(vnode.Name)
 		hostNodeMap[h] = vnode
 	}
 	vdb.HostNodeMap = hostNodeMap
@@ -495,12 +499,12 @@ func (vcc VClusterCommands) produceSpreadRemoveNodeOp(instructions *[]clusterOp,
 
 // setInitiator sets the initiator as the first primary up node that is not
 // in the list of hosts to remove.
-func (o *VRemoveNodeOptions) setInitiator(primaryUpNodes []string) error {
-	initiatorHost, err := getInitiatorHost(primaryUpNodes, o.HostsToRemove)
+func (options *VRemoveNodeOptions) setInitiator(primaryUpNodes []string) error {
+	initiatorHost, err := getInitiatorHost(primaryUpNodes, options.HostsToRemove)
 	if err != nil {
 		return err
 	}
-	o.Initiator = initiatorHost
+	options.Initiator = initiatorHost
 	return nil
 }
 
