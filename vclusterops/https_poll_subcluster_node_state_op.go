@@ -59,21 +59,23 @@ func makeHTTPSPollSubclusterNodeStateOp(scName string,
 	return op, nil
 }
 
-func makeHTTPSPollSubclusterNodeStateUpOp(scName string,
+func makeHTTPSPollSubclusterNodeStateUpOp(hosts []string, scName string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
 	op, err := makeHTTPSPollSubclusterNodeStateOp(scName, useHTTPPassword, userName, httpsPassword)
 	op.checkDown = false
 	op.description += " to come up"
+	op.hosts = hosts
 	return op, err
 }
 
-func makeHTTPSPollSubclusterNodeStateDownOp(scName string,
+func makeHTTPSPollSubclusterNodeStateDownOp(hosts []string, scName string,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
 	op, err := makeHTTPSPollSubclusterNodeStateOp(scName, useHTTPPassword, userName, httpsPassword)
 	op.checkDown = true
 	op.description += " to come down"
+	op.hosts = hosts
 	return op, err
 }
 
@@ -101,8 +103,10 @@ func (op *httpsPollSubclusterNodeStateOp) setupClusterHTTPRequest(hosts []string
 func (op *httpsPollSubclusterNodeStateOp) prepare(execContext *opEngineExecContext) error {
 	// We need to ensure that the https request to fetch the node state goes to the sandboxed node
 	// because the main cluster will report the status of sandboxed nodes as "UNKNOWN".
-	for _, vnode := range execContext.scNodesInfo {
-		op.hosts = append(op.hosts, vnode.Address)
+	if len(op.hosts) == 0 {
+		for _, vnode := range execContext.scNodesInfo {
+			op.hosts = append(op.hosts, vnode.Address)
+		}
 	}
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)

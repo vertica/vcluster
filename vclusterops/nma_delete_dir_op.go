@@ -42,6 +42,7 @@ func makeNMADeleteDirectoriesOp(
 	return op, nil
 }
 func makeNMADeleteDirsSandboxOp(
+	hosts []string,
 	forceDelete bool,
 	sandbox bool,
 ) (nmaDeleteDirectoriesOp, error) {
@@ -50,6 +51,7 @@ func makeNMADeleteDirsSandboxOp(
 	op.description = delDirOpDesc
 	op.sandbox = sandbox
 	op.forceDelete = forceDelete
+	op.hosts = hosts
 	return op, nil
 }
 
@@ -106,7 +108,7 @@ func (op *nmaDeleteDirectoriesOp) prepare(execContext *opEngineExecContext) erro
 		if len(execContext.scNodesInfo) == 0 {
 			return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
 		}
-		op.hosts = []string{}
+		hosts := []string{}
 		op.hostRequestBodyMap = make(map[string]string)
 
 		for _, node := range execContext.scNodesInfo {
@@ -122,7 +124,10 @@ func (op *nmaDeleteDirectoriesOp) prepare(execContext *opEngineExecContext) erro
 
 			op.logger.Info("delete directory params", "host", node.Address, "params", p)
 
-			op.hosts = append(op.hosts, node.Address)
+			hosts = append(hosts, node.Address)
+		}
+		if len(op.hosts) == 0 {
+			op.hosts = hosts
 		}
 	}
 	execContext.dispatcher.setup(op.hosts)

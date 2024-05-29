@@ -29,14 +29,17 @@ type httpsStopNodeOp struct {
 	opHTTPSBase
 	RequestParams map[string]string
 	StopNodes     map[string]string // map with nodename as key and host as value
+	nodeNames     []string          // node names in the target subcluster
 }
 
-func makeHTTPSStopNodeOp(useHTTPPassword bool, userName string,
+func makeHTTPSStopNodeOp(hosts, nodeNames []string, useHTTPPassword bool, userName string,
 	httpsPassword *string, timeout *int) (httpsStopNodeOp, error) {
 	op := httpsStopNodeOp{}
 	op.name = "HTTPSStopNodeOp"
 	op.description = "Stop node"
 	op.useHTTPPassword = useHTTPPassword
+	op.hosts = hosts
+	op.nodeNames = nodeNames
 
 	// set the query params, "timeout" is optional
 	op.RequestParams = make(map[string]string)
@@ -57,7 +60,7 @@ func makeHTTPSStopNodeOp(useHTTPPassword bool, userName string,
 
 func makeHTTPSStopInputNodesOp(stopNodes map[string]string, useHTTPPassword bool, userName string,
 	httpsPassword *string, timeout *int) (httpsStopNodeOp, error) {
-	op, err := makeHTTPSStopNodeOp(useHTTPPassword, userName, httpsPassword, timeout)
+	op, err := makeHTTPSStopNodeOp(nil, nil, useHTTPPassword, userName, httpsPassword, timeout)
 	if err != nil {
 		return op, err
 	}
@@ -83,19 +86,24 @@ func (op *httpsStopNodeOp) setupClusterHTTPRequest(hosts, nodenames []string) er
 
 func (op *httpsStopNodeOp) prepare(execContext *opEngineExecContext) error {
 	var hosts, nodenames []string
-	if len(op.StopNodes) == 0 && len(execContext.nodesInfo) == 0 {
-		return fmt.Errorf(`[%s] List of nodes to be stopped is empty`, op.name)
-	}
-	if len(op.StopNodes) == 0 {
-		for _, node := range execContext.nodesInfo {
-			nodenames = append(nodenames, node.Name)
-			hosts = append(hosts, node.Address)
+	if len(op.hosts) == 0 && len(op.nodeNames) == 0 {
+		if len(op.StopNodes) == 0 && len(execContext.nodesInfo) == 0 {
+			return fmt.Errorf(`[%s] List of nodes to be stopped is empty`, op.name)
+		}
+		if len(op.StopNodes) == 0 {
+			for _, node := range execContext.nodesInfo {
+				nodenames = append(nodenames, node.Name)
+				hosts = append(hosts, node.Address)
+			}
+		} else {
+			for nodename, host := range op.StopNodes {
+				nodenames = append(nodenames, nodename)
+				hosts = append(hosts, host)
+			}
 		}
 	} else {
-		for nodename, host := range op.StopNodes {
-			nodenames = append(nodenames, nodename)
-			hosts = append(hosts, host)
-		}
+		hosts = op.hosts
+		nodenames = op.nodeNames
 	}
 	execContext.dispatcher.setup(hosts)
 

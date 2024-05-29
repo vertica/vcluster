@@ -209,17 +209,26 @@ func getInitiatorHostForReplication(name, sandbox string, hosts []string, vdb *V
 
 // getVDBFromRunningDB will retrieve db configurations from a non-sandboxed host by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
-	return vcc.getVDBFromRunningDBImpl(vdb, options, false, util.MainClusterSandbox)
+	return vcc.getVDBFromRunningDBImpl(vdb, options, false /*allow use http result from sandbox nodes*/, util.MainClusterSandbox,
+		false /*update node state by sending http request to each node*/)
 }
 
-// getVDBFromRunningDB will retrieve db configurations from any UP host by calling https endpoints of a running db
+// getVDBFromMainRunningDBContainsSandbox will retrieve db configurations from a non-sandboxed host by calling https endpoints of
+// a running db, and it can return the accurate state of the sandboxed nodes.
+func (vcc VClusterCommands) getVDBFromMainRunningDBContainsSandbox(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+	return vcc.getVDBFromRunningDBImpl(vdb, options, false /*allow use http result from sandbox nodes*/, util.MainClusterSandbox,
+		true /*update node state by sending http request to each node*/)
+}
+
+// getVDBFromRunningDBIncludeSandbox will retrieve db configurations from a sandboxed host by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDBIncludeSandbox(vdb *VCoordinationDatabase, options *DatabaseOptions, sandbox string) error {
-	return vcc.getVDBFromRunningDBImpl(vdb, options, true, sandbox)
+	return vcc.getVDBFromRunningDBImpl(vdb, options, true /*allow use http result from sandbox nodes*/, sandbox,
+		false /*update node state by sending http request to each node*/)
 }
 
 // getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, options *DatabaseOptions,
-	allowUseSandboxRes bool, sandbox string) error {
+	allowUseSandboxRes bool, sandbox string, updateNodeState bool) error {
 	err := options.setUsePassword(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
@@ -241,7 +250,7 @@ func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, 
 	instructions = append(instructions, &httpsGetNodesInfoOp, &httpsGetClusterInfoOp)
 
 	// update node state for sandboxed nodes
-	if allowUseSandboxRes {
+	if allowUseSandboxRes || updateNodeState {
 		httpsUpdateNodeState, e := makeHTTPSUpdateNodeStateOp(vdb, options.usePassword, options.UserName, options.Password)
 		if e != nil {
 			return fmt.Errorf("fail to produce httpsUpdateNodeState instruction while updating node states, %w", e)
