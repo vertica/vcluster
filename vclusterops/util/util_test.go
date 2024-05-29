@@ -259,24 +259,27 @@ func TestNewErrorFormatVerb(t *testing.T) {
 func TestValidateName(t *testing.T) {
 	// positive cases
 	obj := "database"
-	err := ValidateName("test_db", obj)
+	err := ValidateName("test_db", obj, false)
 	assert.Nil(t, err)
 
-	err = ValidateName("db1", obj)
+	err = ValidateName("db1", obj, false)
 	assert.Nil(t, err)
 
 	// negative cases
-	err = ValidateName("test$db", obj)
+	err = ValidateName("test$db", obj, false)
 	assert.ErrorContains(t, err, "invalid character in "+obj+" name: $")
 
-	err = ValidateName("[db1]", obj)
+	err = ValidateName("[db1]", obj, false)
 	assert.ErrorContains(t, err, "invalid character in "+obj+" name: [")
 
-	err = ValidateName("!!??!!db1", obj)
+	err = ValidateName("!!??!!db1", obj, false)
 	assert.ErrorContains(t, err, "invalid character in "+obj+" name: !")
 
-	err = ValidateName("test-db", obj)
+	err = ValidateName("test-db", obj, false)
 	assert.ErrorContains(t, err, "invalid character in "+obj+" name: -")
+
+	err = ValidateName("test-db", obj, true)
+	assert.Nil(t, err)
 }
 
 func TestSetEonFlagHelpMsg(t *testing.T) {

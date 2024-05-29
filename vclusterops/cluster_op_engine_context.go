@@ -36,7 +36,6 @@ type opEngineExecContext struct {
 	dbInfo                        string              // store the db info that retrieved from communal storage
 	restorePoints                 []RestorePoint      // store list existing restore points that queried from an archive
 	systemTableList               systemTableListInfo // used for staging system tables
-
 	// hosts on which the wrong authentication occurred
 	hostsWithWrongAuth []string
 }

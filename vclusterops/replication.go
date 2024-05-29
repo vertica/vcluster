@@ -157,8 +157,15 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 		return err
 	}
 
+	// retrieve information from the database to accurately determine the state of each node in both the main cluster and andbox
+	vdb := makeVCoordinationDatabase()
+	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, AnySandbox)
+	if err != nil {
+		return err
+	}
+
 	// produce database replication instructions
-	instructions, err := vcc.produceDBReplicationInstructions(options)
+	instructions, err := vcc.produceDBReplicationInstructions(options, &vdb)
 	if err != nil {
 		return fmt.Errorf("fail to produce instructions, %w", err)
 	}
@@ -183,11 +190,11 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 
 // The generated instructions will later perform the following operations necessary
 // for a successful replication.
-//   - Check nodes state
 //   - Check NMA connectivity
 //   - Check Vertica versions
 //   - Replicate database
-func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicationDatabaseOptions) ([]clusterOp, error) {
+func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicationDatabaseOptions,
+	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// need username for https operations in source database
@@ -210,8 +217,8 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 		vcc.Log.Info("Current target username", "username", options.TargetUserName)
 	}
 
-	httpsGetUpNodesOp, err := makeHTTPSCheckNodeStateOp(options.Hosts,
-		options.usePassword, options.UserName, options.Password)
+	httpsDisallowMultipleNamespacesOp, err := makeHTTPSDisallowMultipleNamespacesOp(options.Hosts,
+		options.usePassword, options.UserName, options.Password, options.SandboxName, vdb)
 	if err != nil {
 		return instructions, err
 	}
@@ -224,15 +231,15 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	initiatorTargetHost := getInitiator(options.TargetHosts)
 	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
 		options.UserName, options.Password, targetUsePassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
-		options.TargetPassword, options.SourceTLSConfig, options.SandboxName)
+		options.TargetPassword, options.SourceTLSConfig, options.SandboxName, vdb)
 	if err != nil {
 		return instructions, err
 	}
 
 	instructions = append(instructions,
-		&httpsGetUpNodesOp,
 		&nmaHealthOp,
 		&nmaVerticaVersionOp,
+		&httpsDisallowMultipleNamespacesOp,
 		&httpsStartReplicationOp,
 	)
 	return instructions, nil

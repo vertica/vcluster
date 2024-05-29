@@ -183,6 +183,30 @@ func getInitiatorHostInCluster(name, sandbox, scname string, vdb *VCoordinationD
 	return initiatorHost, nil
 }
 
+// getInitiatorHostForReplication returns an initiator that is the first up source host in the main cluster
+// or a sandbox
+func getInitiatorHostForReplication(name, sandbox string, hosts []string, vdb *VCoordinationDatabase) ([]string, error) {
+	// source hosts will be :
+	// 1. up hosts from the main subcluster if the sandbox is empty
+	// 2. up hosts from the sandbox if the sandbox is specified
+	var sourceHosts []string
+	for _, node := range vdb.HostNodeMap {
+		if node.State != util.NodeDownState && node.Sandbox == sandbox {
+			sourceHosts = append(sourceHosts, node.Address)
+		}
+	}
+	sourceHosts = util.SliceCommon(hosts, sourceHosts)
+	if len(sourceHosts) == 0 {
+		if sandbox == "" {
+			return nil, fmt.Errorf("[%s] cannot find any up hosts from source database", name)
+		}
+		return nil, fmt.Errorf("[%s] cannot find any up hosts in the sandbox %s", name, sandbox)
+	}
+
+	initiatorHost := []string{getInitiator(sourceHosts)}
+	return initiatorHost, nil
+}
+
 // getVDBFromRunningDB will retrieve db configurations from a non-sandboxed host by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
 	return vcc.getVDBFromRunningDBImpl(vdb, options, false, util.MainClusterSandbox)

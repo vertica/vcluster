@@ -316,7 +316,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	}
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(true /*hosts need to have the same Vertica version*/, vdb)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOpBeforeStartNode(vdb, startNodeInfo.HostsToStart)
 	instructions = append(instructions, &nmaVerticaVersionOp)
 
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step

@@ -472,8 +472,11 @@ func IsOptionSet(f *flag.FlagSet, optionName string) bool {
 
 // ValidateName will validate the name of an obj, the obj can be database, subcluster, etc.
 // when a name is provided, make sure no special chars are in it
-func ValidateName(name, obj string) error {
-	escapeChars := `=<>'^\".@*?#&/-:;{}()[] \~!%+|,` + "`$"
+func ValidateName(name, obj string, allowDash bool) error {
+	escapeChars := `=<>'^\".@*?#&/:;{}()[] \~!%+|,` + "`$"
+	if !allowDash {
+		escapeChars += "-"
+	}
 	for _, c := range name {
 		if strings.Contains(escapeChars, string(c)) {
 			return fmt.Errorf("invalid character in %s name: %c", obj, c)
@@ -483,15 +486,15 @@ func ValidateName(name, obj string) error {
 }
 
 func ValidateDBName(dbName string) error {
-	return ValidateName(dbName, "database")
+	return ValidateName(dbName, "database", false)
 }
 
 func ValidateScName(dbName string) error {
-	return ValidateName(dbName, "subcluster")
+	return ValidateName(dbName, "subcluster", true)
 }
 
 func ValidateSandboxName(dbName string) error {
-	return ValidateName(dbName, "sandbox")
+	return ValidateName(dbName, "sandbox", true)
 }
 
 // suppress help message for hidden options

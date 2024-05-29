@@ -110,6 +110,35 @@ func TestForgetInitiatorHost(t *testing.T) {
 	assert.Equal(t, initiatorHost, "")
 }
 
+func TestForGetSourceHostForReplication(t *testing.T) {
+	mockHostNodeMap := map[string]*VCoordinationNode{
+		"192.168.1.101": {Address: "192.168.1.101", State: "UP", Sandbox: "sand"},
+		"192.168.1.102": {Address: "192.168.1.102", State: "UP", Sandbox: "sand"},
+		"192.168.1.103": {Address: "192.168.1.103", State: "UP", Sandbox: ""},
+		"192.168.1.104": {Address: "192.168.1.104", State: "UP", Sandbox: ""},
+	}
+
+	// successfully find source hosts from sandbox sand
+	vdb := VCoordinationDatabase{HostNodeMap: mockHostNodeMap}
+	hosts := []string{"192.168.1.102"}
+	sourceHosts, err := getInitiatorHostForReplication("", "sand", hosts, &vdb)
+	assert.NoError(t, err)
+	assert.Equal(t, sourceHosts, hosts)
+
+	// successfully find source hosts from main cluster
+	vdb = VCoordinationDatabase{HostNodeMap: mockHostNodeMap}
+	hosts = []string{"192.168.1.103"}
+	sourceHosts, err = getInitiatorHostForReplication("", "", hosts, &vdb)
+	assert.NoError(t, err)
+	assert.Equal(t, sourceHosts, hosts)
+
+	// unable to find any up hosts from main cluster
+	vdb = VCoordinationDatabase{HostNodeMap: mockHostNodeMap}
+	hosts = []string{}
+	_, err = getInitiatorHostForReplication("", "", hosts, &vdb)
+	assert.ErrorContains(t, err, "cannot find any up hosts from source database")
+}
+
 func TestForgetCatalogPath(t *testing.T) {
 	nodeName := "v_vertdb_node0001"
 	fullPath := fmt.Sprintf("/data/vertdb/%s_catalog/Catalog", nodeName)
