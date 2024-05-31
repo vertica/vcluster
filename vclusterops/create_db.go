@@ -43,6 +43,7 @@ type VCreateDatabaseOptions struct {
 	// part 3: optional info
 	ForceCleanupOnFailure     bool // whether force remove existing directories on failure
 	ForceRemovalAtCreation    bool // whether force remove existing directories before creating the database
+	ForceOverwriteFile        bool // whether force overwrite existing config and config param files
 	SkipPackageInstall        bool // whether skip package installation
 	TimeoutNodeStartupSeconds int  // timeout in seconds for polling node start up state
 

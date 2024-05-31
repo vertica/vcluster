@@ -49,7 +49,7 @@ func makeCmdRestartNodes() *cobra.Command {
 		newCmd,
 		restartNodeSubCmd,
 		"Restart nodes in the database",
-		`This subcommand starts individual nodes in a running cluster. This
+		`This command starts individual nodes in a running cluster. This
 differs from start_db, which starts Vertica after cluster quorum is lost.
 
 You can pass --restart a comma-separated list of NODE_NAME=IP_TO_RESTART pairs
@@ -82,7 +82,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require nodes or hosts to restart
-	cmd.MarkFlagsOneRequired([]string{startNodeFlag, startHostFlag}...)
+	markFlagsOneRequired(cmd, []string{startNodeFlag, startHostFlag})
 
 	return cmd
 }

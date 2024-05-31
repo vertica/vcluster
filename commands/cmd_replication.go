@@ -23,7 +23,7 @@ func makeCmdReplication() *cobra.Command {
 	cmd := makeSimpleCobraCmd(
 		replicationSubCmd,
 		"Handle database replication",
-		`This subcommand starts database replication or displays the status of an
+		`This command starts database replication or displays the status of an
 in-progress replication operation.`)
 
 	cmd.AddCommand(makeCmdStartReplication())

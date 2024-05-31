@@ -124,7 +124,7 @@ func (options *VRemoveScOptions) validateAnalyzeOptions(logger vlog.Printer) err
 	if err != nil {
 		return err
 	}
-	return options.setUsePassword(logger)
+	return options.setUsePasswordAndValidateUsernameIfNeeded(logger)
 }
 
 // VRemoveSubcluster removes a subcluster. It returns updated database catalog information and any error encountered.

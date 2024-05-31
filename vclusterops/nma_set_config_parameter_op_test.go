@@ -22,24 +22,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNmaManageConnectionsOp_SetupRequestBody(t *testing.T) {
-	op := &nmaManageConnectionsOp{}
-	op.action = ActionRedirect
+func TestNmaSetConfigurationParameterOp_SetupRequestBody(t *testing.T) {
+	op := &nmaSetConfigurationParameterOp{}
 
-	username := "draining-test-user-op"
-	dbName := "draining-test-db-op"
-	subclusterName := "draining-test-subcluster-op"
-	redirectHostname := "draining-test-redirect-op"
-	password := "draining-test-password-op"
+	username := "config-test-user-op"
+	dbName := "config-test-db-op"
+	configParameter := "config-test-param-op"
+	value := "config-test-value-op"
+	level := "config-test-level-op"
+	password := "config-test-password-op"
 	useDBPassword := true
 
-	err := op.setupRequestBody(username, dbName, subclusterName, redirectHostname, &password, useDBPassword)
+	err := op.setupRequestBody(username, dbName, configParameter, value, level, &password, useDBPassword)
 	assert.NoError(t, err)
 
-	expectedData := manageConnectionsData{
-		SubclusterName:   subclusterName,
-		RedirectHostname: redirectHostname,
-		sqlEndpointData:  createSQLEndpointData(username, dbName, useDBPassword, &password),
+	expectedData := setConfigurationParameterData{
+		ConfigParameter: configParameter,
+		Value:           value,
+		Level:           level,
+		sqlEndpointData: createSQLEndpointData(username, dbName, useDBPassword, &password),
 	}
 
 	expectedBytes, _ := json.Marshal(expectedData)
@@ -47,12 +48,12 @@ func TestNmaManageConnectionsOp_SetupRequestBody(t *testing.T) {
 
 	assert.Equal(t, expectedRequestBody, op.hostRequestBody)
 
-	err = op.setupRequestBody("", dbName, subclusterName, redirectHostname, &password, useDBPassword)
+	err = op.setupRequestBody("", dbName, configParameter, value, level, &password, useDBPassword)
 	assert.Error(t, err)
 
-	err = op.setupRequestBody(username, "", subclusterName, redirectHostname, &password, useDBPassword)
+	err = op.setupRequestBody(username, "", configParameter, value, level, &password, useDBPassword)
 	assert.Error(t, err)
 
-	err = op.setupRequestBody(username, dbName, subclusterName, redirectHostname, nil, useDBPassword)
+	err = op.setupRequestBody(username, dbName, configParameter, value, level, nil, useDBPassword)
 	assert.Error(t, err)
 }

@@ -48,7 +48,7 @@ func makeCmdStopDB() *cobra.Command {
 		newCmd,
 		stopDBSubCmd,
 		"Stop a database",
-		`This subcommand stops a database or sandbox.
+		`This command stops a database or sandbox.
 
 Examples:
   # Stop a database with config file using password authentication

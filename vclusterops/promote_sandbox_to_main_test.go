@@ -22,54 +22,33 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-func TestVManageConnectionsOptions_validateParseOptions(t *testing.T) {
+func TestPromoteSandboxToMainOptions_validateParseOptions(t *testing.T) {
 	logger := vlog.Printer{}
 
-	opt := VManageConnectionDrainingOptionsFactory()
-	testPassword := "draining-test-password"
-	testSCName := "draining-test-sc"
-	testDBName := "draining_test_dbname"
-	testUserName := "draining-test-username"
-	testRedirectHostname := "draining-test-redirect-hostname"
+	opt := VPromoteSandboxToMainFactory()
+	testPassword := "test-password-3"
 
-	opt.SCName = testSCName
 	opt.IsEon = true
-	opt.RawHosts = append(opt.RawHosts, "draining-test-raw-host")
+	opt.RawHosts = append(opt.RawHosts, "test-raw-host")
 	opt.DBName = testDBName
 	opt.UserName = testUserName
 	opt.Password = &testPassword
-	opt.Action = ActionRedirect
-	opt.RedirectHostname = testRedirectHostname
 
 	err := opt.validateParseOptions(logger)
 	assert.NoError(t, err)
 
-	// positive: no username (in which case default OS username will be used)
 	opt.UserName = ""
 	err = opt.validateParseOptions(logger)
 	assert.NoError(t, err)
 
-	// negative: Eon mode not set
-	opt.UserName = testUserName
-	opt.IsEon = false
-	err = opt.validateParseOptions(logger)
-	assert.Error(t, err)
-
 	// negative: no database name
-	opt.IsEon = true
+	opt.UserName = testUserName
 	opt.DBName = ""
 	err = opt.validateParseOptions(logger)
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "must specify a database name")
 
-	// negative: no redirect host name when action is redirect
-	opt.DBName = testDBName
-	opt.RedirectHostname = ""
+	// negative: enterprise database
+	opt.IsEon = false
 	err = opt.validateParseOptions(logger)
-	assert.Error(t, err)
-
-	// negative: wrong action
-	opt.RedirectHostname = testRedirectHostname
-	opt.Action = "wrong-action"
-	err = opt.validateParseOptions(logger)
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "promote a sandbox to main is only supported in Eon mode")
 }

@@ -105,7 +105,7 @@ func (options *VStartScOptions) validateAnalyzeOptions(logger vlog.Printer) erro
 	if err != nil {
 		return err
 	}
-	return options.setUsePassword(logger)
+	return options.setUsePasswordAndValidateUsernameIfNeeded(logger)
 }
 
 // VStartSubcluster start nodes in a subcluster. It returns any error encountered.

@@ -22,24 +22,26 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-func TestVManageConnectionsOptions_validateParseOptions(t *testing.T) {
+func TestVSetConfigurationParameterOptions_validateParseOptions(t *testing.T) {
 	logger := vlog.Printer{}
 
-	opt := VManageConnectionDrainingOptionsFactory()
-	testPassword := "draining-test-password"
-	testSCName := "draining-test-sc"
-	testDBName := "draining_test_dbname"
-	testUserName := "draining-test-username"
-	testRedirectHostname := "draining-test-redirect-hostname"
+	opt := VSetConfigurationParameterOptionsFactory()
+	testPassword := "config-test-password"
+	testSandbox := "config-test-sandbox"
+	testDBName := "config_test_dbname"
+	testUserName := "config-test-username"
+	testConfigParameter := "config-test-parameter"
+	testValue := "config-test-value"
+	testLevel := "config-test-level"
 
-	opt.SCName = testSCName
-	opt.IsEon = true
-	opt.RawHosts = append(opt.RawHosts, "draining-test-raw-host")
+	opt.Sandbox = testSandbox
+	opt.RawHosts = append(opt.RawHosts, "config-test-raw-host")
 	opt.DBName = testDBName
 	opt.UserName = testUserName
 	opt.Password = &testPassword
-	opt.Action = ActionRedirect
-	opt.RedirectHostname = testRedirectHostname
+	opt.ConfigParameter = testConfigParameter
+	opt.Value = testValue
+	opt.Level = testLevel
 
 	err := opt.validateParseOptions(logger)
 	assert.NoError(t, err)
@@ -49,27 +51,32 @@ func TestVManageConnectionsOptions_validateParseOptions(t *testing.T) {
 	err = opt.validateParseOptions(logger)
 	assert.NoError(t, err)
 
-	// negative: Eon mode not set
+	// positive: value is "null"
 	opt.UserName = testUserName
-	opt.IsEon = false
+	opt.Value = "null"
 	err = opt.validateParseOptions(logger)
-	assert.Error(t, err)
+	assert.NoError(t, err)
+
+	// positive: value is empty
+	opt.Value = ""
+	err = opt.validateParseOptions(logger)
+	assert.NoError(t, err)
+
+	// positive: empty level
+	opt.Value = testValue
+	opt.Level = ""
+	err = opt.validateParseOptions(logger)
+	assert.NoError(t, err)
 
 	// negative: no database name
-	opt.IsEon = true
+	opt.Level = testLevel
 	opt.DBName = ""
 	err = opt.validateParseOptions(logger)
 	assert.Error(t, err)
 
-	// negative: no redirect host name when action is redirect
+	// negative: no configuration parameter
 	opt.DBName = testDBName
-	opt.RedirectHostname = ""
-	err = opt.validateParseOptions(logger)
-	assert.Error(t, err)
-
-	// negative: wrong action
-	opt.RedirectHostname = testRedirectHostname
-	opt.Action = "wrong-action"
+	opt.ConfigParameter = ""
 	err = opt.validateParseOptions(logger)
 	assert.Error(t, err)
 }

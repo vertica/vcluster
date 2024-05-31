@@ -104,7 +104,7 @@ func (options *VRemoveNodeOptions) validateAnalyzeOptions(log vlog.Printer) erro
 	if err != nil {
 		return err
 	}
-	return options.setUsePassword(log)
+	return options.setUsePasswordAndValidateUsernameIfNeeded(log)
 }
 
 func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error) {

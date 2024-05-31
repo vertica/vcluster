@@ -41,7 +41,7 @@ func makeCmdDropDB() *cobra.Command {
 		newCmd,
 		dropDBSubCmd,
 		"Drop a database",
-		`This subcommand drops a stopped database.
+		`This command drops a stopped database.
 
 For an Eon database, communal storage is not deleted. You can recover 
 the dropped database with revive_db.

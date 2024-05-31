@@ -44,7 +44,7 @@ func makeCmdRemoveNode() *cobra.Command {
 		newCmd,
 		removeNodeSubCmd,
 		"Remove host(s) from an existing database",
-		`This subcommand removes one or more nodes from an existing database.
+		`This command removes one or more nodes from an existing database.
 
 You must provide the --remove option followed by one or more hosts to
 remove as a comma-separated list.
@@ -68,7 +68,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require hosts to remove
-	markFlagsRequired(cmd, []string{"remove"})
+	markFlagsRequired(cmd, removeNodeFlag)
 
 	return cmd
 }
@@ -77,7 +77,7 @@ Examples:
 func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(
 		&c.removeNodeOptions.HostsToRemove,
-		"remove",
+		removeNodeFlag,
 		[]string{},
 		"Comma-separated list of host(s) to remove from the database",
 	)
@@ -144,7 +144,7 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	// write db info to vcluster config file
-	err = writeConfig(&vdb)
+	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}

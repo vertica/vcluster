@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -47,9 +49,9 @@ func makeCmdStartDB() *cobra.Command {
 		newCmd,
 		startDBSubCmd,
 		"Start a database",
-		`This subcommand starts a database on a set of hosts.
+		`This command starts a database on a set of hosts.
 
-Starts Vertica on each host and establishes cluster quorum. This subcommand is 
+Starts Vertica on each host and establishes cluster quorum. This command is 
 similar to restart_node, except start_db assumes that cluster quorum
 has been lost.
 
@@ -65,6 +67,12 @@ Examples:
   # Start a database with config file using password authentication
   vcluster start_db --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
+  # Start a database partially with config file on a sandbox
+  vcluster start_db --password testpassword \
+    --config /home/dbadmin/vertica_cluster.yaml --sandbox "sand"
+  # Start a database partially with config file on a sandbox
+  vcluster start_db --password testpassword \
+    --config /home/dbadmin/vertica_cluster.yaml --main-cluster-only
 `,
 		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag, ipv6Flag,
 			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag},
@@ -90,6 +98,19 @@ func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
 	)
 	// Update description of hosts flag locally for a detailed hint
 	cmd.Flags().Lookup(hostsFlag).Usage = "Comma-separated list of hosts in database. This is used to start sandboxed hosts"
+
+	cmd.Flags().StringVar(
+		&c.startDBOptions.Sandbox,
+		sandboxFlag,
+		"",
+		"Name of the sandbox to start",
+	)
+	cmd.Flags().BoolVar(
+		&c.startDBOptions.MainCluster,
+		"main-cluster-only",
+		false,
+		"Start the database on main cluster, but don't start any of the sandboxes",
+	)
 }
 
 // setHiddenFlags will set the hidden flags the command has.
@@ -160,18 +181,53 @@ func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return c.setDBPassword(&c.startDBOptions.DatabaseOptions)
-}
 
+	err = c.setDBPassword(&c.startDBOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.setConfigParam(&c.startDBOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func filterInputHosts(options *vclusterops.VStartDatabaseOptions, dbConfig *DatabaseConfig) []string {
+	filteredHosts := []string{}
+	for _, n := range dbConfig.Nodes {
+		// Collect sandbox hosts
+		if options.Sandbox == n.Sandbox && n.Sandbox != util.MainClusterSandbox {
+			filteredHosts = append(filteredHosts, n.Address)
+		}
+		// Collect main cluster hosts
+		if options.MainCluster && n.Sandbox == util.MainClusterSandbox {
+			filteredHosts = append(filteredHosts, n.Address)
+		}
+	}
+	if len(options.Hosts) > 0 {
+		return util.SliceCommon(filteredHosts, options.Hosts)
+	}
+	return filteredHosts
+}
 func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 
 	options := c.startDBOptions
+	if options.Sandbox != "" && options.MainCluster {
+		return fmt.Errorf("cannot use both --sandbox and --main-cluster-only options together ")
+	}
 	dbConfig, readConfigErr := readConfig()
 	if readConfigErr == nil {
+		if options.Sandbox != util.MainClusterSandbox || options.MainCluster {
+			options.RawHosts = filterInputHosts(options, dbConfig)
+		}
 		options.FirstStartAfterRevive = dbConfig.FirstStartAfterRevive
 	} else {
 		vcc.PrintWarning("fail to read config file", "error", readConfigErr)
+		if options.MainCluster || options.Sandbox != util.MainClusterSandbox {
+			return fmt.Errorf("cannot start the database partially without config file")
+		}
 	}
 
 	vdb, err := vcc.VStartDatabase(options)
@@ -179,17 +235,33 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.LogError(err, "failed to start the database")
 		return err
 	}
-
-	vcc.PrintInfo("Successfully start the database %s", options.DBName)
+	msg := fmt.Sprintf("Started database %s", options.DBName)
+	if options.Sandbox != "" {
+		sandboxMsg := fmt.Sprintf(" on sandbox %s", options.Sandbox)
+		vcc.PrintInfo(msg + sandboxMsg)
+		return nil
+	}
+	if options.MainCluster {
+		startMsg := " on the main cluster"
+		vcc.PrintInfo(msg + startMsg)
+		return nil
+	}
+	vcc.PrintInfo(msg)
 
 	// for Eon database, update config file to fill nodes' subcluster information
 	if readConfigErr == nil && options.IsEon {
 		// write db info to vcluster config file
 		vdb.FirstStartAfterRevive = false
-		err := writeConfig(vdb)
+		err = writeConfig(vdb, true /*forceOverwrite*/)
 		if err != nil {
 			vcc.PrintWarning("fail to update config file, details: %s", err)
 		}
+	}
+
+	// write config parameters to vcluster config param file
+	err = c.writeConfigParam(options.ConfigurationParameters, true /*forceOverwrite*/)
+	if err != nil {
+		vcc.PrintWarning("fail to write config param file, details: %s", err)
 	}
 
 	return nil

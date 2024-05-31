@@ -42,7 +42,7 @@ func makeCmdRemoveSubcluster() *cobra.Command {
 		newCmd,
 		removeSCSubCmd,
 		"Remove a subcluster",
-		`This subcommand removes a subcluster from an existing Eon Mode database.
+		`This command removes a subcluster from an existing Eon Mode database.
 
 You must provide the subcluster name with the --subcluster option.
 
@@ -66,7 +66,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require name of subcluster to remove
-	markFlagsRequired(cmd, []string{subclusterFlag})
+	markFlagsRequired(cmd, subclusterFlag)
 
 	// hide eon mode flag since we expect it to come from config file, not from user input
 	hideLocalFlags(cmd, []string{eonModeFlag})
@@ -134,7 +134,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	// write db info to vcluster config file
-	err = writeConfig(&vdb)
+	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}

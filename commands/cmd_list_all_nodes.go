@@ -44,7 +44,7 @@ func makeListAllNodes() *cobra.Command {
 		newCmd,
 		listAllNodesSubCmd,
 		"List all nodes in the database",
-		`This subcommand queries the status of the nodes in the database and prints
+		`This command queries the status of the nodes in the database and prints
 whether they are up or down.
 
 To provide its status, each host must run the spread daemon.

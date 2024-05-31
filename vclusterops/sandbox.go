@@ -28,6 +28,12 @@ type VSandboxOptions struct {
 	SCName      string
 	SCHosts     []string
 	SCRawHosts  []string
+	// indicate whether a restore point is created when create the sandbox
+	SaveRp bool
+	// indicate whether the metadata of sandbox should be isolated
+	Imeta bool
+	// indicate whether the sandbox should create its own storage locations
+	Sls bool
 	// The expected node names with their IPs in the subcluster, the user of vclusterOps needs
 	// to make sure the provided values are correct. This option will be used to do re-ip in
 	// the target sandbox.
@@ -156,7 +162,7 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 
 	// Run Sandboxing
 	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, options.SCName, options.SandboxName,
-		usePassword, username, options.Password)
+		usePassword, username, options.Password, options.SaveRp, options.Imeta, options.Sls)
 	if err != nil {
 		return instructions, err
 	}

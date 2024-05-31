@@ -213,7 +213,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 
 	nmaHealthOp := makeNMAHealthOp(hosts)
 	// need username for https operations
-	err := options.setUsePassword(vcc.Log)
+	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

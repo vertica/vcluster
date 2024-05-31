@@ -34,6 +34,7 @@ const (
 	InstallPackageCmd
 	UnsandboxCmd
 	ManageConnectionDrainingCmd
+	SetConfigurationParametersCmd
 )
 
 type CommandType int
@@ -219,7 +220,8 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 func isCompleteScanRequired(cmdType CommandType) bool {
 	return cmdType == SandboxCmd || cmdType == StopDBCmd ||
 		cmdType == UnsandboxCmd || cmdType == StopSubclusterCmd ||
-		cmdType == ManageConnectionDrainingCmd
+		cmdType == ManageConnectionDrainingCmd ||
+		cmdType == SetConfigurationParametersCmd
 }
 
 func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
@@ -322,6 +324,7 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 			upHosts.Add(node.Address)
 			upScInfo[node.Address] = node.Subcluster
 			if op.cmdType == ManageConnectionDrainingCmd ||
+				op.cmdType == SetConfigurationParametersCmd ||
 				op.cmdType == StopDBCmd {
 				sandboxInfo[node.Address] = node.Sandbox
 			}

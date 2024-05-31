@@ -70,9 +70,20 @@ func (opt *VManageConnectionDrainingOptions) validateParseOptions(logger vlog.Pr
 		return err
 	}
 
-	err = opt.validateBaseOptions(commandManageConnections, logger)
+	err = opt.validateBaseOptions(commandManageConnectionDraining, logger)
 	if err != nil {
 		return err
+	}
+
+	// need to provide a password or key and certs
+	if opt.Password == nil && (opt.Cert == "" || opt.Key == "") {
+		// validate key and cert files in local file system
+		_, err := getCertFilePaths()
+		if err != nil {
+			// in case that the key or cert files do not exist
+			return fmt.Errorf("must provide a password, key and certificates explicitly," +
+				" or key and certificate files in the default paths")
+		}
 	}
 
 	return opt.validateExtraOptions(logger)
@@ -114,13 +125,19 @@ func (opt *VManageConnectionDrainingOptions) validateAnalyzeOptions(log vlog.Pri
 	if err := opt.validateParseOptions(log); err != nil {
 		return err
 	}
-	err := opt.analyzeOptions()
-	if err != nil {
+	if err := opt.analyzeOptions(); err != nil {
 		return err
 	}
-	return opt.setUsePasswordForLocalDBConnection(log)
+	if err := opt.setUsePassword(log); err != nil {
+		return err
+	}
+	// username is always required when local db connection is made
+	return opt.validateUserName(log)
 }
 
+// VManageConnectionDraining manages connection draining of nodes by pausing, redirecting, or
+// resuming connections. It returns any error encountered.
+//
 //nolint:dupl
 func (vcc VClusterCommands) VManageConnectionDraining(options *VManageConnectionDrainingOptions) error {
 	// validate and analyze all options
@@ -161,14 +178,16 @@ func (vcc VClusterCommands) produceManageConnectionDrainingInstructions(
 
 	// get up hosts in all sandboxes
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(options.DBName, options.Hosts,
-		options.usePassword, options.UserName, options.Password, ManageConnectionDrainingCmd)
+		options.usePassword, options.UserName, options.Password,
+		ManageConnectionDrainingCmd)
 	if err != nil {
 		return instructions, err
 	}
 
 	nmaManageConnectionsOp, err := makeNMAManageConnectionsOp(options.Hosts,
-		options.UserName, options.DBName, options.Sandbox, options.SCName, options.RedirectHostname,
-		options.Action, options.Password, options.usePassword)
+		options.UserName, options.DBName, options.Sandbox, options.SCName,
+		options.RedirectHostname, options.Action, options.Password,
+		options.usePassword)
 	if err != nil {
 		return instructions, err
 	}

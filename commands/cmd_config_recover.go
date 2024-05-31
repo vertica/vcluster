@@ -70,7 +70,7 @@ Examples:
 	)
 
 	// require db-name, hosts, catalog-path, and data-path
-	markFlagsRequired(cmd, []string{dbNameFlag, hostsFlag, catalogPathFlag})
+	markFlagsRequired(cmd, dbNameFlag, hostsFlag, catalogPathFlag)
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
@@ -120,7 +120,7 @@ func (c *CmdConfigRecover) Run(vcc vclusterops.ClusterCommands) error {
 	}
 	// write db info to vcluster config file
 	vdb.FirstStartAfterRevive = c.recoverConfigOptions.AfterRevive
-	err = writeConfig(&vdb)
+	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
 		return fmt.Errorf("fail to write config file, details: %s", err)
 	}

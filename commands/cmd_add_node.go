@@ -48,7 +48,7 @@ func makeCmdAddNode() *cobra.Command {
 		newCmd,
 		addNodeSubCmd,
 		"Add host(s) to an existing database",
-		`This subcommand adds one or more hosts to an existing database.
+		`This command adds one or more hosts to an existing database.
 
 You must provide the --new-hosts option followed by one or more hosts to add as
 a comma-separated list.
@@ -57,7 +57,7 @@ You cannot add hosts to a sandbox subcluster in an Eon Mode database.
 
 Use the --node-names option to address issues resulting from a failed node 
 addition attempt. It's crucial to include all expected nodes in the catalog
-when using this option. This subcommand removes any surplus nodes from the
+when using this option. This command removes any surplus nodes from the
 catalog, provided they are down, before commencing the node addition process.
 Omitting the option will skip this node trimming process.
 
@@ -79,7 +79,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require hosts to add
-	markFlagsRequired(cmd, []string{addNodeFlag})
+	markFlagsRequired(cmd, addNodeFlag)
 
 	return cmd
 }
@@ -199,7 +199,7 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	// write db info to vcluster config file
-	err := writeConfig(&vdb)
+	err := writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
 		vcc.PrintWarning("fail to write config file, details: %s", err)
 	}

@@ -37,6 +37,8 @@ type VStartDatabaseOptions struct {
 	StatePollingTimeout int
 	// whether trim the input host list based on the catalog info
 	TrimHostList bool
+	Sandbox      string // Start db on given sandbox
+	MainCluster  bool   // Start db on main cluster only
 	// If the path is set, the NMA will store the Vertica start command at the path
 	// instead of executing it. This is useful in containerized environments where
 	// you may not want to have both the NMA and Vertica server in the same container.
@@ -244,7 +246,7 @@ func (vcc VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOption
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	// need username for https operations
-	err := options.setUsePassword(vcc.Log)
+	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

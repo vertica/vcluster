@@ -85,29 +85,31 @@ const (
 )
 
 const (
-	commandCreateDB            = "create_db"
-	commandDropDB              = "drop_db"
-	commandStopDB              = "stop_db"
-	commandStartDB             = "start_db"
-	commandAddNode             = "add_node"
-	commandRemoveNode          = "remove_node"
-	commandStopNode            = "stop_node"
-	commandRestartNode         = "restart_node"
-	commandAddSubcluster       = "add_subcluster"
-	commandRemoveSubcluster    = "remove_subcluster"
-	commandStopSubcluster      = "stop_subcluster"
-	commandStartSubcluster     = "start_subcluster"
-	commandSandboxSC           = "sandbox_subcluster"
-	commandUnsandboxSC         = "unsandbox_subcluster"
-	commandShowRestorePoints   = "show_restore_points"
-	commandInstallPackages     = "install_packages"
-	commandConfigRecover       = "manage_config_recover"
-	commandManageConnections   = "manage_connections"
-	commandReplicationStart    = "replication_start"
-	commandFetchNodesDetails   = "fetch_nodes_details"
-	commandAlterSubclusterType = "alter_subcluster_type"
-	commandRenameSc            = "rename_subcluster"
-	commandReIP                = "re_ip"
+	commandCreateDB                  = "create_db"
+	commandDropDB                    = "drop_db"
+	commandStopDB                    = "stop_db"
+	commandStartDB                   = "start_db"
+	commandAddNode                   = "add_node"
+	commandRemoveNode                = "remove_node"
+	commandStopNode                  = "stop_node"
+	commandRestartNode               = "restart_node"
+	commandAddSubcluster             = "add_subcluster"
+	commandRemoveSubcluster          = "remove_subcluster"
+	commandStopSubcluster            = "stop_subcluster"
+	commandStartSubcluster           = "start_subcluster"
+	commandSandboxSC                 = "sandbox_subcluster"
+	commandUnsandboxSC               = "unsandbox_subcluster"
+	commandShowRestorePoints         = "show_restore_points"
+	commandInstallPackages           = "install_packages"
+	commandConfigRecover             = "manage_config_recover"
+	commandManageConnectionDraining  = "manage_connection_draining"
+	commandSetConfigurationParameter = "set_configuration_parameter"
+	commandReplicationStart          = "replication_start"
+	commandPromoteSandboxToMain      = "promote_sandbox_to_main"
+	commandFetchNodesDetails         = "fetch_nodes_details"
+	commandAlterSubclusterType       = "alter_subcluster_type"
+	commandRenameSc                  = "rename_subcluster"
+	commandReIP                      = "re_ip"
 )
 
 func DatabaseOptionsFactory() DatabaseOptions {
@@ -257,7 +259,7 @@ func (opt *DatabaseOptions) validateUserName(log vlog.Printer) error {
 	return nil
 }
 
-func (opt *DatabaseOptions) setUsePassword(log vlog.Printer) error {
+func (opt *DatabaseOptions) setUsePasswordAndValidateUsernameIfNeeded(log vlog.Printer) error {
 	// when password is specified,
 	// we will use username/password to call https endpoints
 	opt.usePassword = false
@@ -272,15 +274,10 @@ func (opt *DatabaseOptions) setUsePassword(log vlog.Printer) error {
 	return nil
 }
 
-func (opt *DatabaseOptions) setUsePasswordForLocalDBConnection(log vlog.Printer) error {
+func (opt *DatabaseOptions) setUsePassword(_ vlog.Printer) error {
 	opt.usePassword = false
 	if opt.Password != nil {
 		opt.usePassword = true
-	}
-	// username is always required when local db connection is made
-	err := opt.validateUserName(log)
-	if err != nil {
-		return err
 	}
 	return nil
 }

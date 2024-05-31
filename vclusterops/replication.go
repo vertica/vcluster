@@ -72,9 +72,15 @@ func (options *VReplicationDatabaseOptions) validateExtraOptions() error {
 		return err
 	}
 
-	// need to provide a password or certs in source database
+	// need to provide a password or key and certs
 	if options.Password == nil && (options.Cert == "" || options.Key == "") {
-		return fmt.Errorf("must provide a password or certs")
+		// validate key and cert files in local file system
+		_, err = getCertFilePaths()
+		if err != nil {
+			// in case that the key or cert files do not exist
+			return fmt.Errorf("must provide a password, key and certificates explicitly," +
+				" or key and certificate files in the default paths")
+		}
 	}
 
 	// need to provide a password or TLSconfig if source and target username are different
@@ -198,7 +204,7 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	var instructions []clusterOp
 
 	// need username for https operations in source database
-	err := options.setUsePassword(vcc.Log)
+	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

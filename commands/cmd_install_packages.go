@@ -46,7 +46,7 @@ func makeCmdInstallPackages() *cobra.Command {
 		newCmd,
 		installPkgSubCmd,
 		"Install default package(s) in database",
-		`This subcommand installs default packages in the database.
+		`This command installs default packages in the database.
 
 You must provide the --hosts option followed by all hosts in the database as a
 comma-separated list.

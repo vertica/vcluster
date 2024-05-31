@@ -229,7 +229,7 @@ func (vcc VClusterCommands) getVDBFromRunningDBIncludeSandbox(vdb *VCoordination
 // getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, options *DatabaseOptions,
 	allowUseSandboxRes bool, sandbox string, updateNodeState bool) error {
-	err := options.setUsePassword(vcc.Log)
+	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
@@ -270,7 +270,7 @@ func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, 
 
 // getClusterInfoFromRunningDB will retrieve db configurations by calling https endpoints of a running db
 func (vcc VClusterCommands) getClusterInfoFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
-	err := options.setUsePassword(vcc.Log)
+	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to set userPassword while retrieving cluster configurations, %w", err)
 	}

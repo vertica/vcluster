@@ -49,7 +49,7 @@ func makeCmdSandboxSubcluster() *cobra.Command {
 		newCmd,
 		sandboxSubCmd,
 		"Sandbox a subcluster",
-		`This subcommand sandboxes a subcluster in an existing Eon Mode database.
+		`This command sandboxes a subcluster in an existing Eon Mode database.
 
 Only secondary subclusters can be sandboxed. All hosts in the subcluster that
 you want to sandbox must be up.
@@ -76,7 +76,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require name of subcluster to sandbox as well as the sandbox name
-	markFlagsRequired(cmd, []string{subclusterFlag, sandboxFlag})
+	markFlagsRequired(cmd, subclusterFlag, sandboxFlag)
 
 	return cmd
 }
@@ -94,6 +94,24 @@ func (c *CmdSandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 		sandboxFlag,
 		"",
 		"The name of the sandbox",
+	)
+	cmd.Flags().BoolVar(
+		&c.sbOptions.SaveRp,
+		saveRpFlag,
+		false,
+		"A restore point is saved when creating the sandbox",
+	)
+	cmd.Flags().BoolVar(
+		&c.sbOptions.Imeta,
+		isolateMetadataFlag,
+		false,
+		"The metadata of sandboxed subcluster is isolated",
+	)
+	cmd.Flags().BoolVar(
+		&c.sbOptions.Sls,
+		createStorageLocationsFlag,
+		false,
+		"The sandbox create its own storage locations",
 	)
 }
 
@@ -150,7 +168,7 @@ func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		return nil
 	}
 
-	writeErr := dbConfig.write(options.ConfigPath)
+	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
 		vcc.PrintWarning("fail to write the config file, details: " + writeErr.Error())
 		return nil

@@ -47,7 +47,7 @@ func makeCmdStopSubcluster() *cobra.Command {
 		newCmd,
 		stopSCSubCmd,
 		"Stop a subcluster",
-		`This subcommand stops a subcluster from an existing Eon Mode database.
+		`This command stops a subcluster from an existing Eon Mode database.
 
 You must provide the subcluster name with the --subcluster option.
 
@@ -77,7 +77,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require name of subcluster to add
-	markFlagsRequired(cmd, []string{subclusterFlag})
+	markFlagsRequired(cmd, subclusterFlag)
 
 	// hide eon mode flag since we expect it to come from config file, not from user input
 	hideLocalFlags(cmd, []string{eonModeFlag})

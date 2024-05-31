@@ -39,7 +39,7 @@ func makeCmdStopNode() *cobra.Command {
 		newCmd,
 		stopNodeCmd,
 		"Stop a list of node(s)",
-		`This subcommand stops a node or list or nodes from an existing database.
+		`This command stops a node or list or nodes from an existing database.
 
 You must provide the host list with the --stop-hosts option followed by 
 one or more hosts to stop as a comma-separated list.
@@ -60,7 +60,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require hosts to stop
-	markFlagsRequired(cmd, []string{stopNodeFlag})
+	markFlagsRequired(cmd, stopNodeFlag)
 	return cmd
 }
 

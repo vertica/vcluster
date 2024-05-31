@@ -50,7 +50,7 @@ func makeCmdUnsandboxSubcluster() *cobra.Command {
 		newCmd,
 		unsandboxSubCmd,
 		"Unsandbox a subcluster",
-		`This subcommand unsandboxes a subcluster in an existing Eon Mode database.
+		`This command unsandboxes a subcluster in an existing Eon Mode database.
 
 When you unsandbox a subcluster, its hosts shut down and restart as part of the
 main cluster.
@@ -80,7 +80,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require name of subcluster to unsandbox
-	markFlagsRequired(cmd, []string{subclusterFlag})
+	markFlagsRequired(cmd, subclusterFlag)
 
 	return cmd
 }
@@ -143,7 +143,7 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		return nil
 	}
 
-	writeErr := dbConfig.write(options.ConfigPath)
+	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
 		vcc.PrintWarning("fail to write the config file, details: " + writeErr.Error())
 		return nil

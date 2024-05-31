@@ -49,7 +49,7 @@ func makeCmdAddSubcluster() *cobra.Command {
 		newCmd,
 		addSCSubCmd,
 		"Add a subcluster",
-		`This subcommand adds a new subcluster to an existing Eon Mode database.
+		`This command adds a new subcluster to an existing Eon Mode database.
 
 You must provide a subcluster name with the --subcluster option.
 
@@ -89,7 +89,7 @@ Examples:
 	newCmd.setHiddenFlags(cmd)
 
 	// require name of subcluster to add
-	markFlagsRequired(cmd, []string{subclusterFlag})
+	markFlagsRequired(cmd, subclusterFlag)
 
 	// hide eon mode flag since we expect it to come from config file, not from user input
 	hideLocalFlags(cmd, []string{eonModeFlag})
@@ -222,7 +222,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 			return err
 		}
 		// update db info in the config file
-		err = writeConfig(&vdb)
+		err = writeConfig(&vdb, true /*forceOverwrite*/)
 		if err != nil {
 			vcc.PrintWarning("fail to write config file, details: %s", err)
 		}

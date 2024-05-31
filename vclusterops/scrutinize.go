@@ -180,7 +180,7 @@ func (options *VScrutinizeOptions) analyzeOptions(logger vlog.Printer) (err erro
 		return err
 	}
 
-	err = options.setUsePassword(logger)
+	err = options.setUsePasswordAndValidateUsernameIfNeeded(logger)
 	return err
 }
 

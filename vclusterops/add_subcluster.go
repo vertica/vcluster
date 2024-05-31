@@ -180,7 +180,7 @@ func (options *VAddSubclusterOptions) validateAnalyzeOptions(logger vlog.Printer
 	if err != nil {
 		return err
 	}
-	return options.setUsePassword(logger)
+	return options.setUsePasswordAndValidateUsernameIfNeeded(logger)
 }
 
 // VAddSubcluster adds to a running database a new subcluster with provided options.

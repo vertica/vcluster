@@ -16,8 +16,10 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,7 +30,9 @@ import (
 )
 
 const (
-	outputFilePerm = 0644
+	filePerm               = 0644
+	configDirPerm          = 0755
+	defConfigParamFileName = "config_param.json"
 )
 
 /* CmdBase
@@ -43,6 +47,7 @@ type CmdBase struct {
 	// to a file instead of being displayed in stdout. This is the file the output will
 	// be written to
 	output                 string
+	configParamFile        string
 	passwordFile           string
 	readPasswordFromPrompt bool
 }
@@ -70,7 +75,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 	if len(flags) == 0 {
 		return
 	}
-	setConfigFlags(cmd, flags)
+	c.setConfigFlags(cmd, flags)
 	if util.StringInArray(passwordFlag, flags) {
 		c.setPasswordFlags(cmd)
 	}
@@ -132,7 +137,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 
 // setConfigFlags sets the config flag as well as all the common flags that
 // can also be set with values from the config file
-func setConfigFlags(cmd *cobra.Command, flags []string) {
+func (c *CmdBase) setConfigFlags(cmd *cobra.Command, flags []string) {
 	if util.StringInArray(dbNameFlag, flags) {
 		cmd.Flags().StringVarP(
 			&dbOptions.DBName,
@@ -209,7 +214,122 @@ func setConfigFlags(cmd *cobra.Command, flags []string) {
 			configParamFlag,
 			map[string]string{},
 			"Comma-separated list of NAME=VALUE pairs of existing configuration parameters")
+		cmd.Flags().StringVar(
+			&c.configParamFile,
+			configParamFileFlag,
+			"",
+			"Path to config parameter file")
 	}
+}
+
+func (c *CmdBase) initConfigParam() error {
+	// We need to find the path to the config param. The order of precedence is as follows:
+	// 1. Option
+	// 2. Default locations
+	//   a. /opt/vertica/config/config_param.json if running vcluster in /opt/vertica/bin
+	//   b. $HOME/.config/vcluster/config_param.json otherwise
+	//
+	// If none of these things are true, then we run the cli without a config param file.
+
+	if c.configParamFile != "" {
+		return nil
+	}
+
+	// Pick a default config param file
+
+	// If we are running vcluster from /opt/vertica/bin, we'll assume we
+	// have installed the vertica package on this machine and so can assume
+	// /opt/vertica/config exists too.
+	vclusterExePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if vclusterExePath == defaultExecutablePath {
+		if util.CheckPathExist(rpmConfDir) {
+			c.configParamFile = fmt.Sprintf("%s/%s", rpmConfDir, defConfigParamFileName)
+			return nil
+		}
+	}
+	// Finally default to the .config directory in the users home. This is used
+	// by many CLI applications.
+	cfgDir, err := os.UserConfigDir()
+	if err != nil {
+		return err
+	}
+	// Ensure the config directory exists.
+	path := filepath.Join(cfgDir, "vcluster")
+	err = os.MkdirAll(path, configDirPerm)
+	if err != nil {
+		// Just abort if we don't have write access to the config path
+		return err
+	}
+	c.configParamFile = fmt.Sprintf("%s/%s", path, defConfigParamFileName)
+	return nil
+}
+
+// setConfigParam sets the configuration parameters from config param file
+func (c *CmdBase) setConfigParam(opt *vclusterops.DatabaseOptions) error {
+	err := c.initConfigParam()
+	if err != nil {
+		return err
+	}
+
+	if c.configParamFile == "" {
+		return nil
+	}
+	configParam, err := c.getConfigParamFromFile(c.configParamFile)
+	if err != nil {
+		return err
+	}
+	for name, val := range configParam {
+		// allow users to overwrite params in file with --config-param
+		if _, ok := opt.ConfigurationParameters[name]; ok {
+			continue
+		}
+		opt.ConfigurationParameters[name] = val
+	}
+	return nil
+}
+
+func (c *CmdBase) writeConfigParam(configParam map[string]string, forceOverwrite bool) error {
+	if !c.parser.Changed(configParamFlag) {
+		// no new config param specified, no need to write
+		return nil
+	}
+	if c.configParamFile == "" {
+		return fmt.Errorf("config param file path is empty")
+	}
+	if util.CheckPathExist(c.configParamFile) && !forceOverwrite {
+		return fmt.Errorf("file %s exist, consider using --force-overwrite-file to overwrite the file", c.configParamFile)
+	}
+	configParamBytes, err := json.Marshal(&configParam)
+	if err != nil {
+		return fmt.Errorf("fail to marshal configuration parameters, details: %w", err)
+	}
+	err = os.WriteFile(c.configParamFile, configParamBytes, filePerm)
+	if err != nil {
+		return fmt.Errorf("fail to write configuration parameters file, details: %w", err)
+	}
+	return nil
+}
+
+func (c *CmdBase) getConfigParamFromFile(configParamFile string) (map[string]string, error) {
+	if !util.CheckPathExist(configParamFile) {
+		return nil, nil
+	}
+	// Read config param from file
+	configParamBytes, err := os.ReadFile(configParamFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading config param from file %q: %w", configParamFile, err)
+	}
+
+	var configParam map[string]string
+	err = json.Unmarshal(configParamBytes, &configParam)
+	if err != nil {
+		return nil, fmt.Errorf("error reading config param from file %q: %w", configParamFile, err)
+	}
+
+	return configParam, nil
 }
 
 // setPasswordFlags sets all the password flags
@@ -334,7 +454,7 @@ func (c *CmdBase) initCmdOutputFile() (*os.File, error) {
 	if c.output == "" {
 		return nil, fmt.Errorf("output-file cannot be empty")
 	}
-	return os.OpenFile(c.output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outputFilePerm)
+	return os.OpenFile(c.output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
 }
 
 // getCertFilesFromPaths will update cert and key file from cert path options

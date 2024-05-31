@@ -94,7 +94,7 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// either target dbname/hosts or connection file must be provided
+	// either target dbname+hosts or connection file must be provided
 	cmd.MarkFlagsOneRequired(targetConnFlag, targetDBNameFlag)
 	cmd.MarkFlagsOneRequired(targetConnFlag, targetHostsFlag)
 
@@ -139,7 +139,11 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 		&globals.connFile,
 		targetConnFlag,
 		"",
-		"Path to the connection file")
+		"[Required] The connection file created with the create_connection command, "+
+			"containing the database name, hosts, and password (if any) for the target database. "+
+			"Alternatively, you can provide this information manually with --target-db-name, "+
+			"--target-hosts, and --target-password-file",
+	)
 	markFlagsFileName(cmd, map[string][]string{targetConnFlag: {"yaml"}})
 	//  password flags
 	cmd.Flags().StringVar(

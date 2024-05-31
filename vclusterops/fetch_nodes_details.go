@@ -159,7 +159,7 @@ func (vcc *VClusterCommands) produceFetchNodesDetailsInstructions(options *VFetc
 	var instructions []clusterOp
 
 	// when password is specified, we will use username/password to call https endpoints
-	err := options.setUsePassword(vcc.Log)
+	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}

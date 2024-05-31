@@ -34,6 +34,7 @@ const (
 	defConfigFileName        = "vertica_cluster.yaml"
 	currentConfigFileVersion = "1.0"
 	configFilePerm           = 0644
+	rpmConfDir               = "/opt/vertica/config"
 )
 
 // Config is the struct of vertica_cluster.yaml
@@ -114,7 +115,6 @@ func initConfigImpl(vclusterExePath string, ensureOptVerticaConfigExists, ensure
 	// have installed the vertica package on this machine and so can assume
 	// /opt/vertica/config exists too.
 	if vclusterExePath == defaultExecutablePath {
-		const rpmConfDir = "/opt/vertica/config"
 		_, err := os.Stat(rpmConfDir)
 		if ensureOptVerticaConfigExists && err != nil {
 			if os.IsNotExist(err) {
@@ -188,7 +188,7 @@ func loadConfigToViper() error {
 
 // writeConfig can write database information to vertica_cluster.yaml.
 // It will be called in the end of some subcommands that will change the db state.
-func writeConfig(vdb *vclusterops.VCoordinationDatabase) error {
+func writeConfig(vdb *vclusterops.VCoordinationDatabase, forceOverwrite bool) error {
 	if dbOptions.ConfigPath == "" {
 		return fmt.Errorf("configuration file path is empty")
 	}
@@ -199,7 +199,7 @@ func writeConfig(vdb *vclusterops.VCoordinationDatabase) error {
 	}
 
 	// update db config with the given database info
-	err = dbConfig.write(dbOptions.ConfigPath)
+	err = dbConfig.write(dbOptions.ConfigPath, forceOverwrite)
 	if err != nil {
 		return err
 	}
@@ -286,7 +286,10 @@ func readConfig() (dbConfig *DatabaseConfig, err error) {
 // any write error encountered. The viper in-built write function cannot
 // work well(the order of keys cannot be customized) so we used yaml.Marshal()
 // and os.WriteFile() to write the config file.
-func (c *DatabaseConfig) write(configFilePath string) error {
+func (c *DatabaseConfig) write(configFilePath string, forceOverwrite bool) error {
+	if util.CheckPathExist(configFilePath) && !forceOverwrite {
+		return fmt.Errorf("file %s exist, consider using --force-overwrite-file to overwrite the file", configFilePath)
+	}
 	var config Config
 	config.Version = currentConfigFileVersion
 	config.Database = *c

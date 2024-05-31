@@ -42,7 +42,7 @@ func makeCmdShowRestorePoints() *cobra.Command {
 		newCmd,
 		showRestorePointsSubCmd,
 		"Query and list restore point(s) in archive(s)",
-		`This subcommand queries and displays restore points in archives.
+		`This command queries and displays restore points in archives.
 
 The --start-timestamp and --end-timestamp options limit the restore points
 query by creation timestamp. Both options accept UTC timestamps in date-time
@@ -147,7 +147,16 @@ func (c *CmdShowRestorePoints) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-	return c.setDBPassword(&c.showRestorePointsOptions.DatabaseOptions)
+
+	err = c.setDBPassword(&c.showRestorePointsOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	err = c.setConfigParam(&c.showRestorePointsOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *CmdShowRestorePoints) Analyze(logger vlog.Printer) error {

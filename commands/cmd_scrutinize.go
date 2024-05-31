@@ -86,7 +86,7 @@ func makeCmdScrutinize() *cobra.Command {
 		newCmd,
 		scrutinizeSubCmd,
 		"Scrutinize a database",
-		`This subcommand runs scrutinize to collect diagnostic information about a
+		`This command runs scrutinize to collect diagnostic information about a
 database.
 		
 Vertica support might request that you run scrutinize when resolving a support
