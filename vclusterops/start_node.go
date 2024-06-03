@@ -205,6 +205,12 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	// - that don't need to re-ip
 	hostsNoNeedToReIP := options.separateHostsBasedOnReIPNeed(hostNodeNameMap, restartNodeInfo, &vdb, vcc.Log)
 
+	// check primary node count is more than nodes to re-ip, specially for sandboxes
+	err = options.checkQuorum(&vdb, restartNodeInfo)
+	if err != nil {
+		return err
+	}
+
 	// for the hosts that don't need to re-ip,
 	// if none of them is down and no other nodes to re-ip,
 	// we will early stop as there is no need to start them
@@ -242,6 +248,24 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		return fmt.Errorf("fail to restart node, %w", err)
+	}
+	return nil
+}
+
+// primary up node details can vary in case of sandboxes. This check is to ensure quorum is maintained
+// even when a sandbox node is reip'ed
+func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, restartNodeInfo *VStartNodesInfo) error {
+	sandboxPrimaryUpNodes := []string{}
+	for _, vnode := range vdb.HostNodeMap {
+		if vnode.IsPrimary && vnode.State == util.NodeUpState && vnode.Sandbox == restartNodeInfo.Sandbox {
+			sandboxPrimaryUpNodes = append(sandboxPrimaryUpNodes, vnode.Address)
+		}
+	}
+	if len(sandboxPrimaryUpNodes) <= len(restartNodeInfo.ReIPList) {
+		return &ReIPNoClusterQuorumError{
+			Detail: fmt.Sprintf("Quorum check failed: %d up node(s) is/are not enough to re-ip %d node(s)",
+				len(sandboxPrimaryUpNodes), len(restartNodeInfo.ReIPList)),
+		}
 	}
 	return nil
 }

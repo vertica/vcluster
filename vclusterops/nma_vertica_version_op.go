@@ -338,25 +338,9 @@ func (op *nmaVerticaVersionOp) prepareHostNodeMap(execContext *opEngineExecConte
 			hostSCMap[host] = vnode.Subcluster.Name
 			scHostsMap[vnode.Subcluster.Name] = append(scHostsMap[vnode.Subcluster.Name], host)
 		}
-		// find subclusters that hold the target hosts
-		targetSCs := []string{}
-		for _, host := range op.targetNodeIPs {
-			sc, ok := hostSCMap[host]
-			if ok {
-				targetSCs = append(targetSCs, sc)
-			} else {
-				return hostNodeMap, fmt.Errorf("[%s] host %s does not exist in the database", op.name, host)
-			}
-		}
-		// find all hosts that in target subclusters
-		allHostsInTargetSCs := []string{}
-		for _, sc := range targetSCs {
-			hosts, ok := scHostsMap[sc]
-			if ok {
-				allHostsInTargetSCs = append(allHostsInTargetSCs, hosts...)
-			} else {
-				return hostNodeMap, fmt.Errorf("[%s] internal error: subcluster %s was lost when preparing the hosts", op.name, sc)
-			}
+		allHostsInTargetSCs, err := op.findHostsInTargetSubclusters(hostSCMap, scHostsMap)
+		if err != nil {
+			return hostNodeMap, err
 		}
 		// get host-node map for all hosts in target subclusters
 		hostNodeMap = util.FilterMapByKey(execContext.nmaVDatabase.HostNodeMap, allHostsInTargetSCs)
@@ -364,25 +348,56 @@ func (op *nmaVerticaVersionOp) prepareHostNodeMap(execContext *opEngineExecConte
 	return hostNodeMap, nil
 }
 
-// prepareHostNodeMapWithVDB is a helper to make a host-node map for nodes in the main cluster
-// or in a sandbox
+// prepareHostNodeMapWithVDB is a helper to make a host-node map for all nodes in the
+// subclusters of target nodes
 func (op *nmaVerticaVersionOp) prepareHostNodeMapWithVDB() (vHostNodeMap, error) {
 	if len(op.targetNodeIPs) == 0 {
 		return op.vdb.HostNodeMap, nil
 	}
 	hostNodeMap := makeVHostNodeMap()
-	// we pass in the first host because we expect all of the
-	// target hosts to belong to the same cluster
-	sbName, err := op.getSandboxName(op.targetNodeIPs[0])
+	hostSCMap := make(map[string]string)
+	scHostsMap := make(map[string][]string)
+	for host, vnode := range op.vdb.HostNodeMap {
+		hostSCMap[host] = vnode.Subcluster
+		scHostsMap[vnode.Subcluster] = append(scHostsMap[vnode.Subcluster], host)
+	}
+	allHostsInTargetSCs, err := op.findHostsInTargetSubclusters(hostSCMap, scHostsMap)
 	if err != nil {
 		return hostNodeMap, err
 	}
-	for host, vnode := range op.vdb.HostNodeMap {
-		if vnode.Sandbox == sbName {
-			hostNodeMap[host] = vnode
+	// get host-node map for all hosts in target subclusters
+	hostNodeMap = util.FilterMapByKey(op.vdb.HostNodeMap, allHostsInTargetSCs)
+
+	return hostNodeMap, nil
+}
+
+// findHostsInTargetSubclusters is a helper function to get all hosts in the subclusters of
+// target nodes. The parameters of this function are two maps:
+// 1. host-subcluster map for the entire database
+// 2. subcluster-hosts map for the entire database
+func (op *nmaVerticaVersionOp) findHostsInTargetSubclusters(hostSCMap map[string]string,
+	scHostsMap map[string][]string) ([]string, error) {
+	allHostsInTargetSCs := []string{}
+	// find subclusters that hold the target hosts
+	targetSCs := []string{}
+	for _, host := range op.targetNodeIPs {
+		sc, ok := hostSCMap[host]
+		if ok {
+			targetSCs = append(targetSCs, sc)
+		} else {
+			return allHostsInTargetSCs, fmt.Errorf("[%s] host %s does not exist in the database", op.name, host)
 		}
 	}
-	return hostNodeMap, nil
+	// find all hosts that in target subclusters
+	for _, sc := range targetSCs {
+		hosts, ok := scHostsMap[sc]
+		if ok {
+			allHostsInTargetSCs = append(allHostsInTargetSCs, hosts...)
+		} else {
+			return allHostsInTargetSCs, fmt.Errorf("[%s] internal error: subcluster %s was lost when preparing the hosts", op.name, sc)
+		}
+	}
+	return allHostsInTargetSCs, nil
 }
 
 func (op *nmaVerticaVersionOp) buildHostVersionMapDefault() {
@@ -442,12 +457,4 @@ func (op *nmaVerticaVersionOp) buildHostVersionMapWithVDB(execContext *opEngineE
 		op.SCToHostVersionMap[sc][host] = ""
 	}
 	return nil
-}
-
-func (op *nmaVerticaVersionOp) getSandboxName(host string) (string, error) {
-	vnode, ok := op.vdb.HostNodeMap[host]
-	if !ok {
-		return "", fmt.Errorf("[%s] host %s does not exist in the database", op.name, host)
-	}
-	return vnode.Sandbox, nil
 }

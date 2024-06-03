@@ -359,3 +359,96 @@ func validateHostMaps(hosts []string, maps ...map[string]string) error {
 	}
 	return allErrors
 }
+
+// reIP will do re-IP before sandboxing/unsandboxing if we find the catalog has stale node IPs.
+// reIP will be called in three cases:
+// 1. when sandboxing a subcluster, we will do re-ip in target sandbox since the node IPs in
+// the main cluster could be changed. For example, a pod in main cluster gets restarted in k8s
+// will cause inconsistent IPs between the sandbox and the main cluster. The target sandbox will
+// have a stale node IP so adding that pod to the sandbox will fail.
+// 2. when unsandboxing a subcluster, we will do re-ip in the main cluster since the node IPs
+// in the sandbox could be changed. For example, a pod in a sandbox gets restarted in k8s will
+// cause inconsistent IPs between the sandbox and the main cluster. The main cluster will
+// have a stale node IP so moving that pod back to the main cluster will fail.
+// 3. when removing a subcluster, we will do re-ip in the main cluster since the node IPs in
+// the subcluster could be changed. This is a special case in k8s online upgrade, when a pod in
+// a transient subcluster gets killed, we will not restart the pods in the subcluster. Instead,
+// we will remove the subcluster. At this time, the nodes inside the subcluster have different IPs
+// than the ones in the catalog, so removing subcluster will fail when deleting the catalog directories.
+// We cannot find the correct nodes to do the deletion.
+func (vcc *VClusterCommands) reIP(options *DatabaseOptions, scName, primaryUpHost string,
+	nodeNameAddressMap map[string]string, reloadSpread bool) error {
+	reIPList := []ReIPInfo{}
+	reIPHosts := []string{}
+	vdb := makeVCoordinationDatabase()
+
+	backupHosts := options.Hosts
+	// only use one up node in the sandbox/main-cluster to retrieve nodes' info,
+	// then we can get the latest node IPs in the sandbox/main-cluster.
+	// When the operation is sandbox, the initiator will be a primary up node
+	// from the target sandbox.
+	// When the operation is unsandbox, the initiator will be a primary up node
+	// from the main cluster.
+	// When the operation is remove_subcluster, the initiator will be a primary
+	// up node from the main cluster.
+	initiator := []string{primaryUpHost}
+	options.Hosts = initiator
+	err := vcc.getVDBFromRunningDBIncludeSandbox(&vdb, options, AnySandbox)
+	if err != nil {
+		return fmt.Errorf("host %q in database is not available: %w", primaryUpHost, err)
+	}
+	// restore the options.Hosts for later creating sandbox/unsandbox instructions
+	options.Hosts = backupHosts
+
+	// if the current node IPs doesn't match the expected ones, we need to do re-ip
+	for _, vnode := range vdb.HostNodeMap {
+		address, ok := nodeNameAddressMap[vnode.Name]
+		if ok && address != vnode.Address {
+			reIPList = append(reIPList, ReIPInfo{NodeName: vnode.Name, TargetAddress: address})
+			reIPHosts = append(reIPHosts, address)
+		}
+	}
+	if len(reIPList) > 0 {
+		return vcc.doReIP(options, scName, initiator, reIPHosts, reIPList, reloadSpread)
+	}
+	return nil
+}
+
+// doReIP will call NMA and HTTPs endpoints to fix the IPs in the catalog.
+// It will execute below steps:
+// 1. collect network profile for the nodes that need to re-ip
+// 2. execute re-ip on a primary up host
+// 3. reload spread on a primary up host if needed
+func (vcc *VClusterCommands) doReIP(options *DatabaseOptions, scName string,
+	initiator, reIPHosts []string, reIPList []ReIPInfo, reloadSpread bool) error {
+	var instructions []clusterOp
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(reIPHosts)
+	err := options.setUsePassword(vcc.Log)
+	if err != nil {
+		return err
+	}
+	instructions = append(instructions, &nmaNetworkProfileOp)
+	for _, reIPNode := range reIPList {
+		httpsReIPOp, e := makeHTTPSReIPOpWithHosts(initiator, []string{reIPNode.NodeName},
+			[]string{reIPNode.TargetAddress}, options.usePassword, options.UserName, options.Password)
+		if e != nil {
+			return e
+		}
+		instructions = append(instructions, &httpsReIPOp)
+	}
+	if reloadSpread {
+		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOpWithInitiator(initiator, options.usePassword, options.UserName, options.Password)
+		if e != nil {
+			return err
+		}
+		instructions = append(instructions, &httpsReloadSpreadOp)
+	}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	err = clusterOpEngine.run(vcc.Log)
+	if err != nil {
+		return fmt.Errorf("failed to re-ip nodes of subcluster %q: %w", scName, err)
+	}
+
+	return nil
+}

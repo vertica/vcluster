@@ -302,7 +302,7 @@ func (options *VUnsandboxOptions) runCommand(vcc VClusterCommands) error {
 	// to provide some node information
 	if options.PrimaryUpHost != "" && len(options.NodeNameAddressMap) > 0 {
 		err := vcc.reIP(&options.DatabaseOptions, options.SCName, options.PrimaryUpHost,
-			options.NodeNameAddressMap)
+			options.NodeNameAddressMap, true /*reload spread*/)
 		if err != nil {
 			return err
 		}

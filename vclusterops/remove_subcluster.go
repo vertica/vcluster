@@ -30,6 +30,13 @@ type VRemoveScOptions struct {
 	DatabaseOptions
 	SCName      string // subcluster to remove from database
 	ForceDelete bool   // whether force delete directories
+	// The expected node names with their IPs in the subcluster, the user of vclusterOps needs
+	// to make sure the provided values are correct. This option will be used to do re-ip in
+	// the cluster that contains the subcluster.
+	NodeNameAddressMap map[string]string
+	// A primary up host in another subcluster that belongs to same cluster as the target subcluster.
+	// This option will be used to do re-ip in the cluster.
+	PrimaryUpHost string
 }
 
 func VRemoveScOptionsFactory() VRemoveScOptions {
@@ -139,6 +146,21 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 	err := removeScOpt.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return vdb, err
+	}
+
+	// If the users provide extra node information, we will check and do re-ip for the nodes in
+	// the subcluster if necessary. This is to address the case where catalog has stale IPs of the
+	// nodes in the subcluster, which would cause a node removal failure at delete-directory step.
+	if removeScOpt.PrimaryUpHost != "" && len(removeScOpt.NodeNameAddressMap) > 0 {
+		e := vcc.reIP(&removeScOpt.DatabaseOptions,
+			removeScOpt.SCName,
+			removeScOpt.PrimaryUpHost,
+			removeScOpt.NodeNameAddressMap,
+			// we will do reload spread in remove_node so we don't need to do reload spread here
+			false /*reload spread*/)
+		if e != nil {
+			return vdb, e
+		}
 	}
 
 	// pre-check: should not remove the default subcluster
