@@ -169,7 +169,7 @@ func (op *httpsCheckRunningDBOp) generateHintMessage(host, dbName string) (msg s
 	case DropDB:
 		msg = fmt.Sprintf("%s, please stop the HTTPS service before dropping the existing database.", generalMsg)
 	case ReIP:
-		msg = fmt.Sprintf("%s, please consider using restart_node to re-ip nodes for the running database.", generalMsg)
+		msg = fmt.Sprintf("%s, please consider using start_node to re-ip nodes for the running database.", generalMsg)
 	case StopDB, StartDB, ReviveDB, StopSC:
 		msg = fmt.Sprintf("%s.", generalMsg)
 	}

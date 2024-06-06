@@ -65,12 +65,13 @@ func (c *CmdConfigShow) Parse(inputArgv []string, logger vlog.Printer) error {
 	return nil
 }
 
-func (c *CmdConfigShow) Run(_ vclusterops.ClusterCommands) error {
+func (c *CmdConfigShow) Run(vcc vclusterops.ClusterCommands) error {
 	fileBytes, err := os.ReadFile(dbOptions.ConfigPath)
 	if err != nil {
 		return fmt.Errorf("fail to read config file, details: %w", err)
 	}
 	fmt.Printf("%s", string(fileBytes))
+	vcc.DisplayInfo("Successfully read the config file %s", dbOptions.ConfigPath)
 
 	return nil
 }

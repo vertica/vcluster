@@ -239,7 +239,7 @@ func (c *CmdStartReplication) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.LogError(err, "fail to replicate to database", "targetDB", options.TargetDB)
 		return err
 	}
-	vcc.PrintInfo("Successfully replicate to database %s", options.TargetDB)
+	vcc.DisplayInfo("Successfully replicated to database %s", options.TargetDB)
 	return nil
 }
 

@@ -148,21 +148,21 @@ func (c *CmdStopDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VStopDatabase(options)
 	if err != nil {
-		vcc.LogError(err, "failed to stop the database")
+		vcc.LogError(err, "fail to stop the database")
 		return err
 	}
-	msg := fmt.Sprintf("Stopped a database with name %s", options.DBName)
+	msg := fmt.Sprintf("Successfully stopped a database with name %s", options.DBName)
 	if options.SandboxName != "" {
 		sandboxMsg := fmt.Sprintf(" on sandbox %s", options.SandboxName)
-		vcc.PrintInfo(msg + sandboxMsg)
+		vcc.DisplayInfo(msg + sandboxMsg)
 		return nil
 	}
 	if options.MainCluster {
 		stopMsg := " on main cluster"
-		vcc.PrintInfo(msg + stopMsg)
+		vcc.DisplayInfo(msg + stopMsg)
 		return nil
 	}
-	vcc.PrintInfo(msg)
+	vcc.DisplayInfo(msg)
 	return nil
 }
 

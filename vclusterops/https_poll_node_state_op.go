@@ -40,7 +40,7 @@ func (cmd CmdType) String() string {
 	case StartDBCmd:
 		return "start_db"
 	case StartNodeCmd:
-		return "restart_node"
+		return "start_node"
 	case CreateDBCmd:
 		return "create_db"
 	}

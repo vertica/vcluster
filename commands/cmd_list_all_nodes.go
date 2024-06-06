@@ -105,7 +105,7 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
 		// if all nodes are down, the nodeStates list is not empty
 		// for this case, we don't want to show errors but show DOWN for the nodes
 		if len(nodeStates) == 0 {
-			vcc.PrintError("fail to list all nodes: %s", err)
+			vcc.LogError(err, "fail to list all nodes")
 			return err
 		}
 	}
@@ -117,6 +117,7 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
 
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 	vcc.LogInfo("Node states: ", "nodeStates", string(bytes))
+	vcc.DisplayInfo("Successfully listed all nodes")
 	return nil
 }
 

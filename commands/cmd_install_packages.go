@@ -117,7 +117,7 @@ func (c *CmdInstallPackages) Run(vcc vclusterops.ClusterCommands) error {
 
 	status, err := vcc.VInstallPackages(options)
 	if err != nil {
-		vcc.LogError(err, "failed to install the packages")
+		vcc.LogError(err, "fail to install the packages")
 		return err
 	}
 
@@ -129,7 +129,7 @@ func (c *CmdInstallPackages) Run(vcc vclusterops.ClusterCommands) error {
 
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 	vcc.LogInfo("Installed the packages: ", "packages", string(bytes))
-
+	vcc.DisplayInfo("Successfully installed packages")
 	return nil
 }
 

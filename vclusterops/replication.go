@@ -163,9 +163,9 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 		return err
 	}
 
-	// retrieve information from the database to accurately determine the state of each node in both the main cluster and andbox
+	// retrieve information from the database to accurately determine the state of each node in both the main cluster and a given sandbox
 	vdb := makeVCoordinationDatabase()
-	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, AnySandbox)
+	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, options.SandboxName)
 	if err != nil {
 		return err
 	}

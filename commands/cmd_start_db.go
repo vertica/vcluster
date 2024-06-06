@@ -52,7 +52,7 @@ func makeCmdStartDB() *cobra.Command {
 		`This command starts a database on a set of hosts.
 
 Starts Vertica on each host and establishes cluster quorum. This command is 
-similar to restart_node, except start_db assumes that cluster quorum
+similar to start_node, except start_db assumes that cluster quorum
 has been lost.
 
 The IP address provided for each node name must match the current IP address
@@ -224,7 +224,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 		}
 		options.FirstStartAfterRevive = dbConfig.FirstStartAfterRevive
 	} else {
-		vcc.PrintWarning("fail to read config file", "error", readConfigErr)
+		vcc.DisplayWarning("fail to read config file", "error", readConfigErr)
 		if options.MainCluster || options.Sandbox != util.MainClusterSandbox {
 			return fmt.Errorf("cannot start the database partially without config file")
 		}
@@ -232,21 +232,22 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	vdb, err := vcc.VStartDatabase(options)
 	if err != nil {
-		vcc.LogError(err, "failed to start the database")
+		vcc.LogError(err, "fail to start the database")
 		return err
 	}
+
 	msg := fmt.Sprintf("Started database %s", options.DBName)
 	if options.Sandbox != "" {
 		sandboxMsg := fmt.Sprintf(" on sandbox %s", options.Sandbox)
-		vcc.PrintInfo(msg + sandboxMsg)
+		vcc.DisplayInfo(msg + sandboxMsg)
 		return nil
 	}
 	if options.MainCluster {
 		startMsg := " on the main cluster"
-		vcc.PrintInfo(msg + startMsg)
+		vcc.DisplayInfo(msg + startMsg)
 		return nil
 	}
-	vcc.PrintInfo(msg)
+	vcc.DisplayInfo(msg)
 
 	// for Eon database, update config file to fill nodes' subcluster information
 	if readConfigErr == nil && options.IsEon {
@@ -254,7 +255,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 		vdb.FirstStartAfterRevive = false
 		err = writeConfig(vdb, true /*forceOverwrite*/)
 		if err != nil {
-			vcc.PrintWarning("fail to update config file, details: %s", err)
+			vcc.DisplayWarning("fail to update config file, details: %s", err)
 		}
 	}
 

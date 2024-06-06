@@ -122,6 +122,7 @@ func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabas
 	vdb.HostList = make([]string, len(options.Hosts))
 	vdb.HostList = options.Hosts
 	vdb.LicensePathOnNode = options.LicensePathOnNode
+	vdb.Ipv6 = options.IPv6
 
 	if options.GetAwsCredentialsFromEnv {
 		err := vdb.getAwsCredentialsFromEnv()

@@ -24,13 +24,13 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-/* CmdRestartNodes
+/* CmdStartNodes
  *
  * Implements ClusterCommand interface
  */
-type CmdRestartNodes struct {
+type CmdStartNodes struct {
 	CmdBase
-	restartNodesOptions *vclusterops.VStartNodesOptions
+	startNodesOptions *vclusterops.VStartNodesOptions
 
 	// comma-separated list of vnode=host
 	vnodeHostMap map[string]string
@@ -39,40 +39,40 @@ type CmdRestartNodes struct {
 	rawStartHostList []string
 }
 
-func makeCmdRestartNodes() *cobra.Command {
-	// CmdRestartNodes
-	newCmd := &CmdRestartNodes{}
+func makeCmdStartNodes() *cobra.Command {
+	// CmdStartNodes
+	newCmd := &CmdStartNodes{}
 	opt := vclusterops.VStartNodesOptionsFactory()
-	newCmd.restartNodesOptions = &opt
+	newCmd.startNodesOptions = &opt
 
 	cmd := makeBasicCobraCmd(
 		newCmd,
-		restartNodeSubCmd,
-		"Restart nodes in the database",
+		startNodeSubCmd,
+		"Start nodes in the database",
 		`This command starts individual nodes in a running cluster. This
 differs from start_db, which starts Vertica after cluster quorum is lost.
 
-You can pass --restart a comma-separated list of NODE_NAME=IP_TO_RESTART pairs
-to restart multiple nodes without a config file. If the IP_TO_RESTART value
+You can pass --start a comma-separated list of NODE_NAME=IP_TO_START pairs
+to start multiple nodes without a config file. If the IP_TO_START value
 does not match the information stored in the catalog for NODE_NAME, Vertica
-updates the catalog with the IP_TO_RESTART value and restarts the node.
+updates the catalog with the IP_TO_START value and starts the node.
 
 Examples:
-  # Restart a single node in the database with config file
-  vcluster restart_node --db-name test_db \
-    --restart v_test_db_node0004=10.20.30.43 --password testpassword \
+  # Start a single node in the database with config file
+  vcluster start_node --db-name test_db \
+    --start v_test_db_node0004=10.20.30.43 --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
 
-  # Restart a single node and change its IP address in the database
+  # Start a single node and change its IP address in the database
   # with config file (assuming the node IP address previously stored
   # catalog was not 10.20.30.44)
-  vcluster restart_node --db-name test_db \
-    --restart v_test_db_node0004=10.20.30.44 --password testpassword \
+  vcluster start_node --db-name test_db \
+    --start v_test_db_node0004=10.20.30.44 --password testpassword \
     --config /opt/vertica/config/vertica_cluster.yaml
 
-  # Restart multiple nodes in the database with config file
-  vcluster restart_node --db-name test_db \
-    --restart v_test_db_node0003=10.20.30.42,v_test_db_node0004=10.20.30.43 \
+  # Start multiple nodes in the database with config file
+  vcluster start_node --db-name test_db \
+    --start v_test_db_node0003=10.20.30.42,v_test_db_node0004=10.20.30.43 \
     --password testpassword --config /opt/vertica/config/vertica_cluster.yaml	
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag},
@@ -81,19 +81,19 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// require nodes or hosts to restart
+	// require nodes or hosts to start
 	markFlagsOneRequired(cmd, []string{startNodeFlag, startHostFlag})
 
 	return cmd
 }
 
 // setLocalFlags will set the local flags the command has
-func (c *CmdRestartNodes) setLocalFlags(cmd *cobra.Command) {
+func (c *CmdStartNodes) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringToStringVar(
 		&c.vnodeHostMap,
 		startNodeFlag,
 		map[string]string{},
-		"Comma-separated list of <node_name=re_ip_host> pairs part of the database nodes that need to be restarted",
+		"Comma-separated list of <node_name=re_ip_host> pairs part of the database nodes that need to be started",
 	)
 	cmd.Flags().StringSliceVar(
 		&c.rawStartHostList,
@@ -102,85 +102,84 @@ func (c *CmdRestartNodes) setLocalFlags(cmd *cobra.Command) {
 		"Comma-separated list of hosts that need to be started",
 	)
 	cmd.Flags().IntVar(
-		&c.restartNodesOptions.StatePollingTimeout,
+		&c.startNodesOptions.StatePollingTimeout,
 		"timeout",
 		util.DefaultTimeoutSeconds,
 		"The timeout (in seconds) to wait for polling node state operation",
 	)
 
-	// VER-90436: restart -> start
-	// users only input --restart or --start-hosts
+	// users only input --start or --start-hosts
 	cmd.MarkFlagsMutuallyExclusive([]string{startNodeFlag, startHostFlag}...)
 }
 
-func (c *CmdRestartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
+func (c *CmdStartNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
 	logger.LogArgParse(&c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
 	// reset the value of those options to nil
-	c.ResetUserInputOptions(&c.restartNodesOptions.DatabaseOptions)
+	c.ResetUserInputOptions(&c.startNodesOptions.DatabaseOptions)
 
 	return c.validateParse(logger)
 }
 
-func (c *CmdRestartNodes) validateParse(logger vlog.Printer) error {
+func (c *CmdStartNodes) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	// VER-90436: restart -> start
 	// the node-host map can be loaded from the value of
-	// either --restart or --start-hosts
+	// either --start or --start-hosts
 	if len(c.rawStartHostList) > 0 {
-		err := c.buildRestartNodeHostMap()
+		err := c.buildStartNodeHostMap()
 		if err != nil {
 			return err
 		}
 	} else {
-		err := c.restartNodesOptions.ParseNodesList(c.vnodeHostMap)
+		err := c.startNodesOptions.ParseNodesList(c.vnodeHostMap)
 		if err != nil {
 			return err
 		}
 	}
 
-	err := c.getCertFilesFromCertPaths(&c.restartNodesOptions.DatabaseOptions)
+	err := c.getCertFilesFromCertPaths(&c.startNodesOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
 
-	err = c.ValidateParseBaseOptions(&c.restartNodesOptions.DatabaseOptions)
+	err = c.ValidateParseBaseOptions(&c.startNodesOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
-	return c.setDBPassword(&c.restartNodesOptions.DatabaseOptions)
+	return c.setDBPassword(&c.startNodesOptions.DatabaseOptions)
 }
 
-func (c *CmdRestartNodes) Run(vcc vclusterops.ClusterCommands) error {
+func (c *CmdStartNodes) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 
-	options := c.restartNodesOptions
+	options := c.startNodesOptions
 
 	// this is the instruction that will be used by both CLI and operator
 	err := vcc.VStartNodes(options)
 	if err != nil {
+		vcc.LogError(err, "fail to start node")
 		return err
 	}
 
-	var hostToRestart []string
+	var hostToStart []string
 	for _, ip := range options.Nodes {
-		hostToRestart = append(hostToRestart, ip)
+		hostToStart = append(hostToStart, ip)
 	}
-	vcc.PrintInfo("Successfully restart hosts %s of the database %s", hostToRestart, options.DBName)
+	vcc.DisplayInfo("Successfully started hosts %s of the database %s", hostToStart, options.DBName)
 
 	return nil
 }
 
-// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdRestartNodes
-func (c *CmdRestartNodes) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
-	c.restartNodesOptions.DatabaseOptions = *opt
+// SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStartNodes
+func (c *CmdStartNodes) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
+	c.startNodesOptions.DatabaseOptions = *opt
 }
 
-func (c *CmdRestartNodes) buildRestartNodeHostMap() error {
+func (c *CmdStartNodes) buildStartNodeHostMap() error {
 	dbConfig, err := readConfig()
 	if err != nil {
 		return fmt.Errorf("--start-hosts can only be used when "+
@@ -193,7 +192,7 @@ func (c *CmdRestartNodes) buildRestartNodeHostMap() error {
 	}
 
 	for _, rawHost := range c.rawStartHostList {
-		ip, err := util.ResolveToOneIP(rawHost, c.restartNodesOptions.IPv6)
+		ip, err := util.ResolveToOneIP(rawHost, c.startNodesOptions.IPv6)
 		if err != nil {
 			return err
 		}
@@ -202,7 +201,7 @@ func (c *CmdRestartNodes) buildRestartNodeHostMap() error {
 			return fmt.Errorf("cannot find the address %s (of host %s) from the config file",
 				ip, rawHost)
 		}
-		c.restartNodesOptions.Nodes[nodeName] = ip
+		c.startNodesOptions.Nodes[nodeName] = ip
 	}
 
 	return nil

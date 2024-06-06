@@ -112,7 +112,7 @@ func (c *CmdCreateConnection) Run(vcc vclusterops.ClusterCommands) error {
 	if err != nil {
 		return fmt.Errorf("fail to write connection file, details: %s", err)
 	}
-	fmt.Printf("Successfully write connection file in %s", globals.connFile)
+	vcc.DisplayInfo("Successfully wrote the connection file in %s", globals.connFile)
 	return nil
 }
 

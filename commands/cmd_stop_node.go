@@ -104,10 +104,10 @@ func (c *CmdStopNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VStopNode(options)
 	if err != nil {
-		vcc.LogError(err, "failed to stop the nodes", "Nodes", c.stopNodeOptions.StopHosts)
+		vcc.LogError(err, "fail to stop the nodes", "Nodes", c.stopNodeOptions.StopHosts)
 		return err
 	}
-	vcc.PrintInfo("Successfully stopped the nodes %v", c.stopNodeOptions.StopHosts)
+	vcc.DisplayInfo("Successfully stopped the nodes %v", c.stopNodeOptions.StopHosts)
 	return nil
 }
 

@@ -92,7 +92,7 @@ const (
 	commandAddNode                   = "add_node"
 	commandRemoveNode                = "remove_node"
 	commandStopNode                  = "stop_node"
-	commandRestartNode               = "restart_node"
+	commandStartNode                 = "start_node"
 	commandAddSubcluster             = "add_subcluster"
 	commandRemoveSubcluster          = "remove_subcluster"
 	commandStopSubcluster            = "stop_subcluster"

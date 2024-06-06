@@ -125,27 +125,27 @@ func (c *CmdUnsandboxSubcluster) Analyze(logger vlog.Printer) error {
 }
 
 func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
-	vcc.PrintInfo("Running unsandbox subcluster")
 	vcc.LogInfo("Calling method Run() for command " + unsandboxSubCmd)
 
 	options := c.usOptions
 
 	err := vcc.VUnsandbox(&options)
 	if err != nil {
+		vcc.LogError(err, "fail to unsandbox subcluster")
 		return err
 	}
 
-	defer vcc.PrintInfo("Successfully unsandboxed subcluster " + c.usOptions.SCName)
+	defer vcc.DisplayInfo("Successfully unsandboxed subcluster " + c.usOptions.SCName)
 	// Read and then update the sandbox information on config file
 	dbConfig, configErr := c.resetSandboxInfo()
 	if configErr != nil {
-		vcc.PrintWarning("fail to update config file : ", "error", configErr)
+		vcc.DisplayWarning("fail to update config file : ", "error", configErr)
 		return nil
 	}
 
 	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
-		vcc.PrintWarning("fail to write the config file, details: " + writeErr.Error())
+		vcc.DisplayWarning("fail to write the config file, details: " + writeErr.Error())
 		return nil
 	}
 	return nil

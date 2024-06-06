@@ -82,12 +82,6 @@ func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"Name of subcluster to be removed",
 	)
-	cmd.Flags().BoolVar(
-		&c.removeScOptions.ForceDelete,
-		"force-delete",
-		true,
-		"Whether force delete directories if they are not empty",
-	)
 }
 
 func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -130,16 +124,18 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	vdb, err := vcc.VRemoveSubcluster(options)
 	if err != nil {
+		vcc.LogError(err, "fail to remove subcluster")
 		return err
 	}
+
+	vcc.DisplayInfo("Successfully removed subcluster %s from database %s",
+		options.SCName, options.DBName)
 
 	// write db info to vcluster config file
 	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.PrintWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("fail to write config file, details: %s", err)
 	}
-	vcc.PrintInfo("Successfully removed subcluster %s from database %s",
-		options.SCName, options.DBName)
 
 	return nil
 }

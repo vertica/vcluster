@@ -31,6 +31,7 @@ func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	options := VDropDatabaseOptions{}
 	// set default values to the params
 	options.setDefaultValues()
+	options.ForceDelete = true
 
 	return options
 }

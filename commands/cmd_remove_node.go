@@ -81,12 +81,6 @@ func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
 		[]string{},
 		"Comma-separated list of host(s) to remove from the database",
 	)
-	cmd.Flags().BoolVar(
-		&c.removeNodeOptions.ForceDelete,
-		"force-delete",
-		true,
-		"Whether to force clean-up of existing directories if they are not empty",
-	)
 }
 
 func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -140,15 +134,16 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	vdb, err := vcc.VRemoveNode(options)
 	if err != nil {
+		vcc.LogError(err, "fail to remove node")
 		return err
 	}
 
 	// write db info to vcluster config file
 	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.PrintWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("fail to write config file, details: %s", err)
 	}
-	vcc.PrintInfo("Successfully removed nodes %v from database %s", c.removeNodeOptions.HostsToRemove, options.DBName)
+	vcc.DisplayInfo("Successfully removed nodes %v from database %s", c.removeNodeOptions.HostsToRemove, options.DBName)
 
 	return nil
 }

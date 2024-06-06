@@ -16,8 +16,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -211,7 +209,7 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		&c.createDBOptions.TimeoutNodeStartupSeconds,
 		"startup-timeout",
 		util.DefaultTimeoutSeconds,
-		"The timeout to wait for the nodes to start",
+		"The timeout in seconds to wait for the nodes to start",
 	)
 }
 
@@ -275,20 +273,22 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
+		vcc.LogError(createError, "fail to create database")
 		return createError
 	}
+
+	vcc.DisplayInfo("Successfully created a database with name [%s]", vdb.Name)
 
 	// write db info to vcluster config file
 	err := writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile)
 	if err != nil {
-		fmt.Printf("Warning: Fail to write config file, details: %s\n", err)
+		vcc.DisplayWarning("Fail to write config file, details: %s\n", err)
 	}
 	// write config parameters to vcluster config param file
 	err = c.writeConfigParam(c.createDBOptions.ConfigurationParameters, c.createDBOptions.ForceOverwriteFile)
 	if err != nil {
-		vcc.PrintWarning("fail to write config param file, details: %s", err)
+		vcc.DisplayWarning("fail to write config param file, details: %s", err)
 	}
-	vcc.PrintInfo("Created a database with name [%s]", vdb.Name)
 	return nil
 }
 

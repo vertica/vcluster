@@ -193,18 +193,19 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.addNodeOptions
 
-	vdb, addNodeError := vcc.VAddNode(options)
-	if addNodeError != nil {
-		return addNodeError
+	vdb, err := vcc.VAddNode(options)
+	if err != nil {
+		vcc.LogError(err, "fail to add node")
+		return err
 	}
 
 	// write db info to vcluster config file
-	err := writeConfig(&vdb, true /*forceOverwrite*/)
+	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.PrintWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("fail to write config file, details: %s", err)
 	}
 
-	vcc.PrintInfo("Added nodes %v to database %s", c.addNodeOptions.NewHosts, options.DBName)
+	vcc.DisplayInfo("Successfully added nodes %v to database %s", c.addNodeOptions.NewHosts, options.DBName)
 	return nil
 }
 

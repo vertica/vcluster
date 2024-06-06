@@ -127,10 +127,11 @@ func (c *CmdStartSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VStartSubcluster(options)
 	if err != nil {
+		vcc.LogError(err, "fail to start subcluster")
 		return err
 	}
 
-	vcc.PrintInfo("Successfully started subcluster %s for database %s",
+	vcc.DisplayInfo("Successfully started subcluster %s for database %s",
 		options.SCName, options.DBName)
 
 	return nil

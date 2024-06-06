@@ -125,21 +125,20 @@ func TestCreateConnection(t *testing.T) {
 	assert.Equal(t, hosts, dbConn.TargetHosts[0])
 }
 
-// VER-90436: restart -> start
 func TestStartNode(t *testing.T) {
-	// either --restart or --start-hosts must be specified
-	err := simulateVClusterCli("vcluster restart_node")
-	assert.ErrorContains(t, err, "at least one of the flags in the group [restart start-hosts] is required")
+	// either --start or --start-hosts must be specified
+	err := simulateVClusterCli("vcluster start_node")
+	assert.ErrorContains(t, err, "at least one of the flags in the group [start start-hosts] is required")
 
-	// --restart should be followed with the key1=value1,key2=value2 format
-	err = simulateVClusterCli("vcluster restart_node --restart host1")
-	assert.ErrorContains(t, err, `"--restart" flag: host1 must be formatted as key=value`)
+	// --start should be followed with the key1=value1,key2=value2 format
+	err = simulateVClusterCli("vcluster start_node --start host1")
+	assert.ErrorContains(t, err, `"--start" flag: host1 must be formatted as key=value`)
 
 	// --start-hosts should be used with the config file
-	err = simulateVClusterCli("vcluster restart_node --start-hosts host1")
+	err = simulateVClusterCli("vcluster start_node --start-hosts host1")
 	assert.ErrorContains(t, err, "--start-hosts can only be used when the config file is available")
 
-	// --restart or --start-hosts cannot be both specified
-	err = simulateVClusterCli("vcluster restart_node --restart node1=host1 --start-hosts host1")
-	assert.ErrorContains(t, err, "[restart start-hosts] were all set")
+	// --start or --start-hosts cannot be both specified
+	err = simulateVClusterCli("vcluster start_node --start node1=host1 --start-hosts host1")
+	assert.ErrorContains(t, err, "[start start-hosts] were all set")
 }

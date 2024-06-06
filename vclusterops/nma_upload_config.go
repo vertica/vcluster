@@ -107,7 +107,7 @@ func (op *nmaUploadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 func (op *nmaUploadConfigOp) prepare(execContext *opEngineExecContext) error {
 	op.catalogPathMap = make(map[string]string)
 	// If any node's info is available, we set catalogPathMap from node's info.
-	// This case is used for restarting nodes operation.
+	// This case is used for starting nodes operation.
 	// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
 	if op.vdb == nil || len(op.vdb.HostNodeMap) == 0 {
 		nmaVDB := execContext.nmaVDatabase

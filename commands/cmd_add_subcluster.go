@@ -16,8 +16,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vertica/vcluster/vclusterops"
@@ -203,7 +201,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VAddSubcluster(options)
 	if err != nil {
-		vcc.LogError(err, "failed to add subcluster")
+		vcc.LogError(err, "fail to add subcluster")
 		return err
 	}
 
@@ -215,24 +213,23 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 		vdb, err := vcc.VAddNode(&options.VAddNodeOptions)
 		if err != nil {
-			const msg = "Failed to add nodes into the new subcluster"
-			vcc.LogError(err, msg)
-			fmt.Printf("%s\nHint: subcluster %q is successfully created, you should use add_node to add nodes\n",
+			const msg = "Fail to add nodes into the new subcluster"
+			vcc.DisplayError("%s\nHint: subcluster %q is successfully created, you should use add_node to add nodes\n",
 				msg, options.VAddNodeOptions.SCName)
 			return err
 		}
 		// update db info in the config file
 		err = writeConfig(&vdb, true /*forceOverwrite*/)
 		if err != nil {
-			vcc.PrintWarning("fail to write config file, details: %s", err)
+			vcc.DisplayWarning("fail to write config file, details: %s", err)
 		}
 	}
 
 	if len(options.NewHosts) > 0 {
-		vcc.PrintInfo("Added subcluster %s with nodes %v to database %s",
+		vcc.DisplayInfo("Successfully added subcluster %s with nodes %v to database %s",
 			options.SCName, options.NewHosts, options.DBName)
 	} else {
-		vcc.PrintInfo("Added subcluster %s to database %s", options.SCName, options.DBName)
+		vcc.DisplayInfo("Successfully added subcluster %s to database %s", options.SCName, options.DBName)
 	}
 	return nil
 }

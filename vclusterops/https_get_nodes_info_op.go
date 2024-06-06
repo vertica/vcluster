@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
@@ -113,8 +114,9 @@ func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 		op.logResponse(host, result)
 
 		if result.isUnauthorizedRequest() {
-			return fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
+			detail := fmt.Sprintf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)
+			return rfc7807.New(rfc7807.AuthenticationError).WithHost(host).WithDetail(detail)
 		}
 
 		if result.isPassing() {

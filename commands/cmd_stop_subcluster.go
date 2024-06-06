@@ -149,10 +149,10 @@ func (c *CmdStopSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VStopSubcluster(options)
 	if err != nil {
-		vcc.LogError(err, "failed to stop the subcluster", "Subcluster", options.SCName)
+		vcc.LogError(err, "fail to stop the subcluster", "Subcluster", options.SCName)
 		return err
 	}
-	vcc.PrintInfo("Successfully stopped subcluster %s", options.SCName)
+	vcc.DisplayInfo("Successfully stopped subcluster %s", options.SCName)
 	return nil
 }
 

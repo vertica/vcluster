@@ -188,21 +188,20 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 		return nil
 	}
 
+	vcc.DisplayInfo("Successfully revived database %s", c.reviveDBOptions.DBName)
+
 	// write db info to vcluster config file
 	vdb.FirstStartAfterRevive = true
 	err = writeConfig(vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.PrintWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("fail to write config file, details: %s", err)
 	}
 
 	// write config parameters to vcluster config param file
 	err = c.writeConfigParam(c.reviveDBOptions.ConfigurationParameters, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.PrintWarning("fail to write config param file, details: %s", err)
+		vcc.DisplayWarning("fail to write config param file, details: %s", err)
 	}
-
-	vcc.PrintInfo("Successfully revived database %s", c.reviveDBOptions.DBName)
-
 	return nil
 }
 

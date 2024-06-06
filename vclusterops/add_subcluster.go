@@ -33,8 +33,6 @@ type VAddSubclusterOptions struct {
 	DatabaseOptions
 	// part 2: subcluster info
 	SCName         string
-	SCHosts        []string
-	SCRawHosts     []string
 	IsPrimary      bool
 	ControlSetSize int
 	CloneSC        string
@@ -47,8 +45,6 @@ type VAddSubclusterInfo struct {
 	Hosts          []string
 	UserName       string
 	Password       *string
-	SCName         string
-	SCHosts        []string
 	IsPrimary      bool
 	ControlSetSize int
 	CloneSC        string
@@ -108,26 +104,6 @@ func (options *VAddSubclusterOptions) validateExtraOptions(logger vlog.Printer) 
 		logger.PrintWarning("option CloneSC is not implemented yet so it will be ignored")
 	}
 
-	// verify the hosts of new subcluster does not exist in current database
-	if len(options.SCHosts) > 0 {
-		hostSet := make(map[string]struct{})
-		for _, host := range options.SCHosts {
-			hostSet[host] = struct{}{}
-		}
-		dupHosts := []string{}
-		for _, host := range options.Hosts {
-			if _, exist := hostSet[host]; exist {
-				dupHosts = append(dupHosts, host)
-			}
-		}
-		if len(dupHosts) > 0 {
-			return fmt.Errorf("new subcluster has hosts %v which already exist in database %s", dupHosts, options.DBName)
-		}
-
-		// TODO remove this log after we supported adding subcluster with nodes
-		logger.PrintWarning("options SCRawHosts and SCHosts are not implemented yet so they will be ignored")
-	}
-
 	return nil
 }
 
@@ -156,14 +132,6 @@ func (options *VAddSubclusterOptions) analyzeOptions() (err error) {
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
 		options.Hosts, err = util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
-		if err != nil {
-			return err
-		}
-	}
-
-	// resolve SCRawHosts to be IP addresses
-	if len(options.SCRawHosts) > 0 {
-		options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.IPv6)
 		if err != nil {
 			return err
 		}

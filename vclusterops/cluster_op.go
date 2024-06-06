@@ -496,6 +496,9 @@ type ClusterCommands interface {
 	PrintInfo(msg string, v ...any)
 	PrintWarning(msg string, v ...any)
 	PrintError(msg string, v ...any)
+	DisplayInfo(msg string, v ...any)
+	DisplayWarning(msg string, v ...any)
+	DisplayError(msg string, v ...any)
 
 	VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error)
 	VStopNode(options *VStopNodeOptions) error
@@ -555,6 +558,18 @@ func (vcc VClusterCommandsLogger) PrintWarning(msg string, v ...any) {
 
 func (vcc VClusterCommandsLogger) PrintError(msg string, v ...any) {
 	vcc.Log.PrintError(msg, v...)
+}
+
+func (vcc VClusterCommandsLogger) DisplayInfo(msg string, v ...any) {
+	vcc.Log.DisplayInfo(msg, v...)
+}
+
+func (vcc VClusterCommandsLogger) DisplayWarning(msg string, v ...any) {
+	vcc.Log.DisplayWarning(msg, v...)
+}
+
+func (vcc VClusterCommandsLogger) DisplayError(msg string, v ...any) {
+	vcc.Log.DisplayError(msg, v...)
 }
 
 // VClusterCommands passes state around for all top-level administrator commands

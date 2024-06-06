@@ -16,8 +16,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -46,7 +44,7 @@ func makeCmdReIP() *cobra.Command {
 		`This command changes the IP addresses of database nodes in the catalog.
 
 The database must be down to change the IP addresses with re_ip. If
-the database is up, you must run restart_node after re_ip for the 
+the database is up, you must run start_node after re_ip for the 
 IP changes to take effect.
 
 The file specified by the re-ip-file option must be a JSON file in the
@@ -138,14 +136,14 @@ func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	vcc.PrintInfo("Re-ip is successfully completed")
+	vcc.DisplayInfo("Successfully changed the IP addresses of database nodes")
 
 	// update config file after running re_ip
 	if canUpdateConfig {
 		c.UpdateConfig(dbConfig)
 		err = dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 		if err != nil {
-			fmt.Printf("Warning: fail to update config file, details %v\n", err)
+			vcc.DisplayWarning("fail to update config file, details %v\n", err)
 		}
 	}
 

@@ -78,14 +78,6 @@ func makeHTTPSReIPOpWithHosts(hosts, nodeNamesToReIP, hostToReIP []string,
 }
 
 func (op *httpsReIPOp) setupClusterHTTPRequest(hostsToReIP []string) error {
-	// At this point there must be more up nodes than hosts to re-ip.
-	// Failure to meet that requirement would most likely mean that we have lost
-	// quorum and a cluster restart is needed
-	if len(op.hosts) < len(hostsToReIP) && op.forStartNodeCommand {
-		return &ReIPNoClusterQuorumError{
-			Detail: fmt.Sprintf("[%s] %d up nodes are not enough for re-ip", op.name, len(op.hosts)),
-		}
-	}
 	for i, host := range hostsToReIP {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PutMethod

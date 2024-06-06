@@ -143,34 +143,34 @@ func (c *CmdSandboxSubcluster) Analyze(logger vlog.Printer) error {
 }
 
 func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
-	vcc.PrintInfo("Running sandbox subcluster")
 	vcc.LogInfo("Calling method Run() for command " + sandboxSubCmd)
 
 	options := c.sbOptions
 
 	err := vcc.VSandbox(&options)
 	if err != nil {
+		vcc.LogError(err, "fail to sandbox subcluster")
 		return err
 	}
 
-	defer vcc.PrintInfo("Successfully sandboxed subcluster " + c.sbOptions.SCName + " as " + c.sbOptions.SandboxName)
+	defer vcc.DisplayInfo("Successfully sandboxed subcluster " + c.sbOptions.SCName + " as " + c.sbOptions.SandboxName)
 	// Read and then update the sandbox information on config file
 	dbConfig, configErr := readConfig()
 	if configErr != nil {
-		vcc.PrintWarning("fail to read config file, skipping config file update", "error", configErr)
+		vcc.DisplayWarning("fail to read config file, skipping config file update", "error", configErr)
 		return nil
 	}
 	// Update config
 	updatedConfig := c.updateSandboxInfo(dbConfig)
 	if !updatedConfig {
-		vcc.PrintWarning("did not update node info for sandboxed sc " + c.sbOptions.SCName +
+		vcc.DisplayWarning("did not update node info for sandboxed sc " + c.sbOptions.SCName +
 			", info about the subcluster nodes are missing in config file, skipping config update")
 		return nil
 	}
 
 	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
-		vcc.PrintWarning("fail to write the config file, details: " + writeErr.Error())
+		vcc.DisplayWarning("fail to write the config file, details: " + writeErr.Error())
 		return nil
 	}
 	return nil

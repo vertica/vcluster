@@ -44,6 +44,8 @@ func VRemoveScOptionsFactory() VRemoveScOptions {
 	// set default values to the params
 	options.setDefaultValues()
 
+	options.ForceDelete = true
+
 	return options
 }
 

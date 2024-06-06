@@ -438,9 +438,9 @@ func (c *CmdBase) writeCmdOutputToFile(f *os.File, output []byte, logger vlog.Pr
 	_, err := f.Write(output)
 	if err != nil {
 		if f == os.Stdout {
-			logger.PrintWarning("%s", err)
+			logger.DisplayWarning("%s", err)
 		} else {
-			logger.PrintWarning("Could not write command output to file %s, details: %s", c.output, err)
+			logger.DisplayWarning("Could not write command output to file %s, details: %s", c.output, err)
 		}
 	}
 }

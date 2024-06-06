@@ -180,7 +180,7 @@ func (c *CmdShowRestorePoints) Run(vcc vclusterops.ClusterCommands) error {
 	}
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 
-	vcc.PrintInfo("Successfully show restore points %v in database %s", restorePoints, options.DBName)
+	vcc.DisplayInfo("Successfully showed restore points %v in database %s", restorePoints, options.DBName)
 	return nil
 }
 

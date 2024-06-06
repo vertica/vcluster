@@ -73,7 +73,7 @@ func (options *VStartNodesOptions) setDefaultValues() {
 }
 
 func (options *VStartNodesOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandRestartNode, logger)
+	err := options.validateBaseOptions(commandStartNode, logger)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (options *VStartNodesOptions) validateAnalyzeOptions(logger vlog.Printer) e
 }
 
 func (vcc VClusterCommands) startNodePreCheck(vdb *VCoordinationDatabase, options *VStartNodesOptions,
-	hostNodeNameMap map[string]string, restartNodeInfo *VStartNodesInfo) error {
+	hostNodeNameMap map[string]string, startNodeInfo *VStartNodesInfo) error {
 	// sandboxs and the main cluster are not aware of each other's status
 	// so check to make sure nodes to start are either
 	// 1. all in the same sandbox, or
@@ -144,7 +144,7 @@ func (vcc VClusterCommands) startNodePreCheck(vdb *VCoordinationDatabase, option
 		return fmt.Errorf(`cannot start nodes in different sandboxes, the sandbox-node map of the nodes to start is: %v`, sandboxNodeMap)
 	}
 	for k := range sandboxNodeMap {
-		restartNodeInfo.Sandbox = k
+		startNodeInfo.Sandbox = k
 	}
 	return nil
 }
@@ -180,22 +180,22 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	}
 
 	hostNodeNameMap := make(map[string]string)
-	restartNodeInfo := new(VStartNodesInfo)
+	startNodeInfo := new(VStartNodesInfo)
 	for _, vnode := range vdb.HostNodeMap {
 		hostNodeNameMap[vnode.Name] = vnode.Address
 	}
 
 	// precheck to make sure the nodes to start are either all sandboxed nodes in one sandbox or all main cluster nodes
-	err = vcc.startNodePreCheck(&vdb, options, hostNodeNameMap, restartNodeInfo)
+	err = vcc.startNodePreCheck(&vdb, options, hostNodeNameMap, startNodeInfo)
 	if err != nil {
 		return err
 	}
 
-	// sandboxes may have different catalog from the main cluster, update the vdb build from the sandbox of the nodes to restart
-	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, restartNodeInfo.Sandbox)
+	// sandboxes may have different catalog from the main cluster, update the vdb build from the sandbox of the nodes to start
+	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, startNodeInfo.Sandbox)
 	if err != nil {
-		if restartNodeInfo.Sandbox != util.MainClusterSandbox {
-			return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the sandbox %s", restartNodeInfo.Sandbox))
+		if startNodeInfo.Sandbox != util.MainClusterSandbox {
+			return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the sandbox %s", startNodeInfo.Sandbox))
 		}
 		return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the database"))
 	}
@@ -203,10 +203,10 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	// find out hosts
 	// - that need to re-ip, and
 	// - that don't need to re-ip
-	hostsNoNeedToReIP := options.separateHostsBasedOnReIPNeed(hostNodeNameMap, restartNodeInfo, &vdb, vcc.Log)
+	hostsNoNeedToReIP := options.separateHostsBasedOnReIPNeed(hostNodeNameMap, startNodeInfo, &vdb, vcc.Log)
 
 	// check primary node count is more than nodes to re-ip, specially for sandboxes
-	err = options.checkQuorum(&vdb, restartNodeInfo)
+	err = options.checkQuorum(&vdb, startNodeInfo)
 	if err != nil {
 		return err
 	}
@@ -214,28 +214,28 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	// for the hosts that don't need to re-ip,
 	// if none of them is down and no other nodes to re-ip,
 	// we will early stop as there is no need to start them
-	if !restartNodeInfo.hasDownNodeNoNeedToReIP && len(restartNodeInfo.ReIPList) == 0 {
+	if !startNodeInfo.hasDownNodeNoNeedToReIP && len(startNodeInfo.ReIPList) == 0 {
 		const msg = "The provided nodes are either not in catalog or already up. There is nothing to start."
 		fmt.Println(msg)
 		vcc.Log.Info(msg)
 		return nil
 	}
 
-	// we can proceed to restart both nodes with and without IP changes
-	restartNodeInfo.HostsToStart = append(restartNodeInfo.HostsToStart, restartNodeInfo.ReIPList...)
-	restartNodeInfo.HostsToStart = append(restartNodeInfo.HostsToStart, hostsNoNeedToReIP...)
+	// we can proceed to start both nodes with and without IP changes
+	startNodeInfo.HostsToStart = append(startNodeInfo.HostsToStart, startNodeInfo.ReIPList...)
+	startNodeInfo.HostsToStart = append(startNodeInfo.HostsToStart, hostsNoNeedToReIP...)
 
 	// If no nodes found to start. We can simply exit here. This can happen if
 	// given a list of nodes that aren't in the catalog any longer.
-	if len(restartNodeInfo.HostsToStart) == 0 {
+	if len(startNodeInfo.HostsToStart) == 0 {
 		const msg = "None of the nodes provided are in the catalog. There is nothing to start."
 		fmt.Println(msg)
 		vcc.Log.Info(msg)
 		return nil
 	}
 
-	// produce restart_node instructions
-	instructions, err := vcc.produceStartNodesInstructions(restartNodeInfo, options, &vdb)
+	// produce start_node instructions
+	instructions, err := vcc.produceStartNodesInstructions(startNodeInfo, options, &vdb)
 	if err != nil {
 		return fmt.Errorf("fail to produce instructions, %w", err)
 	}
@@ -247,7 +247,7 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	// Give the instructions to the VClusterOpEngine to run
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
-		return fmt.Errorf("fail to restart node, %w", err)
+		return fmt.Errorf("fail to start node, %w", err)
 	}
 	return nil
 }
@@ -256,25 +256,35 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 // even when a sandbox node is reip'ed
 func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, restartNodeInfo *VStartNodesInfo) error {
 	sandboxPrimaryUpNodes := []string{}
+	var lenOfPrimaryReIPLIst int
+	reIPMap := make(map[string]bool, len(restartNodeInfo.ReIPList))
+	for _, name := range restartNodeInfo.NodeNamesToStart {
+		reIPMap[name] = true
+	}
 	for _, vnode := range vdb.HostNodeMap {
-		if vnode.IsPrimary && vnode.State == util.NodeUpState && vnode.Sandbox == restartNodeInfo.Sandbox {
-			sandboxPrimaryUpNodes = append(sandboxPrimaryUpNodes, vnode.Address)
+		if vnode.IsPrimary {
+			if vnode.State == util.NodeUpState && vnode.Sandbox == restartNodeInfo.Sandbox {
+				sandboxPrimaryUpNodes = append(sandboxPrimaryUpNodes, vnode.Address)
+			}
+			if reIPMap[vnode.Name] {
+				lenOfPrimaryReIPLIst++
+			}
 		}
 	}
-	if len(sandboxPrimaryUpNodes) <= len(restartNodeInfo.ReIPList) {
+	if len(sandboxPrimaryUpNodes) <= lenOfPrimaryReIPLIst {
 		return &ReIPNoClusterQuorumError{
-			Detail: fmt.Sprintf("Quorum check failed: %d up node(s) is/are not enough to re-ip %d node(s)",
-				len(sandboxPrimaryUpNodes), len(restartNodeInfo.ReIPList)),
+			Detail: fmt.Sprintf("Quorum check failed: %d up node(s) is/are not enough to re-ip %d primary node(s)",
+				len(sandboxPrimaryUpNodes), lenOfPrimaryReIPLIst),
 		}
 	}
 	return nil
 }
 
 // produceStartNodesInstructions will build a list of instructions to execute for
-// the restart_node command.
+// the start_node command.
 //
 // The generated instructions will later perform the following operations necessary
-// for a successful restart_node:
+// for a successful start_node:
 //   - Check NMA connectivity
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for starting nodes
 //   - If need to do re-ip:
@@ -284,9 +294,9 @@ func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, resta
 //     4. Call https /v1/nodes to update nodes' info
 //   - Check Vertica versions
 //   - Use any UP primary nodes as source host for syncing spread.conf and vertica.conf
-//   - Sync the confs to the nodes to be restarted
-//   - Call https /v1/startup/command to get restart command of the nodes to be restarted
-//   - restart nodes
+//   - Sync the confs to the nodes to be started
+//   - Call https /v1/startup/command to get start command of the nodes to be started
+//   - start nodes
 //   - Poll node start up
 //   - sync catalog
 func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartNodesInfo, options *VStartNodesOptions,
@@ -310,8 +320,8 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		&httpsGetUpNodesOp,
 	)
 
-	// If we identify any nodes that need re-IP, HostsToRestart will contain the nodes that need re-IP.
-	// Otherwise, HostsToRestart will consist of all hosts with IPs recorded in the catalog, which are provided by user input.
+	// If we identify any nodes that need re-IP, HostsToStart will contain the nodes that need re-IP.
+	// Otherwise, HostsToStart will consist of all hosts with IPs recorded in the catalog, which are provided by user input.
 	if len(startNodeInfo.ReIPList) != 0 {
 		nmaNetworkProfileOp := makeNMANetworkProfileOp(startNodeInfo.ReIPList)
 		httpsReIPOp, e := makeHTTPSReIPOp(startNodeInfo.NodeNamesToStart, startNodeInfo.ReIPList,
@@ -359,7 +369,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		return instructions, err
 	}
 
-	nmaRestartNewNodesOp := makeNMAStartNodeOpWithVDB(startNodeInfo.HostsToStart, options.StartUpConf, vdb)
+	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(startNodeInfo.HostsToStart, options.StartUpConf, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(startNodeInfo.HostsToStart,
 		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout, StartNodeCmd)
 	if err != nil {
@@ -368,7 +378,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 
 	instructions = append(instructions,
 		&httpsRestartUpCommandOp,
-		&nmaRestartNewNodesOp,
+		&nmaStartNewNodesOp,
 		&httpsPollNodeStateOp,
 	)
 
@@ -386,7 +396,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 
 func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 	hostNodeNameMap map[string]string,
-	restartNodeInfo *VStartNodesInfo,
+	startNodeInfo *VStartNodesInfo,
 	vdb *VCoordinationDatabase,
 	logger vlog.Printer) (hostsNoNeedToReIP []string) {
 	for nodename, newIP := range options.Nodes {
@@ -401,16 +411,16 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 		}
 		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
 		if oldIP != newIP {
-			restartNodeInfo.ReIPList = append(restartNodeInfo.ReIPList, newIP)
-			restartNodeInfo.NodeNamesToStart = append(restartNodeInfo.NodeNamesToStart, nodename)
-			logger.Info("the nodes need to be re-IP", "nodeNames", restartNodeInfo.NodeNamesToStart, "IPs", restartNodeInfo.ReIPList)
+			startNodeInfo.ReIPList = append(startNodeInfo.ReIPList, newIP)
+			startNodeInfo.NodeNamesToStart = append(startNodeInfo.NodeNamesToStart, nodename)
+			logger.Info("the nodes need to be re-IP", "nodeNames", startNodeInfo.NodeNamesToStart, "IPs", startNodeInfo.ReIPList)
 		} else {
 			// otherwise, we don't need to re-ip
 			hostsNoNeedToReIP = append(hostsNoNeedToReIP, newIP)
 
 			vnode, ok := vdb.HostNodeMap[newIP]
 			if ok && vnode.State == util.NodeDownState {
-				restartNodeInfo.hasDownNodeNoNeedToReIP = true
+				startNodeInfo.hasDownNodeNoNeedToReIP = true
 			}
 		}
 	}

@@ -91,9 +91,8 @@ const (
 	stopNodeFlag                = "stop-hosts"
 	reIPFileFlag                = "re-ip-file"
 	removeNodeFlag              = "remove"
-	// VER-90436: restart -> start
-	startNodeFlag = "restart"
-	startHostFlag = "start-hosts"
+	startNodeFlag               = "start"
+	startHostFlag               = "start-hosts"
 )
 
 // Flag and key for database replication
@@ -169,7 +168,7 @@ const (
 	startSCSubCmd           = "start_subcluster"
 	stopNodeCmd             = "stop_node"
 	removeNodeSubCmd        = "remove_node"
-	restartNodeSubCmd       = "restart_node"
+	startNodeSubCmd         = "start_node"
 	reIPSubCmd              = "re_ip"
 	sandboxSubCmd           = "sandbox_subcluster"
 	unsandboxSubCmd         = "unsandbox_subcluster"
@@ -527,7 +526,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdSandboxSubcluster(),
 		makeCmdUnsandboxSubcluster(),
 		// node-scope cmds
-		makeCmdRestartNodes(),
+		makeCmdStartNodes(),
 		makeCmdAddNode(),
 		makeCmdStopNode(),
 		makeCmdRemoveNode(),

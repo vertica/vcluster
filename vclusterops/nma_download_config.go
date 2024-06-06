@@ -110,9 +110,9 @@ func (op *nmaDownloadConfigOp) prepare(execContext *opEngineExecContext) error {
 		// If vdb contains nodes' info, we will check if there are any primary up nodes.
 		// If we found any primary up nodes, we set catalogPathMap based on their info in vdb.
 	} else {
-		// This case is used for restarting nodes operation.
+		// This case is used for starting nodes operation.
 		// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
-		// For restartNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
+		// For startNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
 		// we update the catalogPathMap for next download operation's steps from node information by using HTTPS /v1/nodes
 		var primaryUpHosts []string
 		for host, vnode := range op.vdb.HostNodeMap {

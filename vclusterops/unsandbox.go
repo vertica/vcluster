@@ -271,7 +271,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		}
 
 		// Start the nodes
-		nmaRestartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
+		nmaStartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
 
 		// Poll for nodes UP
 		httpsPollScUp, err := makeHTTPSPollSubclusterNodeStateUpOp(scHosts, options.SCName,
@@ -283,7 +283,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		instructions = append(instructions,
 			&nmaVersionCheck,
 			&httpsStartUpCommandOp,
-			&nmaRestartNodesOp,
+			&nmaStartNodesOp,
 			&httpsPollScUp,
 		)
 	}
