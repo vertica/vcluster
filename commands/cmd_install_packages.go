@@ -96,12 +96,14 @@ func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) erro
 
 // all validations of the arguments should go in here
 func (c *CmdInstallPackages) validateParse() error {
-	err := c.getCertFilesFromCertPaths(&c.installPkgOpts.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.installPkgOpts.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.installPkgOpts.DatabaseOptions)
 	if err != nil {
 		return err
 	}

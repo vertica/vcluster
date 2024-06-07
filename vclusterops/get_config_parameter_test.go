@@ -22,25 +22,23 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-func TestVSetConfigurationParameterOptions_validateParseOptions(t *testing.T) {
+func TestVGetConfigurationParameterOptions_validateParseOptions(t *testing.T) {
 	logger := vlog.Printer{}
 
-	opt := VSetConfigurationParameterOptionsFactory()
-	testPassword := "set-config-test-password" //nolint:gosec
-	testSandbox := "set-config-test-sandbox"
-	testDBName := "set_config_test_dbname"
-	testUsername := "set-config-test-username" //nolint:gosec
-	testConfigParameter := "set-config-test-parameter"
-	testValue := "set-config-test-value"
-	testLevel := "set-config-test-level"
+	opt := VGetConfigurationParameterOptionsFactory()
+	testPassword := "get-config-test-password" //nolint:gosec
+	testSandbox := "get-config-test-sandbox"
+	testDBName := "get_config_test_dbname"
+	testUsername := "get-config-test-username" //nolint:gosec
+	testConfigParameter := "get-config-test-parameter"
+	testLevel := "get-config-test-level"
 
 	opt.Sandbox = testSandbox
-	opt.RawHosts = append(opt.RawHosts, "set-config-test-raw-host")
+	opt.RawHosts = append(opt.RawHosts, "get-config-test-raw-host")
 	opt.DBName = testDBName
 	opt.UserName = testUsername
 	opt.Password = &testPassword
 	opt.ConfigParameter = testConfigParameter
-	opt.Value = testValue
 	opt.Level = testLevel
 
 	err := opt.validateParseOptions(logger)
@@ -51,19 +49,8 @@ func TestVSetConfigurationParameterOptions_validateParseOptions(t *testing.T) {
 	err = opt.validateParseOptions(logger)
 	assert.NoError(t, err)
 
-	// positive: value is "null"
-	opt.UserName = testUsername
-	opt.Value = "null"
-	err = opt.validateParseOptions(logger)
-	assert.NoError(t, err)
-
-	// positive: value is empty
-	opt.Value = ""
-	err = opt.validateParseOptions(logger)
-	assert.NoError(t, err)
-
 	// positive: empty level
-	opt.Value = testValue
+	opt.UserName = testUsername
 	opt.Level = ""
 	err = opt.validateParseOptions(logger)
 	assert.NoError(t, err)

@@ -141,12 +141,14 @@ func (c *CmdStartNodes) validateParse(logger vlog.Printer) error {
 		}
 	}
 
-	err := c.getCertFilesFromCertPaths(&c.startNodesOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.startNodesOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.startNodesOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.startNodesOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

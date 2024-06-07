@@ -89,8 +89,8 @@ func (op *nmaSetConfigurationParameterOp) setupClusterHTTPRequest(initiator stri
 }
 
 func (op *nmaSetConfigurationParameterOp) prepare(execContext *opEngineExecContext) error {
-	// select an up host in the sandbox as the initiator
-	initiator, err := getInitiatorInSandbox(op.sandbox, op.hosts, execContext.upHostsToSandboxes)
+	// select an up host in the sandbox or main cluster as the initiator
+	initiator, err := getInitiatorInCluster(op.sandbox, op.hosts, execContext.upHostsToSandboxes)
 	if err != nil {
 		return err
 	}

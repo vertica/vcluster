@@ -75,15 +75,9 @@ func (opt *VManageConnectionDrainingOptions) validateParseOptions(logger vlog.Pr
 		return err
 	}
 
-	// need to provide a password or key and certs
-	if opt.Password == nil && (opt.Cert == "" || opt.Key == "") {
-		// validate key and cert files in local file system
-		_, err := getCertFilePaths()
-		if err != nil {
-			// in case that the key or cert files do not exist
-			return fmt.Errorf("must provide a password, key and certificates explicitly," +
-				" or key and certificate files in the default paths")
-		}
+	err = opt.validateAuthOptions(commandManageConnectionDraining, logger)
+	if err != nil {
+		return err
 	}
 
 	return opt.validateExtraOptions(logger)
@@ -176,10 +170,14 @@ func (vcc VClusterCommands) produceManageConnectionDrainingInstructions(
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
-	// get up hosts in all sandboxes
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(options.DBName, options.Hosts,
+	assertMainClusterUpNodes := options.Sandbox == ""
+
+	// get up hosts in all sandboxes/clusters
+	// exit early if specified sandbox has no up hosts
+	// up hosts will be filtered by sandbox name in prepare stage of nmaManageConnectionsOp
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(options.DBName, options.Hosts,
 		options.usePassword, options.UserName, options.Password,
-		ManageConnectionDrainingCmd)
+		ManageConnectionDrainingCmd, options.Sandbox, assertMainClusterUpNodes)
 	if err != nil {
 		return instructions, err
 	}

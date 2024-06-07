@@ -218,13 +218,15 @@ func (c *CmdScrutinize) Parse(inputArgv []string, logger vlog.Printer) error {
 // all validations of the arguments should go in here
 func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.getCertFilesFromCertPaths(&c.sOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.sOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
 	// parses host list and ipv6 - eon is irrelevant but handled
-	err = c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

@@ -23,33 +23,31 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type VSetConfigurationParameterOptions struct {
+type VGetConfigurationParameterOptions struct {
 	/* part 1: basic db info */
 	DatabaseOptions
 
-	/* part 2: set configuration parameters options */
+	/* part 2: get configuration parameters options */
 	Sandbox         string
 	ConfigParameter string
-	// set value literally to "null" to clear the value of a config parameter
-	Value string
-	Level string
+	Level           string
 }
 
-func VSetConfigurationParameterOptionsFactory() VSetConfigurationParameterOptions {
-	opt := VSetConfigurationParameterOptions{}
+func VGetConfigurationParameterOptionsFactory() VGetConfigurationParameterOptions {
+	opt := VGetConfigurationParameterOptions{}
 	// set default values to the params
 	opt.setDefaultValues()
 
 	return opt
 }
 
-func (opt *VSetConfigurationParameterOptions) validateParseOptions(logger vlog.Printer) error {
-	err := opt.validateBaseOptions(commandSetConfigurationParameter, logger)
+func (opt *VGetConfigurationParameterOptions) validateParseOptions(logger vlog.Printer) error {
+	err := opt.validateBaseOptions(commandGetConfigurationParameter, logger)
 	if err != nil {
 		return err
 	}
 
-	err = opt.validateAuthOptions(commandSetConfigurationParameter, logger)
+	err = opt.validateAuthOptions(commandGetConfigurationParameter, logger)
 	if err != nil {
 		return err
 	}
@@ -57,18 +55,17 @@ func (opt *VSetConfigurationParameterOptions) validateParseOptions(logger vlog.P
 	return opt.validateExtraOptions(logger)
 }
 
-func (opt *VSetConfigurationParameterOptions) validateExtraOptions(logger vlog.Printer) error {
+func (opt *VGetConfigurationParameterOptions) validateExtraOptions(logger vlog.Printer) error {
 	if opt.ConfigParameter == "" {
 		errStr := util.EmptyConfigParamErrMsg
 		logger.PrintError(errStr)
 		return errors.New(errStr)
 	}
-	// opt.Value could be empty (which is not equivalent to "null")
 	// opt.Level could be empty (which means database level)
 	return nil
 }
 
-func (opt *VSetConfigurationParameterOptions) analyzeOptions() (err error) {
+func (opt *VGetConfigurationParameterOptions) analyzeOptions() (err error) {
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(opt.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
@@ -81,7 +78,7 @@ func (opt *VSetConfigurationParameterOptions) analyzeOptions() (err error) {
 	return nil
 }
 
-func (opt *VSetConfigurationParameterOptions) validateAnalyzeOptions(log vlog.Printer) error {
+func (opt *VGetConfigurationParameterOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err := opt.validateParseOptions(log); err != nil {
 		return err
 	}
@@ -95,19 +92,21 @@ func (opt *VSetConfigurationParameterOptions) validateAnalyzeOptions(log vlog.Pr
 	return opt.validateUserName(log)
 }
 
-// VSetConfigurationParameters sets or clears the value of a database configuration parameter.
-// It returns any error encountered.
-func (vcc VClusterCommands) VSetConfigurationParameters(options *VSetConfigurationParameterOptions) error {
+// VGetConfigurationParameters gets the value of a database configuration parameter.
+// It returns the parameter value as a string and any error encountered.
+func (vcc VClusterCommands) VGetConfigurationParameters(options *VGetConfigurationParameterOptions) (string, error) {
 	// validate and analyze all options
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// produce set configuration parameters instructions
-	instructions, err := vcc.produceSetConfigurationParameterInstructions(options)
+	var retrievedParamValue string
+
+	// produce get configuration parameters instructions
+	instructions, err := vcc.produceGetConfigurationParameterInstructions(options, &retrievedParamValue)
 	if err != nil {
-		return fmt.Errorf("fail to produce instructions, %w", err)
+		return "", fmt.Errorf("fail to produce instructions, %w", err)
 	}
 
 	// Create a VClusterOpEngine, and add certs to the engine
@@ -117,38 +116,38 @@ func (vcc VClusterCommands) VSetConfigurationParameters(options *VSetConfigurati
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return fmt.Errorf("fail to set configuration parameter: %w", runError)
+		return "", fmt.Errorf("fail to get configuration parameter: %w", runError)
 	}
 
-	return nil
+	return retrievedParamValue, nil
 }
 
 // The generated instructions will later perform the following operations necessary
-// for a successful set configuration parameter action.
+// for a successful get configuration parameter action.
 //   - Check NMA connectivity
 //   - Check UP nodes and sandboxes info
-//   - Send set configuration parameter request
-func (vcc VClusterCommands) produceSetConfigurationParameterInstructions(
-	options *VSetConfigurationParameterOptions) ([]clusterOp, error) {
+//   - Send get configuration parameter request
+func (vcc VClusterCommands) produceGetConfigurationParameterInstructions(
+	options *VGetConfigurationParameterOptions, retrievedParamValue *string) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	assertMainClusterUpNodes := options.Sandbox == ""
 
 	// get up hosts in all sandboxes/clusters
 	// exit early if specified sandbox has no up hosts
-	// up hosts will be filtered by sandbox name in prepare stage of nmaSetConfigurationParameterOp
+	// up hosts will be filtered by sandbox name in prepare stage of nmaGetConfigurationParameterOp
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(options.DBName, options.Hosts,
 		options.usePassword, options.UserName, options.Password,
-		SetConfigurationParametersCmd, options.Sandbox, assertMainClusterUpNodes)
+		GetConfigurationParametersCmd, options.Sandbox, assertMainClusterUpNodes)
 	if err != nil {
 		return instructions, err
 	}
 
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
-	nmaSetConfigOp, err := makeNMASetConfigurationParameterOp(options.Hosts,
+	nmaGetConfigOp, err := makeNMAGetConfigurationParameterOp(options.Hosts,
 		options.UserName, options.DBName, options.Sandbox,
-		options.ConfigParameter, options.Value, options.Level,
+		options.ConfigParameter, options.Level, retrievedParamValue,
 		options.Password, options.usePassword)
 	if err != nil {
 		return instructions, err
@@ -157,7 +156,7 @@ func (vcc VClusterCommands) produceSetConfigurationParameterInstructions(
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&httpsGetUpNodesOp,
-		&nmaSetConfigOp,
+		&nmaGetConfigOp,
 	)
 
 	return instructions, nil

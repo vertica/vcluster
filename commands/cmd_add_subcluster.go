@@ -177,12 +177,14 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error 
 // all validations of the arguments should go in here
 func (c *CmdAddSubcluster) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.getCertFilesFromCertPaths(&c.addSubclusterOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.addSubclusterOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.addSubclusterOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

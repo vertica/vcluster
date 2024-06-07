@@ -318,14 +318,24 @@ func getInitiator(hosts []string) string {
 	return hosts[0]
 }
 
-func getInitiatorInSandbox(targetSandbox string, hosts []string,
-	upHostsToSandboxes map[string]string) (string, error) {
+// getInitiatorInCluster will pick an initiator from a host list to send requests to
+// such that the host is up and within the specified cluster (either main or sandbox);
+// an empty value of targetSandbox means the host is to be selected from the main cluster
+func getInitiatorInCluster(targetSandbox string, hosts []string,
+	upHostsToSandboxes map[string]string) (initiatorHost string, err error) {
 	for _, host := range hosts {
 		if sandbox, ok := upHostsToSandboxes[host]; ok && sandbox == targetSandbox {
-			return host, nil
+			initiatorHost = host
+			return
 		}
 	}
-	return "", fmt.Errorf("no hosts among %v are both UP and within sandbox %v", hosts, targetSandbox)
+	if targetSandbox == "" {
+		// main cluster
+		err = fmt.Errorf("no hosts among %v are both UP and within the main cluster", hosts)
+	} else {
+		err = fmt.Errorf("no hosts among %v are both UP and within sandbox %v", hosts, targetSandbox)
+	}
+	return
 }
 
 // getInitiator will pick an initiator from the up host list to execute https calls

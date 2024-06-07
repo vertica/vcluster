@@ -103,7 +103,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 			&globals.keyFile,
 			keyFileFlag,
 			"",
-			"Path to the key file",
+			fmt.Sprintf("Path to the key file, the default value is %s", filepath.Join(vclusterops.CertPathBase, "{username}.key")),
 		)
 		markFlagsFileName(cmd, map[string][]string{keyFileFlag: {"key"}})
 
@@ -111,7 +111,7 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 			&globals.certFile,
 			certFileFlag,
 			"",
-			"Path to the cert file",
+			fmt.Sprintf("Path to the cert file, the default value is %s", filepath.Join(vclusterops.CertPathBase, "{username}.pem")),
 		)
 		markFlagsFileName(cmd, map[string][]string{certFileFlag: {"pem", "crt"}})
 		cmd.MarkFlagsRequiredTogether(keyFileFlag, certFileFlag)

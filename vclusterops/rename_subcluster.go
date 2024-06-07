@@ -55,15 +55,9 @@ func (options *VRenameSubclusterOptions) validateParseOptions(logger vlog.Printe
 		return err
 	}
 
-	// need to provide a password or key and certs
-	if options.Password == nil && (options.Cert == "" || options.Key == "") {
-		// validate key and cert files in local file system
-		_, err = getCertFilePaths()
-		if err != nil {
-			// in case that the key or cert files do not exist
-			return fmt.Errorf("must provide a password, key and certificates explicitly," +
-				" or key and certificate files in the default paths")
-		}
+	err = options.validateAuthOptions(commandRenameSc, logger)
+	if err != nil {
+		return err
 	}
 
 	if options.SCName == "" {

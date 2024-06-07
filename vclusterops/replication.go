@@ -72,17 +72,6 @@ func (options *VReplicationDatabaseOptions) validateExtraOptions() error {
 		return err
 	}
 
-	// need to provide a password or key and certs
-	if options.Password == nil && (options.Cert == "" || options.Key == "") {
-		// validate key and cert files in local file system
-		_, err = getCertFilePaths()
-		if err != nil {
-			// in case that the key or cert files do not exist
-			return fmt.Errorf("must provide a password, key and certificates explicitly," +
-				" or key and certificate files in the default paths")
-		}
-	}
-
 	// need to provide a password or TLSconfig if source and target username are different
 	if options.TargetUserName != options.UserName {
 		if options.TargetPassword == nil && options.SourceTLSConfig == "" {
@@ -101,7 +90,7 @@ func (options *VReplicationDatabaseOptions) validateExtraOptions() error {
 }
 
 func (options *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
-	// batch 1: validate required parameters
+	// batch 1: validate required params
 	err := options.validateRequiredOptions(logger)
 	if err != nil {
 		return err
@@ -113,7 +102,13 @@ func (options *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Pri
 		return err
 	}
 
-	// batch 3: validate all other params
+	// batch 3: validate auth params
+	err = options.validateAuthOptions(commandReplicationStart, logger)
+	if err != nil {
+		return err
+	}
+
+	// batch 4: validate all other params
 	err = options.validateExtraOptions()
 	if err != nil {
 		return err

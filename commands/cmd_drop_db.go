@@ -81,9 +81,11 @@ func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 
 func (c *CmdDropDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.getCertFilesFromCertPaths(&c.dropDBOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.dropDBOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
 }

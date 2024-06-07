@@ -105,9 +105,11 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	err = c.getCertFilesFromCertPaths(&c.reIPOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err = c.getCertFilesFromCertPaths(&c.reIPOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.setConfigParam(&c.reIPOptions.DatabaseOptions)

@@ -102,9 +102,11 @@ func (c *CmdRemoveNode) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	err = c.getCertFilesFromCertPaths(&c.removeNodeOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err = c.getCertFilesFromCertPaths(&c.removeNodeOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.ValidateParseBaseOptions(&c.removeNodeOptions.DatabaseOptions)

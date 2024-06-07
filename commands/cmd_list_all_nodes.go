@@ -85,12 +85,14 @@ func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 
 func (c *CmdListAllNodes) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()", "command", listAllNodesSubCmd)
-	err := c.getCertFilesFromCertPaths(&c.fetchNodeStateOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.fetchNodeStateOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.fetchNodeStateOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.fetchNodeStateOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

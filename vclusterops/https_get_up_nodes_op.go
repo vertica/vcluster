@@ -35,6 +35,7 @@ const (
 	UnsandboxCmd
 	ManageConnectionDrainingCmd
 	SetConfigurationParametersCmd
+	GetConfigurationParametersCmd
 )
 
 type CommandType int
@@ -221,7 +222,8 @@ func isCompleteScanRequired(cmdType CommandType) bool {
 	return cmdType == SandboxCmd || cmdType == StopDBCmd ||
 		cmdType == UnsandboxCmd || cmdType == StopSubclusterCmd ||
 		cmdType == ManageConnectionDrainingCmd ||
-		cmdType == SetConfigurationParametersCmd
+		cmdType == SetConfigurationParametersCmd ||
+		cmdType == GetConfigurationParametersCmd
 }
 
 func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
@@ -314,21 +316,21 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 	foundSC := false
 	for _, node := range nodesStates.NodeList {
 		if node.Database != op.DBName {
-			err = fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
-			return err
+			return fmt.Errorf(`[%s] database %s is running on host %s, rather than database %s`, op.name, node.Database, host, op.DBName)
 		}
+
 		if op.scName != "" && node.Subcluster == op.scName {
 			foundSC = true
 		}
+
 		if node.State == util.NodeUpState {
 			upHosts.Add(node.Address)
 			upScInfo[node.Address] = node.Subcluster
-			if op.cmdType == ManageConnectionDrainingCmd ||
-				op.cmdType == SetConfigurationParametersCmd ||
-				op.cmdType == StopDBCmd {
+			if op.requiresSandboxInfo() {
 				sandboxInfo[node.Address] = node.Sandbox
 			}
 		}
+
 		if op.scName == node.Subcluster {
 			op.sandbox = node.Sandbox
 			var n NodeInfo
@@ -351,10 +353,18 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 			}
 		}
 	}
+
 	if !foundSC && op.cmdType == StopSubclusterCmd {
 		return fmt.Errorf(`[%s] cannot find subcluster %s in database %s`, op.name, op.scName, op.DBName)
 	}
-	return err
+	return nil
+}
+
+func (op *httpsGetUpNodesOp) requiresSandboxInfo() bool {
+	return op.cmdType == ManageConnectionDrainingCmd ||
+		op.cmdType == SetConfigurationParametersCmd ||
+		op.cmdType == GetConfigurationParametersCmd ||
+		op.cmdType == StopDBCmd
 }
 
 func (op *httpsGetUpNodesOp) collectUnsandboxingHosts(nodesStates nodesStateInfo, sandboxInfo map[string]string) {

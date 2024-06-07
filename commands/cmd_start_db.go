@@ -172,12 +172,14 @@ func (c *CmdStartDB) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()", "command", startDBSubCmd)
 
-	err := c.getCertFilesFromCertPaths(&c.startDBOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.startDBOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.startDBOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

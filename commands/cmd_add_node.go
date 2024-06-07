@@ -139,12 +139,7 @@ func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	err := c.getCertFilesFromCertPaths(&c.addNodeOptions.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-
-	err = c.parseNewHostList()
+	err := c.parseNewHostList()
 	if err != nil {
 		return err
 	}
@@ -158,6 +153,14 @@ func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
+
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.addNodeOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
+	}
+
 	return c.setDBPassword(&c.addNodeOptions.DatabaseOptions)
 }
 

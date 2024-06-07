@@ -22,23 +22,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNmaSetConfigurationParameterOp_SetupRequestBody(t *testing.T) {
-	op := &nmaSetConfigurationParameterOp{}
+func TestNmaGetConfigurationParameterOp_SetupRequestBody(t *testing.T) {
+	op := &nmaGetConfigurationParameterOp{}
 
-	username := "set-config-user-op"
-	dbName := "set-config-db-op"
-	configParameter := "set-config-param-op"
-	value := "set-config-value-op"
-	level := "set-config-level-op"
-	password := "set-config-password-op" //nolint:gosec
+	username := "get-config-user-op"
+	dbName := "get-config-db-op"
+	configParameter := "get-config-param-op"
+	level := "get-config-level-op"
+	password := "get-config-password-op" //nolint:gosec
 	useDBPassword := true
 
-	err := op.setupRequestBody(username, dbName, configParameter, value, level, &password, useDBPassword)
+	err := op.setupRequestBody(username, dbName, configParameter, level, &password, useDBPassword)
 	assert.NoError(t, err)
 
-	expectedData := setConfigurationParameterData{
+	expectedData := getConfigurationParameterData{
 		ConfigParameter: configParameter,
-		Value:           value,
 		Level:           level,
 		sqlEndpointData: createSQLEndpointData(username, dbName, useDBPassword, &password),
 	}
@@ -48,12 +46,12 @@ func TestNmaSetConfigurationParameterOp_SetupRequestBody(t *testing.T) {
 
 	assert.Equal(t, expectedRequestBody, op.hostRequestBody)
 
-	err = op.setupRequestBody("", dbName, configParameter, value, level, &password, useDBPassword)
+	err = op.setupRequestBody("", dbName, configParameter, level, &password, useDBPassword)
 	assert.Error(t, err)
 
-	err = op.setupRequestBody(username, "", configParameter, value, level, &password, useDBPassword)
+	err = op.setupRequestBody(username, "", configParameter, level, &password, useDBPassword)
 	assert.Error(t, err)
 
-	err = op.setupRequestBody(username, dbName, configParameter, value, level, nil, useDBPassword)
+	err = op.setupRequestBody(username, dbName, configParameter, level, nil, useDBPassword)
 	assert.Error(t, err)
 }

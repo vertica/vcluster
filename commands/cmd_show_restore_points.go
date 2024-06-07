@@ -138,12 +138,14 @@ func (c *CmdShowRestorePoints) Parse(inputArgv []string, logger vlog.Printer) er
 func (c *CmdShowRestorePoints) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	err := c.getCertFilesFromCertPaths(&c.showRestorePointsOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.showRestorePointsOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.showRestorePointsOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.showRestorePointsOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

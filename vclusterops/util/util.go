@@ -661,3 +661,5 @@ func FillInDefaultTimeForEndTimestamp(dateonly *string) *time.Time {
 func IsTimeEqualOrAfter(start, end time.Time) bool {
 	return end.Equal(start) || end.After(start)
 }
+
+const EmptyConfigParamErrMsg = "configuration parameter must not be empty"

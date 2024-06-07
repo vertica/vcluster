@@ -101,12 +101,14 @@ func (c *CmdRemoveSubcluster) Parse(inputArgv []string, logger vlog.Printer) err
 
 func (c *CmdRemoveSubcluster) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.getCertFilesFromCertPaths(&c.removeScOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.removeScOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.removeScOptions.DatabaseOptions)
 	if err != nil {
 		return nil
 	}

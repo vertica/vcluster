@@ -125,12 +125,14 @@ func (c *CmdSandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) er
 func (c *CmdSandboxSubcluster) parseInternal(logger vlog.Printer) error {
 	logger.Info("Called parseInternal()")
 
-	err := c.getCertFilesFromCertPaths(&c.sbOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.sbOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.ValidateParseBaseOptions(&c.sbOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.sbOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}

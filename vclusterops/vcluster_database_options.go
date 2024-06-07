@@ -104,6 +104,7 @@ const (
 	commandConfigRecover             = "manage_config_recover"
 	commandManageConnectionDraining  = "manage_connection_draining"
 	commandSetConfigurationParameter = "set_configuration_parameter"
+	commandGetConfigurationParameter = "get_configuration_parameter"
 	commandReplicationStart          = "replication_start"
 	commandPromoteSandboxToMain      = "promote_sandbox_to_main"
 	commandFetchNodesDetails         = "fetch_nodes_details"
@@ -165,6 +166,23 @@ func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Pri
 		}
 	}
 
+	return nil
+}
+
+// validateAuthOptions will validate that the user provides some form of valid
+// authentication information, either password or key and certs for TLS authentication;
+// key and certs may either be explicitly provided in the options or implicitly
+// loaded from the default locations in local file system
+func (opt *DatabaseOptions) validateAuthOptions(_ string, _ vlog.Printer) error {
+	// need to provide a password or key and certs
+	if opt.Password == nil && (opt.Cert == "" || opt.Key == "") {
+		// validate key and cert files in local file system
+		_, err := getCertFilePaths()
+		if err != nil {
+			// in case that the key or cert files do not exist
+			return fmt.Errorf("must provide either a password or a key-certificate pair")
+		}
+	}
 	return nil
 }
 

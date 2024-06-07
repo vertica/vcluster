@@ -21,32 +21,34 @@ import (
 	"fmt"
 )
 
-type nmaManageConnectionsOp struct {
+type nmaGetConfigurationParameterOp struct {
 	opBase
-	hostRequestBody string
-	sandbox         string
-	action          ConnectionDrainingAction
-	initiator       string
+	hostRequestBody     string
+	sandbox             string
+	initiator           string
+	retrievedParamValue *string
 }
 
-type manageConnectionsData struct {
+type getConfigurationParameterData struct {
 	sqlEndpointData
-	SubclusterName   string `json:"subclustername"`
-	RedirectHostname string `json:"hostname"`
+	ConfigParameter string `json:"config_parameter"`
+	Level           string `json:"level"`
 }
 
-func makeNMAManageConnectionsOp(hosts []string,
-	username, dbName, sandbox, subclusterName, redirectHostname string, action ConnectionDrainingAction,
-	password *string, useHTTPPassword bool) (nmaManageConnectionsOp, error) {
-	op := nmaManageConnectionsOp{}
-	op.name = "NMAManageConnectionsOp"
-	op.description = "Manage connections on Vertica hosts"
+func makeNMAGetConfigurationParameterOp(hosts []string,
+	username, dbName, sandbox, configParameter, level string, retrievedParamValue *string, /* out parameter */
+	password *string, useHTTPPassword bool) (nmaGetConfigurationParameterOp, error) {
+	op := nmaGetConfigurationParameterOp{}
+	op.name = "NMAGetConfigurationParameterOp"
+	op.description = "Get configuration parameter value"
 	op.hosts = hosts
-	op.action = action
 	op.sandbox = sandbox
+	if retrievedParamValue == nil {
+		return op, errors.New("argument retrievedParamValue cannot be a nil pointer")
+	}
+	op.retrievedParamValue = retrievedParamValue
 
-	err := op.setupRequestBody(username, dbName, subclusterName, redirectHostname, password,
-		useHTTPPassword)
+	err := op.setupRequestBody(username, dbName, configParameter, level, password, useHTTPPassword)
 	if err != nil {
 		return op, err
 	}
@@ -54,22 +56,20 @@ func makeNMAManageConnectionsOp(hosts []string,
 	return op, nil
 }
 
-func (op *nmaManageConnectionsOp) setupRequestBody(
-	username, dbName, subclusterName, redirectHostname string, password *string,
+func (op *nmaGetConfigurationParameterOp) setupRequestBody(
+	username, dbName, configParameter, level string, password *string,
 	useDBPassword bool) error {
 	err := ValidateSQLEndpointData(op.name,
 		useDBPassword, username, password, dbName)
 	if err != nil {
 		return err
 	}
-	manageConnData := manageConnectionsData{}
-	manageConnData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
-	manageConnData.SubclusterName = subclusterName
-	if op.action == ActionRedirect {
-		manageConnData.RedirectHostname = redirectHostname
-	}
+	getConfigData := getConfigurationParameterData{}
+	getConfigData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
+	getConfigData.ConfigParameter = configParameter
+	getConfigData.Level = level
 
-	dataBytes, err := json.Marshal(manageConnData)
+	dataBytes, err := json.Marshal(getConfigData)
 	if err != nil {
 		return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
 	}
@@ -81,17 +81,17 @@ func (op *nmaManageConnectionsOp) setupRequestBody(
 	return nil
 }
 
-func (op *nmaManageConnectionsOp) setupClusterHTTPRequest(initiator string, action ConnectionDrainingAction) error {
+func (op *nmaGetConfigurationParameterOp) setupClusterHTTPRequest(initiator string) error {
 	httpRequest := hostHTTPRequest{}
 	httpRequest.Method = PostMethod
-	httpRequest.buildNMAEndpoint("connections/" + string(action))
+	httpRequest.buildNMAEndpoint("configuration/get")
 	httpRequest.RequestData = op.hostRequestBody
 	op.clusterHTTPRequest.RequestCollection[initiator] = httpRequest
 
 	return nil
 }
 
-func (op *nmaManageConnectionsOp) prepare(execContext *opEngineExecContext) error {
+func (op *nmaGetConfigurationParameterOp) prepare(execContext *opEngineExecContext) error {
 	// select an up host in the sandbox or main cluster as the initiator
 	initiator, err := getInitiatorInCluster(op.sandbox, op.hosts, execContext.upHostsToSandboxes)
 	if err != nil {
@@ -99,10 +99,10 @@ func (op *nmaManageConnectionsOp) prepare(execContext *opEngineExecContext) erro
 	}
 	op.initiator = initiator
 	execContext.dispatcher.setup([]string{op.initiator})
-	return op.setupClusterHTTPRequest(op.initiator, op.action)
+	return op.setupClusterHTTPRequest(op.initiator)
 }
 
-func (op *nmaManageConnectionsOp) execute(execContext *opEngineExecContext) error {
+func (op *nmaGetConfigurationParameterOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -110,18 +110,18 @@ func (op *nmaManageConnectionsOp) execute(execContext *opEngineExecContext) erro
 	return op.processResult(execContext)
 }
 
-func (op *nmaManageConnectionsOp) finalize(_ *opEngineExecContext) error {
+func (op *nmaGetConfigurationParameterOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaManageConnectionsOp) processResult(_ *opEngineExecContext) error {
+func (op *nmaGetConfigurationParameterOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			_, err := op.parseAndCheckStringResponse(host, result.content)
+			err := op.parseAndCheckResponse(host, result.content, op.retrievedParamValue)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 			}

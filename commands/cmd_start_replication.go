@@ -175,11 +175,13 @@ func (c *CmdStartReplication) Parse(inputArgv []string, logger vlog.Printer) err
 // all validations of the arguments should go in here
 func (c *CmdStartReplication) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
-	err := c.getCertFilesFromCertPaths(&c.startRepOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.startRepOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
-	err = c.parseTargetHostList()
+	err := c.parseTargetHostList()
 	if err != nil {
 		return err
 	}

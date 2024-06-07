@@ -252,9 +252,11 @@ func (c *CmdCreateDB) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	err = c.getCertFilesFromCertPaths(&c.createDBOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err = c.getCertFilesFromCertPaths(&c.createDBOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.setDBPassword(&c.createDBOptions.DatabaseOptions)

@@ -152,9 +152,11 @@ func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 func (c *CmdReviveDB) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
-	err := c.getCertFilesFromCertPaths(&c.reviveDBOptions.DatabaseOptions)
-	if err != nil {
-		return err
+	if !c.usePassword() {
+		err := c.getCertFilesFromCertPaths(&c.reviveDBOptions.DatabaseOptions)
+		if err != nil {
+			return err
+		}
 	}
 
 	// when --display-only is provided, we do not need to parse some base options like hostListStr
@@ -162,7 +164,7 @@ func (c *CmdReviveDB) validateParse(logger vlog.Printer) error {
 		return nil
 	}
 
-	err = c.ValidateParseBaseOptions(&c.reviveDBOptions.DatabaseOptions)
+	err := c.ValidateParseBaseOptions(&c.reviveDBOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
