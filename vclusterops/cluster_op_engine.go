@@ -66,6 +66,8 @@ func (opEngine *VClusterOpEngine) runInstruction(
 	op.setupSpinner()
 	defer op.cleanupSpinner()
 
+	op.filterUnreachableHosts(execContext)
+
 	op.logPrepare()
 	err := op.prepare(execContext)
 	if err != nil {

@@ -112,6 +112,12 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 			}
 		}
 
+		// display warning if any unreachable hosts detected
+		if len(clusterOpEngine.execContext.unreachableHosts) > 0 {
+			vcc.DisplayWarning("hosts %v are unreachable, please check the NMA connectivity in the hosts",
+				clusterOpEngine.execContext.unreachableHosts)
+		}
+
 		return nodeStates, nil
 	}
 
@@ -190,7 +196,7 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(
 		}
 	}
 
-	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+	nmaHealthOp := makeNMAHealthOpSkipUnreachable(options.Hosts)
 	nmaReadVerticaVersionOp := makeNMAReadVerticaVersionOp(vdb)
 
 	// Trim host list

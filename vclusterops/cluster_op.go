@@ -196,6 +196,7 @@ type clusterOp interface {
 	setupBasicInfo()
 	loadCertsIfNeeded(certs *httpsCerts, findCertsInOptions bool) error
 	isSkipExecute() bool
+	filterUnreachableHosts(execContext *opEngineExecContext)
 }
 
 /* Cluster ops basic fields and functions
@@ -428,6 +429,16 @@ func (op *opBase) checkResponseStatusCode(resp httpsResponseStatus, host string)
 		return err
 	}
 	return nil
+}
+
+// filterUnreachableHosts filters out the unreachable hosts from the op
+// if the unreachableHosts list size > 0
+func (op *opBase) filterUnreachableHosts(execContext *opEngineExecContext) {
+	if len(execContext.unreachableHosts) == 0 {
+		return
+	}
+
+	op.hosts = util.SliceDiff(op.hosts, execContext.unreachableHosts)
 }
 
 /* Sensitive fields in request body

@@ -38,6 +38,9 @@ type opEngineExecContext struct {
 	systemTableList               systemTableListInfo // used for staging system tables
 	// hosts on which the wrong authentication occurred
 	hostsWithWrongAuth []string
+
+	// hosts that is not reachable through NMA
+	unreachableHosts []string
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {

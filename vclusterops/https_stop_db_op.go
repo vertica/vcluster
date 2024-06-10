@@ -30,20 +30,22 @@ type httpsStopDBOp struct {
 	sandbox       string
 	mainCluster   bool
 	RequestParams map[string]string
+	isEon         bool
 }
 
 func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
-	httpsPassword *string, timeout *int, sandbox string, mainCluster bool) (httpsStopDBOp, error) {
+	httpsPassword *string, timeout *int, sandbox string, mainCluster, isEon bool) (httpsStopDBOp, error) {
 	op := httpsStopDBOp{}
 	op.name = "HTTPSStopDBOp"
 	op.description = "Stop database"
 	op.useHTTPPassword = useHTTPPassword
 	op.sandbox = sandbox
 	op.mainCluster = mainCluster
+	op.isEon = isEon
 
 	// set the query params, "timeout" is optional
 	op.RequestParams = make(map[string]string)
-	if timeout != nil {
+	if timeout != nil && *timeout != 0 {
 		op.RequestParams["timeout"] = strconv.Itoa(*timeout)
 	}
 
@@ -139,7 +141,8 @@ func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 		// decode the json-format response
 		// The successful response object will be a dictionary:
 		// 1. shutdown without drain
-		// {"detail": "Shutdown: moveout complete"}
+		//    1.1 enterprise DB {"detail": "Shutdown: moveout complete"}
+		//    1.2 eon DB {"detail": "Shutdown: sync complete"}
 		// 2. shutdown with drain
 		// {"detail": "Set subcluster (default_subcluster) to draining state\n
 		//  Waited for 1 nodes to drain\n
@@ -151,7 +154,6 @@ func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 			allErrs = errors.Join(allErrs, err)
 			continue
 		}
-
 		if _, ok := op.RequestParams["timeout"]; ok {
 			if re.MatchString(response["details"]) {
 				err = fmt.Errorf(`[%s] response detail should like 'Set subcluster to draining state ...' but got '%s'`,
@@ -159,13 +161,19 @@ func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 				allErrs = errors.Join(allErrs, err)
 			}
 		} else {
-			if response["detail"] != "Shutdown: moveout complete" {
-				err = fmt.Errorf(`[%s] response detail should be 'Shutdown: moveout complete' but got '%s'`, op.name, response["detail"])
+			// If the timeout is set to 0, we will not use a draining shutdown.
+			// A timeout of 0 indicates that eonDB is being used, so the response should be "Shutdown: sync complete".
+			// Otherwise, the response should be "Shutdown: moveout complete".
+			expectedDetail := "Shutdown: moveout complete"
+			if op.isEon {
+				expectedDetail = "Shutdown: sync complete"
+			}
+			if response["detail"] != expectedDetail {
+				err = fmt.Errorf(`[%s] response detail should be '%s' but got '%s'`, op.name, expectedDetail, response["detail"])
 				allErrs = errors.Join(allErrs, err)
 			}
 		}
 	}
-
 	return allErrs
 }
 

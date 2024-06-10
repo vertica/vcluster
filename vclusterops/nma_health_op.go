@@ -19,8 +19,15 @@ import (
 	"errors"
 )
 
+// we limit the health check timeout to 30 seconds
+// we believe that this is enough to test the NMA connection
+const nmaHealthCheckTimeout = 30
+
 type nmaHealthOp struct {
 	opBase
+	// sometimes, we need to skip unreachable hosts
+	// e.g., list_all_nodes may need this when the host(s) are not connectable
+	skipUnreachableHost bool
 }
 
 func makeNMAHealthOp(hosts []string) nmaHealthOp {
@@ -31,12 +38,19 @@ func makeNMAHealthOp(hosts []string) nmaHealthOp {
 	return op
 }
 
+func makeNMAHealthOpSkipUnreachable(hosts []string) nmaHealthOp {
+	op := makeNMAHealthOp(hosts)
+	op.skipUnreachableHost = true
+	return op
+}
+
 // setupClusterHTTPRequest works as the module setup in Admintools
 func (op *nmaHealthOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.buildNMAEndpoint("health")
+		httpRequest.Timeout = nmaHealthCheckTimeout
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -61,8 +75,9 @@ func (op *nmaHealthOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaHealthOp) processResult(_ *opEngineExecContext) error {
+func (op *nmaHealthOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
+	var unreachableHosts []string
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
@@ -72,8 +87,17 @@ func (op *nmaHealthOp) processResult(_ *opEngineExecContext) error {
 				return errors.Join(allErrs, err)
 			}
 		} else {
+			unreachableHosts = append(unreachableHosts, host)
 			allErrs = errors.Join(allErrs, result.err)
 		}
+	}
+
+	if op.skipUnreachableHost {
+		execContext.unreachableHosts = unreachableHosts
+		if len(unreachableHosts) > 0 {
+			op.stopFailSpinnerWithMessage("warning! hosts %v are unreachable", unreachableHosts)
+		}
+		return nil
 	}
 
 	return allErrs
