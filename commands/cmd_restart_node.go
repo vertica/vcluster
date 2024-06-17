@@ -167,12 +167,6 @@ func (c *CmdStartNodes) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	// all nodes unreachable, nothing need to be done.
-	if len(options.Nodes) == 0 {
-		vcc.DisplayInfo("No reachable nodes to start")
-		return nil
-	}
-
 	var hostToStart []string
 	for _, ip := range options.Nodes {
 		hostToStart = append(hostToStart, ip)

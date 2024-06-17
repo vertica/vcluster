@@ -221,7 +221,6 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	}
 	dbConfig, readConfigErr := readConfig()
 	if readConfigErr == nil {
-		options.ReadFromConfig = true
 		if options.Sandbox != util.MainClusterSandbox || options.MainCluster {
 			options.RawHosts = filterInputHosts(options, dbConfig)
 		}
@@ -239,12 +238,6 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	// all nodes unreachable
-	if len(options.Hosts) == 0 {
-		vcc.DisplayInfo("No reachable nodes to start database %s", options.DBName)
-		return nil
-	}
-
 	msg := fmt.Sprintf("Started database %s", options.DBName)
 	if options.Sandbox != "" {
 		sandboxMsg := fmt.Sprintf(" on sandbox %s", options.Sandbox)
@@ -260,7 +253,12 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	// for Eon database, update config file to fill nodes' subcluster information
 	if readConfigErr == nil && options.IsEon {
-		c.UpdateConfigFileForEon(vdb, vcc)
+		// write db info to vcluster config file
+		vdb.FirstStartAfterRevive = false
+		err = writeConfig(vdb, true /*forceOverwrite*/)
+		if err != nil {
+			vcc.DisplayWarning("fail to update config file, details: %s", err)
+		}
 	}
 
 	// write config parameters to vcluster config param file
@@ -270,15 +268,6 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	return nil
-}
-
-func (c *CmdStartDB) UpdateConfigFileForEon(vdb *vclusterops.VCoordinationDatabase, vcc vclusterops.ClusterCommands) {
-	// write db info to vcluster config file
-	vdb.FirstStartAfterRevive = false
-	err := writeConfig(vdb, true /*forceOverwrite*/)
-	if err != nil {
-		vcc.DisplayWarning("fail to update config file, details: %s", err)
-	}
 }
 
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStartDB
