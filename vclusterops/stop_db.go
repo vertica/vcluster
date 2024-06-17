@@ -48,7 +48,7 @@ func (options *VStopDatabaseOptions) setDefaultValues() {
 }
 
 func (options *VStopDatabaseOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.validateBaseOptions(commandStopDB, log)
+	err := options.validateBaseOptions(StopDBCmd, log)
 	if err != nil {
 		return err
 	}

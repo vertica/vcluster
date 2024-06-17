@@ -53,7 +53,7 @@ func (options *VUnsandboxOptions) setDefaultValues() {
 }
 
 func (options *VUnsandboxOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandUnsandboxSC, logger)
+	err := options.validateBaseOptions(UnsandboxSCCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -172,6 +172,7 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase, optio
 	if len(mainClusterHost) == 0 {
 		return fmt.Errorf(`require at least one UP host outside of the sandbox subcluster '%s'in the input host list`, options.SCName)
 	}
+	options.SCHosts = sandboxedHosts
 	return nil
 }
 
@@ -206,10 +207,13 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	}
 
 	username := options.UserName
+	// Check NMA health on sandbox hosts
+	nmaHealthOp := makeNMAHealthOp(options.SCHosts)
+	instructions = append(instructions, &nmaHealthOp)
 
 	// Get all up nodes
 	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(options.DBName, options.Hosts,
-		usePassword, username, options.Password, UnsandboxCmd, options.SCName)
+		usePassword, username, options.Password, UnsandboxSCCmd, options.SCName)
 	if err != nil {
 		return instructions, err
 	}

@@ -67,7 +67,7 @@ func (options *VAddSubclusterOptions) setDefaultValues() {
 }
 
 func (options *VAddSubclusterOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandAddSubcluster, logger)
+	err := options.validateBaseOptions(AddSubclusterCmd, logger)
 	if err != nil {
 		return err
 	}

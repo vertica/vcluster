@@ -20,17 +20,12 @@ import (
 	"fmt"
 )
 
-const (
-	AddNodeCmd CommandType = iota
-	RemoveSubclusterCmd
-)
-
 type httpsFindSubclusterOp struct {
 	opBase
 	opHTTPSBase
 	scName         string
 	ignoreNotFound bool
-	cmdType        CommandType
+	cmdType        CmdType
 }
 
 // makeHTTPSFindSubclusterOp initializes an op to find
@@ -39,7 +34,7 @@ type httpsFindSubclusterOp struct {
 // the given cluster name is not found.
 func makeHTTPSFindSubclusterOp(hosts []string, useHTTPPassword bool,
 	userName string, httpsPassword *string, scName string,
-	ignoreNotFound bool, cmdType CommandType,
+	ignoreNotFound bool, cmdType CmdType,
 ) (httpsFindSubclusterOp, error) {
 	op := httpsFindSubclusterOp{}
 	op.name = "HTTPSFindSubclusterOp"
@@ -193,14 +188,12 @@ func (op *httpsFindSubclusterOp) processSubclusters(subclusterResp scResp, execC
 	}
 
 	if isSandboxed {
-		switch op.cmdType {
-		case AddNodeCmd:
+		if op.cmdType == AddNodeCmd {
 			return fmt.Errorf(`[%s] cannot add node into a sandboxed subcluster`, op.name)
-		case RemoveSubclusterCmd:
+		} else if op.cmdType == RemoveSubclusterCmd {
 			return fmt.Errorf(`[%s] cannot remove a sandboxed subcluster, must unsandbox the subcluster first`, op.name)
-		default:
-			return fmt.Errorf(`[%s] sandbox handling in the operation is not implemented`, op.name)
 		}
+		return fmt.Errorf(`[%s] sandbox handling in the operation is not implemented`, op.name)
 	}
 
 	return nil

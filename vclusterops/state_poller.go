@@ -25,6 +25,7 @@ const (
 	OneMinute                = 60 * OneSecond
 	StopDBTimeout            = 5 * OneMinute
 	StartupPollingTimeout    = 5 * OneMinute
+	StopPollingTimeout       = 5 * OneMinute
 	ScrutinizePollingTimeout = -1 * OneMinute // no timeout
 	PollingInterval          = 3 * OneSecond
 )
@@ -43,7 +44,7 @@ func pollState(poller statePoller, execContext *opEngineExecContext) error {
 	duration := time.Duration(timeout) * time.Second
 	count := 0
 	needTimeout := true
-	if timeout < 0 {
+	if timeout <= 0 {
 		needTimeout = false
 	}
 

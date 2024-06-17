@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -382,4 +383,23 @@ func TestIsEmptyOrValidTimeStr(t *testing.T) {
 	testTimeString = "invalid time"
 	_, err = IsEmptyOrValidTimeStr(layout, testTimeString)
 	assert.ErrorContains(t, err, "cannot parse")
+}
+
+func TestGetEnvInt(t *testing.T) {
+	key := "TEST_ENV_INT"
+	fallback := 123
+	// positive case: environment variable exists and is a valid integer
+	os.Setenv(key, "456")
+	actual := GetEnvInt(key, fallback)
+	assert.Equal(t, 456, actual)
+
+	// negative case: environment variable does not exist
+	os.Unsetenv(key)
+	actual = GetEnvInt(key, fallback)
+	assert.Equal(t, fallback, actual)
+
+	// negative case: environment variable exists but is not a valid integer
+	os.Setenv(key, "not_an_integer")
+	actual = GetEnvInt(key, fallback)
+	assert.Equal(t, fallback, actual)
 }

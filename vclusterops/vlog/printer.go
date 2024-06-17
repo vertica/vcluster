@@ -17,6 +17,7 @@ package vlog
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"unicode"
@@ -44,6 +45,8 @@ type Printer struct {
 	LogToFileOnly bool
 	// ForCli can indicate if vclusterops is called from vcluster cli or other clients
 	ForCli bool
+
+	Writer io.Writer
 }
 
 // WithName will construct a new printer with the logger set with an additional
@@ -53,6 +56,7 @@ func (p *Printer) WithName(logName string) Printer {
 		Log:           p.Log.WithName(logName),
 		LogToFileOnly: p.LogToFileOnly,
 		ForCli:        p.ForCli,
+		Writer:        p.Writer,
 	}
 }
 

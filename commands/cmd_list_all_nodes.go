@@ -119,6 +119,11 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
 
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 	vcc.LogInfo("Node states: ", "nodeStates", string(bytes))
+	// if writing into stdout, add a new line
+	// otherwise, the successful message may be wrapped into the same line of the node state output
+	if c.output == "" {
+		fmt.Println("")
+	}
 	vcc.DisplayInfo("Successfully listed all nodes")
 	return nil
 }

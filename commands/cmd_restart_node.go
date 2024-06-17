@@ -104,7 +104,7 @@ func (c *CmdStartNodes) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(
 		&c.startNodesOptions.StatePollingTimeout,
 		"timeout",
-		util.DefaultTimeoutSeconds,
+		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
 		"The timeout (in seconds) to wait for polling node state operation",
 	)
 
@@ -165,6 +165,12 @@ func (c *CmdStartNodes) Run(vcc vclusterops.ClusterCommands) error {
 	if err != nil {
 		vcc.LogError(err, "fail to start node")
 		return err
+	}
+
+	// all nodes unreachable, nothing need to be done.
+	if len(options.Nodes) == 0 {
+		vcc.DisplayInfo("No reachable nodes to start")
+		return nil
 	}
 
 	var hostToStart []string

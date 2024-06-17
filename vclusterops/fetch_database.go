@@ -39,7 +39,7 @@ func VRecoverConfigOptionsFactory() VFetchCoordinationDatabaseOptions {
 }
 
 func (options *VFetchCoordinationDatabaseOptions) validateParseOptions(logger vlog.Printer) error {
-	return options.validateBaseOptions(commandConfigRecover, logger)
+	return options.validateBaseOptions(ConfigRecoverCmd, logger)
 }
 
 func (options *VFetchCoordinationDatabaseOptions) analyzeOptions() error {

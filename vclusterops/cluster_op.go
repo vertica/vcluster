@@ -277,6 +277,7 @@ func (op *opBase) setupSpinner() {
 			StopFailCharacter: "✘",
 			StopFailMessage:   "failed",
 			StopFailColors:    []string{"fgRed"},
+			Writer:            op.logger.Writer, // if nil, writing to stdout
 		}
 		spinner, err := yacspin.New(cfg)
 		if err != nil {

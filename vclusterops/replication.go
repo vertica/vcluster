@@ -44,7 +44,7 @@ func VReplicationDatabaseFactory() VReplicationDatabaseOptions {
 }
 
 func (options *VReplicationDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandReplicationStart, logger)
+	err := options.validateBaseOptions(ReplicationStartCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (options *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Pri
 	}
 
 	// batch 3: validate auth params
-	err = options.validateAuthOptions(commandReplicationStart, logger)
+	err = options.validateAuthOptions(ReplicationStartCmd.CmdString(), logger)
 	if err != nil {
 		return err
 	}

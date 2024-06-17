@@ -55,6 +55,12 @@ func (opEngine *VClusterOpEngine) runWithExecContext(logger vlog.Printer, execCo
 		}
 	}
 
+	// display warning if any unreachable hosts detected
+	if len(opEngine.execContext.unreachableHosts) > 0 {
+		logger.DisplayWarning("Unreachable host(s) detected, please check the NMA connectivity in %v",
+			opEngine.execContext.unreachableHosts)
+	}
+
 	return nil
 }
 

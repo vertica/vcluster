@@ -70,12 +70,12 @@ func (opt *VManageConnectionDrainingOptions) validateParseOptions(logger vlog.Pr
 		return err
 	}
 
-	err = opt.validateBaseOptions(commandManageConnectionDraining, logger)
+	err = opt.validateBaseOptions(ManageConnectionDrainingCmd, logger)
 	if err != nil {
 		return err
 	}
 
-	err = opt.validateAuthOptions(commandManageConnectionDraining, logger)
+	err = opt.validateAuthOptions(ManageConnectionDrainingCmd.CmdString(), logger)
 	if err != nil {
 		return err
 	}

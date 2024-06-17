@@ -123,6 +123,12 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"Comma-separated list of node names that exist in the cluster",
 	)
+	cmd.Flags().IntVar(
+		&c.addNodeOptions.TimeOut,
+		"add-node-timeout",
+		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
+		"The timeout to wait for the nodes to add",
+	)
 }
 
 func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {

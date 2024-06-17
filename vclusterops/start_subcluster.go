@@ -45,7 +45,7 @@ func (options *VStartScOptions) setDefaultValues() {
 }
 
 func (options *VStartScOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandStartSubcluster, logger)
+	err := options.validateBaseOptions(StartSubclusterCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -140,13 +140,12 @@ func (vcc VClusterCommands) VStartSubcluster(options *VStartScOptions) error {
 			options.SCName)
 	}
 
-	var startNodesOptions VStartNodesOptions
-	startNodesOptions.Nodes = nodesToStart
-	startNodesOptions.DatabaseOptions = options.DatabaseOptions
-	startNodesOptions.StatePollingTimeout = options.StatePollingTimeout
-	startNodesOptions.vdb = &vdb
+	options.VStartNodesOptions.Nodes = nodesToStart
+	options.VStartNodesOptions.DatabaseOptions = options.DatabaseOptions
+	options.VStartNodesOptions.StatePollingTimeout = options.StatePollingTimeout
+	options.VStartNodesOptions.vdb = &vdb
 
 	vlog.DisplayColorInfo("Starting nodes %v in subcluster %s", maps.Keys(nodesToStart), options.SCName)
 
-	return vcc.VStartNodes(&startNodesOptions)
+	return vcc.VStartNodes(&options.VStartNodesOptions)
 }

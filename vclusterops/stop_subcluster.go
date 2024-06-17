@@ -46,7 +46,7 @@ func (options *VStopSubclusterOptions) setDefaultValues() {
 }
 
 func (options *VStopSubclusterOptions) validateRequiredOptions(log vlog.Printer) error {
-	err := options.validateBaseOptions(commandStopSubcluster, log)
+	err := options.validateBaseOptions(StopSubclusterCmd, log)
 	if err != nil {
 		return err
 	}

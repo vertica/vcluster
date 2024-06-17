@@ -26,9 +26,6 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// const to sync cmd, options parsing, and this
-const VScrutinizeTypeName = "scrutinize"
-
 // files and folders used by scrutinize
 const ScrutinizeOutputBasePath = "/tmp/scrutinize"
 const scrutinizeRemoteOutputPath = ScrutinizeOutputBasePath + "/remote"
@@ -144,7 +141,7 @@ func (options *VScrutinizeOptions) getHoursAgo(timeString, timeVarName string, l
 
 func (options *VScrutinizeOptions) validateRequiredOptions(logger vlog.Printer) error {
 	// checks for correctness, but not for presence of all flags
-	err := options.validateBaseOptions(VScrutinizeTypeName, logger)
+	err := options.validateBaseOptions(ScrutinizeCmd, logger)
 	if err != nil {
 		return err
 	}

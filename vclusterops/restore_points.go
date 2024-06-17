@@ -102,7 +102,7 @@ func (options *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIf
 }
 
 func (options *VShowRestorePointsOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandShowRestorePoints, logger)
+	err := options.validateBaseOptions(ShowRestorePointsCmd, logger)
 	if err != nil {
 		return err
 	}

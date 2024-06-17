@@ -54,7 +54,7 @@ func (opt *VPromoteSandboxToMainOptions) validateParseOptions(logger vlog.Printe
 		return fmt.Errorf("must provide a password or a key-certificate pair")
 	}
 
-	return opt.validateBaseOptions(commandPromoteSandboxToMain, logger)
+	return opt.validateBaseOptions(PromoteSandboxToMainCmd, logger)
 }
 
 // analyzeOptions will modify some options based on what is chosen

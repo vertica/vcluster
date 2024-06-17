@@ -50,7 +50,7 @@ func VReIPFactory() VReIPOptions {
 }
 
 func (options *VReIPOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandReIP, logger)
+	err := options.validateBaseOptions(ReIPCmd, logger)
 	if err != nil {
 		return err
 	}

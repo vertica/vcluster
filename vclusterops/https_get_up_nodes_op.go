@@ -24,35 +24,19 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-const (
-	SandboxCmd = iota
-	StartNodeCommand
-	StopDBCmd
-	ScrutinizeCmd
-	AddSubclusterCmd
-	StopSubclusterCmd
-	InstallPackageCmd
-	UnsandboxCmd
-	ManageConnectionDrainingCmd
-	SetConfigurationParametersCmd
-	GetConfigurationParametersCmd
-)
-
-type CommandType int
-
 type httpsGetUpNodesOp struct {
 	opBase
 	opHTTPSBase
 	DBName      string
 	noUpHostsOk bool
-	cmdType     CommandType
+	cmdType     CmdType
 	sandbox     string
 	mainCluster bool
 	scName      string
 }
 
 func makeHTTPSGetUpNodesOp(dbName string, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CommandType,
+	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CmdType,
 ) (httpsGetUpNodesOp, error) {
 	op := httpsGetUpNodesOp{}
 	op.name = "HTTPSGetUpNodesOp"
@@ -76,7 +60,7 @@ func makeHTTPSGetUpNodesOp(dbName string, hosts []string,
 }
 
 func makeHTTPSGetUpNodesWithSandboxOp(dbName string, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CommandType,
+	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CmdType,
 	sandbox string, mainCluster bool) (httpsGetUpNodesOp, error) {
 	op, err := makeHTTPSGetUpNodesOp(dbName, hosts, useHTTPPassword, userName, httpsPassword, cmdType)
 	op.sandbox = sandbox
@@ -85,7 +69,7 @@ func makeHTTPSGetUpNodesWithSandboxOp(dbName string, hosts []string,
 }
 
 func makeHTTPSGetUpScNodesOp(dbName string, hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CommandType,
+	useHTTPPassword bool, userName string, httpsPassword *string, cmdType CmdType,
 	scName string) (httpsGetUpNodesOp, error) {
 	op, err := makeHTTPSGetUpNodesOp(dbName, hosts, useHTTPPassword, userName, httpsPassword, cmdType)
 	op.scName = scName
@@ -196,7 +180,7 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 			return allErrs
 		}
 
-		if op.cmdType == UnsandboxCmd {
+		if op.cmdType == UnsandboxSCCmd {
 			op.collectUnsandboxingHosts(nodesStates, sandboxInfo)
 		}
 
@@ -218,12 +202,12 @@ func (op *httpsGetUpNodesOp) processResult(execContext *opEngineExecContext) err
 }
 
 // Return true if all the results need to be scanned to figure out UP hosts
-func isCompleteScanRequired(cmdType CommandType) bool {
-	return cmdType == SandboxCmd || cmdType == StopDBCmd ||
-		cmdType == UnsandboxCmd || cmdType == StopSubclusterCmd ||
+func isCompleteScanRequired(cmdType CmdType) bool {
+	return cmdType == SandboxSCCmd || cmdType == StopDBCmd ||
+		cmdType == UnsandboxSCCmd || cmdType == StopSubclusterCmd ||
 		cmdType == ManageConnectionDrainingCmd ||
-		cmdType == SetConfigurationParametersCmd ||
-		cmdType == GetConfigurationParametersCmd
+		cmdType == SetConfigurationParameterCmd ||
+		cmdType == GetConfigurationParameterCmd
 }
 
 func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
@@ -251,7 +235,7 @@ func (op *httpsGetUpNodesOp) processHostLists(upHosts mapset.Set[string], upScIn
 		op.logger.PrintError(`[%s] There are no UP nodes in subcluster %s. The subcluster is already down`, op.name, op.scName)
 		return false, nil
 	}
-	if op.sandbox != "" && op.cmdType != UnsandboxCmd {
+	if op.sandbox != "" && op.cmdType != UnsandboxSCCmd {
 		upSandbox := op.checkSandboxUp(sandboxInfo, op.sandbox)
 		if !upSandbox {
 			op.logger.PrintError(`[%s] There are no UP nodes in the sandbox %s. The db %s is already down`, op.name, op.sandbox, op.DBName)
@@ -362,8 +346,8 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 
 func (op *httpsGetUpNodesOp) requiresSandboxInfo() bool {
 	return op.cmdType == ManageConnectionDrainingCmd ||
-		op.cmdType == SetConfigurationParametersCmd ||
-		op.cmdType == GetConfigurationParametersCmd ||
+		op.cmdType == SetConfigurationParameterCmd ||
+		op.cmdType == GetConfigurationParameterCmd ||
 		op.cmdType == StopDBCmd
 }
 

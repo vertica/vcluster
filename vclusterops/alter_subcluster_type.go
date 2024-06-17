@@ -72,7 +72,7 @@ func (options *VAlterSubclusterTypeOptions) validateParseOptions(logger vlog.Pri
 		return err
 	}
 
-	err = options.validateAuthOptions(commandAlterSubclusterType, logger)
+	err = options.validateAuthOptions(AlterSubclusterTypeCmd.CmdString(), logger)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (options *VAlterSubclusterTypeOptions) validateParseOptions(logger vlog.Pri
 	if !options.SCType.IsValid() {
 		return fmt.Errorf("invalid subcluster type: must be 'primary' or 'secondary'")
 	}
-	return options.validateBaseOptions(commandAlterSubclusterType, logger)
+	return options.validateBaseOptions(AlterSubclusterTypeCmd, logger)
 }
 
 // analyzeOptions will modify some options based on what is chosen

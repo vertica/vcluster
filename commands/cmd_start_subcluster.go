@@ -133,6 +133,12 @@ func (c *CmdStartSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
+	// all nodes unreachable, nothing need to be done.
+	if len(options.Nodes) == 0 {
+		vcc.DisplayInfo("No reachable nodes to start in subcluster %s", options.SCName)
+		return nil
+	}
+
 	vcc.DisplayInfo("Successfully started subcluster %s for database %s",
 		options.SCName, options.DBName)
 

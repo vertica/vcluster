@@ -85,7 +85,7 @@ func (options *VFetchNodesDetailsOptions) setDefaultValues() {
 }
 
 func (options *VFetchNodesDetailsOptions) validateParseOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandFetchNodesDetails, logger)
+	err := options.validateBaseOptions(FetchNodesDetailsCmd, logger)
 	if err != nil {
 		return err
 	}

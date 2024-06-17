@@ -193,13 +193,19 @@ func writeConfig(vdb *vclusterops.VCoordinationDatabase, forceOverwrite bool) er
 		return fmt.Errorf("configuration file path is empty")
 	}
 
+	return WriteConfigToPath(vdb, dbOptions.ConfigPath, forceOverwrite)
+}
+
+func WriteConfigToPath(vdb *vclusterops.VCoordinationDatabase,
+	configPath string,
+	forceOverwrite bool) error {
 	dbConfig, err := readVDBToDBConfig(vdb)
 	if err != nil {
 		return err
 	}
 
 	// update db config with the given database info
-	err = dbConfig.write(dbOptions.ConfigPath, forceOverwrite)
+	err = dbConfig.write(configPath, forceOverwrite)
 	if err != nil {
 		return err
 	}

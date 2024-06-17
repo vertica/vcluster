@@ -55,7 +55,7 @@ func (options *VRenameSubclusterOptions) validateParseOptions(logger vlog.Printe
 		return err
 	}
 
-	err = options.validateAuthOptions(commandRenameSc, logger)
+	err = options.validateAuthOptions(RenameScCmd.CmdString(), logger)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (options *VRenameSubclusterOptions) validateParseOptions(logger vlog.Printe
 	if err != nil {
 		return err
 	}
-	return options.validateBaseOptions(commandRenameSc, logger)
+	return options.validateBaseOptions(RenameScCmd, logger)
 }
 
 // analyzeOptions will modify some options based on what is chosen

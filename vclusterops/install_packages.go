@@ -37,7 +37,7 @@ func VInstallPackagesOptionsFactory() VInstallPackagesOptions {
 }
 
 func (options *VInstallPackagesOptions) validateParseOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandInstallPackages, logger)
+	err := options.validateBaseOptions(InstallPackagesCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (vcc *VClusterCommands) produceInstallPackagesInstructions(opts *VInstallPa
 	}
 
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(opts.DBName, opts.Hosts,
-		usePassword, opts.UserName, opts.Password, InstallPackageCmd)
+		usePassword, opts.UserName, opts.Password, InstallPackagesCmd)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -30,7 +30,7 @@ type httpsStartUpCommandOp struct {
 	opBase
 	opHTTPSBase
 	vdb     *VCoordinationDatabase
-	cmdType CommandType
+	cmdType CmdType
 	sandbox string
 }
 
@@ -62,7 +62,7 @@ func makeHTTPSStartUpCommandOpAfterUnsandbox(useHTTPPassword bool, userName stri
 	op.name = startupOp
 	op.description = startNodeAfterUnsandboxDesc
 	op.useHTTPPassword = useHTTPPassword
-	op.cmdType = UnsandboxCmd
+	op.cmdType = UnsandboxSCCmd
 	op.sandbox = util.MainClusterSandbox
 
 	if useHTTPPassword {
@@ -120,7 +120,7 @@ func (op *httpsStartUpCommandOp) setupClusterHTTPRequest(hosts []string) error {
 func (op *httpsStartUpCommandOp) prepare(execContext *opEngineExecContext) error {
 	// Use the /v1/startup/command endpoint for a primary Up host to view every start command of existing nodes
 	// With sandboxes in a cluster, we need to ensure that we pick a main cluster UP host
-	if op.cmdType == UnsandboxCmd {
+	if op.cmdType == UnsandboxSCCmd {
 		for h, sb := range execContext.upHostsToSandboxes {
 			if sb == "" {
 				op.hosts = append(op.hosts, h)

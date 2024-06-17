@@ -37,6 +37,13 @@ type VRemoveScOptions struct {
 	// A primary up host in another subcluster that belongs to same cluster as the target subcluster.
 	// This option will be used to do re-ip in the cluster.
 	PrimaryUpHost string
+	// Names of the nodes that need to have active subscription. The user of vclusterOps needs
+	// to make sure the provided values are correct. This option will be used when some nodes
+	// cannot join the main cluster so we will only check the node subscription state for the nodes
+	// in this option. For example, after promote_sandbox, the nodes in old main cluster cannot
+	// join the new main cluster so we should only check the node subscription state on the nodes
+	// that are promoted from a sandbox.
+	NodesToPullSubs []string
 }
 
 func VRemoveScOptionsFactory() VRemoveScOptions {
@@ -54,7 +61,7 @@ func (options *VRemoveScOptions) setDefaultValues() {
 }
 
 func (options *VRemoveScOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandRemoveSubcluster, logger)
+	err := options.validateBaseOptions(RemoveSubclusterCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -191,6 +198,7 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt.HostsToRemove = hostsToRemove
 		removeNodeOpt.ForceDelete = removeScOpt.ForceDelete
 		removeNodeOpt.IsSubcluster = true
+		removeNodeOpt.NodesToPullSubs = removeScOpt.NodesToPullSubs
 
 		vcc.Log.PrintInfo("Removing nodes %q from subcluster %s",
 			hostsToRemove, removeScOpt.SCName)

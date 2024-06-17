@@ -23,26 +23,14 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-type SyncCatCmdType int
-
-const (
-	CreateDBSyncCat SyncCatCmdType = iota
-	StartDBSyncCat
-	StopDBSyncCat
-	StopSCSyncCat
-	AddNodeSyncCat
-	StartNodeSyncCat
-	RemoveNodeSyncCat
-)
-
 type httpsSyncCatalogOp struct {
 	opBase
 	opHTTPSBase
-	cmdType SyncCatCmdType
+	cmdType CmdType
 }
 
 func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, cmdType SyncCatCmdType) (httpsSyncCatalogOp, error) {
+	userName string, httpsPassword *string, cmdType CmdType) (httpsSyncCatalogOp, error) {
 	op := httpsSyncCatalogOp{}
 	op.name = "HTTPSSyncCatalogOp"
 	op.description = "Synchronize catalog with communal storage"
@@ -61,7 +49,7 @@ func makeHTTPSSyncCatalogOp(hosts []string, useHTTPPassword bool,
 }
 
 func makeHTTPSSyncCatalogOpWithoutHosts(useHTTPPassword bool,
-	userName string, httpsPassword *string, cmdType SyncCatCmdType) (httpsSyncCatalogOp, error) {
+	userName string, httpsPassword *string, cmdType CmdType) (httpsSyncCatalogOp, error) {
 	return makeHTTPSSyncCatalogOp(nil, useHTTPPassword, userName, httpsPassword, cmdType)
 }
 

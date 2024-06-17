@@ -49,6 +49,9 @@ type VStartDatabaseOptions struct {
 
 	// whether the first time to start the database after revive
 	FirstStartAfterRevive bool
+
+	// whether input info is read from vcluster config file, used for quorum check
+	ReadFromConfig bool
 }
 
 func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
@@ -67,7 +70,7 @@ func (options *VStartDatabaseOptions) setDefaultValues() {
 }
 
 func (options *VStartDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandStartDB, logger)
+	err := options.validateBaseOptions(StartDBCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -152,9 +155,10 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 			vcc.Log.PrintWarning("communal storage location is not specified" + warningMsg)
 		}
 	}
+	numTotalNodes := len(options.Hosts)
 
 	// start_db pre-checks and get basic info
-	err = vcc.runStartDBPrecheck(options, &vdb)
+	err = vcc.runStartDBPrecheck(options, &vdb, numTotalNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +189,18 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	return &updatedVDB, nil
 }
 
-func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) error {
+func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, vdb *VCoordinationDatabase, numTotalNodes int) error {
+	// filter out unreachable hosts
+	unreachableHosts, err := vcc.getUnreachableHosts(&options.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	// if it's eon mode and there are unreachable hosts, we cannot perform quorum check due to missing primary node information
+	// error out here with hint
+	if options.IsEon && len(unreachableHosts) > 0 {
+		return fmt.Errorf("cannot start db with unreachable hosts, please check cluster and NMA connectivity on unreachable hosts")
+	}
+	options.Hosts = util.SliceDiff(options.Hosts, unreachableHosts)
 	// pre-instruction to perform basic checks and get basic information
 	preInstructions, err := vcc.produceStartDBPreCheck(options, vdb, options.TrimHostList)
 	if err != nil {
@@ -205,6 +220,14 @@ func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, v
 	// the latest catalog.
 	if options.TrimHostList {
 		options.Hosts = vcc.removeHostsNotInCatalog(&clusterOpEngine.execContext.nmaVDatabase, options.Hosts)
+	}
+
+	// Quorum Check
+	if options.ReadFromConfig && !options.IsEon {
+		err = vcc.quorumCheck(numTotalNodes, len(options.Hosts))
+		if err != nil {
+			return fmt.Errorf("fail to start database pre-checks: %w", err)
+		}
 	}
 
 	return nil
@@ -244,7 +267,6 @@ func (vcc VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOption
 	trimHostList bool) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	// need username for https operations
 	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
@@ -256,10 +278,7 @@ func (vcc VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOption
 	if err != nil {
 		return instructions, err
 	}
-	instructions = append(instructions,
-		&nmaHealthOp,
-		&checkDBRunningOp,
-	)
+	instructions = append(instructions, &checkDBRunningOp)
 
 	// when we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
 	if len(vdb.HostNodeMap) == 0 {
@@ -323,11 +342,12 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 		nil /*db configurations retrieved from a running db*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOp(options.Hosts, options.StartUpConf)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOpWithTimeoutAndCommand(options.Hosts,
-		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout, StartDBCmd)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(options.Hosts,
+		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout)
 	if err != nil {
 		return instructions, err
 	}
+	httpsPollNodeStateOp.cmdType = StartDBCmd
 
 	instructions = append(instructions,
 		&nmaStartNewNodesOp,
@@ -349,4 +369,13 @@ func (vcc VClusterCommands) setOrRotateEncryptionKey(keyType string) clusterOp {
 	vcc.Log.Info("adding instruction to set or rotate the key for spread encryption")
 	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
 	return &op
+}
+
+func (vcc VClusterCommands) quorumCheck(numPrimaryNodes, numReachableHosts int) error {
+	minimumNodesForQuorum := numPrimaryNodes/2 + 1
+	if numReachableHosts < minimumNodesForQuorum {
+		return fmt.Errorf("quorum not satisfied, number of reachable nodes %d < minimum %d of %d primary nodes",
+			numReachableHosts, minimumNodesForQuorum, numPrimaryNodes)
+	}
+	return nil
 }

@@ -186,6 +186,12 @@ func getInitiatorHostInCluster(name, sandbox, scname string, vdb *VCoordinationD
 // getInitiatorHostForReplication returns an initiator that is the first up source host in the main cluster
 // or a sandbox
 func getInitiatorHostForReplication(name, sandbox string, hosts []string, vdb *VCoordinationDatabase) ([]string, error) {
+	// the k8s operator uses a service hostname, not an ip address of a node in the cluster
+	// since the hostname will not match any node in the cluster we need to skip the below logic
+	// this is ok since the operator has already chosen an appropriate "initiator"
+	if util.IsK8sEnvironment() {
+		return hosts, nil
+	}
 	// source hosts will be :
 	// 1. up hosts from the main subcluster if the sandbox is empty
 	// 2. up hosts from the sandbox if the sandbox is specified
@@ -461,4 +467,17 @@ func (vcc *VClusterCommands) doReIP(options *DatabaseOptions, scName string,
 	}
 
 	return nil
+}
+
+func (vcc *VClusterCommands) getUnreachableHosts(options *DatabaseOptions) ([]string, error) {
+	var nmaHealthInstructions []clusterOp
+	nmaHealthOp := makeNMAHealthOpSkipUnreachable(options.Hosts)
+	nmaHealthInstructions = []clusterOp{&nmaHealthOp}
+	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
+	opEng := makeClusterOpEngine(nmaHealthInstructions, &certs)
+	err := opEng.run(vcc.Log)
+	if err != nil {
+		return nil, err
+	}
+	return opEng.execContext.unreachableHosts, nil
 }

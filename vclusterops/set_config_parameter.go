@@ -44,12 +44,12 @@ func VSetConfigurationParameterOptionsFactory() VSetConfigurationParameterOption
 }
 
 func (opt *VSetConfigurationParameterOptions) validateParseOptions(logger vlog.Printer) error {
-	err := opt.validateBaseOptions(commandSetConfigurationParameter, logger)
+	err := opt.validateBaseOptions(SetConfigurationParameterCmd, logger)
 	if err != nil {
 		return err
 	}
 
-	err = opt.validateAuthOptions(commandSetConfigurationParameter, logger)
+	err = opt.validateAuthOptions(SetConfigurationParameterCmd.CmdString(), logger)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (vcc VClusterCommands) produceSetConfigurationParameterInstructions(
 	// up hosts will be filtered by sandbox name in prepare stage of nmaSetConfigurationParameterOp
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(options.DBName, options.Hosts,
 		options.usePassword, options.UserName, options.Password,
-		SetConfigurationParametersCmd, options.Sandbox, assertMainClusterUpNodes)
+		SetConfigurationParameterCmd, options.Sandbox, assertMainClusterUpNodes)
 	if err != nil {
 		return instructions, err
 	}

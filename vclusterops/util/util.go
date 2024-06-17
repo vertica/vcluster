@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -379,6 +380,17 @@ func GetEnv(key, fallback string) string {
 	return fallback
 }
 
+// get int value of env var with a fallback value
+func GetEnvInt(key string, fallback int) int {
+	if value, ok := os.LookupEnv(key); ok {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+		// failed to retrieve env value, should use fallback value
+	}
+	return fallback
+}
+
 func CheckMissingFields(object any) error {
 	var missingFields []string
 	v := reflect.ValueOf(object)
@@ -663,3 +675,8 @@ func IsTimeEqualOrAfter(start, end time.Time) bool {
 }
 
 const EmptyConfigParamErrMsg = "configuration parameter must not be empty"
+
+func IsK8sEnvironment() bool {
+	port, portSet := os.LookupEnv(kubernetesPort)
+	return portSet && port != ""
+}

@@ -84,35 +84,6 @@ const (
 	catalogPath = ""
 )
 
-const (
-	commandCreateDB                  = "create_db"
-	commandDropDB                    = "drop_db"
-	commandStopDB                    = "stop_db"
-	commandStartDB                   = "start_db"
-	commandAddNode                   = "add_node"
-	commandRemoveNode                = "remove_node"
-	commandStopNode                  = "stop_node"
-	commandStartNode                 = "start_node"
-	commandAddSubcluster             = "add_subcluster"
-	commandRemoveSubcluster          = "remove_subcluster"
-	commandStopSubcluster            = "stop_subcluster"
-	commandStartSubcluster           = "start_subcluster"
-	commandSandboxSC                 = "sandbox_subcluster"
-	commandUnsandboxSC               = "unsandbox_subcluster"
-	commandShowRestorePoints         = "show_restore_points"
-	commandInstallPackages           = "install_packages"
-	commandConfigRecover             = "manage_config_recover"
-	commandManageConnectionDraining  = "manage_connection_draining"
-	commandSetConfigurationParameter = "set_configuration_parameter"
-	commandGetConfigurationParameter = "get_configuration_parameter"
-	commandReplicationStart          = "replication_start"
-	commandPromoteSandboxToMain      = "promote_sandbox_to_main"
-	commandFetchNodesDetails         = "fetch_nodes_details"
-	commandAlterSubclusterType       = "alter_subcluster_type"
-	commandRenameSc                  = "rename_subcluster"
-	commandReIP                      = "re_ip"
-)
-
 func DatabaseOptionsFactory() DatabaseOptions {
 	opt := DatabaseOptions{}
 	// set default values to the params
@@ -125,8 +96,9 @@ func (opt *DatabaseOptions) setDefaultValues() {
 	opt.ConfigurationParameters = make(map[string]string)
 }
 
-func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Printer) error {
+func (opt *DatabaseOptions) validateBaseOptions(cmdType CmdType, log vlog.Printer) error {
 	// get vcluster commands
+	commandName := cmdType.CmdString()
 	log.WithName(commandName)
 	// database name
 	if opt.DBName == "" {
@@ -151,7 +123,7 @@ func (opt *DatabaseOptions) validateBaseOptions(commandName string, log vlog.Pri
 
 	// config directory
 	// VER-91801: remove this condition once re_ip supports the config file
-	if !slices.Contains([]string{commandReIP}, commandName) {
+	if !slices.Contains([]string{ReIPCmd.CmdString()}, commandName) {
 		err = opt.validateConfigDir(commandName)
 		if err != nil {
 			return err
@@ -195,9 +167,8 @@ func (opt *DatabaseOptions) validateHostsAndPwd(commandName string, log vlog.Pri
 
 	// when we create db, we need to set password to "" if user did not provide one
 	if opt.Password == nil {
-		if commandName == commandCreateDB {
+		if commandName == CreateDBCmd.CmdString() {
 			opt.Password = new(string)
-			*opt.Password = ""
 		}
 		log.PrintInfo("no password specified, using none")
 	}
@@ -207,7 +178,7 @@ func (opt *DatabaseOptions) validateHostsAndPwd(commandName string, log vlog.Pri
 // validate catalog, data, and depot paths
 func (opt *DatabaseOptions) validatePaths(commandName string) error {
 	// validate for the following commands only
-	commands := []string{commandCreateDB, commandDropDB, commandConfigRecover}
+	commands := []string{CreateDBCmd.CmdString(), DropDBCmd.CmdString(), ConfigRecoverCmd.CmdString()}
 	if !slices.Contains(commands, commandName) {
 		return nil
 	}
@@ -220,7 +191,7 @@ func (opt *DatabaseOptions) validatePaths(commandName string) error {
 
 	// data prefix
 	// `manage_config recover` does not need the data-path
-	if commandName != commandConfigRecover {
+	if commandName != ConfigRecoverCmd.CmdString() {
 		err = util.ValidateRequiredAbsPath(opt.DataPrefix, "data path")
 		if err != nil {
 			return err
@@ -246,8 +217,10 @@ func (opt *DatabaseOptions) validateCatalogPath() error {
 func (opt *DatabaseOptions) validateConfigDir(commandName string) error {
 	// validate for the following commands only
 	// TODO: add other commands into the command list
-	commands := []string{commandCreateDB, commandDropDB, commandStopDB, commandStartDB, commandAddSubcluster, commandRemoveSubcluster,
-		commandSandboxSC, commandUnsandboxSC, commandShowRestorePoints, commandAddNode, commandRemoveNode, commandInstallPackages}
+	commands := []string{CreateDBCmd.CmdString(), DropDBCmd.CmdString(), StopDBCmd.CmdString(), StartDBCmd.CmdString(),
+		AddSubclusterCmd.CmdString(), RemoveSubclusterCmd.CmdString(),
+		SandboxSCCmd.CmdString(), UnsandboxSCCmd.CmdString(), ShowRestorePointsCmd.CmdString(), AddNodeCmd.CmdString(),
+		RemoveNodeCmd.CmdString(), InstallPackagesCmd.CmdString()}
 	if slices.Contains(commands, commandName) {
 		return nil
 	}

@@ -208,7 +208,7 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(
 		&c.createDBOptions.TimeoutNodeStartupSeconds,
 		"startup-timeout",
-		util.DefaultTimeoutSeconds,
+		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
 		"The timeout in seconds to wait for the nodes to start",
 	)
 }

@@ -28,6 +28,8 @@ type VStopNodeOptions struct {
 	DatabaseOptions
 	// Hosts to stop
 	StopHosts []string
+	// timeout for polling nodes that we want to wait in httpsPollNodeStopeOp
+	StopPollingTimeout int
 }
 
 func VStopNodeOptionsFactory() VStopNodeOptions {
@@ -40,10 +42,12 @@ func VStopNodeOptionsFactory() VStopNodeOptions {
 
 func (options *VStopNodeOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
+	// set time out from env variable
+	options.StopPollingTimeout = util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultStatePollingTimeout)
 }
 
 func (options *VStopNodeOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandStopNode, logger)
+	err := options.validateBaseOptions(StopNodeCmd, logger)
 	if err != nil {
 		return err
 	}

@@ -41,6 +41,7 @@ type nmaVerticaVersionOp struct {
 	scName             string
 	readOnly           bool
 	targetNodeIPs      []string // used to filter desired nodes' info
+	reachableHosts     []string //  hosts that are reachable through NMA
 }
 
 func makeHostVersionMap() hostVersionMap {
@@ -78,10 +79,12 @@ func makeNMAReadVerticaVersionOp(vdb *VCoordinationDatabase) nmaVerticaVersionOp
 
 // makeNMAVerticaVersionOpWithTargetHosts is used in start_db, VCluster will check Vertica
 // version for the subclusters which contain target hosts
-func makeNMAVerticaVersionOpWithTargetHosts(sameVersion bool, hosts []string) nmaVerticaVersionOp {
+func makeNMAVerticaVersionOpWithTargetHosts(sameVersion bool, targetNodeIPs []string) nmaVerticaVersionOp {
 	// We set hosts to nil and isEon to false temporarily, and they will get the correct value from execute context in prepare()
 	op := makeNMACheckVerticaVersionOp(nil /*hosts*/, sameVersion, false /*isEon*/)
-	op.targetNodeIPs = hosts
+	op.targetNodeIPs = targetNodeIPs
+	// start_db target all reachable input hosts
+	op.reachableHosts = targetNodeIPs
 	return op
 }
 
@@ -104,9 +107,10 @@ func makeNMAVerticaVersionOpWithVDB(sameVersion bool, vdb *VCoordinationDatabase
 
 // makeNMAVerticaVersionOpBeforeStartNode is used in start_node, VCluster will check Vertica
 // version for the nodes which are in the same cluster(main cluster or sandbox) as the target hosts
-func makeNMAVerticaVersionOpBeforeStartNode(vdb *VCoordinationDatabase, hosts []string) nmaVerticaVersionOp {
-	op := makeNMACheckVerticaVersionOp(nil /*hosts*/, true /*sameVersion*/, vdb.IsEon)
-	op.targetNodeIPs = hosts
+func makeNMAVerticaVersionOpBeforeStartNode(vdb *VCoordinationDatabase, reachableHosts, targetNodeIPs []string) nmaVerticaVersionOp {
+	op := makeNMACheckVerticaVersionOp(nil, true /*sameVersion*/, vdb.IsEon)
+	op.reachableHosts = reachableHosts
+	op.targetNodeIPs = targetNodeIPs
 	op.vdb = vdb
 	return op
 }
@@ -342,8 +346,9 @@ func (op *nmaVerticaVersionOp) prepareHostNodeMap(execContext *opEngineExecConte
 		if err != nil {
 			return hostNodeMap, err
 		}
+		allReachableHostsInTargetSCs := util.SliceCommon(allHostsInTargetSCs, op.reachableHosts)
 		// get host-node map for all hosts in target subclusters
-		hostNodeMap = util.FilterMapByKey(execContext.nmaVDatabase.HostNodeMap, allHostsInTargetSCs)
+		hostNodeMap = util.FilterMapByKey(execContext.nmaVDatabase.HostNodeMap, allReachableHostsInTargetSCs)
 	}
 	return hostNodeMap, nil
 }
@@ -365,8 +370,9 @@ func (op *nmaVerticaVersionOp) prepareHostNodeMapWithVDB() (vHostNodeMap, error)
 	if err != nil {
 		return hostNodeMap, err
 	}
+	allReachableHostsInTargetSCs := util.SliceCommon(allHostsInTargetSCs, op.reachableHosts)
 	// get host-node map for all hosts in target subclusters
-	hostNodeMap = util.FilterMapByKey(op.vdb.HostNodeMap, allHostsInTargetSCs)
+	hostNodeMap = util.FilterMapByKey(op.vdb.HostNodeMap, allReachableHostsInTargetSCs)
 
 	return hostNodeMap, nil
 }

@@ -46,6 +46,9 @@ type VAddNodeOptions struct {
 	// Names of the existing nodes in the cluster. This option can be
 	// used to remove partially added nodes from catalog.
 	ExpectedNodeNames []string
+
+	// timeout for polling nodes in seconds when we add Nodes
+	TimeOut int
 }
 
 func VAddNodeOptionsFactory() VAddNodeOptions {
@@ -60,6 +63,10 @@ func (options *VAddNodeOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
 
 	options.SkipRebalanceShards = new(bool)
+
+	// try to retrieve the timeout from the environment variable
+	// otherwise, set the default value (300 seconds) to the timeout
+	options.TimeOut = util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds)
 }
 
 func (options *VAddNodeOptions) validateEonOptions() error {
@@ -70,7 +77,7 @@ func (options *VAddNodeOptions) validateEonOptions() error {
 }
 
 func (options *VAddNodeOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandAddNode, logger)
+	err := options.validateBaseOptions(AddNodeCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -398,10 +405,11 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		vdb /*db configurations retrieved from a running db*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, options.StartUpConf, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
 	if err != nil {
 		return instructions, err
 	}
+	httpsPollNodeStateOp.cmdType = AddNodeCmd
 	instructions = append(instructions,
 		&nmaStartNewNodesOp,
 		&httpsPollNodeStateOp,

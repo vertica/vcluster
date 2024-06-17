@@ -55,7 +55,7 @@ func (options *VSandboxOptions) setDefaultValues() {
 }
 
 func (options *VSandboxOptions) validateRequiredOptions(logger vlog.Printer) error {
-	err := options.validateBaseOptions(commandSandboxSC, logger)
+	err := options.validateBaseOptions(SandboxSCCmd, logger)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 
 	// Get all up nodes
 	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(options.DBName, options.Hosts,
-		usePassword, username, options.Password, SandboxCmd, options.SCName)
+		usePassword, username, options.Password, SandboxSCCmd, options.SCName)
 	if err != nil {
 		return instructions, err
 	}
