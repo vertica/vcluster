@@ -35,6 +35,10 @@ func TestPromoteSandboxToMainOptions_validateParseOptions(t *testing.T) {
 	opt.Password = &testPassword
 
 	err := opt.validateParseOptions(logger)
+	assert.ErrorContains(t, err, "must specify a sandbox name")
+
+	opt.SandboxName = "sand1"
+	err = opt.validateParseOptions(logger)
 	assert.NoError(t, err)
 
 	opt.UserName = ""

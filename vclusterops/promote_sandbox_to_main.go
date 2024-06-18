@@ -40,6 +40,9 @@ func (opt *VPromoteSandboxToMainOptions) validateEonOptions(_ vlog.Printer) erro
 	if !opt.IsEon {
 		return fmt.Errorf("promote a sandbox to main is only supported in Eon mode")
 	}
+	if opt.SandboxName == "" {
+		return fmt.Errorf("must specify a sandbox name")
+	}
 	return nil
 }
 
@@ -49,12 +52,12 @@ func (opt *VPromoteSandboxToMainOptions) validateParseOptions(logger vlog.Printe
 		return err
 	}
 
-	// need to provide a password or certs in source database
-	if opt.Password == nil && (opt.Cert == "" || opt.Key == "") {
-		return fmt.Errorf("must provide a password or a key-certificate pair")
+	err = opt.validateBaseOptions(PromoteSandboxToMainCmd, logger)
+	if err != nil {
+		return err
 	}
 
-	return opt.validateBaseOptions(PromoteSandboxToMainCmd, logger)
+	return opt.validateAuthOptions("", logger)
 }
 
 // analyzeOptions will modify some options based on what is chosen

@@ -121,10 +121,11 @@ func (op *nmaGetConfigurationParameterOp) processResult(_ *opEngineExecContext) 
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			err := op.parseAndCheckResponse(host, result.content, op.retrievedParamValue)
+			genericResponse, err := op.parseAndCheckGenericJSONResponse(host, result.content)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 			}
+			*op.retrievedParamValue = genericResponse.RespStr
 		} else {
 			allErrs = errors.Join(allErrs, result.err)
 		}

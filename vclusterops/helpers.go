@@ -468,3 +468,9 @@ func (vcc *VClusterCommands) doReIP(options *DatabaseOptions, scName string,
 
 	return nil
 }
+
+// An nmaGenericJSONResponse is the default response that is generated,
+// the response value is of type "string" in JSON format.
+type nmaGenericJSONResponse struct {
+	RespStr string
+}

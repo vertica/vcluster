@@ -227,7 +227,7 @@ func (op *opBase) setLogger(logger vlog.Printer) {
 func (op *opBase) parseAndCheckResponse(host, responseContent string, responseObj any) error {
 	err := util.GetJSONLogErrors(responseContent, &responseObj, op.name, op.logger)
 	if err != nil {
-		op.logger.Error(err, "fail to parse response on host, detail", "host", host)
+		op.logger.Error(err, "fail to parse response on host, detail", "host", host, "original responseContent", responseContent)
 		return err
 	}
 	op.logger.Info("JSON response", "host", host, "responseObj", responseObj)
@@ -246,6 +246,13 @@ func (op *opBase) parseAndCheckStringResponse(host, responseContent string) (str
 	err := op.parseAndCheckResponse(host, responseContent, &responseStr)
 
 	return responseStr, err
+}
+
+func (op *opBase) parseAndCheckGenericJSONResponse(host, responseContent string) (nmaGenericJSONResponse, error) {
+	var genericResponse nmaGenericJSONResponse
+	err := op.parseAndCheckResponse(host, responseContent, &genericResponse)
+
+	return genericResponse, err
 }
 
 func (op *opBase) setClusterHTTPRequestName() {
