@@ -43,26 +43,8 @@ func makeCmdCreateDB() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		createDBSubCmd,
-		"Create a database",
-		`This command creates a database on a set of hosts.
-
-You must specify the database name, host list, catalog path, and data path.
-
-If --config is not provided, a configuration file is created in one of the
-following locations, in order of precedence:
-- path set in VCLUSTER_CONFIG environment variable
-- /opt/vertica/config/vertica_config.yaml if running vcluster from /opt/vertica/bin
-- $HOME/.config/vcluster/vertica_config.yaml
-
-To set multiple configuration parameters when the database is created, pass
---config-param a comma-separated list of NAME=VALUE pairs.
-
-Remove the local directories like catalog, depot, and data, with the
---force-cleanup-on-failure or --force-removal-at-creation options.
-The data deleted with these options is unrecoverable.
-
-Provide the dbadmin password with the --password-file, --read-password-from-prompt,
-or --password options.
+		"Creates a database",
+		`Creates a new database and its associated configuration file for use with other vcluster commands.
 
 Examples:
   # Create a database and save the generated config file under custom directory
@@ -118,98 +100,112 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		&c.createDBOptions.LicensePathOnNode,
 		"license",
 		"",
-		"Database license",
+		"The absolute path to a license file.",
 	)
 	cmd.Flags().StringVar(
 		&c.createDBOptions.Policy,
 		"policy",
 		util.DefaultRestartPolicy,
-		"Restart policy of the database",
+		"The restart policy of the database.",
 	)
 	cmd.Flags().StringVar(
 		&c.createDBOptions.SQLFile,
 		"sql",
 		"",
-		"SQL file to run (as dbadmin) immediately on database creation",
+		"The SQL file to run (as dbadmin) after database creation.",
 	)
 	markFlagsFileName(cmd, map[string][]string{"sql": {"sql"}})
 	cmd.Flags().IntVar(
 		&c.createDBOptions.ShardCount,
 		"shard-count",
 		0,
-		util.GetEonFlagMsg("Number of shards in the database"),
+		util.GetEonFlagMsg("The number of shards in the database."),
 	)
 	cmd.Flags().StringVar(
 		&c.createDBOptions.DepotSize,
 		"depot-size",
 		"",
-		util.GetEonFlagMsg("Size of depot"),
+		util.GetEonFlagMsg("Size of depot in one of the following formats:\n"+
+			"integer {K|M|G|T}, where K is kilobytes, M is megabytes, G is gigabytes, and T is terabytes.\n"+
+			"integer%, which expresses the depot size as a percentage of the total disk size."),
 	)
 	cmd.Flags().BoolVar(
 		&c.createDBOptions.GetAwsCredentialsFromEnv,
 		"get-aws-credentials-from-env-vars",
 		false,
-		util.GetEonFlagMsg("Read AWS credentials from environment variables"),
-	)
-	cmd.Flags().BoolVar(
-		&c.createDBOptions.P2p,
-		"point-to-point",
-		true,
-		"Configure Spread to use point-to-point communication between all Vertica nodes",
-	)
-	cmd.Flags().BoolVar(
-		&c.createDBOptions.Broadcast,
-		"broadcast",
-		false,
-		"Configure Spread to use UDP broadcast traffic between nodes on the same subnet",
+		util.GetEonFlagMsg("Retrieves AWS credentials from the following environment variables: $AWS_ACCESS_KEY_ID, $AWS_SECRET_ACCESS_KEY"),
 	)
 	cmd.Flags().IntVar(
 		&c.createDBOptions.LargeCluster,
 		"large-cluster",
 		-1,
-		"Enables a large cluster layout",
-	)
-	cmd.Flags().BoolVar(
-		&c.createDBOptions.SpreadLogging,
-		"spread-logging",
-		false,
-		"Whether enable spread logging",
-	)
-	cmd.Flags().IntVar(
-		&c.createDBOptions.SpreadLoggingLevel,
-		"spread-logging-level",
-		-1,
-		"Spread logging level",
+		"Enables the large cluster layout and sets the number of control nodes (default: -1, disabled).\n"+
+			"The effect of this option is slightly different on Enterprise and Eon databases. For details, see the Vertica documentation.",
 	)
 	cmd.Flags().BoolVar(
 		&c.createDBOptions.ForceCleanupOnFailure,
 		"force-cleanup-on-failure",
 		false,
-		"Force removal of existing directories on failure of command",
+		"Deletes directories created by create_db upon failure.",
 	)
 	cmd.Flags().BoolVar(
 		&c.createDBOptions.ForceRemovalAtCreation,
 		"force-removal-at-creation",
 		false,
-		"Force removal of existing directories before creating the database",
+		"Deletes existing database directories before attempting to create the database.",
 	)
 	cmd.Flags().BoolVar(
 		&c.createDBOptions.ForceOverwriteFile,
 		"force-overwrite-file",
 		false,
-		"Force overwrite of existing config and config param files",
+		"Overwrites the current configuration file, if any.",
 	)
 	cmd.Flags().BoolVar(
 		&c.createDBOptions.SkipPackageInstall,
 		"skip-package-install",
 		false,
-		"Skip the installation of packages from /opt/vertica/packages.",
+		"Skips installing the packages in /opt/vertica/packages.",
 	)
 	cmd.Flags().IntVar(
 		&c.createDBOptions.TimeoutNodeStartupSeconds,
 		"startup-timeout",
 		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
-		"The timeout in seconds to wait for the nodes to start",
+		"The time, in seconds, to wait for the nodes to start after database creation (default: 300).",
+	)
+	c.setSpreadlFlags(cmd)
+}
+
+func (c *CmdCreateDB) setSpreadlFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		&c.createDBOptions.SpreadLogging,
+		"spread-logging",
+		false,
+		"Whether enable Spread logging.",
+	)
+	cmd.Flags().IntVar(
+		&c.createDBOptions.SpreadLoggingLevel,
+		"spread-logging-level",
+		-1,
+		"The Spread logging level.",
+	)
+	cmd.Flags().BoolVar(
+		&c.createDBOptions.P2p,
+		"point-to-point",
+		true,
+		"Configures Spread to use point-to-point communication between all Vertica nodes (default: enabled).\n"+
+			"You should use this option if your nodes are not on the same subnet and for virtual environments.\n"+
+			"Do not combine this option with --broadcast.\n"+
+			"Up to 80 Spread daemons are supported by point-to-point communication. You can exceed the 80-node limit by using large cluster mode,\n"+
+			"which only installs the Spread daemon on a subset of your nodes.",
+	)
+	cmd.Flags().BoolVar(
+		&c.createDBOptions.Broadcast,
+		"broadcast",
+		false,
+		"Configures Spread to use UDP broadcast traffic between nodes on the same subnet (default: disabled).\n"+
+			"Do not combine this option with `--point-to-point`.\n"+
+			"Up to 80 Spread daemons are supported by broadcast traffic. You can exceed the 80-node limit by using large cluster mode,\n"+
+			"which does not install a Spread daemon on each node.",
 	)
 }
 
@@ -275,7 +271,7 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
-		vcc.LogError(createError, "fail to create database")
+		vcc.LogError(createError, "Failed to create the database.")
 		return createError
 	}
 
@@ -284,12 +280,12 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	// write db info to vcluster config file
 	err := writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile)
 	if err != nil {
-		vcc.DisplayWarning("Fail to write config file, details: %s\n", err)
+		vcc.DisplayWarning("Failed to write the configuration file: %s\n", err)
 	}
 	// write config parameters to vcluster config param file
 	err = c.writeConfigParam(c.createDBOptions.ConfigurationParameters, c.createDBOptions.ForceOverwriteFile)
 	if err != nil {
-		vcc.DisplayWarning("fail to write config param file, details: %s", err)
+		vcc.DisplayWarning("Failed to write configuration parameter file: %s", err)
 	}
 	return nil
 }

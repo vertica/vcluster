@@ -46,12 +46,8 @@ func makeCmdStopSubcluster() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		stopSCSubCmd,
-		"Stop a subcluster",
-		`This command stops a subcluster from an existing Eon Mode database.
-
-You must provide the subcluster name with the --subcluster option.
-
-All hosts in the subcluster will be stopped.
+		"Stops a subcluster",
+		`Stops a subcluster and all its hosts.
 
 Examples:
   # Gracefully stop a subcluster with config file
@@ -91,23 +87,23 @@ func (c *CmdStopSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.stopSCOptions.DrainSeconds,
 		"drain-seconds",
 		util.DefaultDrainSeconds,
-		util.GetEonFlagMsg("seconds to wait for non-dbadmin user connections to close."+
-			" Default value is "+strconv.Itoa(util.DefaultDrainSeconds)+" seconds."+
-			" When the time expires, connections will be forcibly closed and the subcluster will shut down."+
-			" If the value is 0, VCluster closes all user connections immediately."+
-			" If the value is negative, VCluster waits indefinitely until all user sessions disconnect"),
+		util.GetEonFlagMsg("The time to wait, in seconds, for user connections to close on their own.\n"+
+			"When the time expires, user connections are automatically closed and the database is hut down.\n"+
+			"If set to 0, VCluster closes all user connections immediately.\n"+
+			"If the value is negative, VCluster waits indefinitely until all user connections close."+
+			"Default: "+strconv.Itoa(util.DefaultDrainSeconds)),
 	)
 	cmd.Flags().StringVar(
 		&c.stopSCOptions.SCName,
 		subclusterFlag,
 		"",
-		"The name of the target subcluster",
+		"The name of the subcluster to stop.",
 	)
 	cmd.Flags().BoolVar(
 		&c.stopSCOptions.Force,
 		"force",
 		false,
-		"Force the subcluster to shutdown immediately even if users are connected",
+		"Force the subcluster to shut down immediately even if users are connected.",
 	)
 	cmd.MarkFlagsMutuallyExclusive("drain-seconds", "force")
 }
@@ -151,7 +147,7 @@ func (c *CmdStopSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VStopSubcluster(options)
 	if err != nil {
-		vcc.LogError(err, "fail to stop the subcluster", "Subcluster", options.SCName)
+		vcc.LogError(err, "failed to stop the subcluster", "Subcluster", options.SCName)
 		return err
 	}
 	vcc.DisplayInfo("Successfully stopped subcluster %s", options.SCName)

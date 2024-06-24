@@ -140,13 +140,12 @@ func (vcc VClusterCommands) VStartSubcluster(options *VStartScOptions) error {
 			options.SCName)
 	}
 
-	var startNodesOptions VStartNodesOptions
-	startNodesOptions.Nodes = nodesToStart
-	startNodesOptions.DatabaseOptions = options.DatabaseOptions
-	startNodesOptions.StatePollingTimeout = options.StatePollingTimeout
-	startNodesOptions.vdb = &vdb
+	options.VStartNodesOptions.Nodes = nodesToStart
+	options.VStartNodesOptions.DatabaseOptions = options.DatabaseOptions
+	options.VStartNodesOptions.StatePollingTimeout = options.StatePollingTimeout
+	options.VStartNodesOptions.vdb = &vdb
 
 	vlog.DisplayColorInfo("Starting nodes %v in subcluster %s", maps.Keys(nodesToStart), options.SCName)
 
-	return vcc.VStartNodes(&startNodesOptions)
+	return vcc.VStartNodes(&options.VStartNodesOptions)
 }

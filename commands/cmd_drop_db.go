@@ -40,23 +40,13 @@ func makeCmdDropDB() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		dropDBSubCmd,
-		"Drop a database",
-		`This command drops a stopped database.
+		"Drops a database",
+		`Drops a stopped database. The effects this command has on your data differs slightly between database modes:
 
-For an Eon database, communal storage is not deleted. You can recover 
-the dropped database with revive_db.
+- Enterprise: Deletes the database data (including catalog, data, and depot directories) from all nodes.
+- Eon: Deletes non-communal storage data. Dropped Eon Mode databases can be revived.
 
-The config file must be specified to retrieve host information. If --config
-is not provided, a configuration file is created in one of the following 
-locations, in order of precedence:
-- path set in VCLUSTER_CONFIG environment variable
-- /opt/vertica/config/vertica_config.yaml if running vcluster from /opt/vertica/bin
-- $HOME/.config/vcluster/vertica_config.yaml
-
-When the command completes, the config file is removed.
-
-To remove the local directories like catalog, depot, and data, use the 
---force-delete option. The data deleted with this option is unrecoverable.
+The data deleted by this operation cannot be recovered.
 
 Examples:
   # Drop a database with config file
@@ -95,7 +85,7 @@ func (c *CmdDropDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VDropDatabase(c.dropDBOptions)
 	if err != nil {
-		vcc.LogError(err, "fail do drop the database")
+		vcc.LogError(err, "failed to drop the database")
 		return err
 	}
 
@@ -104,8 +94,8 @@ func (c *CmdDropDB) Run(vcc vclusterops.ClusterCommands) error {
 	// if failed to remove it, we will ask users to manually do it
 	err = removeConfig()
 	if err != nil {
-		vcc.DisplayWarning("Fail to remove config file %q, "+
-			"please manually do it, details: %v", c.dropDBOptions.ConfigPath, err)
+		vcc.DisplayWarning("Failed to remove the configuration file %q, "+
+			"please remove it manually: %v", c.dropDBOptions.ConfigPath, err)
 	}
 	return nil
 }

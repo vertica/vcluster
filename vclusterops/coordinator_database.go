@@ -315,6 +315,11 @@ func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
 	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 
+// hostIsUp returns true if the host is up
+func (vdb *VCoordinationDatabase) hostIsUp(hostName string) bool {
+	return vdb.HostNodeMap[hostName].State == util.NodeUpState
+}
+
 // VCoordinationNode represents node information from the database catalog.
 type VCoordinationNode struct {
 	Name    string `json:"name"`
@@ -336,6 +341,7 @@ type VCoordinationNode struct {
 	Sandbox       string
 	Version       string
 	IsControlNode bool
+	ControlNode   string
 }
 
 func makeVCoordinationNode() VCoordinationNode {

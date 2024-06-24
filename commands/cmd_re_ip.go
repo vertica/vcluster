@@ -40,21 +40,21 @@ func makeCmdReIP() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		reIPSubCmd,
-		"Re-ip database nodes",
-		`This command changes the IP addresses of database nodes in the catalog.
+		"Updates the catalog with the IP addresses of your nodes when the database is stopped.",
+		`Updates the catalog with the IP addresses of your nodes when the database is stopped.
 
-The database must be down to change the IP addresses with re_ip. If
-the database is up, you must run start_node after re_ip for the 
-IP changes to take effect.
+You should run this command when the IP address for a node changes.
 
-The file specified by the re-ip-file option must be a JSON file in the
-following format:
-[  
-	{"from_address": "10.20.30.40", "to_address": "10.20.30.41"},  
-	{"from_address": "10.20.30.42", "to_address": "10.20.30.43"}  
-] 
+You should always stop the database before running re_ip.
 
-Include in the file only the nodes whose IP addresses you want to change.
+The file specified by the --re-ip-file option must the absolute path to a
+JSON file with the following format:
+[
+  {"from_address": "10.20.30.40", "to_address": "10.20.30.41"},
+  {"from_address": "10.20.30.42", "to_address": "10.20.30.43"}
+]
+
+This file should only include the IP addresses of nodes that you want to update.
 		
 Examples:
   # Alter the IP address of database nodes with user input
@@ -128,31 +128,31 @@ func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
 	canUpdateConfig := true
 	dbConfig, err := readConfig()
 	if err != nil {
-		vcc.LogInfo("fail to read config file: %v", err)
+		vcc.LogInfo("Failed to read the configuration file: %v", err)
 		canUpdateConfig = false
 	}
 
 	err = vcc.VReIP(options)
 	if err != nil {
-		vcc.LogError(err, "fail to re-ip")
+		vcc.LogError(err, "failed to re-ip nodes.")
 		return err
 	}
 
-	vcc.DisplayInfo("Successfully changed the IP addresses of database nodes")
+	vcc.DisplayInfo("Successfully updated the IP addresses of database nodes.")
 
 	// update config file after running re_ip
 	if canUpdateConfig {
 		c.UpdateConfig(dbConfig)
 		err = dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 		if err != nil {
-			vcc.DisplayWarning("fail to update config file, details %v\n", err)
+			vcc.DisplayWarning("Failed to update configuration file: %v\n", err)
 		}
 	}
 
 	// write config parameters to vcluster config param file
 	err = c.writeConfigParam(options.ConfigurationParameters, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.PrintWarning("fail to write config param file, details: %s", err)
+		vcc.PrintWarning("Failed to write configuration param file: %s", err)
 	}
 
 	return nil

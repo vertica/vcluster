@@ -85,18 +85,11 @@ func makeCmdScrutinize() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		scrutinizeSubCmd,
-		"Scrutinize a database",
-		`This command runs scrutinize to collect diagnostic information about a
-database.
-		
-Vertica support might request that you run scrutinize when resolving a support
-case.
+		"Runs the scrutinize utility",
+		`Runs the scrutinize utility to collect diagnostic information about a database.
+Vertica Support might request that you run this utility when resolving a case.
 
-If you use the --hosts option, scrutinize gathers diagnostics from only the
-specified hosts.
-
-The diagnostics are bundled together in a tar file and stored in 
-`+vclusterops.ScrutinizeOutputBasePath+`/VerticaScrutinize.<timestamp>.tar.
+By default, diagnostics are stored in a /tmp/scrutinize/VerticaScrutinize.timestamp.tar.
 
 Examples:
   # Scrutinize all nodes in the database with config file
@@ -127,29 +120,28 @@ func (c *CmdScrutinize) setLocalFlags(cmd *cobra.Command) {
 		&c.sOptions.TarballName,
 		"tarball-name",
 		"",
-		"Name of the generated tarball. If empty an auto-generated "+
-			"name is used following the pattern VerticaScrutinize.<timestamp>",
+		"Name of the generated .tar (default: VerticaScrutinize.timestamp.tar)",
 	)
 	cmd.Flags().StringVar(
 		&c.sOptions.LogAgeOldestTime,
 		"log-age-oldest-time",
 		"",
-		"Timestamp of the maximum age of archived vertica log files "+
-			"to collect, formatted as "+vclusterops.ScrutinizeHelpTimeFormatDesc,
+		"Timestamp of the maximum age of archived Vertica log files to collect \n"+
+			"with the format: "+vclusterops.ScrutinizeHelpTimeFormatDesc,
 	)
 	cmd.Flags().StringVar(
 		&c.sOptions.LogAgeNewestTime,
 		"log-age-newest-time",
 		"",
-		"Timestamp of the minimum age of archived vertica log files "+
-			"to collect, formatted as "+vclusterops.ScrutinizeHelpTimeFormatDesc,
+		"Timestamp of the minimum age of archived Vertica log files to collect "+
+			"with the format: "+vclusterops.ScrutinizeHelpTimeFormatDesc,
 	)
 	cmd.Flags().IntVar(
 		&c.sOptions.LogAgeHours,
 		"log-age-hours",
 		vclusterops.ScrutinizeLogMaxAgeHoursDefault,
-		"Maximum age of archived vertica log files to collect "+
-			"in hours, default "+fmt.Sprint(vclusterops.ScrutinizeLogMaxAgeHoursDefault),
+		"The maximum age, in hours, of archived Vertica log files to collect."+
+			"Default: "+fmt.Sprint(vclusterops.ScrutinizeLogMaxAgeHoursDefault),
 	)
 	cmd.MarkFlagsMutuallyExclusive("log-age-hours", "log-age-oldest-time")
 	cmd.MarkFlagsMutuallyExclusive("log-age-hours", "log-age-newest-time")
@@ -157,39 +149,39 @@ func (c *CmdScrutinize) setLocalFlags(cmd *cobra.Command) {
 		&c.sOptions.ExcludeContainers,
 		"exclude-containers",
 		false,
-		"Exclude information scaling with number of ros containers",
+		"Excludes information in system tables that can scale with the number of ROS containers.",
 	)
 	cmd.Flags().BoolVar(
 		&c.sOptions.ExcludeActiveQueries,
 		"exclude-active-queries",
 		false,
-		"Exclude information affected by currently running queries",
+		"Exclude information affected by currently running queries.",
 	)
 	cmd.Flags().BoolVar(
 		&c.sOptions.IncludeRos,
 		"include-ros",
 		false,
-		"Include information describing ros containers",
+		"Include information about ROS containers",
 	)
 	cmd.Flags().BoolVar(
 		&c.sOptions.IncludeExternalTableDetails,
 		"include-external-table-details",
 		false,
-		"Include information describing external tables, "+
-			"which is expensive to gather",
+		"Include information about external tables. "+
+			"This option is computationally expensive.",
 	)
 	cmd.Flags().BoolVar(
 		&c.sOptions.IncludeUDXDetails,
 		"include-udx-details",
 		false,
-		"Include information describing all UDX functions, "+
-			"which can be expensive to gather on Eon",
+		"Include information describing all UDX functions.\n"+
+			"This option can be computationally expensive for Eon Mode databases.",
 	)
 	cmd.Flags().BoolVar(
 		&c.sOptions.SkipCollectLibs,
 		"skip-collect-libraries",
 		false,
-		"Skip gathering linked and catalog shared libraries",
+		"Skip gathering linked and catalog-shared libraries.",
 	)
 }
 
@@ -303,7 +295,7 @@ func (c *CmdScrutinize) extractNMACerts(certData map[string][]byte) (err error) 
 	}
 
 	if len(caCertVal) == 0 || len(tlsCertVal) == 0 || len(tlsKeyVal) == 0 {
-		return fmt.Errorf("failed to read CA, cert or key (sizes = %d/%d/%d)",
+		return fmt.Errorf("failed to read CA, certificate, or key (sizes = %d/%d/%d)",
 			len(caCertVal), len(tlsCertVal), len(tlsKeyVal))
 	}
 
@@ -354,7 +346,7 @@ func (c *CmdScrutinize) dbPassswdLookupFromSecretStore(logger vlog.Printer) erro
 	secret, err := lookupAndCheckSecretEnvVars(passwordSecretNameEnvVar, passwordSecretNamespaceEnvVar)
 	if secret == nil || err != nil {
 		if err == nil {
-			logger.Info("Password secret environment variables are not set. Password read will rely on the user input.")
+			logger.Info("Password secret environment variables are not set, password will be read from user input.")
 		}
 		return err
 	}
@@ -367,7 +359,7 @@ func (c *CmdScrutinize) dbPassswdLookupFromSecretStore(logger vlog.Printer) erro
 	if err != nil {
 		return err
 	}
-	logger.Info("Successfully read db password from secret store", "secretName", secret.Name)
+	logger.Info("Successfully read database password from secret store", "secretName", secret.Name)
 	return nil
 }
 
@@ -382,7 +374,7 @@ func (c *CmdScrutinize) nmaCertLookupFromSecretStore(logger vlog.Printer) (bool,
 	secret, err := lookupAndCheckSecretEnvVars(secretNameEnvVar, secretNameSpaceEnvVar)
 	if secret == nil || err != nil {
 		if err == nil {
-			logger.Info("Secret name not set in env. Failback to other cert retieval methods.")
+			logger.Info("Secret name not set in the environment. Falling back to other certificate retieval methods.")
 		}
 		return false, err
 	}
@@ -395,7 +387,7 @@ func (c *CmdScrutinize) nmaCertLookupFromSecretStore(logger vlog.Printer) (bool,
 	if err != nil {
 		return false, err
 	}
-	logger.Info("Successfully read cert from secret store", "secretName", secret.Name, "secretNameSpace", secret.Namespace)
+	logger.Info("Successfully read certificate from secret store", "secretName", secret.Name, "secretNameSpace", secret.Namespace)
 	return true, nil
 }
 
@@ -415,7 +407,7 @@ func (c *CmdScrutinize) nmaCertLookupFromEnv(logger vlog.Printer) (bool, error) 
 	}
 
 	if !rootCAPathSet {
-		logger.Info("NMA cert location paths not set in env")
+		logger.Info("NMA certifcate location paths not set in the environment")
 		return false, nil
 	}
 
@@ -436,7 +428,7 @@ func (c *CmdScrutinize) nmaCertLookupFromEnv(logger vlog.Printer) (bool, error) 
 		return false, fmt.Errorf("failed to read key from %s: %w", keyPath, err)
 	}
 
-	logger.Info("Successfully read certs from file", "rootCAPath", rootCAPath, "certPath", certPath, "keyPath", keyPath)
+	logger.Info("Successfully read certificates from file", "rootCAPath", rootCAPath, "certPath", certPath, "keyPath", keyPath)
 	return true, nil
 }
 
@@ -453,7 +445,7 @@ func (c *CmdScrutinize) readOptionsFromK8sEnv(logger vlog.Printer) (allErrs erro
 		allErrs = errors.Join(allErrs, fmt.Errorf("unable to get database name from environment variable. "))
 	} else {
 		c.sOptions.DBName = dbName
-		logger.Info("Setting database name from env as", "DBName", c.sOptions.DBName)
+		logger.Info("Setting database name from the environment as", "DBName", c.sOptions.DBName)
 	}
 
 	catPrefix, found := os.LookupEnv(catalogPathPref)
@@ -461,7 +453,7 @@ func (c *CmdScrutinize) readOptionsFromK8sEnv(logger vlog.Printer) (allErrs erro
 		allErrs = errors.Join(allErrs, fmt.Errorf("unable to get catalog path from environment variable. "))
 	} else {
 		c.sOptions.CatalogPrefix = catPrefix
-		logger.Info("Setting catalog path from env as", "CatalogPrefix", c.sOptions.CatalogPrefix)
+		logger.Info("Setting catalog path from environment as", "CatalogPrefix", c.sOptions.CatalogPrefix)
 	}
 	return
 }

@@ -41,11 +41,11 @@ func makeCmdShowRestorePoints() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		showRestorePointsSubCmd,
-		"Query and list restore point(s) in archive(s)",
-		`This command queries and displays restore points in archives.
+		"Shows restore points.",
+		`Shows restore points.
 
-The --start-timestamp and --end-timestamp options limit the restore points
-query by creation timestamp. Both options accept UTC timestamps in date-time
+The --start-timestamp and --end-timestamp options let you filter for restore points
+based on their creation timestamp. Both options accept UTC timestamps in date-time
 and date-only format. For example:
 
 "2006-01-02 15:04:05", "2006-01-02", "2006-01-02 15:04:05.000000000".
@@ -95,31 +95,33 @@ func (c *CmdShowRestorePoints) setLocalFlags(cmd *cobra.Command) {
 		&c.showRestorePointsOptions.FilterOptions.ArchiveName,
 		"restore-point-archive",
 		"",
-		"Archive name to filter restore points with",
+		"Filter for restore point names that include the specified string.",
 	)
 	cmd.Flags().StringVar(
 		&c.showRestorePointsOptions.FilterOptions.ArchiveID,
 		"restore-point-id",
 		"",
-		"ID to filter restore points with",
+		"Filter for restore point names that include the specified ID.",
 	)
 	cmd.Flags().StringVar(
 		&c.showRestorePointsOptions.FilterOptions.ArchiveIndex,
 		"restore-point-index",
 		"",
-		"Index to filter restore points with",
+		"Filter for restore point names that include the specified index.",
 	)
 	cmd.Flags().StringVar(
 		&c.showRestorePointsOptions.FilterOptions.StartTimestamp,
 		"start-timestamp",
 		"",
-		"Only show restores points created no earlier than this",
+		"Shows restore points after and including the specified UTC timestamp \n"+
+			"in either date-time or date-only format.",
 	)
 	cmd.Flags().StringVar(
 		&c.showRestorePointsOptions.FilterOptions.EndTimestamp,
 		"end-timestamp",
 		"",
-		"Only show restores points created no later than this",
+		"Shows restore points up to and including the specified UTC timestamp \n"+
+			"in either date-time or date-only format.",
 	)
 }
 
@@ -173,7 +175,7 @@ func (c *CmdShowRestorePoints) Run(vcc vclusterops.ClusterCommands) error {
 
 	restorePoints, err := vcc.VShowRestorePoints(options)
 	if err != nil {
-		vcc.LogError(err, "fail to show restore points", "DBName", options.DBName)
+		vcc.LogError(err, "failed to show restore points", "DBName", options.DBName)
 		return err
 	}
 	bytes, err := json.MarshalIndent(restorePoints, "", "  ")

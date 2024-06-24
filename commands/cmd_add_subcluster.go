@@ -47,12 +47,7 @@ func makeCmdAddSubcluster() *cobra.Command {
 		newCmd,
 		addSCSubCmd,
 		"Add a subcluster",
-		`This command adds a new subcluster to an existing Eon Mode database.
-
-You must provide a subcluster name with the --subcluster option.
-
-By default, the new subcluster is secondary. To add a primary subcluster, use
-the --is-primary option.
+		`This command adds a new subcluster to an Eon Mode database.
 
 Examples:
   # Add a subcluster with config file
@@ -101,43 +96,45 @@ func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.addSubclusterOptions.SCName,
 		subclusterFlag,
 		"",
-		"The name of the new subcluster",
+		"The name of the new subcluster. This string must conform to the format used for database names.",
 	)
 	cmd.Flags().BoolVar(
 		&c.addSubclusterOptions.IsPrimary,
 		"is-primary",
 		false,
-		"The new subcluster will be a primary subcluster",
+		"Whether the new subcluster should be a primary subcluster. If this option is omitted, new subclusters are secondary.",
 	)
 	cmd.Flags().IntVar(
 		&c.addSubclusterOptions.ControlSetSize,
 		"control-set-size",
 		vclusterops.ControlSetSizeDefaultValue,
-		"The number of nodes that will run spread within the subcluster",
+		"The number of control nodes in the subcluster (default: -1, all nodes in the subcluster are control nodes).",
 	)
 	cmd.Flags().StringSliceVar(
 		&c.addSubclusterOptions.NewHosts,
 		addNodeFlag,
 		[]string{},
-		"Comma-separated list of host(s) to add to the new subcluster",
+		"A comma-separated list of hosts or IP addresses to add to the subcluster.",
 	)
 	cmd.Flags().BoolVar(
 		&c.addSubclusterOptions.ForceRemoval,
 		"force-removal",
 		false,
-		"Whether to force clean-up of existing directories before adding host(s)",
+		"Whether to delete any existing database directories in the new hosts before attempting to add them.",
 	)
 	cmd.Flags().BoolVar(
 		c.addSubclusterOptions.SkipRebalanceShards,
 		"skip-rebalance-shards",
 		false,
-		util.GetEonFlagMsg("Skip the subcluster shards rebalancing"),
+		util.GetEonFlagMsg("Whether to skip shard rebalancing."),
 	)
 	cmd.Flags().StringVar(
 		&c.addSubclusterOptions.DepotSize,
 		"depot-size",
 		"",
-		util.GetEonFlagMsg("Size of depot"),
+		util.GetEonFlagMsg("Size of depot in one of the following formats:\n"+
+			"integer{K|M|G|T}, where K is kilobytes, M is megabytes, G is gigabytes, and T is terabytes.\n"+
+			"integer%, which expresses the depot size as a percentage of the total disk size.\n"),
 	)
 }
 
@@ -215,15 +212,15 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 		vdb, err := vcc.VAddNode(&options.VAddNodeOptions)
 		if err != nil {
-			const msg = "Fail to add nodes into the new subcluster"
-			vcc.DisplayError("%s\nHint: subcluster %q is successfully created, you should use add_node to add nodes\n",
+			const msg = "Failed to add nodes to the new subcluster"
+			vcc.DisplayError("%s\nHint: The subcluster %q was successfully created; use add_node to add the nodes.\n",
 				msg, options.VAddNodeOptions.SCName)
 			return err
 		}
 		// update db info in the config file
 		err = writeConfig(&vdb, true /*forceOverwrite*/)
 		if err != nil {
-			vcc.DisplayWarning("fail to write config file, details: %s", err)
+			vcc.DisplayWarning("Failed to write config file, details: %s", err)
 		}
 	}
 

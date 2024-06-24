@@ -48,17 +48,21 @@ func makeCmdSandboxSubcluster() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		sandboxSubCmd,
-		"Sandbox a subcluster",
-		`This command sandboxes a subcluster in an existing Eon Mode database.
+		"Sandboxes a subcluster.",
+		`Sandboxes a secondary subcluster in an Eon Mode database.
 
-Only secondary subclusters can be sandboxed. All hosts in the subcluster that
-you want to sandbox must be up.
+All hosts in the subcluster must be up.
+		
+When you sandbox a subcluster, its hosts immediately shut down and restart;
+the subcluster becomes sandboxed after the hosts start back up.
 
-When you sandbox a subcluster, its hosts shut down and restart as part of the
-sandbox. A sandbox can contain multiple subclusters.
+A sandbox can contain multiple subclusters, and subclusters in the sandbox can 
+interact with each other. If you want to isolate subclusters, they must 
+be in separate sandboxes.
 
-You must provide the subcluster name with the --subcluster option and the
-sandbox name with the --sandbox option.
+Subcluster sandboxing should be used for testing changes or upgrades in safe, isolated 
+environment and should not be used for production subclusters. For example, you can 
+create sandboxes and then upgrade Vertica in those sandboxes.
 		
 Examples:
   # Sandbox a subcluster with config file
@@ -87,31 +91,31 @@ func (c *CmdSandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.sbOptions.SCName,
 		subclusterFlag,
 		"",
-		"The name of the subcluster to be sandboxed",
+		"The name of the subcluster to sandbox.",
 	)
 	cmd.Flags().StringVar(
 		&c.sbOptions.SandboxName,
 		sandboxFlag,
 		"",
-		"The name of the sandbox",
+		"The name of the sandbox.",
 	)
 	cmd.Flags().BoolVar(
 		&c.sbOptions.SaveRp,
 		saveRpFlag,
 		false,
-		"A restore point is saved when creating the sandbox",
+		"Save a restore point when creating the sandbox.",
 	)
 	cmd.Flags().BoolVar(
 		&c.sbOptions.Imeta,
 		isolateMetadataFlag,
 		false,
-		"The metadata of sandboxed subcluster is isolated",
+		"Isolate the metadata of the sandboxed subcluster.",
 	)
 	cmd.Flags().BoolVar(
 		&c.sbOptions.Sls,
 		createStorageLocationsFlag,
 		false,
-		"The sandbox create its own storage locations",
+		"The sandbox can create its own storage locations.",
 	)
 }
 
@@ -151,7 +155,7 @@ func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VSandbox(&options)
 	if err != nil {
-		vcc.LogError(err, "fail to sandbox subcluster")
+		vcc.LogError(err, "failed to sandbox the subcluster.")
 		return err
 	}
 
@@ -159,20 +163,20 @@ func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	// Read and then update the sandbox information on config file
 	dbConfig, configErr := readConfig()
 	if configErr != nil {
-		vcc.DisplayWarning("fail to read config file, skipping config file update", "error", configErr)
+		vcc.DisplayWarning("Failed to read the configuration file, skipping configuration file update", "error", configErr)
 		return nil
 	}
 	// Update config
 	updatedConfig := c.updateSandboxInfo(dbConfig)
 	if !updatedConfig {
-		vcc.DisplayWarning("did not update node info for sandboxed sc " + c.sbOptions.SCName +
-			", info about the subcluster nodes are missing in config file, skipping config update")
+		vcc.DisplayWarning("Did not update node info for sandboxed subcluster " + c.sbOptions.SCName +
+			", information about subcluster nodes missing from configuration file, skipping configuration file update")
 		return nil
 	}
 
 	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
-		vcc.DisplayWarning("fail to write the config file, details: " + writeErr.Error())
+		vcc.DisplayWarning("Failed to write the configuration file: " + writeErr.Error())
 		return nil
 	}
 	return nil

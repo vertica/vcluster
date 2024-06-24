@@ -48,14 +48,10 @@ func makeCmdStartNodes() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		startNodeSubCmd,
-		"Start nodes in the database",
-		`This command starts individual nodes in a running cluster. This
-differs from start_db, which starts Vertica after cluster quorum is lost.
+		"Starts nodes in a running cluster",
+		`Starts nodes in a running cluster. This differs from start_db, which starts Vertica after cluster quorum is lost.
 
-You can pass --start a comma-separated list of NODE_NAME=IP_TO_START pairs
-to start multiple nodes without a config file. If the IP_TO_START value
-does not match the information stored in the catalog for NODE_NAME, Vertica
-updates the catalog with the IP_TO_START value and starts the node.
+One of --restart and --start-hosts is required.
 
 Examples:
   # Start a single node in the database with config file
@@ -93,13 +89,15 @@ func (c *CmdStartNodes) setLocalFlags(cmd *cobra.Command) {
 		&c.vnodeHostMap,
 		startNodeFlag,
 		map[string]string{},
-		"Comma-separated list of <node_name=re_ip_host> pairs part of the database nodes that need to be started",
+		"A comma-separated list of node_name=ip_address pairs, specifying the nodes to restart.\n"+
+			"If ip_address doesn't match the database's listed IP address for that node, Vertica updates\n"+
+			"its catalog information for that node with the specified IP address and then restarts the node.",
 	)
 	cmd.Flags().StringSliceVar(
 		&c.rawStartHostList,
 		startHostFlag,
 		[]string{},
-		"Comma-separated list of hosts that need to be started",
+		"A comma-separated list of hosts to start.",
 	)
 	cmd.Flags().IntVar(
 		&c.startNodesOptions.StatePollingTimeout,
@@ -163,8 +161,14 @@ func (c *CmdStartNodes) Run(vcc vclusterops.ClusterCommands) error {
 	// this is the instruction that will be used by both CLI and operator
 	err := vcc.VStartNodes(options)
 	if err != nil {
-		vcc.LogError(err, "fail to start node")
+		vcc.LogError(err, "failed to start node.")
 		return err
+	}
+
+	// all nodes unreachable, nothing need to be done.
+	if len(options.Nodes) == 0 {
+		vcc.DisplayInfo("No reachable nodes to start")
+		return nil
 	}
 
 	var hostToStart []string
@@ -185,7 +189,7 @@ func (c *CmdStartNodes) buildStartNodeHostMap() error {
 	dbConfig, err := readConfig()
 	if err != nil {
 		return fmt.Errorf("--start-hosts can only be used when "+
-			"the config file is available, detail: %w", err)
+			"the configuration file is available: %w", err)
 	}
 
 	hostNodeMap := make(map[string]string)

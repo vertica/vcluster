@@ -136,7 +136,7 @@ func TestStartNode(t *testing.T) {
 
 	// --start-hosts should be used with the config file
 	err = simulateVClusterCli("vcluster start_node --start-hosts host1")
-	assert.ErrorContains(t, err, "--start-hosts can only be used when the config file is available")
+	assert.ErrorContains(t, err, "--start-hosts can only be used when the configuration file is available")
 
 	// --start or --start-hosts cannot be both specified
 	err = simulateVClusterCli("vcluster start_node --start node1=host1 --start-hosts host1")

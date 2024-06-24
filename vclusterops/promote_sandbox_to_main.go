@@ -131,8 +131,9 @@ func (vcc VClusterCommands) VPromoteSandboxToMain(options *VPromoteSandboxToMain
 }
 
 // The generated instructions will later perform the following operations necessary
-// for a successful alter subcluster type operation:
-// - promote sandbox to main using one of the up nodes in the sandbox subcluster
+// for a successful promote sandbox operation:
+// - promote sandbox to main using one of the up nodes in the sandboxed subcluster
+// - clean communal storage using one of the up nodes in the sandboxed subcluster
 func (vcc VClusterCommands) promoteSandboxToMainInstructions(options *VPromoteSandboxToMainOptions,
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -155,6 +156,12 @@ func (vcc VClusterCommands) promoteSandboxToMainInstructions(options *VPromoteSa
 	if err != nil {
 		return nil, err
 	}
-	instructions = append(instructions, &httpsConvertSandboxToMainOp)
+	nmaCleanCommunalStorageOp, err := makeNMACleanCommunalStorageOp(sandboxHost,
+		options.UserName, options.DBName, options.Password, options.usePassword,
+		false /* not only print invalid files in communal storage, but also delete them */)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &httpsConvertSandboxToMainOp, &nmaCleanCommunalStorageOp)
 	return instructions, nil
 }

@@ -41,12 +41,9 @@ func makeCmdCreateConnection() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		createConnectionSubCmd,
-		"create the content of the connection file",
-		`This command is used to create the content of the connection file. 
-
-You must specify the database name and host list. If the database has a 
-password, you need to provide password. If the database uses 
-trust authentication, the password can be ignored.
+		"Creates a file with connection information for the target database.",
+		`Creates a file with connection information for the target database. 
+The generated connection file should be used with the replication command.
 
 Examples:
   # create the connection file to /tmp/vertica_connection.yaml
@@ -69,31 +66,31 @@ func (c *CmdCreateConnection) setLocalFlags(cmd *cobra.Command) {
 		&c.connectionOptions.TargetDB,
 		dbNameFlag,
 		"",
-		"The name of the database",
+		"The name of the database. You should only use this option if you want to override the database name in your configuration file.",
 	)
 	cmd.Flags().StringSliceVar(
 		&c.connectionOptions.TargetHosts,
 		hostsFlag,
 		[]string{},
-		"Comma-separated list of hosts in database")
+		"A comma-separated list of hosts in database.")
 	cmd.Flags().StringVar(
 		&c.connectionOptions.TargetUserName,
 		dbUserFlag,
 		"",
-		"The username for connecting to the database",
+		"The name of the user in the target database.",
 	)
 	//  password flags
 	cmd.Flags().StringVar(
 		c.connectionOptions.TargetPassword,
 		passwordFileFlag,
 		"",
-		"Path to the file to read the password from. ",
+		"The absolute path to a file containing the password to the target database.",
 	)
 	cmd.Flags().StringVar(
 		&globals.connFile,
 		connFlag,
 		"",
-		"Path to the connection file")
+		"The absolute path to the connection file.")
 	markFlagsFileName(cmd, map[string][]string{connFlag: {"yaml"}})
 }
 
@@ -110,7 +107,7 @@ func (c *CmdCreateConnection) Run(vcc vclusterops.ClusterCommands) error {
 	// write target db info to vcluster connection file
 	err := writeConn(c.connectionOptions)
 	if err != nil {
-		return fmt.Errorf("fail to write connection file, details: %s", err)
+		return fmt.Errorf("failed to write the connection file: %w", err)
 	}
 	vcc.DisplayInfo("Successfully wrote the connection file in %s", globals.connFile)
 	return nil

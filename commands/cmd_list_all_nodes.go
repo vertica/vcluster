@@ -43,18 +43,18 @@ func makeListAllNodes() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		listAllNodesSubCmd,
-		"List all nodes in the database",
-		`This command queries the status of the nodes in the database and prints
-whether they are up or down.
-
-To provide its status, each host must run the spread daemon.
-
-You must provide the --hosts option one or more hosts as a comma-separated
-list. list_all_nodes returns the first response it receives from any host.
-
-The --db-name and --catalog-path options are required only when vcluster cannot
-obtain node information from a running database and the config file is not
-provided.
+		"Returns information on database nodes.",
+		`Returns the following information on all nodes:
+- IP address
+- Name
+- State
+- Catalog path
+- Subcluster
+- Sandbox
+- Whether the subcluster is primary
+- Database version
+		
+Nodes separated by a sandbox have the state "UNKNOWN." 
 
 Examples:
   # List the status of nodes with config file where password authentication is
@@ -107,7 +107,7 @@ func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
 		// if all nodes are down, the nodeStates list is not empty
 		// for this case, we don't want to show errors but show DOWN for the nodes
 		if len(nodeStates) == 0 {
-			vcc.LogError(err, "fail to list all nodes")
+			vcc.LogError(err, "failed to list all nodes")
 			return err
 		}
 	}
@@ -145,7 +145,7 @@ func (c *CmdListAllNodes) marshalNoteStates(nodeStates []vclusterops.NodeInfo) (
 	if isEon {
 		bytes, err = json.MarshalIndent(nodeStates, "", "  ")
 		if err != nil {
-			return bytes, fmt.Errorf("fail to marshal the node state result, details %w", err)
+			return bytes, fmt.Errorf("failed to marshal the node state result: %w", err)
 		}
 	} else {
 		var nodeStatesEnterprise []vclusterops.NodeInfoEnterprise
@@ -160,7 +160,7 @@ func (c *CmdListAllNodes) marshalNoteStates(nodeStates []vclusterops.NodeInfo) (
 		}
 		bytes, err = json.MarshalIndent(nodeStatesEnterprise, "", "  ")
 		if err != nil {
-			return bytes, fmt.Errorf("fail to marshal the node state result, details %w", err)
+			return bytes, fmt.Errorf("failed to marshal the node state result: %w", err)
 		}
 	}
 

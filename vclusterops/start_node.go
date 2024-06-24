@@ -55,6 +55,10 @@ type VStartNodesInfo struct {
 	Sandbox string
 	// this can help decide whether there are nodes down that do not need to re-ip
 	hasDownNodeNoNeedToReIP bool
+	// hosts that are not reachable through NMA
+	unreachableHosts []string
+	// is start subcluster command
+	isStartSc bool
 }
 
 func VStartNodesOptionsFactory() VStartNodesOptions {
@@ -150,6 +154,58 @@ func (vcc VClusterCommands) startNodePreCheck(vdb *VCoordinationDatabase, option
 	return nil
 }
 
+func (vcc VClusterCommands) removeUnreachableHosts(options *VStartNodesOptions) ([]string, error) {
+	unreachableHosts, err := vcc.getUnreachableHosts(&options.DatabaseOptions, options.Hosts)
+	if err != nil {
+		return nil, err
+	}
+	options.Hosts = util.SliceDiff(options.Hosts, unreachableHosts)
+	for _, unreachableHost := range unreachableHosts {
+		for name, val := range options.Nodes {
+			if val == unreachableHost {
+				delete(options.Nodes, name)
+			}
+		}
+	}
+	return unreachableHosts, nil
+}
+
+func (vcc VClusterCommands) preStartNodeCheck(options *VStartNodesOptions, vdb *VCoordinationDatabase,
+	hostNodeNameMap map[string]string, startNodeInfo *VStartNodesInfo) error {
+	// retrieve database information to execute the command so we do not always rely on some user input
+	// if VStartNodes is called from VStartSubcluster, we can reuse the vdb from VStartSubcluster
+	if options.vdb == nil {
+		err := vcc.getVDBFromRunningDBIncludeSandbox(vdb, &options.DatabaseOptions, AnySandbox)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, vnode := range vdb.HostNodeMap {
+		hostNodeNameMap[vnode.Name] = vnode.Address
+	}
+
+	// precheck to make sure the nodes to start are either all sandboxed nodes in one sandbox or all main cluster nodes
+	err := vcc.startNodePreCheck(vdb, options, hostNodeNameMap, startNodeInfo)
+	if err != nil {
+		return err
+	}
+
+	// if the nodes to be started are from main cluster, get vdb populated from a Main cluster node.
+	if startNodeInfo.Sandbox == util.MainClusterSandbox {
+		err = vcc.getVDBFromRunningDB(vdb, &options.DatabaseOptions)
+	} else {
+		err = vcc.getVDBFromRunningDBIncludeSandbox(vdb, &options.DatabaseOptions, startNodeInfo.Sandbox)
+	}
+	if err != nil {
+		if startNodeInfo.Sandbox != util.MainClusterSandbox {
+			return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the sandbox %s", startNodeInfo.Sandbox))
+		}
+		return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the database"))
+	}
+	return nil
+}
+
 // VStartNodes starts the given nodes for a cluster that has not yet lost
 // cluster quorum. Returns any error encountered. If necessary, it updates the
 // node's IP in the Vertica catalog. If cluster quorum is already lost, use
@@ -161,50 +217,42 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
-
 	// validate and analyze options
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
 
-	// retrieve database information to execute the command so we do not always rely on some user input
-	// if VStartNodes is called from VStartSubcluster, we can reuse the vdb from VStartSubcluster
-	vdb := makeVCoordinationDatabase()
-	if options.vdb == nil {
-		err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, AnySandbox)
-		if err != nil {
-			return err
-		}
-	} else {
-		vdb = *options.vdb
+	_, err = vcc.removeUnreachableHosts(options)
+	if err != nil || len(options.Nodes) == 0 {
+		return err
 	}
 
-	hostNodeNameMap := make(map[string]string)
 	startNodeInfo := new(VStartNodesInfo)
-	for _, vnode := range vdb.HostNodeMap {
-		hostNodeNameMap[vnode.Name] = vnode.Address
+	vdb := makeVCoordinationDatabase()
+	if options.vdb != nil {
+		vdb = *options.vdb
+		startNodeInfo.isStartSc = true
 	}
+	hostNodeNameMap := make(map[string]string)
 
-	// precheck to make sure the nodes to start are either all sandboxed nodes in one sandbox or all main cluster nodes
-	err = vcc.startNodePreCheck(&vdb, options, hostNodeNameMap, startNodeInfo)
+	err = vcc.preStartNodeCheck(options, &vdb, hostNodeNameMap, startNodeInfo)
 	if err != nil {
 		return err
 	}
 
-	// sandboxes may have different catalog from the main cluster, update the vdb build from the sandbox of the nodes to start
-	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, startNodeInfo.Sandbox)
+	startNodeInfo.unreachableHosts, err = vcc.getUnreachableHosts(&options.DatabaseOptions, vdb.HostList)
 	if err != nil {
-		if startNodeInfo.Sandbox != util.MainClusterSandbox {
-			return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the sandbox %s", startNodeInfo.Sandbox))
-		}
-		return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the database"))
+		return err
 	}
 
 	// find out hosts
 	// - that need to re-ip, and
 	// - that don't need to re-ip
-	hostsNoNeedToReIP := options.separateHostsBasedOnReIPNeed(hostNodeNameMap, startNodeInfo, &vdb, vcc.Log)
+	startNodeInfo.HostsToStart, err = options.separateHostsBasedOnReIPNeed(hostNodeNameMap, startNodeInfo, &vdb, vcc.Log)
+	if err != nil {
+		return err
+	}
 
 	// check primary node count is more than nodes to re-ip, specially for sandboxes
 	err = options.checkQuorum(&vdb, startNodeInfo)
@@ -221,10 +269,6 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 		vcc.Log.Info(msg)
 		return nil
 	}
-
-	// we can proceed to start both nodes with and without IP changes
-	startNodeInfo.HostsToStart = append(startNodeInfo.HostsToStart, startNodeInfo.ReIPList...)
-	startNodeInfo.HostsToStart = append(startNodeInfo.HostsToStart, hostsNoNeedToReIP...)
 
 	// If no nodes found to start. We can simply exit here. This can happen if
 	// given a list of nodes that aren't in the catalog any longer.
@@ -304,7 +348,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+	nmaHealthOp := makeNMAHealthOpSkipUnreachable(options.Hosts)
 	// need username for https operations
 	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
@@ -351,7 +395,8 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	}
 
 	// require to have the same vertica version
-	nmaVerticaVersionOp := makeNMAVerticaVersionOpBeforeStartNode(vdb, startNodeInfo.HostsToStart)
+	nmaVerticaVersionOp := makeNMAVerticaVersionOpBeforeStartNode(vdb, startNodeInfo.unreachableHosts,
+		startNodeInfo.HostsToStart, startNodeInfo.isStartSc)
 	instructions = append(instructions, &nmaVerticaVersionOp)
 
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step
@@ -395,11 +440,45 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	return instructions, nil
 }
 
+// validateControlNode returns true if the host is a control node and error out
+// if the host is a non-control node with its corresponding control node not up or not to be started
+func (options *VStartNodesOptions) validateControlNode(host string, vdb *VCoordinationDatabase,
+	hostNodeNameMap map[string]string, isReIP bool) (bool, error) {
+	if vdb.HostNodeMap[host].IsControlNode {
+		return true, nil
+	}
+	// non control node
+	controlNode := vdb.HostNodeMap[host].ControlNode
+	isInNodes := false
+	if isReIP {
+		for name, ip := range hostNodeNameMap {
+			if controlNode == ip {
+				_, isInNodes = options.Nodes[name]
+				break
+			}
+		}
+	} else {
+		for _, ip := range options.Nodes {
+			if controlNode == ip {
+				isInNodes = true
+				break
+			}
+		}
+	}
+	// control node is up or to be started
+	if vdb.hostIsUp(controlNode) || isInNodes {
+		// add non-control node to the end
+		return false, nil
+	}
+	return false, fmt.Errorf("control node %s need to be up before node %s can be started", controlNode, host)
+}
+
 func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 	hostNodeNameMap map[string]string,
 	startNodeInfo *VStartNodesInfo,
 	vdb *VCoordinationDatabase,
-	logger vlog.Printer) (hostsNoNeedToReIP []string) {
+	logger vlog.Printer) ([]string, error) {
+	var sortedHosts []string // control nodes first
 	for nodename, newIP := range options.Nodes {
 		oldIP, ok := hostNodeNameMap[nodename]
 		if !ok {
@@ -410,21 +489,31 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 				"nodename", nodename, "newIP", newIP)
 			continue
 		}
+
 		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
 		if oldIP != newIP {
 			startNodeInfo.ReIPList = append(startNodeInfo.ReIPList, newIP)
 			startNodeInfo.NodeNamesToStart = append(startNodeInfo.NodeNamesToStart, nodename)
 			logger.Info("the nodes need to be re-IP", "nodeNames", startNodeInfo.NodeNamesToStart, "IPs", startNodeInfo.ReIPList)
 		} else {
-			// otherwise, we don't need to re-ip
-			hostsNoNeedToReIP = append(hostsNoNeedToReIP, newIP)
-
 			vnode, ok := vdb.HostNodeMap[newIP]
 			if ok && vnode.State == util.NodeDownState {
 				startNodeInfo.hasDownNodeNoNeedToReIP = true
 			}
 		}
+
+		isControl, err := options.validateControlNode(oldIP, vdb, hostNodeNameMap, oldIP != newIP)
+		if err != nil {
+			return sortedHosts, err
+		}
+		if isControl {
+			// add control node to the front
+			sortedHosts = append([]string{newIP}, sortedHosts...)
+		} else {
+			// add non-control node to the end
+			sortedHosts = append(sortedHosts, newIP)
+		}
 	}
 
-	return hostsNoNeedToReIP
+	return sortedHosts, nil
 }

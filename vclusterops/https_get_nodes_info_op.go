@@ -150,6 +150,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 				vNode.Subcluster = node.Subcluster
 				vNode.Sandbox = node.Sandbox
 				vNode.IsControlNode = node.IsControlNode
+				vNode.ControlNode = node.ControlNode
 				if node.IsPrimary && node.State == util.NodeUpState {
 					op.vdb.PrimaryUpNodes = append(op.vdb.PrimaryUpNodes, node.Address)
 				}

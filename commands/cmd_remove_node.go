@@ -43,13 +43,10 @@ func makeCmdRemoveNode() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		removeNodeSubCmd,
-		"Remove host(s) from an existing database",
-		`This command removes one or more nodes from an existing database.
-
-You must provide the --remove option followed by one or more hosts to
-remove as a comma-separated list.
-
-You cannot remove nodes from a sandboxed subcluster in an Eon Mode database.
+		"Removes one or more nodes from an existing database.",
+		`Removes one or more nodes from an existing database.
+		
+You cannot remove nodes from a sandboxed subcluster.
 
 Examples:
   # Remove multiple nodes from the existing database with config file
@@ -79,7 +76,7 @@ func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
 		&c.removeNodeOptions.HostsToRemove,
 		removeNodeFlag,
 		[]string{},
-		"Comma-separated list of host(s) to remove from the database",
+		"A comma-separated list of hosts to remove from the database",
 	)
 }
 
@@ -123,7 +120,7 @@ func (c *CmdRemoveNode) parseHostToRemoveList() error {
 		if err != nil {
 			// the err from util.ParseHostList will be "must specify a host or host list"
 			// we overwrite the error here to provide more details
-			return fmt.Errorf("must specify at least one host to remove")
+			return fmt.Errorf("you must specify at least one host")
 		}
 	}
 	return nil
@@ -136,14 +133,14 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	vdb, err := vcc.VRemoveNode(options)
 	if err != nil {
-		vcc.LogError(err, "fail to remove node")
+		vcc.LogError(err, "failed to remove node.")
 		return err
 	}
 
 	// write db info to vcluster config file
 	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.DisplayWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
 	}
 	vcc.DisplayInfo("Successfully removed nodes %v from database %s", c.removeNodeOptions.HostsToRemove, options.DBName)
 

@@ -42,22 +42,10 @@ func makeCmdReviveDB() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		reviveDBSubCmd,
-		"Revive a database",
-		`This command revives an Eon Mode database on the specified hosts or restores
-an Eon Mode database to the specified restore point.
+		"Revive or restores an Eon Mod database.",
+		`Revives or restores an Eon Mode database. You cannot revive sandboxes with this command.
 
-The --communal-storage-location option is required. If access to communal
-storage requires access keys, provide the keys with the --config-param option.
-
-The number of hosts that you provide to the --hosts option must match the
-number of hosts in the existing database. You can omit the hosts only if
---display-only is specified.
-
-The name of the database must be provided.
-
-To restore a database to a restore point, you must provide the
---restore-point-archive option, and specify the restore point with either the
---restore-point-index or --restore-point-id option.
+If access to communal storage requires access keys, you must provide the keys with the --config-param option.
 
 Examples:
   # Revive a database with user input and save the generated config file
@@ -97,28 +85,27 @@ func (c *CmdReviveDB) setLocalFlags(cmd *cobra.Command) {
 		&c.reviveDBOptions.LoadCatalogTimeout,
 		"load-catalog-timeout",
 		util.DefaultLoadCatalogTimeoutSeconds,
-		"Set a timeout (in seconds) for loading remote catalog operation, default timeout is "+
-			strconv.Itoa(util.DefaultLoadCatalogTimeoutSeconds)+"seconds",
+		"The timeout, in seconds, for loading the remote catalog. Default: "+
+			strconv.Itoa(util.DefaultLoadCatalogTimeoutSeconds),
 	)
 	cmd.Flags().BoolVar(
 		&c.reviveDBOptions.ForceRemoval,
 		"force-removal",
 		false,
-		"Prior to reviving a database, ensure the deletion of pre-existing database directories "+
-			"(excluding user storage directories)",
+		"Deletes any existing database directories before reviving, excluding user storage directories.",
 	)
 	cmd.Flags().BoolVar(
 		&c.reviveDBOptions.DisplayOnly,
 		"display-only",
 		false,
-		"Describe the database on communal storage, and exit",
+		"Shows information about the database in communal storage. If you specify this option, you can omit --hosts.",
 	)
 	cmd.Flags().BoolVar(
 		&c.reviveDBOptions.IgnoreClusterLease,
 		"ignore-cluster-lease",
 		false,
-		"Disable the check for the existence of other clusters running on the shared storage, "+
-			"but be cautious with this action, as it may lead to data corruption",
+		"Do not check for the existence of other clusters running on shared storage.\n"+
+			"If another system is using the same communal storage, using this option results in data corruption.",
 	)
 	cmd.Flags().StringVar(
 		&c.reviveDBOptions.RestorePoint.Archive,
@@ -130,13 +117,13 @@ func (c *CmdReviveDB) setLocalFlags(cmd *cobra.Command) {
 		&c.reviveDBOptions.RestorePoint.Index,
 		"restore-point-index",
 		0,
-		"The (1-based) index of the restore point in the restore archive to restore from",
+		"The index of the restore point in the restore archive to restore from. Restore point indexes are one-indexed.",
 	)
 	cmd.Flags().StringVar(
 		&c.reviveDBOptions.RestorePoint.ID,
 		"restore-point-id",
 		"",
-		"The identifier of the restore point in the restore archive to restore from",
+		"The identifier of the restore point in the restore archive.",
 	)
 	// only one of restore-point-index or restore-point-id" will be required
 	cmd.MarkFlagsMutuallyExclusive("restore-point-index", "restore-point-id")
@@ -180,13 +167,13 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Called method Run()")
 	dbInfo, vdb, err := vcc.VReviveDatabase(c.reviveDBOptions)
 	if err != nil {
-		vcc.LogError(err, "fail to revive database", "DBName", c.reviveDBOptions.DBName)
+		vcc.LogError(err, "failed to revive the database", "DBName", c.reviveDBOptions.DBName)
 		return err
 	}
 
 	if c.reviveDBOptions.DisplayOnly {
 		c.writeCmdOutputToFile(globals.file, []byte(dbInfo), vcc.GetLog())
-		vcc.LogInfo("database details: ", "db-info", dbInfo)
+		vcc.LogInfo("Database details: ", "db-info", dbInfo)
 		return nil
 	}
 
@@ -196,13 +183,13 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 	vdb.FirstStartAfterRevive = true
 	err = writeConfig(vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.DisplayWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
 	}
 
 	// write config parameters to vcluster config param file
 	err = c.writeConfigParam(c.reviveDBOptions.ConfigurationParameters, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.DisplayWarning("fail to write config param file, details: %s", err)
+		vcc.DisplayWarning("Failed to write the configuration parameter file: %s", err)
 	}
 	return nil
 }

@@ -31,7 +31,7 @@ func readDBPasswordFromPrompt() (string, error) {
 	// Disable echoing
 	passwordBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
-		return "", fmt.Errorf("error reading password: %w", err)
+		return "", fmt.Errorf("failed to read password: %w", err)
 	}
 	fmt.Println()
 	return string(passwordBytes), nil
@@ -40,7 +40,7 @@ func readDBPasswordFromPrompt() (string, error) {
 func readFromStdin() (string, error) {
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		return "", fmt.Errorf("error reading from stdin: %w", err)
+		return "", fmt.Errorf("failed to read password from STDIN: %w", err)
 	}
 	return string(data), nil
 }

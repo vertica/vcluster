@@ -41,13 +41,8 @@ func makeCmdRemoveSubcluster() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		removeSCSubCmd,
-		"Remove a subcluster",
-		`This command removes a subcluster from an existing Eon Mode database.
-
-You must provide the subcluster name with the --subcluster option.
-
-All hosts in the subcluster are removed. You cannot remove a sandboxed
-subcluster.
+		"Removes a subcluster.",
+		`Removes a non-sandboxed subcluster and its nodes from an Eon Mode database.
 
 Examples:
   # Remove a subcluster with config file
@@ -80,7 +75,7 @@ func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.removeScOptions.SCName,
 		subclusterFlag,
 		"",
-		"Name of subcluster to be removed",
+		"Name of subcluster to remove.",
 	)
 }
 
@@ -126,7 +121,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	vdb, err := vcc.VRemoveSubcluster(options)
 	if err != nil {
-		vcc.LogError(err, "fail to remove subcluster")
+		vcc.LogError(err, "failed to remove subcluster.")
 		return err
 	}
 
@@ -136,7 +131,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	// write db info to vcluster config file
 	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.DisplayWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
 	}
 
 	return nil

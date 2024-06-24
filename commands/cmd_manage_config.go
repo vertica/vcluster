@@ -30,8 +30,8 @@ import (
 func makeCmdManageConfig() *cobra.Command {
 	cmd := makeSimpleCobraCmd(
 		manageConfigSubCmd,
-		"Display or recover the contents of the config file",
-		`This command displays or recovers the contents of the config file.`)
+		"Displays the contents of or recreates the VCluster configuration file.",
+		`Displays the contents of or recreates the VCluster configuration file.`)
 
 	cmd.AddCommand(makeCmdConfigShow())
 	cmd.AddCommand(makeCmdConfigRecover())

@@ -45,14 +45,8 @@ func makeCmdInstallPackages() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		installPkgSubCmd,
-		"Install default package(s) in database",
-		`This command installs default packages in the database.
-
-You must provide the --hosts option followed by all hosts in the database as a
-comma-separated list.
-
-Default packages are located in /opt/vertica/packages. During installation, the
-status for each package is returned.
+		"Installs default packages into the database.",
+		`Installs the packages in /opt/vertica/packages.
 
 Examples:
   # Install default packages with user input
@@ -78,7 +72,7 @@ func (c *CmdInstallPackages) setLocalFlags(cmd *cobra.Command) {
 		&c.installPkgOpts.ForceReinstall,
 		"force-reinstall",
 		false,
-		"Install the packages, even if they are already installed.",
+		"Install the packages even if they are already installed.",
 	)
 }
 
@@ -119,7 +113,7 @@ func (c *CmdInstallPackages) Run(vcc vclusterops.ClusterCommands) error {
 
 	status, err := vcc.VInstallPackages(options)
 	if err != nil {
-		vcc.LogError(err, "fail to install the packages")
+		vcc.LogError(err, "failed to install packages")
 		return err
 	}
 

@@ -47,19 +47,8 @@ func makeCmdAddNode() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		addNodeSubCmd,
-		"Add host(s) to an existing database",
-		`This command adds one or more hosts to an existing database.
-
-You must provide the --new-hosts option followed by one or more hosts to add as
-a comma-separated list.
-
-You cannot add hosts to a sandbox subcluster in an Eon Mode database.
-
-Use the --node-names option to address issues resulting from a failed node 
-addition attempt. It's crucial to include all expected nodes in the catalog
-when using this option. This command removes any surplus nodes from the
-catalog, provided they are down, before commencing the node addition process.
-Omitting the option will skip this node trimming process.
+		"Adds host(s) to a database",
+		`Adds one or more user-specified hosts as nodes to an existing database. You cannot add nodes to a sandboxed subcluster.
 
 Examples:
   # Add a single host to the existing database with config file
@@ -90,44 +79,46 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		&c.addNodeOptions.NewHosts,
 		addNodeFlag,
 		[]string{},
-		"Comma-separated list of host(s) to add to the database",
+		"A comma-separated list of hosts to add to the database.",
 	)
 	cmd.Flags().BoolVar(
 		&c.addNodeOptions.ForceRemoval,
 		"force-removal",
 		false,
-		"Whether to force clean-up of existing directories before adding host(s)",
+		"Whether to delete any existing database directories in the new hosts before attempting to add them.",
 	)
 	cmd.Flags().BoolVar(
 		c.addNodeOptions.SkipRebalanceShards,
 		"skip-rebalance-shards",
 		false,
-		util.GetEonFlagMsg("Skip the subcluster shards rebalancing"),
+		util.GetEonFlagMsg("Whether to skip shard rebalancing."),
 	)
 	cmd.Flags().StringVar(
 		&c.addNodeOptions.SCName,
 		subclusterFlag,
 		"",
-		util.GetEonFlagMsg("The Name of subcluster"+
-			" to which the host(s) must be added. If empty default subcluster is considered"),
+		util.GetEonFlagMsg("The name of the subcluster to which the host(s) should be added."+
+			"This string must conform to the format used for database names."),
 	)
 	cmd.Flags().StringVar(
 		&c.addNodeOptions.DepotSize,
 		"depot-size",
 		"",
-		util.GetEonFlagMsg("Size of depot"),
+		util.GetEonFlagMsg("Size of depot in one of the following formats:\n"+
+			"integer{K|M|G|T}, where K is kilobytes, M is megabytes, G is gigabytes, and T is terabytes.\n"+
+			"integer%, which expresses the depot size as a percentage of the total disk size."),
 	)
 	cmd.Flags().StringVar(
 		&c.nodeNameListStr,
 		"node-names",
 		"",
-		"Comma-separated list of node names that exist in the cluster",
+		"[Use only with support guidance] A comma-separated list of node names that exist in the cluster.",
 	)
 	cmd.Flags().IntVar(
 		&c.addNodeOptions.TimeOut,
 		"add-node-timeout",
 		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
-		"The timeout to wait for the nodes to add",
+		"The time, in seconds, to wait for the specified nodes to be added.",
 	)
 }
 
@@ -177,7 +168,7 @@ func (c *CmdAddNode) parseNewHostList() error {
 		if err != nil {
 			// the err from util.ParseHostList will be "must specify a host or host list"
 			// we overwrite the error here to provide more details
-			return fmt.Errorf("must specify at least one host to add")
+			return fmt.Errorf("you must specify at least one host")
 		}
 	}
 	return nil
@@ -188,7 +179,7 @@ func (c *CmdAddNode) parseNodeNameList() error {
 	if c.parser.Changed("node-names") {
 		if c.nodeNameListStr == "" {
 			return fmt.Errorf("when --node-names is specified, "+
-				"must provide all existing node names in %q", c.addNodeOptions.DBName)
+				"you must provide all existing nodes in %q", c.addNodeOptions.DBName)
 		}
 
 		c.addNodeOptions.ExpectedNodeNames = strings.Split(c.nodeNameListStr, ",")
@@ -204,14 +195,14 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	vdb, err := vcc.VAddNode(options)
 	if err != nil {
-		vcc.LogError(err, "fail to add node")
+		vcc.LogError(err, "failed to add node")
 		return err
 	}
 
 	// write db info to vcluster config file
 	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.DisplayWarning("fail to write config file, details: %s", err)
+		vcc.DisplayWarning("Failed to write config file: %s", err)
 	}
 
 	vcc.DisplayInfo("Successfully added nodes %v to database %s", c.addNodeOptions.NewHosts, options.DBName)

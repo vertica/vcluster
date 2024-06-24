@@ -47,8 +47,8 @@ func makeCmdStopDB() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		stopDBSubCmd,
-		"Stop a database",
-		`This command stops a database or sandbox.
+		"Stops a database or sandbox.",
+		`Stops a database or sandbox.
 
 Examples:
   # Stop a database with config file using password authentication
@@ -74,22 +74,23 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 		c.stopDBOptions.DrainSeconds,
 		"drain-seconds",
 		util.DefaultDrainSeconds,
-		util.GetEonFlagMsg("seconds to wait for user connections to close."+
-			" Default value is "+strconv.Itoa(util.DefaultDrainSeconds)+" seconds."+
-			" When the time expires, connections will be forcibly closed and the db will shut down."+
-			" Set this to 0 for Eon database, if you want to forcibly stop the database."),
+		util.GetEonFlagMsg("The time to wait, in seconds, for user connections to close on their own.\n"+
+			"When the time expires, user connections are automatically closed and the database is hut down.\n"+
+			"If set to 0, VCluster closes all user connections immediately.\n"+
+			"If the value is negative, VCluster waits indefinitely until all user connections close."+
+			"Default: "+strconv.Itoa(util.DefaultDrainSeconds)),
 	)
 	cmd.Flags().StringVar(
 		&c.stopDBOptions.SandboxName,
 		sandboxFlag,
 		"",
-		"Name of the sandbox to stop",
+		"The name of the sandbox to stop.",
 	)
 	cmd.Flags().BoolVar(
 		&c.stopDBOptions.MainCluster,
 		"main-cluster-only",
 		false,
-		"Stop the database, but don't stop any of the sandboxes",
+		"Stop the database, but don't stop any sandboxes.",
 	)
 }
 
@@ -150,7 +151,7 @@ func (c *CmdStopDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VStopDatabase(options)
 	if err != nil {
-		vcc.LogError(err, "fail to stop the database")
+		vcc.LogError(err, "failed to stop the database")
 		return err
 	}
 	msg := fmt.Sprintf("Successfully stopped a database with name %s", options.DBName)

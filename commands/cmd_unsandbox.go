@@ -49,20 +49,17 @@ func makeCmdUnsandboxSubcluster() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		unsandboxSubCmd,
-		"Unsandbox a subcluster",
-		`This command unsandboxes a subcluster in an existing Eon Mode database.
+		"Unsandboxes a subcluster",
+		`Removes a subcluster from the sandbox, unsandboxing it. When you unsandbox a subcluster, 
+its hosts immediately shut down and restart. When the hosts come back up, 
+the subcluster is unsandboxed.
 
-When you unsandbox a subcluster, its hosts shut down and restart as part of the
-main cluster.
+When a subcluster is unsandboxed, you should manually delete that subcluster's 
+metadata in communal storage before attempting to add a subcluster to that sandbox 
+again.
 
-When all subclusters are removed from a sandbox, the sandbox catalog and
-metadata are deleted. To reuse the sandbox name, you must manually clean the 
-/metadata/<sandbox-name> directory in your communal storage location.
-
-The comma-separated list of hosts passed to the --hosts option must include at
-least one up host in the main cluster.
-
-You must provide the subcluster name with the --subcluster option.
+For example, if you unsandbox subcluster sc1, you should delete the 
+directory path_to_catalog_of_sc1/metadata/sandbox_name.
 
 Examples:
   # Unsandbox a subcluster with config file
@@ -91,7 +88,7 @@ func (c *CmdUnsandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.usOptions.SCName,
 		subclusterFlag,
 		"",
-		"The name of the subcluster to be unsandboxed",
+		"The name of the subcluster to be unsandboxed.",
 	)
 }
 
@@ -133,7 +130,7 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VUnsandbox(&options)
 	if err != nil {
-		vcc.LogError(err, "fail to unsandbox subcluster")
+		vcc.LogError(err, "failed to unsandbox subcluster.")
 		return err
 	}
 
@@ -141,13 +138,13 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	// Read and then update the sandbox information on config file
 	dbConfig, configErr := c.resetSandboxInfo()
 	if configErr != nil {
-		vcc.DisplayWarning("fail to update config file : ", "error", configErr)
+		vcc.DisplayWarning("Failed to update configuration file: ", "error", configErr)
 		return nil
 	}
 
 	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
-		vcc.DisplayWarning("fail to write the config file, details: " + writeErr.Error())
+		vcc.DisplayWarning("Failed to write the configuration file: " + writeErr.Error())
 		return nil
 	}
 	return nil
@@ -158,7 +155,7 @@ func (c *CmdUnsandboxSubcluster) resetSandboxInfo() (*DatabaseConfig, error) {
 	writeRequired := false
 	dbConfig, err := readConfig()
 	if err != nil {
-		return nil, fmt.Errorf("fail to read config file: %v", err)
+		return nil, fmt.Errorf("failed to read the configuration file: %v", err)
 	}
 	for _, n := range dbConfig.Nodes {
 		if c.usOptions.SCName == n.Subcluster {
@@ -167,7 +164,7 @@ func (c *CmdUnsandboxSubcluster) resetSandboxInfo() (*DatabaseConfig, error) {
 		}
 	}
 	if !writeRequired {
-		return dbConfig, fmt.Errorf("node info for sc %s missing in config file",
+		return dbConfig, fmt.Errorf("node info for subcluster %s missing in configuration file",
 			c.usOptions.SCName)
 	}
 	return dbConfig, nil

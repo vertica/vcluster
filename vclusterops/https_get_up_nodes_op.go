@@ -33,6 +33,7 @@ type httpsGetUpNodesOp struct {
 	sandbox     string
 	mainCluster bool
 	scName      string
+	isScPrimary bool
 }
 
 func makeHTTPSGetUpNodesOp(dbName string, hosts []string,
@@ -73,6 +74,7 @@ func makeHTTPSGetUpScNodesOp(dbName string, hosts []string,
 	scName string) (httpsGetUpNodesOp, error) {
 	op, err := makeHTTPSGetUpNodesOp(dbName, hosts, useHTTPPassword, userName, httpsPassword, cmdType)
 	op.scName = scName
+	op.isScPrimary = false
 	return op, err
 }
 
@@ -295,6 +297,25 @@ func (op *httpsGetUpNodesOp) validateHosts(nodesStates nodesStateInfo) error {
 	return nil
 }
 
+// Confirm shutting down the subcluster doesn't crash the database
+func (op *httpsGetUpNodesOp) isSubclusterCritical(nodesStates nodesStateInfo, upScNodes mapset.Set[NodeInfo]) error {
+	allUpPrimaries := mapset.NewSet[string]()
+	upScHosts := mapset.NewSet[string]()
+	for _, n := range upScNodes.ToSlice() {
+		upScHosts.Add(n.Address)
+	}
+	for _, node := range nodesStates.NodeList {
+		if node.Sandbox == op.sandbox && node.State == util.NodeUpState && node.IsPrimary {
+			allUpPrimaries.Add(node.Address)
+		}
+	}
+	remainingPrimaries := allUpPrimaries.Difference(upScHosts)
+	if remainingPrimaries.Cardinality() == 0 {
+		return fmt.Errorf("subcluster %s is critical, shutting the subcluster down will cause the whole database shutdown", op.scName)
+	}
+	return nil
+}
+
 func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host string, upHosts mapset.Set[string],
 	upScInfo, sandboxInfo map[string]string, upScNodes, scNodes mapset.Set[NodeInfo]) (err error) {
 	foundSC := false
@@ -317,6 +338,9 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 
 		if op.scName == node.Subcluster {
 			op.sandbox = node.Sandbox
+			if node.IsPrimary {
+				op.isScPrimary = true
+			}
 			var n NodeInfo
 			// collect info for "UP" and "DOWN" nodes, ignore "UNKNOWN" nodes here
 			// because we want to avoid getting duplicate nodes' info. For a sandbox node,
@@ -338,8 +362,14 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 		}
 	}
 
-	if !foundSC && op.cmdType == StopSubclusterCmd {
-		return fmt.Errorf(`[%s] cannot find subcluster %s in database %s`, op.name, op.scName, op.DBName)
+	if op.cmdType == StopSubclusterCmd {
+		if !foundSC {
+			return fmt.Errorf(`[%s] cannot find subcluster %s in database %s`, op.name, op.scName, op.DBName)
+		}
+		if op.isScPrimary {
+			err = op.isSubclusterCritical(nodesStates, upScNodes)
+			return err
+		}
 	}
 	return nil
 }

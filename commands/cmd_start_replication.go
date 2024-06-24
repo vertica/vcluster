@@ -43,24 +43,13 @@ func makeCmdStartReplication() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		startReplicationSubCmd,
-		"Start database replication",
-		`This subcommand starts a database replication. 
+		"Starts database replication",
+		`Replicates a table or schema from a source database to a target database. 
 		
-This subcommand copies table or schema data directly from one Eon Mode 
-database's communal storage to another.
-
-The --target-conn option serves as a collection file for gathering necessary
-target information for replication. You need to run vcluster create_connection
-to generate this connection file in order to use this option.
-
-The --sandbox option is used to replicate from a sandbox to a target database
-or another sandbox. You must specify the hosts of the target sandbox to replicate 
-to a target sandbox. You can provide the --target-hosts option or specify the 
-target hosts in the connection file. 
-
-If the source database has EnableConnectCredentialForwarding enabled, the
-target username and password can be ignored. If the target database uses trust
-authentication, the password can be ignored.
+The options --target-db-user and --target-password-file can be omitted 
+if any one of the following conditions are met:
+  - The source database has EnableConnectCredentialForwarding enabled.
+  - The target database uses trust authentication.
 
 Examples:
   # Start database replication with config and connection file
@@ -109,37 +98,37 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 		&c.startRepOptions.TargetDB,
 		targetDBNameFlag,
 		"",
-		"The target database that we will replicate to",
+		"The target database to replicate to.",
 	)
 	cmd.Flags().StringVar(
 		&c.startRepOptions.SandboxName,
 		sandboxFlag,
 		"",
-		"The source sandbox that we will replicate from",
+		"The source sandbox to replicate from.",
 	)
 	cmd.Flags().StringSliceVar(
 		&c.startRepOptions.TargetHosts,
 		targetHostsFlag,
 		[]string{},
-		"Comma-separated list of hosts in target database")
+		"A comma-separated list of hosts in target database.")
 	cmd.Flags().StringVar(
 		&c.startRepOptions.TargetUserName,
 		targetUserNameFlag,
 		"",
-		"The username for connecting to the target database",
+		"The name of a user in the target database.",
 	)
 	cmd.Flags().StringVar(
 		&c.startRepOptions.SourceTLSConfig,
 		sourceTLSConfigFlag,
 		"",
-		"The TLS configuration to use when connecting to the target database "+
-			", must exist in the source database",
+		"The TLS configuration to use when connecting to the target database.\n "+
+			"This TLS configuration must also exist in the source database.",
 	)
 	cmd.Flags().StringVar(
 		&globals.connFile,
 		targetConnFlag,
 		"",
-		"[Required] The connection file created with the create_connection command, "+
+		"[Required] The absolute path to the connection file created with the create_connection command, "+
 			"containing the database name, hosts, and password (if any) for the target database. "+
 			"Alternatively, you can provide this information manually with --target-db-name, "+
 			"--target-hosts, and --target-password-file",
@@ -150,7 +139,7 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 		&c.targetPasswordFile,
 		targetPasswordFileFlag,
 		"",
-		"Path to the file to read the password for target database. ",
+		"The absolute path to a file containing the password for the target database. ",
 	)
 }
 
@@ -203,7 +192,7 @@ func (c *CmdStartReplication) parseTargetHostList() error {
 	if len(c.startRepOptions.TargetHosts) > 0 {
 		err := util.ParseHostList(&c.startRepOptions.TargetHosts)
 		if err != nil {
-			return fmt.Errorf("must specify at least one target host to replicate")
+			return fmt.Errorf("you must specify at least one target host to replicate to")
 		}
 	}
 	return nil
@@ -238,7 +227,7 @@ func (c *CmdStartReplication) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VReplicateDatabase(options)
 	if err != nil {
-		vcc.LogError(err, "fail to replicate to database", "targetDB", options.TargetDB)
+		vcc.LogError(err, "failed to replicate to database", "targetDB", options.TargetDB)
 		return err
 	}
 	vcc.DisplayInfo("Successfully replicated to database %s", options.TargetDB)

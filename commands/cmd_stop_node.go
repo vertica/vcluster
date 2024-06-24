@@ -38,11 +38,15 @@ func makeCmdStopNode() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		stopNodeCmd,
-		"Stop a list of node(s)",
-		`This command stops a node or list or nodes from an existing database.
+		"Stops one or more nodes in a database.",
+		`Stops one or more nodes in a database.
 
-You must provide the host list with the --stop-hosts option followed by 
-one or more hosts to stop as a comma-separated list.
+You must provide the host list with the --stop-hosts option followed 
+by one or more hosts to stop as a comma-separated list.
+
+Caution: If you only have just enough nodes up to establish database quorum 
+and you stop a node, you will lose database quorum and the remaining up 
+nodes will be set to read-only mode to prevent data loss.
 
 Examples:
   # Gracefully stop a node with config file
@@ -106,7 +110,7 @@ func (c *CmdStopNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	err := vcc.VStopNode(options)
 	if err != nil {
-		vcc.LogError(err, "fail to stop the nodes", "Nodes", c.stopNodeOptions.StopHosts)
+		vcc.LogError(err, "failed to stop the nodes", "Nodes", c.stopNodeOptions.StopHosts)
 		return err
 	}
 	vcc.DisplayInfo("Successfully stopped the nodes %v", c.stopNodeOptions.StopHosts)
