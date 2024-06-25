@@ -132,8 +132,10 @@ func (vcc VClusterCommands) VPromoteSandboxToMain(options *VPromoteSandboxToMain
 
 // The generated instructions will later perform the following operations necessary
 // for a successful promote sandbox operation:
-// - promote sandbox to main using one of the up nodes in the sandboxed subcluster
-// - clean communal storage using one of the up nodes in the sandboxed subcluster
+// - pick one of the up nodes in the sandboxed subcluster as the initiator
+// - check nma health on the initiator
+// - promote sandbox to main on the initiator
+// - clean communal storage on the initiator
 func (vcc VClusterCommands) promoteSandboxToMainInstructions(options *VPromoteSandboxToMainOptions,
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -150,18 +152,19 @@ func (vcc VClusterCommands) promoteSandboxToMainInstructions(options *VPromoteSa
 			break
 		}
 	}
-	sandboxHost := []string{upHost}
-	httpsConvertSandboxToMainOp, err := makeHTTPSConvertSandboxToMainOp(sandboxHost,
+	initiator := []string{upHost}
+	nmaHealthOp := makeNMAHealthOp(initiator)
+	httpsConvertSandboxToMainOp, err := makeHTTPSConvertSandboxToMainOp(initiator,
 		options.UserName, options.Password, options.usePassword, options.SandboxName)
 	if err != nil {
 		return nil, err
 	}
-	nmaCleanCommunalStorageOp, err := makeNMACleanCommunalStorageOp(sandboxHost,
+	nmaCleanCommunalStorageOp, err := makeNMACleanCommunalStorageOp(initiator,
 		options.UserName, options.DBName, options.Password, options.usePassword,
 		false /* not only print invalid files in communal storage, but also delete them */)
 	if err != nil {
 		return nil, err
 	}
-	instructions = append(instructions, &httpsConvertSandboxToMainOp, &nmaCleanCommunalStorageOp)
+	instructions = append(instructions, &nmaHealthOp, &httpsConvertSandboxToMainOp, &nmaCleanCommunalStorageOp)
 	return instructions, nil
 }

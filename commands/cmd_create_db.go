@@ -224,7 +224,13 @@ func (c *CmdCreateDB) setHiddenFlags(cmd *cobra.Command) {
 		false,
 		"",
 	)
-	hideLocalFlags(cmd, []string{"policy", "sql", "client-port", "skip-startup-polling"})
+	cmd.Flags().BoolVar(
+		&c.createDBOptions.GenerateHTTPCerts,
+		"generate-http-certs",
+		false,
+		"",
+	)
+	hideLocalFlags(cmd, []string{"policy", "sql", "client-port", "skip-startup-polling", "generate-http-certs"})
 }
 
 func (c *CmdCreateDB) Parse(inputArgv []string, logger vlog.Printer) error {
