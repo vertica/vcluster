@@ -149,10 +149,12 @@ func (vdb *VCoordinationDatabase) addNode(vnode *VCoordinationNode) error {
 }
 
 // addHosts adds a given list of hosts to the VDB's HostList
-// and HostNodeMap.
-func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string) error {
-	totalHostCount := len(hosts) + len(vdb.HostList)
-	nodeNameToHost := vdb.genNodeNameToHostMap()
+// and HostNodeMap. existingHostNodeMap contains entries for nodes
+// in all clusters (main and sandboxes)
+func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string,
+	existingHostNodeMap vHostNodeMap) error {
+	totalHostCount := len(hosts) + len(existingHostNodeMap)
+	nodeNameToHost := genNodeNameToHostMap(existingHostNodeMap)
 	for _, host := range hosts {
 		vNode := makeVCoordinationNode()
 		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount)
@@ -214,10 +216,10 @@ func (vdb *VCoordinationDatabase) copyHostNodeMap(targetHosts []string) vHostNod
 }
 
 // genNodeNameToHostMap generates a map, with node name as key and
-// host ip as value, from HostNodeMap.
-func (vdb *VCoordinationDatabase) genNodeNameToHostMap() map[string]string {
+// host ip as value, from HostNodeMap which includes entries for nodes in all clusters.
+func genNodeNameToHostMap(existingHostNodeMap vHostNodeMap) map[string]string {
 	vnodes := make(map[string]string)
-	for h, vnode := range vdb.HostNodeMap {
+	for h, vnode := range existingHostNodeMap {
 		vnodes[vnode.Name] = h
 	}
 	return vnodes

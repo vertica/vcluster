@@ -43,10 +43,10 @@ type resultStatus int
 var wrongCredentialErrMsg = []string{"Wrong password", "Wrong certificate"}
 
 const (
-	SUCCESS   resultStatus = 0
-	FAILURE   resultStatus = 1
-	EXCEPTION resultStatus = 2
-	EOF       resultStatus = 3
+	SUCCESS      resultStatus = 0
+	FAILURE      resultStatus = 1
+	EXCEPTION    resultStatus = 2
+	EOFEXCEPTION resultStatus = 3
 )
 
 const (
@@ -65,9 +65,10 @@ const (
 )
 
 const (
-	SuccessResult   = "SUCCESS"
-	FailureResult   = "FAILURE"
-	ExceptionResult = "FAILURE"
+	SuccessResult      = "SUCCESS"
+	FailureResult      = "FAILURE"
+	ExceptionResult    = "EXCEPTION"
+	EOFExceptionResult = "EOF_EXCEPTION"
 )
 
 const (
@@ -158,7 +159,7 @@ func (hostResult *hostHTTPResult) isTimeout() bool {
 }
 
 func (hostResult *hostHTTPResult) isEOF() bool {
-	return hostResult.status == EOF
+	return hostResult.status == EOFEXCEPTION
 }
 
 // getStatusString converts ResultStatus to string
@@ -167,6 +168,8 @@ func (status resultStatus) getStatusString() string {
 		return FailureResult
 	} else if status == EXCEPTION {
 		return ExceptionResult
+	} else if status == EOFEXCEPTION {
+		return EOFExceptionResult
 	}
 	return SuccessResult
 }

@@ -257,7 +257,7 @@ func (adapter *httpAdapter) makeFailResult(header http.Header, respBody string, 
 func (adapter *httpAdapter) makeEOFResult(err error) hostHTTPResult {
 	return hostHTTPResult{
 		host:   adapter.host,
-		status: EOF,
+		status: EOFEXCEPTION,
 		err:    err,
 	}
 }

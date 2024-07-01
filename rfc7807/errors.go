@@ -212,4 +212,19 @@ var (
 		"Target directory does not exist",
 		http.StatusInternalServerError,
 	)
+	GenericStartNodeError = newProblemID(
+		path.Join(errorEndpointsPrefix, "start-node-command-failure-error"),
+		"Start node command execution failed",
+		http.StatusInternalServerError,
+	)
+	GenericOpenFileError = newProblemID(
+		path.Join(errorEndpointsPrefix, "open-file-failure-error"),
+		"Failed to open file",
+		http.StatusInternalServerError,
+	)
+	GenericWriteFileError = newProblemID(
+		path.Join(errorEndpointsPrefix, "write-file-failure-error"),
+		"Failed to write file",
+		http.StatusInternalServerError,
+	)
 )
