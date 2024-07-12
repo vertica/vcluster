@@ -37,6 +37,13 @@ type httpsCerts struct {
 	caCert string
 }
 
+func (req *hostHTTPRequest) setCerts(certs *httpsCerts) {
+	req.UseCertsInOptions = true
+	req.Certs.key = certs.key
+	req.Certs.cert = certs.cert
+	req.Certs.caCert = certs.caCert
+}
+
 func (req *hostHTTPRequest) buildNMAEndpoint(url string) {
 	req.IsNMACommand = true
 	req.Endpoint = NMACurVersion + url

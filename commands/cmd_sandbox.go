@@ -52,18 +52,18 @@ func makeCmdSandboxSubcluster() *cobra.Command {
 		`Sandboxes a secondary subcluster in an Eon Mode database.
 
 All hosts in the subcluster must be up.
-		
+
 When you sandbox a subcluster, its hosts immediately shut down and restart;
 the subcluster becomes sandboxed after the hosts start back up.
 
-A sandbox can contain multiple subclusters, and subclusters in the sandbox can 
-interact with each other. If you want to isolate subclusters, they must 
+A sandbox can contain multiple subclusters, and subclusters in the sandbox can
+interact with each other. If you want to isolate subclusters, they must
 be in separate sandboxes.
 
-Subcluster sandboxing should be used for testing changes or upgrades in safe, isolated 
-environment and should not be used for production subclusters. For example, you can 
+Subcluster sandboxing should be used for testing changes or upgrades in safe, isolated
+environment and should not be used for production subclusters. For example, you can
 create sandboxes and then upgrade Vertica in those sandboxes.
-		
+
 Examples:
   # Sandbox a subcluster with config file
   vcluster sandbox_subcluster --subcluster sc1 --sandbox sand \
@@ -116,6 +116,12 @@ func (c *CmdSandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 		createStorageLocationsFlag,
 		false,
 		"The sandbox can create its own storage locations.",
+	)
+	cmd.Flags().BoolVar(
+		&c.sbOptions.ForUpgrade,
+		forUpgradeFlag,
+		false,
+		"The sandbox is to be used for online upgrade",
 	)
 }
 

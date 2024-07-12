@@ -200,8 +200,7 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 		return vdb, fmt.Errorf("fail to produce add node instructions, %w", err)
 	}
 
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
 		return vdb, fmt.Errorf("fail to complete add node operation, %w", runError)
 	}
@@ -316,8 +315,7 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 		instructions = append(instructions, &httpsDropNodeOp)
 	}
 
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	err := clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to trim nodes from catalog, %v")

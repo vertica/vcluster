@@ -33,8 +33,8 @@ type httpsStageSystemTablesOp struct {
 	hostNodeNameMap map[string]string
 	stagingDir      *string
 	excludedTables  []string
-	certs           *httpsCerts // for resetting on each new request set
-	timeoutError    error       // for breaking out early if systable gathering times out
+	tlsOptions      opTLSOptions // for resetting certs on each new request set
+	timeoutError    error        // for breaking out early if systable gathering times out
 }
 
 type prepareStagingSystemTableRequestData struct {
@@ -208,7 +208,6 @@ func (op *httpsStageSystemTablesOp) prepare(execContext *opEngineExecContext) er
 }
 
 func (op *httpsStageSystemTablesOp) execute(execContext *opEngineExecContext) error {
-	findCertsInOptions := op.certs != nil
 	for _, systemTableInfo := range execContext.systemTableList.SystemTableList {
 		if slices.Contains(op.excludedTables, systemTableInfo.TableName) {
 			continue
@@ -216,7 +215,7 @@ func (op *httpsStageSystemTablesOp) execute(execContext *opEngineExecContext) er
 		if err := op.setupClusterHTTPRequest(op.hosts, systemTableInfo.Schema, systemTableInfo.TableName); err != nil {
 			return err
 		}
-		if err := op.opBase.loadCertsIfNeeded(op.certs, findCertsInOptions); err != nil {
+		if err := op.opBase.loadCertsIfNeeded(op.tlsOptions); err != nil {
 			return err
 		}
 		op.logger.Info("Staging System Table:", "Schema", systemTableInfo.Schema, "Table", systemTableInfo.TableName)
@@ -266,9 +265,7 @@ func (op *httpsStageSystemTablesOp) finalize(_ *opEngineExecContext) error {
 
 // loadCertsIfNeeded shadows the op base function and stashes the certs instead of immediately setting them,
 // as httpsStageSystemTablesOp delays creation of request objects and resets them repeatedly
-func (op *httpsStageSystemTablesOp) loadCertsIfNeeded(certs *httpsCerts, findCertsInOptions bool) error {
-	if findCertsInOptions {
-		op.certs = certs
-	}
+func (op *httpsStageSystemTablesOp) loadCertsIfNeeded(tlsOptions opTLSOptions) error {
+	op.tlsOptions = tlsOptions
 	return nil
 }

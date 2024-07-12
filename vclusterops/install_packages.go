@@ -86,9 +86,9 @@ func (vcc VClusterCommands) VInstallPackages(options *VInstallPackagesOptions) (
 		return nil, fmt.Errorf("fail to production instructions: %w", err)
 	}
 
-	// Create a VClusterOpEngine. No need for certs since this operation doesn't
-	// talk to the NMA.
-	clusterOpEngine := makeClusterOpEngine(instructions, &httpsCerts{})
+	// Create a VClusterOpEngine, and add certs in case the Vertica HTTPS service
+	// is configured to require certs.
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)

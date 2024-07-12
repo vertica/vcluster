@@ -95,7 +95,7 @@ func (op *httpsAddSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 
 func (op *httpsAddSubclusterOp) prepare(execContext *opEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
-		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+		return fmt.Errorf(`[%s] Cannot find any main cluster up hosts in OpEngineExecContext`, op.name)
 	}
 	// use first up host to execute https post request, this host will be the initiator
 	hosts := []string{execContext.upHosts[0]}

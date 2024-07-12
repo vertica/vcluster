@@ -177,8 +177,7 @@ func (vcc VClusterCommands) removeNodesInCatalog(options *VRemoveNodeOptions, vd
 
 	remainingHosts := util.SliceDiff(vdb.HostList, options.HostsToRemove)
 
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
 		// If the machines of the to-be-removed nodes crashed or get killed,
 		// the run error may be ignored.
@@ -213,8 +212,7 @@ func (vcc VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinat
 	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(missingHosts, options.DBName, options.CatalogPrefix,
 		false /* report all errors */, vdb)
 	instructions := []clusterOp{&nmaGetNodesInfoOp}
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	opEng := makeClusterOpEngine(instructions, &certs)
+	opEng := makeClusterOpEngine(instructions, options)
 	err := opEng.run(vcc.Log)
 	if err != nil {
 		return *vdb, fmt.Errorf("failed to get node info for missing hosts: %w", err)
@@ -235,7 +233,7 @@ func (vcc VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinat
 		return *vdb, err
 	}
 	instructions = []clusterOp{&nmaDeleteDirectoriesOp}
-	opEng = makeClusterOpEngine(instructions, &certs)
+	opEng = makeClusterOpEngine(instructions, options)
 	err = opEng.run(vcc.Log)
 	if err != nil {
 		return *vdb, fmt.Errorf("failed to delete directories for missing hosts: %w", err)

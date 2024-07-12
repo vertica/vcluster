@@ -217,10 +217,8 @@ func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (db
 		return dbInfo, nil, fmt.Errorf("fail to produce pre-revive database instructions %w", err)
 	}
 
-	// generate clusterOpEngine certs
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
 	// feed the pre-revive db instructions to the VClusterOpEngine
-	clusterOpEngine := makeClusterOpEngine(preReviveDBInstructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(preReviveDBInstructions, options)
 	err = clusterOpEngine.run(vcc.GetLog())
 	if err != nil {
 		return dbInfo, nil, fmt.Errorf("fail to collect the information of database in revive_db %w", err)
@@ -238,7 +236,7 @@ func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (db
 		}
 
 		// feed the restore db specific instructions to the VClusterOpEngine
-		clusterOpEngine = makeClusterOpEngine(restoreDBSpecificInstructions, &certs)
+		clusterOpEngine = makeClusterOpEngine(restoreDBSpecificInstructions, options)
 		runErr := clusterOpEngine.run(vcc.GetLog())
 		if runErr != nil {
 			return dbInfo, &vdb, fmt.Errorf("fail to collect the restore-specific information of database in revive_db %w", runErr)
@@ -257,7 +255,7 @@ func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (db
 	}
 
 	// feed revive db instructions to the VClusterOpEngine
-	clusterOpEngine = makeClusterOpEngine(reviveDBInstructions, &certs)
+	clusterOpEngine = makeClusterOpEngine(reviveDBInstructions, options)
 	err = clusterOpEngine.run(vcc.GetLog())
 	if err != nil {
 		return dbInfo, &vdb, fmt.Errorf("fail to revive database %w", err)

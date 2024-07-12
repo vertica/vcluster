@@ -172,8 +172,7 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)

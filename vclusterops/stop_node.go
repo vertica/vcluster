@@ -121,8 +121,7 @@ func (vcc VClusterCommands) VStopNode(options *VStopNodeOptions) error {
 		return fmt.Errorf("fail to produce stop node instructions, %w", err)
 	}
 
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
 		return fmt.Errorf("fail to complete stop node operation, %w", runError)
 	}

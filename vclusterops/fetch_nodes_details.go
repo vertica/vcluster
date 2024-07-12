@@ -133,8 +133,7 @@ func (vcc VClusterCommands) VFetchNodesDetails(options *VFetchNodesDetailsOption
 		return nodesDetails, fmt.Errorf("fail to produce instructions: %w", err)
 	}
 
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {

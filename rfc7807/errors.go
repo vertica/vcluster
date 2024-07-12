@@ -227,4 +227,9 @@ var (
 		"Failed to write file",
 		http.StatusInternalServerError,
 	)
+	MessageQueueFull = newProblemID(
+		path.Join(errorEndpointsPrefix, "message-queue-full"),
+		"Message queue is full",
+		http.StatusInternalServerError,
+	)
 )

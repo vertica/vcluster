@@ -23,19 +23,15 @@ import (
 
 type VClusterOpEngine struct {
 	instructions []clusterOp
-	certs        *httpsCerts
+	tlsOptions   opTLSOptions
 	execContext  *opEngineExecContext
 }
 
-func makeClusterOpEngine(instructions []clusterOp, certs *httpsCerts) VClusterOpEngine {
+func makeClusterOpEngine(instructions []clusterOp, tlsOptions opTLSOptions) VClusterOpEngine {
 	newClusterOpEngine := VClusterOpEngine{}
 	newClusterOpEngine.instructions = instructions
-	newClusterOpEngine.certs = certs
+	newClusterOpEngine.tlsOptions = tlsOptions
 	return newClusterOpEngine
-}
-
-func (opEngine *VClusterOpEngine) shouldGetCertsFromOptions() bool {
-	return (opEngine.certs.key != "" && opEngine.certs.cert != "")
 }
 
 func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
@@ -46,10 +42,8 @@ func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
 }
 
 func (opEngine *VClusterOpEngine) runWithExecContext(logger vlog.Printer, execContext *opEngineExecContext) error {
-	findCertsInOptions := opEngine.shouldGetCertsFromOptions()
-
 	for _, op := range opEngine.instructions {
-		err := opEngine.runInstruction(logger, execContext, op, findCertsInOptions)
+		err := opEngine.runInstruction(logger, execContext, op)
 		if err != nil {
 			return err
 		}
@@ -66,7 +60,7 @@ func (opEngine *VClusterOpEngine) runWithExecContext(logger vlog.Printer, execCo
 
 func (opEngine *VClusterOpEngine) runInstruction(
 	logger vlog.Printer, execContext *opEngineExecContext,
-	op clusterOp, findCertsInOptions bool) error {
+	op clusterOp) error {
 	op.setLogger(logger)
 	op.setupBasicInfo()
 	op.setupSpinner()
@@ -84,7 +78,7 @@ func (opEngine *VClusterOpEngine) runInstruction(
 		// start the progress spinner
 		op.startSpinner()
 
-		err = op.loadCertsIfNeeded(opEngine.certs, findCertsInOptions)
+		err = op.loadCertsIfNeeded(opEngine.tlsOptions)
 		if err != nil {
 			// here we do not return an error as the spinner error does not
 			// affect the functionality

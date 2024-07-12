@@ -19,8 +19,7 @@ func TestStartNodeOp(t *testing.T) {
 	op := makeNMAStartNodeOp(hosts, startupConf)
 	op.skipExecute = true
 	instructions := []clusterOp{&op}
-	certs := httpsCerts{}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, nil)
 
 	execContext := makeOpEngineExecContext(vl)
 	clusterOpEngine.execContext = &execContext

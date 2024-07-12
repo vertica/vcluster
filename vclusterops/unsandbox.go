@@ -324,8 +324,7 @@ func (options *VUnsandboxOptions) runCommand(vcc VClusterCommands) error {
 	}
 
 	// add certs and instructions to the engine
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// run the engine
 	runError := clusterOpEngine.run(vcc.Log)

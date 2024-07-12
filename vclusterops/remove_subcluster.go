@@ -271,8 +271,7 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 		&httpsFindSubclusterOp,
 	)
 
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		// VER-88585 will improve this rfc error flow
@@ -338,8 +337,7 @@ func (vcc VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options *
 	var instructions []clusterOp
 	instructions = append(instructions, &httpsDropScOp)
 
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.Error(err, "fail to drop subcluster, details: %v", dropScErrMsg)

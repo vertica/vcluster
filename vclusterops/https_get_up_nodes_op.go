@@ -316,6 +316,15 @@ func (op *httpsGetUpNodesOp) isSubclusterCritical(nodesStates nodesStateInfo, up
 	return nil
 }
 
+// Check if host is eligible to add to the UP hostlist
+func (op *httpsGetUpNodesOp) checkUpHostEligible(node *nodeStateInfo) bool {
+	// Add subcluster needs to get an UP node from main cluster as initiator
+	if op.cmdType == AddSubclusterCmd && node.Sandbox != util.MainClusterSandbox {
+		return false
+	}
+	return true
+}
+
 func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host string, upHosts mapset.Set[string],
 	upScInfo, sandboxInfo map[string]string, upScNodes, scNodes mapset.Set[NodeInfo]) (err error) {
 	foundSC := false
@@ -329,7 +338,10 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 		}
 
 		if node.State == util.NodeUpState {
-			upHosts.Add(node.Address)
+			// Add subcluster needs to get an UP node from main cluster as initiator
+			if op.checkUpHostEligible(node) {
+				upHosts.Add(node.Address)
+			}
 			upScInfo[node.Address] = node.Subcluster
 			if op.requiresSandboxInfo() {
 				sandboxInfo[node.Address] = node.Sandbox
@@ -341,24 +353,7 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 			if node.IsPrimary {
 				op.isScPrimary = true
 			}
-			var n NodeInfo
-			// collect info for "UP" and "DOWN" nodes, ignore "UNKNOWN" nodes here
-			// because we want to avoid getting duplicate nodes' info. For a sandbox node,
-			// we will get two duplicate NodeInfo entries if we do not ignore "UNKNOWN" nodes:
-			// one with state "UNKNOWN" from main cluster, and the other with state "UP"
-			// from sandboxes.
-			if node.State == util.NodeUpState {
-				if n, err = node.asNodeInfo(); err != nil {
-					op.logger.PrintError("[%s] %s", op.name, err.Error())
-				} else {
-					upScNodes.Add(n)
-					scNodes.Add(n)
-				}
-			} else if node.State == util.NodeDownState {
-				// for "DOWN" node, we cannot get its version from https response
-				n = node.asNodeInfoWithoutVer()
-				scNodes.Add(n)
-			}
+			op.populateScNodes(node, upScNodes, scNodes)
 		}
 	}
 
@@ -372,6 +367,26 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 		}
 	}
 	return nil
+}
+
+func (op *httpsGetUpNodesOp) populateScNodes(node *nodeStateInfo, upScNodes, scNodes mapset.Set[NodeInfo]) {
+	// collect info for "UP" and "DOWN" nodes, ignore "UNKNOWN" nodes here
+	// because we want to avoid getting duplicate nodes' info. For a sandbox node,
+	// we will get two duplicate NodeInfo entries if we do not ignore "UNKNOWN" nodes:
+	// one with state "UNKNOWN" from main cluster, and the other with state "UP"
+	// from sandboxes.
+	if node.State == util.NodeUpState {
+		if n, err := node.asNodeInfo(); err != nil {
+			op.logger.PrintError("[%s] %s", op.name, err.Error())
+		} else {
+			upScNodes.Add(n)
+			scNodes.Add(n)
+		}
+	} else if node.State == util.NodeDownState {
+		// for "DOWN" node, we cannot get its version from https response
+		n := node.asNodeInfoWithoutVer()
+		scNodes.Add(n)
+	}
 }
 
 func (op *httpsGetUpNodesOp) requiresSandboxInfo() bool {

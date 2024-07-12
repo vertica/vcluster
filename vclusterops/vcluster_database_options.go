@@ -308,8 +308,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 		&nmaGetNodesInfoOp,
 	)
 
-	certs := httpsCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions1, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions1, opt)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.PrintError("fail to retrieve node names from NMA /nodes: %v", err)
@@ -327,7 +326,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 	}
 	instructions2 = append(instructions2, &nmaDownLoadFileOp)
 
-	clusterOpEngine = makeClusterOpEngine(instructions2, &certs)
+	clusterOpEngine = makeClusterOpEngine(instructions2, opt)
 	err = clusterOpEngine.run(vcc.Log)
 	if err != nil {
 		vcc.Log.PrintError("fail to retrieve node details from %s: %v", descriptionFileName, err)
@@ -403,9 +402,23 @@ func (opt *DatabaseOptions) isSpreadEncryptionEnabled() (enabled bool, encryptio
 
 func (opt *DatabaseOptions) runClusterOpEngine(log vlog.Printer, instructions []clusterOp) error {
 	// Create a VClusterOpEngine, and add certs to the engine
-	certs := httpsCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, opt)
 
 	// Give the instructions to the VClusterOpEngine to run
 	return clusterOpEngine.run(log)
 }
+
+/* Begin opTLSOptions interface */
+
+// hasCerts indicates we want to use in memory certs.  This doesn't check
+// the presence of a CA cert, as we want to support providing a cert
+// even when vclusterops isn't validating the peer cert.
+func (opt *DatabaseOptions) hasCerts() bool {
+	return opt.Key != "" && opt.Cert != ""
+}
+
+func (opt *DatabaseOptions) getCerts() *httpsCerts {
+	return &httpsCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
+}
+
+/* End opTLSOptions interface */

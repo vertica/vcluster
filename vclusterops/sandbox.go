@@ -34,6 +34,8 @@ type VSandboxOptions struct {
 	Imeta bool
 	// indicate whether the sandbox should create its own storage locations
 	Sls bool
+	// indicate wether the sandbox is being created for online upgrade
+	ForUpgrade bool
 	// The expected node names with their IPs in the subcluster, the user of vclusterOps needs
 	// to make sure the provided values are correct. This option will be used to do re-ip in
 	// the target sandbox.
@@ -162,7 +164,7 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 
 	// Run Sandboxing
 	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, options.SCName, options.SandboxName,
-		usePassword, username, options.Password, options.SaveRp, options.Imeta, options.Sls)
+		usePassword, username, options.Password, options.SaveRp, options.Imeta, options.Sls, options.ForUpgrade)
 	if err != nil {
 		return instructions, err
 	}
@@ -219,8 +221,7 @@ func (options *VSandboxOptions) runCommand(vcc VClusterCommands) error {
 	}
 
 	// add certs and instructions to the engine
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// run the engine
 	runError := clusterOpEngine.run(vcc.Log)

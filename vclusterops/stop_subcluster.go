@@ -117,7 +117,6 @@ func (options *VStopSubclusterOptions) validateAnalyzeOptions(log vlog.Printer) 
 	return options.analyzeOptions()
 }
 
-//nolint:dupl
 func (vcc VClusterCommands) VStopSubcluster(options *VStopSubclusterOptions) error {
 	/*
 	 *   - Validate Options
@@ -138,8 +137,7 @@ func (vcc VClusterCommands) VStopSubcluster(options *VStopSubclusterOptions) err
 	}
 
 	// Create a VClusterOpEngine, and add certs to the engine
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)

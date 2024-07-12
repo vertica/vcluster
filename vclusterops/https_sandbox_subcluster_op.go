@@ -32,11 +32,12 @@ type httpsSandboxingOp struct {
 	SaveRp             bool
 	Imeta              bool
 	Sls                bool
+	ForUpgrade         bool
 }
 
 // This op is used to sandbox the given subcluster `scName` as `sandboxName`
-func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string,
-	useHTTPPassword bool, userName string, httpsPassword *string, saveRp, imeta, sls bool) (httpsSandboxingOp, error) {
+func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string, useHTTPPassword bool,
+	userName string, httpsPassword *string, saveRp, imeta, sls, forUpgrade bool) (httpsSandboxingOp, error) {
 	op := httpsSandboxingOp{}
 	op.name = "HTTPSSansboxingOp"
 	op.description = "Convert subcluster into sandbox in catalog system"
@@ -47,6 +48,7 @@ func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string,
 	op.SaveRp = saveRp
 	op.Imeta = imeta
 	op.Sls = sls
+	op.ForUpgrade = forUpgrade
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -83,6 +85,7 @@ func (op *httpsSandboxingOp) setupRequestBody() error {
 	op.hostRequestBodyMap["save-restore-point"] = util.BoolToStr(op.SaveRp)
 	op.hostRequestBodyMap["create-storage-locations"] = util.BoolToStr(op.Sls)
 	op.hostRequestBodyMap["isolate-metadata"] = util.BoolToStr(op.Imeta)
+	op.hostRequestBodyMap["for-upgrade"] = util.BoolToStr(op.ForUpgrade)
 	return nil
 }
 

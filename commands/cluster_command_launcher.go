@@ -85,6 +85,7 @@ const (
 	saveRpFlag                  = "save-restore-point"
 	isolateMetadataFlag         = "isolate-metadata"
 	createStorageLocationsFlag  = "create-storage-locations"
+	forUpgradeFlag              = "for-upgrade"
 	sandboxKey                  = "sandbox"
 	connFlag                    = "conn"
 	connKey                     = "conn"

@@ -153,8 +153,6 @@ func (options *VAddSubclusterOptions) validateAnalyzeOptions(logger vlog.Printer
 
 // VAddSubcluster adds to a running database a new subcluster with provided options.
 // It returns any error encountered.
-//
-//nolint:dupl
 func (vcc VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error {
 	/*
 	 *   - Validate Options
@@ -175,8 +173,7 @@ func (vcc VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error
 	}
 
 	// Create a VClusterOpEngine, and add certs to the engine
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)

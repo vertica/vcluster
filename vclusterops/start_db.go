@@ -170,8 +170,7 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	}
 
 	// create a VClusterOpEngine for start_db instructions, and add certs to the engine
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(instructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
@@ -209,8 +208,7 @@ func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, v
 	}
 
 	// create a VClusterOpEngine for pre-check, and add certs to the engine
-	certs := httpsCerts{key: options.Key, cert: options.Cert, caCert: options.CaCert}
-	clusterOpEngine := makeClusterOpEngine(preInstructions, &certs)
+	clusterOpEngine := makeClusterOpEngine(preInstructions, options)
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return nil, fmt.Errorf("fail to start database pre-checks: %w", runError)
