@@ -108,6 +108,12 @@ func (op *httpsPollSubclusterNodeStateOp) prepare(execContext *opEngineExecConte
 			op.hosts = append(op.hosts, vnode.Address)
 		}
 	}
+	// if there are still no hosts to check, e.g. empty subcluster, skip the op
+	if len(op.hosts) == 0 {
+		op.logger.PrintInfo("[%s] No nodes to poll for. Skipping operation.", op.name)
+		op.skipExecute = true
+		return nil
+	}
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }

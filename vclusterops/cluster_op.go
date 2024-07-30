@@ -197,7 +197,7 @@ type clusterOp interface {
 	logExecute()
 	logFinalize()
 	setupBasicInfo()
-	loadCertsIfNeeded(tlsOptions opTLSOptions) error
+	applyTLSOptions(tlsOptions opTLSOptions) error
 	isSkipExecute() bool
 	filterUnreachableHosts(execContext *opEngineExecContext)
 }
@@ -385,11 +385,13 @@ func (op *opBase) runExecute(execContext *opEngineExecContext) error {
 type opTLSOptions interface {
 	hasCerts() bool
 	getCerts() *httpsCerts
+	getTLSModes() *tlsModes
 }
 
-// if found certs in the options, we add the certs to http requests of each instruction
-func (op *opBase) loadCertsIfNeeded(tlsOptions opTLSOptions) error {
-	if tlsOptions == nil || !tlsOptions.hasCerts() {
+// applyTLSOptions processes TLS options here, like in-memory certificates or TLS modes,
+// rather than plumbing them through to every op.
+func (op *opBase) applyTLSOptions(tlsOptions opTLSOptions) error {
+	if tlsOptions == nil {
 		return nil
 	}
 
@@ -399,14 +401,25 @@ func (op *opBase) loadCertsIfNeeded(tlsOptions opTLSOptions) error {
 	}
 
 	// retrieve certs once to avoid extra copies
-	certs := tlsOptions.getCerts()
-	if certs == nil {
-		return fmt.Errorf("[%s] is trying to use certificates, but none are set", op.name)
+	var certs *httpsCerts
+	if tlsOptions.hasCerts() {
+		certs = tlsOptions.getCerts()
+		if certs == nil {
+			return fmt.Errorf("[%s] is trying to use certificates, but none are set", op.name)
+		}
 	}
 
+	// always retrieve TLS modes
+	tlsModes := tlsOptions.getTLSModes()
+	if tlsModes == nil {
+		return fmt.Errorf("[%s] unable to retrieve TLS modes from interface", op.name)
+	}
+
+	// modify requests with TLS options
 	for host := range op.clusterHTTPRequest.RequestCollection {
 		request := op.clusterHTTPRequest.RequestCollection[host]
 		request.setCerts(certs)
+		request.setTLSMode(tlsModes)
 		op.clusterHTTPRequest.RequestCollection[host] = request
 	}
 	return nil

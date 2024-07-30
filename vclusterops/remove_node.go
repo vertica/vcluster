@@ -408,7 +408,7 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 		return instructions, err
 	}
 
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, true, username, password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, usePassword, username, password)
 	if err != nil {
 		return instructions, err
 	}
@@ -422,7 +422,7 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	instructions = append(instructions, &nmaHealthOp, &nmaDeleteDirectoriesOp)
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, true, username, password, RemoveNodeSyncCat)
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, usePassword, username, password, RemoveNodeSyncCat)
 		if err != nil {
 			return instructions, err
 		}

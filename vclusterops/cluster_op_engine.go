@@ -78,12 +78,12 @@ func (opEngine *VClusterOpEngine) runInstruction(
 		// start the progress spinner
 		op.startSpinner()
 
-		err = op.loadCertsIfNeeded(opEngine.tlsOptions)
+		err = op.applyTLSOptions(opEngine.tlsOptions)
 		if err != nil {
 			// here we do not return an error as the spinner error does not
 			// affect the functionality
 			op.stopFailSpinnerWithMessage(err.Error())
-			return fmt.Errorf("loadCertsIfNeeded for %s failed, details: %w", op.getName(), err)
+			return fmt.Errorf("applying TLS options for %s failed, details: %w", op.getName(), err)
 		}
 
 		// execute an instruction

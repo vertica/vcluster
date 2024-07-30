@@ -35,6 +35,13 @@ const (
 	defConfigParamFileName = "config_param.json"
 )
 
+// all three tls modes enable TLS and present (client) cert if requested
+const (
+	tlsModeEnable     = "enable"      // skip validating peer (server) cert
+	tlsModeVerifyCA   = "verify-ca"   // validate peer cert signer chain, skipping hostname validation
+	tlsModeVerifyFull = "verify-full" // validate peer cert signer chain and hostname
+)
+
 /* CmdBase
  *
  * Basic/common fields of vcluster commands
@@ -59,6 +66,28 @@ func (c *CmdBase) ValidateParseBaseOptions(opt *vclusterops.DatabaseOptions) err
 		err := util.ParseHostList(&opt.RawHosts)
 		if err != nil {
 			return err
+		}
+	}
+
+	// parse TLS mode.  vclusterops allows different behavior for NMA and HTTPS conns, but
+	// for simplicity and lack of use case outside k8s, vcluster does not.
+	if globals.tlsMode != "" {
+		switch tlsMode := strings.ToLower(globals.tlsMode); tlsMode {
+		case tlsModeEnable:
+			opt.DoVerifyHTTPSServerCert = false
+			opt.DoVerifyNMAServerCert = false
+			opt.DoVerifyPeerCertHostname = false
+		case tlsModeVerifyCA:
+			opt.DoVerifyHTTPSServerCert = true
+			opt.DoVerifyNMAServerCert = true
+			opt.DoVerifyPeerCertHostname = false
+		case tlsModeVerifyFull:
+			opt.DoVerifyHTTPSServerCert = true
+			opt.DoVerifyNMAServerCert = true
+			opt.DoVerifyPeerCertHostname = true
+		default:
+			return fmt.Errorf("unrecognized TLS mode: %s. Allowed values are: '%s', '%s'",
+				globals.tlsMode, tlsModeEnable, tlsModeVerifyCA)
 		}
 	}
 
@@ -96,26 +125,13 @@ func (c *CmdBase) setCommonFlags(cmd *cobra.Command, flags []string) {
 		false,
 		"Whether show the details of VCluster run in the console",
 	)
-	// keyFile and certFile are flags that all subcommands require,
-	// except for create_connection and manage_config show
-	if cmd.Name() != configShowSubCmd && cmd.Name() != createConnectionSubCmd {
-		cmd.Flags().StringVar(
-			&globals.keyFile,
-			keyFileFlag,
-			"",
-			fmt.Sprintf("Path to the key file, the default value is %s", filepath.Join(vclusterops.CertPathBase, "{username}.key")),
-		)
-		markFlagsFileName(cmd, map[string][]string{keyFileFlag: {"key"}})
 
-		cmd.Flags().StringVar(
-			&globals.certFile,
-			certFileFlag,
-			"",
-			fmt.Sprintf("Path to the cert file, the default value is %s", filepath.Join(vclusterops.CertPathBase, "{username}.pem")),
-		)
-		markFlagsFileName(cmd, map[string][]string{certFileFlag: {"pem", "crt"}})
-		cmd.MarkFlagsRequiredTogether(keyFileFlag, certFileFlag)
+	// TLS related flags are allowed by all subcommands,
+	// except for create_connection and manage_config show.
+	if cmd.Name() != configShowSubCmd && cmd.Name() != createConnectionSubCmd {
+		c.setTLSFlags(cmd)
 	}
+
 	if util.StringInArray(outputFileFlag, flags) {
 		cmd.Flags().StringVarP(
 			&c.output,
@@ -223,6 +239,47 @@ func (c *CmdBase) setConfigFlags(cmd *cobra.Command, flags []string) {
 			"",
 			"The absolute path to a file containing configuration parameters and their values.")
 	}
+}
+
+// setTLSFlags sets the TLS options in global variables for later processing
+// into vclusterops options.
+func (c *CmdBase) setTLSFlags(cmd *cobra.Command) {
+	// vcluster CLI reads certs into memory before calling vclusterops only
+	// if non-default values are specified, which is why the defaults here
+	// are "" despite being listed otherwise in the help messages.
+	// Those defaults are used by vclusterops if no in-memory certs are provided.
+	cmd.Flags().StringVar(
+		&globals.keyFile,
+		keyFileFlag,
+		"",
+		fmt.Sprintf("Path to the key file, the default value is %s", filepath.Join(vclusterops.CertPathBase, "{username}.key")),
+	)
+	markFlagsFileName(cmd, map[string][]string{keyFileFlag: {"key"}})
+
+	cmd.Flags().StringVar(
+		&globals.certFile,
+		certFileFlag,
+		"",
+		fmt.Sprintf("Path to the cert file, the default value is %s", filepath.Join(vclusterops.CertPathBase, "{username}.pem")),
+	)
+	markFlagsFileName(cmd, map[string][]string{certFileFlag: {"pem", "crt"}})
+	cmd.MarkFlagsRequiredTogether(keyFileFlag, certFileFlag)
+
+	cmd.Flags().StringVar(
+		&globals.caCertFile,
+		caCertFileFlag,
+		"",
+		fmt.Sprintf("Path to the trusted CA cert file, the default value is %s", filepath.Join(vclusterops.CertPathBase, "rootca.pem")),
+	)
+	markFlagsFileName(cmd, map[string][]string{caCertFileFlag: {"pem", "crt"}})
+
+	cmd.Flags().StringVar(
+		&globals.tlsMode,
+		tlsModeFlag,
+		"",
+		fmt.Sprintf("Mode for TLS validation. Allowed values '%s', '%s', and '%s'. Default value is '%s'.",
+			tlsModeEnable, tlsModeVerifyCA, tlsModeVerifyFull, tlsModeEnable),
+	)
 }
 
 func (c *CmdBase) initConfigParam() error {
@@ -462,6 +519,7 @@ func (c *CmdBase) initCmdOutputFile() (*os.File, error) {
 
 // getCertFilesFromPaths will update cert and key file from cert path options
 func (c *CmdBase) getCertFilesFromCertPaths(opt *vclusterops.DatabaseOptions) error {
+	// TODO don't make this conditional on not using a PW for auth (see callers)
 	if globals.certFile != "" {
 		certData, err := os.ReadFile(globals.certFile)
 		if err != nil {
@@ -475,6 +533,13 @@ func (c *CmdBase) getCertFilesFromCertPaths(opt *vclusterops.DatabaseOptions) er
 			return fmt.Errorf("failed to read private key file: %w", err)
 		}
 		opt.Key = string(keyData)
+	}
+	if globals.caCertFile != "" {
+		caCertData, err := os.ReadFile(globals.caCertFile)
+		if err != nil {
+			return fmt.Errorf("failed to read trusted CA certificate file: %w", err)
+		}
+		opt.CaCert = string(caCertData)
 	}
 	return nil
 }

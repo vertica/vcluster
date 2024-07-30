@@ -37,8 +37,7 @@ type VStartNodesOptions struct {
 	// you may not want to have both the NMA and Vertica server in the same container.
 	// This feature requires version 24.2.0+.
 	StartUpConf string
-
-	vdb *VCoordinationDatabase
+	vdb         *VCoordinationDatabase
 }
 
 type VStartNodesInfo struct {
@@ -59,6 +58,10 @@ type VStartNodesInfo struct {
 	unreachableHosts []string
 	// is start subcluster command
 	isStartSc bool
+	// use this when up host count is lesser than hosts to be re-ip'd
+	SerialReIP bool
+	// Number of up hosts
+	upHostCount int
 }
 
 func VStartNodesOptionsFactory() VStartNodesOptions {
@@ -301,12 +304,16 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, restartNodeInfo *VStartNodesInfo) error {
 	sandboxPrimaryUpNodes := []string{}
 	var lenOfPrimaryReIPLIst int
+	upHostCount := 0
 	reIPMap := make(map[string]bool, len(restartNodeInfo.ReIPList))
 	for _, name := range restartNodeInfo.NodeNamesToStart {
 		reIPMap[name] = true
 	}
 	for _, vnode := range vdb.HostNodeMap {
 		if vnode.IsPrimary {
+			if vnode.State == util.NodeUpState {
+				upHostCount++
+			}
 			if vnode.State == util.NodeUpState && vnode.Sandbox == restartNodeInfo.Sandbox {
 				sandboxPrimaryUpNodes = append(sandboxPrimaryUpNodes, vnode.Address)
 			}
@@ -314,6 +321,10 @@ func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, resta
 				lenOfPrimaryReIPLIst++
 			}
 		}
+	}
+	restartNodeInfo.upHostCount = upHostCount
+	if upHostCount < len(restartNodeInfo.ReIPList) {
+		restartNodeInfo.SerialReIP = true
 	}
 	if len(sandboxPrimaryUpNodes) <= lenOfPrimaryReIPLIst {
 		return &ReIPNoClusterQuorumError{
@@ -346,14 +357,12 @@ func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, resta
 func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartNodesInfo, options *VStartNodesOptions,
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
-
 	nmaHealthOp := makeNMAHealthOpSkipUnreachable(options.Hosts)
 	// need username for https operations
 	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
 	if err != nil {
 		return instructions, err
 	}
-
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(options.DBName, options.Hosts,
 		options.usePassword, options.UserName, options.Password, StartNodeCmd)
 	if err != nil {
@@ -363,15 +372,31 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		&nmaHealthOp,
 		&httpsGetUpNodesOp,
 	)
-
 	// If we identify any nodes that need re-IP, HostsToStart will contain the nodes that need re-IP.
 	// Otherwise, HostsToStart will consist of all hosts with IPs recorded in the catalog, which are provided by user input.
 	if len(startNodeInfo.ReIPList) != 0 {
 		nmaNetworkProfileOp := makeNMANetworkProfileOp(startNodeInfo.ReIPList)
-		httpsReIPOp, e := makeHTTPSReIPOp(startNodeInfo.NodeNamesToStart, startNodeInfo.ReIPList,
-			options.usePassword, options.UserName, options.Password)
-		if e != nil {
-			return instructions, e
+		instructions = append(instructions, &nmaNetworkProfileOp)
+		if startNodeInfo.SerialReIP {
+			// when we have lesser up(initiator) hosts than nodes to reip, we send reip requests in chunks of upHostCount size
+			var reipOps []clusterOp
+			chunkedNodeNamesTostart, chunkedReipList := getChunkedNodeLists(startNodeInfo)
+			for i, hostChunk := range chunkedReipList {
+				ReIPOp, e := makeHTTPSReIPOp(chunkedNodeNamesTostart[i], hostChunk,
+					options.usePassword, options.UserName, options.Password)
+				if e != nil {
+					return instructions, e
+				}
+				reipOps = append(reipOps, &ReIPOp)
+			}
+			instructions = append(instructions, reipOps...)
+		} else {
+			httpsReIPOp, e := makeHTTPSReIPOp(startNodeInfo.NodeNamesToStart, startNodeInfo.ReIPList,
+				options.usePassword, options.UserName, options.Password)
+			if e != nil {
+				return instructions, e
+			}
+			instructions = append(instructions, &httpsReIPOp)
 		}
 		// host is set to nil value in the reload spread step
 		// we use information from node information to find the up host later
@@ -386,18 +411,14 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 			return instructions, e
 		}
 		instructions = append(instructions,
-			&nmaNetworkProfileOp,
-			&httpsReIPOp,
 			&httpsReloadSpreadOp,
 			&httpsGetNodesInfoOp,
 		)
 	}
-
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpBeforeStartNode(vdb, startNodeInfo.unreachableHosts,
 		startNodeInfo.HostsToStart, startNodeInfo.isStartSc)
 	instructions = append(instructions, &nmaVerticaVersionOp)
-
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value
 	// after we find any UP primary nodes as source host for syncing spread.conf and vertica.conf
@@ -407,26 +428,24 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		nil, /*source hosts for transferring configuration files*/
 		startNodeInfo.HostsToStart,
 		vdb)
-
 	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(options.usePassword, options.UserName, options.Password,
 		vdb, startNodeInfo.Sandbox)
 	if err != nil {
 		return instructions, err
 	}
-
 	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(startNodeInfo.HostsToStart, options.StartUpConf, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(startNodeInfo.HostsToStart,
 		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout)
 	if err != nil {
 		return instructions, err
 	}
+
 	httpsPollNodeStateOp.cmdType = StartNodeCmd
 	instructions = append(instructions,
 		&httpsRestartUpCommandOp,
 		&nmaStartNewNodesOp,
 		&httpsPollNodeStateOp,
 	)
-
 	if vdb.IsEon {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, options.UserName,
 			options.Password, StartNodeSyncCat)
@@ -435,8 +454,20 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
-
 	return instructions, nil
+}
+
+func getChunkedNodeLists(startNodeInfo *VStartNodesInfo) (nodeNameChunks, reIPHostChunks [][]string) {
+	chunkSize := startNodeInfo.upHostCount
+	for i := 0; i < len(startNodeInfo.ReIPList); i += chunkSize {
+		end := i + chunkSize
+		if end > len(startNodeInfo.ReIPList) {
+			end = len(startNodeInfo.ReIPList)
+		}
+		nodeNameChunks = append(nodeNameChunks, startNodeInfo.NodeNamesToStart[i:end])
+		reIPHostChunks = append(reIPHostChunks, startNodeInfo.ReIPList[i:end])
+	}
+	return
 }
 
 // validateControlNode returns true if the host is a control node and error out

@@ -215,7 +215,7 @@ func (op *httpsStageSystemTablesOp) execute(execContext *opEngineExecContext) er
 		if err := op.setupClusterHTTPRequest(op.hosts, systemTableInfo.Schema, systemTableInfo.TableName); err != nil {
 			return err
 		}
-		if err := op.opBase.loadCertsIfNeeded(op.tlsOptions); err != nil {
+		if err := op.opBase.applyTLSOptions(op.tlsOptions); err != nil {
 			return err
 		}
 		op.logger.Info("Staging System Table:", "Schema", systemTableInfo.Schema, "Table", systemTableInfo.TableName)
@@ -263,9 +263,10 @@ func (op *httpsStageSystemTablesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-// loadCertsIfNeeded shadows the op base function and stashes the certs instead of immediately setting them,
-// as httpsStageSystemTablesOp delays creation of request objects and resets them repeatedly
-func (op *httpsStageSystemTablesOp) loadCertsIfNeeded(tlsOptions opTLSOptions) error {
+// applyTLSOptions shadows the op base function and stashes the interface providing certificates
+// and other TLS options (like modes) instead of immediately setting them, as httpsStageSystemTablesOp
+// delays creation of request objects and resets them repeatedly
+func (op *httpsStageSystemTablesOp) applyTLSOptions(tlsOptions opTLSOptions) error {
 	op.tlsOptions = tlsOptions
 	return nil
 }

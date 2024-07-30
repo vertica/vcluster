@@ -66,6 +66,12 @@ type DatabaseOptions struct {
 	Cert string
 	// TLS CA Certificate
 	CaCert string
+	// Whether to validate NMA server cert signature chain
+	DoVerifyNMAServerCert bool
+	// Whether to validate HTTPS server cert signature chain
+	DoVerifyHTTPSServerCert bool
+	// Whether to validate server cert hostname if signature validation is enabled
+	DoVerifyPeerCertHostname bool
 
 	/* part 4: other info */
 
@@ -419,6 +425,14 @@ func (opt *DatabaseOptions) hasCerts() bool {
 
 func (opt *DatabaseOptions) getCerts() *httpsCerts {
 	return &httpsCerts{key: opt.Key, cert: opt.Cert, caCert: opt.CaCert}
+}
+
+func (opt *DatabaseOptions) getTLSModes() *tlsModes {
+	return &tlsModes{
+		doVerifyNMAServerCert:    opt.DoVerifyNMAServerCert,
+		doVerifyHTTPSServerCert:  opt.DoVerifyHTTPSServerCert,
+		doVerifyPeerCertHostname: opt.DoVerifyPeerCertHostname,
+	}
 }
 
 /* End opTLSOptions interface */

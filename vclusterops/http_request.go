@@ -27,8 +27,10 @@ type hostHTTPRequest struct {
 	Timeout  int     // optional, set it if an Op needs longer time to complete
 
 	// optional, for calling NMA/Vertica HTTPS endpoints. If Username/Password is set, that takes precedence over this for HTTPS calls.
-	UseCertsInOptions bool
-	Certs             httpsCerts
+	UseCertsInOptions   bool
+	Certs               httpsCerts
+	TLSDoVerify         bool
+	TLSDoVerifyHostname bool
 }
 
 type httpsCerts struct {
@@ -37,11 +39,35 @@ type httpsCerts struct {
 	caCert string
 }
 
+type tlsModes struct {
+	doVerifyNMAServerCert    bool
+	doVerifyHTTPSServerCert  bool
+	doVerifyPeerCertHostname bool
+}
+
 func (req *hostHTTPRequest) setCerts(certs *httpsCerts) {
+	if certs == nil {
+		return
+	}
 	req.UseCertsInOptions = true
 	req.Certs.key = certs.key
 	req.Certs.cert = certs.cert
 	req.Certs.caCert = certs.caCert
+}
+
+func (req *hostHTTPRequest) setTLSMode(modes *tlsModes) {
+	if modes == nil {
+		return
+	}
+	if req.IsNMACommand {
+		req.TLSDoVerify = modes.doVerifyNMAServerCert
+	} else {
+		req.TLSDoVerify = modes.doVerifyHTTPSServerCert
+	}
+	// only do hostname validation if regular validation is enabled
+	if req.TLSDoVerify {
+		req.TLSDoVerifyHostname = modes.doVerifyPeerCertHostname
+	}
 }
 
 func (req *hostHTTPRequest) buildNMAEndpoint(url string) {

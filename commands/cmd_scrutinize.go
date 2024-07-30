@@ -217,7 +217,6 @@ func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
 		}
 	}
 
-	// parses host list and ipv6 - eon is irrelevant but handled
 	err := c.ValidateParseBaseOptions(&c.sOptions.DatabaseOptions)
 	if err != nil {
 		return err

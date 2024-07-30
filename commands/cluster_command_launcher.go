@@ -32,9 +32,15 @@ const defaultLogPath = "/opt/vertica/log/vcluster.log"
 const defaultExecutablePath = "/opt/vertica/bin/vcluster"
 
 const CLIVersion = "2.0.0"
-const vclusterLogPathEnv = "VCLUSTER_LOG_PATH"
-const vclusterKeyFileEnv = "VCLUSTER_KEY_FILE"
-const vclusterCertFileEnv = "VCLUSTER_CERT_FILE"
+
+// environment variables
+const (
+	vclusterLogPathEnv    = "VCLUSTER_LOG_PATH"
+	vclusterKeyFileEnv    = "VCLUSTER_KEY_FILE"
+	vclusterCertFileEnv   = "VCLUSTER_CERT_FILE"
+	vclusterCACertFileEnv = "VCLUSTER_CA_CERT_FILE"
+	vclusterTLSModeEnv    = "VCLUSTER_TLS_MODE"
+)
 
 // *Flag is for the flag name, *Key is for viper key name
 // They are bound together
@@ -67,6 +73,10 @@ const (
 	keyFileKey                  = "keyFile"
 	certFileFlag                = "cert-file"
 	certFileKey                 = "certFile"
+	caCertFileFlag              = "ca-cert-file"
+	caCertFileKey               = "caCertFile"
+	tlsModeFlag                 = "tls-mode"
+	tlsModeKey                  = "tlsMode"
 	passwordFlag                = "password"
 	passwordKey                 = "password"
 	passwordFileFlag            = "password-file"
@@ -127,6 +137,8 @@ var flagKeyMap = map[string]string{
 	logPathFlag:                 logPathKey,
 	keyFileFlag:                 keyFileKey,
 	certFileFlag:                certFileKey,
+	caCertFileFlag:              caCertFileKey,
+	tlsModeFlag:                 tlsModeKey,
 	passwordFlag:                passwordKey,
 	passwordFileFlag:            passwordFileKey,
 	readPasswordFromPromptFlag:  readPasswordFromPromptKey,
@@ -147,6 +159,15 @@ var targetFlagKeyMap = map[string]string{
 	targetHostsFlag:        targetHostsKey,
 	targetUserNameFlag:     targetUserNameKey,
 	targetPasswordFileFlag: targetPasswordFileKey,
+}
+
+// map of viper keys to environment variables
+var keyEnvVarMap = map[string]string{
+	logPathKey:    vclusterLogPathEnv,
+	keyFileKey:    vclusterKeyFileEnv,
+	certFileKey:   vclusterCertFileEnv,
+	caCertFileKey: vclusterCACertFileEnv,
+	tlsModeKey:    vclusterTLSModeEnv,
 }
 
 const (
@@ -183,10 +204,12 @@ const (
 // cmdGlobals holds global variables shared by multiple
 // commands
 type cmdGlobals struct {
-	verbose  bool
-	file     *os.File
-	keyFile  string
-	certFile string
+	verbose    bool
+	file       *os.File
+	keyFile    string
+	certFile   string
+	caCertFile string
+	tlsMode    string
 
 	// Global variables for targetDB are used for the replication subcommand
 	targetHosts        []string
@@ -262,6 +285,8 @@ func initVcc(cmd *cobra.Command) vclusterops.VClusterCommands {
 }
 
 // setDBOptionsUsingViper can set the value of flag using the relevant key in viper
+//
+//nolint:gocyclo
 func setDBOptionsUsingViper(flag string) error {
 	switch flag {
 	case dbNameFlag:
@@ -288,6 +313,10 @@ func setDBOptionsUsingViper(flag string) error {
 		globals.keyFile = viper.GetString(keyFileKey)
 	case certFileFlag:
 		globals.certFile = viper.GetString(certFileKey)
+	case caCertFileFlag:
+		globals.caCertFile = viper.GetString(caCertFileKey)
+	case tlsModeFlag:
+		globals.tlsMode = viper.GetString(tlsModeKey)
 	case verboseFlag:
 		globals.verbose = viper.GetBool(verboseKey)
 	default:
@@ -329,13 +358,13 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 	}
 	// log-path is a flag that all the subcommands need
 	flagsInConfig = append(flagsInConfig, logPathFlag)
-	// cert-file and key-file are not available for
+	// TLS related flags are not available for
 	// - manage_config
 	// - manage_config show
 	// - create_connection
 	if cmd.CalledAs() != manageConfigSubCmd &&
 		cmd.CalledAs() != configShowSubCmd && cmd.CalledAs() != createConnectionSubCmd {
-		flagsInConfig = append(flagsInConfig, certFileFlag, keyFileFlag)
+		flagsInConfig = append(flagsInConfig, certFileFlag, keyFileFlag, caCertFileFlag, tlsModeFlag)
 	}
 
 	// bind viper keys to cobra flags
@@ -364,17 +393,11 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 
 // bind viper keys to env vars
 func bindKeysToEnv() error {
-	err := viper.BindEnv(logPathKey, vclusterLogPathEnv)
-	if err != nil {
-		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", logPathKey, vclusterLogPathEnv, err)
-	}
-	err = viper.BindEnv(keyFileKey, vclusterKeyFileEnv)
-	if err != nil {
-		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", keyFileKey, vclusterKeyFileEnv, err)
-	}
-	err = viper.BindEnv(certFileKey, vclusterCertFileEnv)
-	if err != nil {
-		return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", certFileKey, vclusterCertFileEnv, err)
+	for key, envVar := range keyEnvVarMap {
+		err := viper.BindEnv(key, envVar)
+		if err != nil {
+			return fmt.Errorf("fail to bind viper key %q to environment variable %q: %w", key, envVar, err)
+		}
 	}
 	return nil
 }
