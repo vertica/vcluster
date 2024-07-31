@@ -232,4 +232,9 @@ var (
 		"Message queue is full",
 		http.StatusInternalServerError,
 	)
+	FetchDownDatabase = newProblemID(
+		path.Join(errorEndpointsPrefix, "fetch-down-database"),
+		"Fetch information from a down database",
+		http.StatusInternalServerError,
+	)
 )

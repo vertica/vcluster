@@ -14,6 +14,8 @@ type VFetchNodeStateOptions struct {
 	// operations: NMAHealth and NMA readCatalogEditor. This is useful
 	// when we cannot get the version for down nodes from a running database
 	GetVersion bool
+
+	SkipDownDatabase bool
 }
 
 func VFetchNodeStateOptionsFactory() VFetchNodeStateOptions {
@@ -82,6 +84,10 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 			}
 		}
 
+		if options.SkipDownDatabase {
+			return []NodeInfo{}, rfc7807.New(rfc7807.FetchDownDatabase)
+		}
+
 		return vcc.fetchNodeStateFromDownDB(options)
 	}
 
@@ -130,6 +136,10 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 	}
 
 	if upNodeCount == 0 {
+		if options.SkipDownDatabase {
+			return []NodeInfo{}, rfc7807.New(rfc7807.FetchDownDatabase)
+		}
+
 		return vcc.fetchNodeStateFromDownDB(options)
 	}
 
