@@ -1,22 +1,16 @@
 name: Merge branch
 on:
-  workflow_dispatch:
-    inputs:
-      source_branch:
-        description: "Merge branch from"
-        default: "master"
-      target_branch:
-        description: "Merge branch to"
-        default: "master"
+  repository_dispatch:
+    types: curl_request_merge
 jobs:
   sync-branch:
     runs-on: ubuntu-latest
     steps:
       - uses:  actions/checkout@v2
-      - name: Merge branch ${{ github.event.inputs.source_branch }} -> ${{ github.event.inputs.target_branch }}
+      - name: Merge branch ${{ github.event.client_payload.source_branch }} -> ${{ github.event.client_payload.target_branch }}
         uses: everlytic/branch-merge@1.1.2
         with:
-          source_ref: ${{ github.event.inputs.source_branch }}
-          target_branch: ${{ github.event.inputs.target_branch }}
+          source_ref: ${{ github.event.client_payload.source_branch }}
+          target_branch: ${{ github.event.client_payload.target_branch }}
           github_token: ${{ github.token }} 
           commit_message_template: '[Automated] Merged {source_ref} into target {target_branch}'
