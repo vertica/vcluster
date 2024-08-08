@@ -312,6 +312,11 @@ func (c *DatabaseConfig) write(configFilePath string, forceOverwrite bool) error
 	return nil
 }
 
+// Exposing the write function for external packages
+func (c *DatabaseConfig) Write(configFilePath string, forceOverwrite bool) error {
+	return c.write(configFilePath, forceOverwrite)
+}
+
 // getHosts returns host addresses of all nodes in database
 func (c *DatabaseConfig) getHosts() []string {
 	var hostList []string

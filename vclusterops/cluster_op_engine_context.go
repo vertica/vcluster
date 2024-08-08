@@ -41,6 +41,9 @@ type opEngineExecContext struct {
 
 	// hosts that is not reachable through NMA
 	unreachableHosts []string
+
+	// hosts that have the VCluster server PID file
+	HostsWithVclusterServerPid []string
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {

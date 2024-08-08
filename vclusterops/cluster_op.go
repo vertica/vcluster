@@ -565,6 +565,8 @@ type ClusterCommands interface {
 	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
 	VRenameSubcluster(options *VRenameSubclusterOptions) error
 	VFetchNodesDetails(options *VFetchNodesDetailsOptions) (NodesDetails, error)
+
+	VCheckVClusterServerPid(options *VCheckVClusterServerPidOptions) ([]string, error)
 }
 
 type VClusterCommandsLogger struct {
