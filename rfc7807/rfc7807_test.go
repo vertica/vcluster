@@ -51,7 +51,7 @@ func TestHttpResponse(t *testing.T) {
 	p := New(CommunalAccessError).
 		WithDetail("communal endpoint is down").
 		WithHost("pod-2")
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		p.SendError(w)
 	}
 
@@ -70,7 +70,7 @@ func TestProblemExtraction(t *testing.T) {
 	origProblem := New(CommunalRWAccessError).
 		WithDetail("could not read from communal storage").
 		WithHost("pod-3")
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		origProblem.SendError(w)
 	}
 
@@ -94,7 +94,7 @@ func TestProblemExtraction(t *testing.T) {
 }
 
 func TestJSONExtractFailure(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintln(w, "not json")
 	}
 	req := httptest.NewRequest("GET", "http://vertica.com/bootstrapEndpoint", http.NoBody)
