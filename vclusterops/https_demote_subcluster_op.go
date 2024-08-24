@@ -59,7 +59,7 @@ func (op *httpsDemoteSubclusterOp) setupClusterHTTPRequest(hosts []string) error
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/demote")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + "/demote")
 		if op.useHTTPPassword {
 			httpRequest.Username = op.userName
 			httpRequest.Password = op.httpsPassword

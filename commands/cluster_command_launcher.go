@@ -118,8 +118,18 @@ const (
 	targetPasswordFileKey  = "targetPasswordFile"
 	targetConnFlag         = "target-conn"
 	targetConnKey          = "targetConn"
+	asyncFlag              = "async"
+	asyncKey               = "async"
 	sourceTLSConfigFlag    = "source-tlsconfig"
 	sourceTLSConfigKey     = "sourceTLSConfig"
+	tableOrSchemaNameFlag  = "table-or-schema-name"
+	tableOrSchemaNameKey   = "tableOrSchemaName"
+	includePatternFlag     = "include-pattern"
+	includePatternKey      = "includePattern"
+	excludePatternFlag     = "exclude-pattern"
+	excludePatternKey      = "excludePattern"
+	targetNamespaceFlag    = "target-namespace"
+	targetNamespaceKey     = "targetNamespace"
 )
 
 // flags to viper key map
@@ -150,7 +160,12 @@ var flagKeyMap = map[string]string{
 	targetHostsFlag:             targetHostsKey,
 	targetUserNameFlag:          targetUserNameKey,
 	targetPasswordFileFlag:      targetPasswordFileKey,
+	asyncFlag:                   asyncKey,
 	sourceTLSConfigFlag:         sourceTLSConfigKey,
+	tableOrSchemaNameFlag:       tableOrSchemaNameKey,
+	includePatternFlag:          includePatternKey,
+	excludePatternFlag:          excludePatternKey,
+	targetNamespaceFlag:         targetNamespaceKey,
 }
 
 // target database flags to viper key map
@@ -198,7 +213,8 @@ const (
 	showRestorePointsSubCmd = "show_restore_points"
 	installPkgSubCmd        = "install_packages"
 	// hidden Cmds (for internal testing only)
-	promoteSandboxSubCmd = "promote_sandbox"
+	getDrainingStatusSubCmd = "get_draining_status"
+	promoteSandboxSubCmd    = "promote_sandbox"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -562,9 +578,8 @@ func constructCmds() []*cobra.Command {
 		makeCmdReplication(),
 		makeCmdCreateConnection(),
 		// hidden cmds (for internal testing only)
+		makeCmdGetDrainingStatus(),
 		makeCmdPromoteSandbox(),
-
-		makeCmdCheckVClusterServerPid(),
 	}
 }
 

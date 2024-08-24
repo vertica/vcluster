@@ -22,6 +22,7 @@ const (
 	ShowRestorePointsCmd
 	InstallPackagesCmd
 	ConfigRecoverCmd
+	GetDrainingStatusCmd
 	ManageConnectionDrainingCmd
 	SetConfigurationParameterCmd
 	GetConfigurationParameterCmd
@@ -39,6 +40,7 @@ const (
 	AddNodeSyncCat
 	StartNodeSyncCat
 	RemoveNodeSyncCat
+	PollSubclusterStateCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -60,6 +62,7 @@ var cmdStringMap = map[CmdType]string{
 	ShowRestorePointsCmd:         "show_restore_points",
 	InstallPackagesCmd:           "install_packages",
 	ConfigRecoverCmd:             "manage_config_recover",
+	GetDrainingStatusCmd:         "get_draining_status",
 	ManageConnectionDrainingCmd:  "manage_connection_draining",
 	SetConfigurationParameterCmd: "set_configuration_parameter",
 	ReplicationStartCmd:          "replication_start",
@@ -76,6 +79,7 @@ var cmdStringMap = map[CmdType]string{
 	AddNodeSyncCat:               "add_node_sync_cat",
 	StartNodeSyncCat:             "start_node_sync_cat",
 	RemoveNodeSyncCat:            "remove_node_sync_cat",
+	PollSubclusterStateCmd:       "poll_subcluster_state",
 }
 
 func (cmd CmdType) CmdString() string {

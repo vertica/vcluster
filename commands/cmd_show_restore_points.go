@@ -32,6 +32,8 @@ type CmdShowRestorePoints struct {
 	showRestorePointsOptions *vclusterops.VShowRestorePointsOptions
 }
 
+const dateTimeOnly = "in either date-time or date-only format."
+
 func makeCmdShowRestorePoints() *cobra.Command {
 	// CmdShowRestorePoints
 	newCmd := &CmdShowRestorePoints{}
@@ -113,15 +115,13 @@ func (c *CmdShowRestorePoints) setLocalFlags(cmd *cobra.Command) {
 		&c.showRestorePointsOptions.FilterOptions.StartTimestamp,
 		"start-timestamp",
 		"",
-		"Shows restore points after and including the specified UTC timestamp \n"+
-			"in either date-time or date-only format.",
+		"Shows restore points after and including the specified UTC timestamp \n"+dateTimeOnly,
 	)
 	cmd.Flags().StringVar(
 		&c.showRestorePointsOptions.FilterOptions.EndTimestamp,
 		"end-timestamp",
 		"",
-		"Shows restore points up to and including the specified UTC timestamp \n"+
-			"in either date-time or date-only format.",
+		"Shows restore points up to and including the specified UTC timestamp \n"+dateTimeOnly,
 	)
 }
 

@@ -59,7 +59,7 @@ func (op *httpsPromoteSubclusterOp) setupClusterHTTPRequest(hosts []string) erro
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/promote")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + "/promote")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName

@@ -248,7 +248,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 
 	// Run Unsandboxing
 	httpsUnsandboxSubclusterOp, err := makeHTTPSUnsandboxingOp(options.SCName,
-		usePassword, username, options.Password)
+		usePassword, username, options.Password, &options.SCHosts)
 	if err != nil {
 		return instructions, err
 	}
@@ -277,18 +277,10 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		// Start the nodes
 		nmaStartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
 
-		// Poll for nodes UP
-		httpsPollScUp, err := makeHTTPSPollSubclusterNodeStateUpOp(scHosts, options.SCName,
-			usePassword, username, options.Password)
-		if err != nil {
-			return instructions, err
-		}
-
 		instructions = append(instructions,
 			&nmaVersionCheck,
 			&httpsStartUpCommandOp,
 			&nmaStartNodesOp,
-			&httpsPollScUp,
 		)
 	}
 
@@ -330,6 +322,14 @@ func (options *VUnsandboxOptions) runCommand(vcc VClusterCommands) error {
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("fail to unsandbox subcluster %s, %w", options.SCName, runError)
+	}
+
+	// assume the caller knows the status of the cluster better than us, override whatever the unsandbox op set
+	if len(options.NodeNameAddressMap) > 0 {
+		options.SCHosts = []string{}
+		for _, ip := range options.NodeNameAddressMap {
+			options.SCHosts = append(options.SCHosts, ip)
+		}
 	}
 	return nil
 }

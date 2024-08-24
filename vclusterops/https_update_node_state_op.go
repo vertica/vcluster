@@ -56,7 +56,7 @@ func (op *httpsUpdateNodeStateOp) setupClusterHTTPRequest(hosts []string) error 
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = op.httpRequestTimeout
-		httpRequest.buildHTTPSEndpoint("nodes/" + host)
+		httpRequest.buildHTTPSEndpoint(util.NodesEndpoint + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -126,9 +126,7 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 			vnode.State = nodeInfo.State
 		} else {
 			// if the result format is wrong on any of the hosts, we should throw an error
-			return fmt.Errorf("[%s] expect one node's information, but got %d nodes' information"+
-				" from HTTPS /v1/nodes/<host> endpoint on host %s",
-				op.name, len(nodesInformation.NodeList), host)
+			return fmt.Errorf(util.NodeInfoCountMismatch, op.name, len(nodesInformation.NodeList), host)
 		}
 	}
 

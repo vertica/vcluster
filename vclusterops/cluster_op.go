@@ -540,15 +540,23 @@ type ClusterCommands interface {
 	DisplayError(msg string, v ...any)
 
 	VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error)
-	VStopNode(options *VStopNodeOptions) error
 	VAddSubcluster(options *VAddSubclusterOptions) error
+	VAlterSubclusterType(options *VAlterSubclusterTypeOptions) error
+	VCheckVClusterServerPid(options *VCheckVClusterServerPidOptions) ([]string, error)
 	VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error)
 	VDropDatabase(options *VDropDatabaseOptions) error
+	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
+	VFetchNodesDetails(options *VFetchNodesDetailsOptions) (NodesDetails, error)
 	VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error)
+	VGetDrainingStatus(options *VGetDrainingStatusOptions) (DrainingStatusList, error)
 	VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error)
+	VPollSubclusterState(options *VPollSubclusterStateOptions) error
+	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
 	VReIP(options *VReIPOptions) error
 	VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error)
 	VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error)
+	VRenameSubcluster(options *VRenameSubclusterOptions) error
+	VReplicateDatabase(options *VReplicationDatabaseOptions) error
 	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
 	VSandbox(options *VSandboxOptions) error
 	VScrutinize(options *VScrutinizeOptions) error
@@ -557,16 +565,9 @@ type ClusterCommands interface {
 	VStartNodes(options *VStartNodesOptions) error
 	VStartSubcluster(startScOpt *VStartScOptions) error
 	VStopDatabase(options *VStopDatabaseOptions) error
-	VReplicateDatabase(options *VReplicationDatabaseOptions) error
-	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
-	VUnsandbox(options *VUnsandboxOptions) error
+	VStopNode(options *VStopNodeOptions) error
 	VStopSubcluster(options *VStopSubclusterOptions) error
-	VAlterSubclusterType(options *VAlterSubclusterTypeOptions) error
-	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
-	VRenameSubcluster(options *VRenameSubclusterOptions) error
-	VFetchNodesDetails(options *VFetchNodesDetailsOptions) (NodesDetails, error)
-
-	VCheckVClusterServerPid(options *VCheckVClusterServerPidOptions) ([]string, error)
+	VUnsandbox(options *VUnsandboxOptions) error
 }
 
 type VClusterCommandsLogger struct {

@@ -22,6 +22,10 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+const archName = `"archive_name":"`
+const archID = `"archive_id":"`
+const archIndex = `"archive_index":"`
+
 func TestShowRestorePointsRequestBody(t *testing.T) {
 	const hostName = "host1"
 	const dbName = "testDB"
@@ -55,9 +59,9 @@ func TestShowRestorePointsRequestBody(t *testing.T) {
 	assert.Len(t, requestBody, 1)
 	assert.Contains(t, requestBody, hostName)
 	hostReq = requestBody[hostName]
-	assert.Contains(t, hostReq, `"archive_name":"`+archiveName+`"`)
-	assert.Contains(t, hostReq, `"archive_id":"`+archiveID+`"`)
-	assert.Contains(t, hostReq, `"archive_index":"`+archiveIndex+`"`)
+	assert.Contains(t, hostReq, archName+archiveName+`"`)
+	assert.Contains(t, hostReq, archID+archiveID+`"`)
+	assert.Contains(t, hostReq, archIndex+archiveIndex+`"`)
 	assert.Contains(t, hostReq, `"start_timestamp":"`+startTimestamp+`"`)
 	assert.Contains(t, hostReq, `"end_timestamp":"`+endTimestamp+`"`)
 
@@ -73,9 +77,9 @@ func TestShowRestorePointsRequestBody(t *testing.T) {
 	assert.Len(t, requestBody, 1)
 	assert.Contains(t, requestBody, hostName)
 	hostReq = requestBody[hostName]
-	assert.Contains(t, hostReq, `"archive_name":"`+archiveName+`"`)
-	assert.Contains(t, hostReq, `"archive_id":"`+archiveID+`"`)
-	assert.Contains(t, hostReq, `"archive_index":"`+archiveIndex+`"`)
+	assert.Contains(t, hostReq, archName+archiveName+`"`)
+	assert.Contains(t, hostReq, archID+archiveID+`"`)
+	assert.Contains(t, hostReq, archIndex+archiveIndex+`"`)
 	assert.NotContains(t, hostReq, `"start_timestamp"`)
 	assert.NotContains(t, hostReq, `"end_timestamp"`)
 }

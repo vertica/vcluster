@@ -138,12 +138,12 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	// contain accurate info of nodes in a sandbox
 	if !options.HostsInSandbox && options.IsEon {
 		const warningMsg = " for an Eon database, start_db after revive_db could fail " +
-			"because we cannot retrieve the correct database information"
+			util.DBInfo
 		if options.CommunalStorageLocation != "" {
 			vdbNew, e := options.getVDBWhenDBIsDown(vcc)
 			if e != nil {
 				// show a warning message if we cannot get VDB from a down database
-				vcc.Log.PrintWarning("failed to retrieve the communal storage location" + warningMsg)
+				vcc.Log.PrintWarning(util.CommStorageFail + warningMsg)
 			} else {
 				// we want to read catalog info only from primary nodes later
 				vdbNew.filterPrimaryNodes()
@@ -152,7 +152,7 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 		} else {
 			// When communal storage location is missing, we only log a warning message
 			// because fail to read cluster_config.json will not affect start_db in most of the cases.
-			vcc.Log.PrintWarning("communal storage location is not specified" + warningMsg)
+			vcc.Log.PrintWarning(util.CommStorageLoc + warningMsg)
 		}
 	}
 	numTotalNodes := len(options.Hosts)

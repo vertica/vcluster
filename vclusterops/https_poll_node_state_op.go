@@ -97,7 +97,7 @@ func (op *httpsPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = op.httpRequestTimeout
-		httpRequest.buildHTTPSEndpoint("nodes/" + host)
+		httpRequest.buildHTTPSEndpoint(util.NodesEndpoint + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -189,9 +189,7 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 				}
 			} else {
 				// if HTTPS endpoint cannot function well on any of the hosts, we do not want to retry polling
-				return true, fmt.Errorf("[%s] expect one node's information, but got %d nodes' information"+
-					" from HTTPS /v1/nodes/<host> endpoint on host %s",
-					op.name, len(nodesInformation.NodeList), host)
+				return true, fmt.Errorf(util.NodeInfoCountMismatch, op.name, len(nodesInformation.NodeList), host)
 			}
 		}
 	}

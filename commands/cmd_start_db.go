@@ -190,7 +190,7 @@ func (c *CmdStartDB) validateParse(logger vlog.Printer) error {
 	}
 	return nil
 }
-func filterInputHosts(options *vclusterops.VStartDatabaseOptions, dbConfig *DatabaseConfig) []string {
+func FilterInputHostsForStartDB(options *vclusterops.VStartDatabaseOptions, dbConfig *DatabaseConfig) []string {
 	filteredHosts := []string{}
 	for _, n := range dbConfig.Nodes {
 		// Collect sandbox hosts
@@ -202,6 +202,10 @@ func filterInputHosts(options *vclusterops.VStartDatabaseOptions, dbConfig *Data
 			filteredHosts = append(filteredHosts, n.Address)
 		}
 	}
+	// TODO: Hosts is no longer populated by this point, and RawHosts may contain either user-specified
+	// hosts in IP or name form, or all hosts in the config file in IP form. We need to resolve RawHosts
+	// before the comparison can be made with the IPs from config. As is, the condition will never be hit,
+	// and all hosts in the specified sandbox (main or otherwise) will be used.
 	if len(options.Hosts) > 0 {
 		return util.SliceCommon(filteredHosts, options.Hosts)
 	}
@@ -218,7 +222,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 	if readConfigErr == nil {
 		options.ReadFromConfig = true
 		if options.Sandbox != util.MainClusterSandbox || options.MainCluster {
-			options.RawHosts = filterInputHosts(options, dbConfig)
+			options.RawHosts = FilterInputHostsForStartDB(options, dbConfig)
 		}
 		options.FirstStartAfterRevive = dbConfig.FirstStartAfterRevive
 	} else {

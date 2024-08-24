@@ -51,7 +51,7 @@ func (op *httpsMarkEphemeralNodeOp) setupClusterHTTPRequest(hosts []string) erro
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("nodes/" + op.targetNodeName + "/ephemeral")
+		httpRequest.buildHTTPSEndpoint(util.NodesEndpoint + op.targetNodeName + "/ephemeral")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName

@@ -23,6 +23,8 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+const cantParse = "cannot parse as a date as well: %w"
+
 type VShowRestorePointsOptions struct {
 	DatabaseOptions
 	// Optional arguments to list only restore points that
@@ -68,7 +70,7 @@ func (options *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIf
 		if dateOnlyErr != nil {
 			// give up
 			return fmt.Errorf("start timestamp %q is invalid; cannot parse as a datetime: %w; "+
-				"cannot parse as a date as well: %w", options.StartTimestamp, dateTimeErr, dateOnlyErr)
+				cantParse, options.StartTimestamp, dateTimeErr, dateOnlyErr)
 		}
 		// default value of time parsed from date only string is already indicating the start of a day
 		// invoke this function here to only rewrite options.StartTimestamp in date time format
@@ -83,7 +85,7 @@ func (options *ShowRestorePointFilterOptions) ValidateAndStandardizeTimestampsIf
 		if dateOnlyErr != nil {
 			// give up
 			return fmt.Errorf("end timestamp %q is invalid; cannot parse as a datetime: %w; "+
-				"cannot parse as a date as well: %w", options.EndTimestamp, dateTimeErr, dateOnlyErr)
+				cantParse, options.EndTimestamp, dateTimeErr, dateOnlyErr)
 		}
 		// fill in default value for time and update the end timestamp
 		parsedEndDatetime = util.FillInDefaultTimeForEndTimestamp(&options.EndTimestamp)

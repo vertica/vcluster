@@ -100,7 +100,7 @@ func (opEngine *VClusterOpEngine) runInstruction(
 	op.logFinalize()
 	err = op.finalize(execContext)
 	if err != nil {
-		return fmt.Errorf("finalize failed %w", err)
+		return fmt.Errorf("finalize %s failed, details: %w", op.getName(), err)
 	}
 
 	logger.PrintInfo("[%s] is successfully completed", op.getName())
