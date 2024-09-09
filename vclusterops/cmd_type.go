@@ -20,8 +20,10 @@ const (
 	SandboxSCCmd
 	UnsandboxSCCmd
 	ShowRestorePointsCmd
+	SaveRestorePointsCmd
 	InstallPackagesCmd
 	ConfigRecoverCmd
+	GetDrainingStatusCmd
 	ManageConnectionDrainingCmd
 	SetConfigurationParameterCmd
 	GetConfigurationParameterCmd
@@ -39,6 +41,8 @@ const (
 	AddNodeSyncCat
 	StartNodeSyncCat
 	RemoveNodeSyncCat
+	CreateArchiveCmd
+	PollSubclusterStateCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -58,8 +62,10 @@ var cmdStringMap = map[CmdType]string{
 	SandboxSCCmd:                 "sandbox_subcluster",
 	UnsandboxSCCmd:               "unsandbox_subcluster",
 	ShowRestorePointsCmd:         "show_restore_points",
+	SaveRestorePointsCmd:         "save_restore_point",
 	InstallPackagesCmd:           "install_packages",
 	ConfigRecoverCmd:             "manage_config_recover",
+	GetDrainingStatusCmd:         "get_draining_status",
 	ManageConnectionDrainingCmd:  "manage_connection_draining",
 	SetConfigurationParameterCmd: "set_configuration_parameter",
 	ReplicationStartCmd:          "replication_start",
@@ -76,6 +82,8 @@ var cmdStringMap = map[CmdType]string{
 	AddNodeSyncCat:               "add_node_sync_cat",
 	StartNodeSyncCat:             "start_node_sync_cat",
 	RemoveNodeSyncCat:            "remove_node_sync_cat",
+	CreateArchiveCmd:             "create_archive",
+	PollSubclusterStateCmd:       "poll_subcluster_state",
 }
 
 func (cmd CmdType) CmdString() string {

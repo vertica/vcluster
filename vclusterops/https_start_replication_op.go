@@ -26,29 +26,27 @@ import (
 type httpsStartReplicationOp struct {
 	opBase
 	opHTTPSBase
+	TargetDatabaseOptions
 	hostRequestBodyMap map[string]string
 	sourceDB           string
-	targetHosts        string
-	targetDB           string
+	targetHost         string
 	sandbox            string
-	targetUserName     string
-	targetPassword     *string
 	tlsConfig          string
 	vdb                *VCoordinationDatabase
 }
 
 func makeHTTPSStartReplicationOp(dbName string, sourceHosts []string,
 	sourceUseHTTPPassword bool, sourceUserName string,
-	sourceHTTPPassword *string, targetUseHTTPPassword bool, targetDB, targetUserName, targetHosts string,
-	targetHTTPSPassword *string, tlsConfig, sandbox string, vdb *VCoordinationDatabase) (httpsStartReplicationOp, error) {
+	sourceHTTPPassword *string, targetUseHTTPPassword bool, targetDBOpt *TargetDatabaseOptions,
+	targetHost string, tlsConfig, sandbox string, vdb *VCoordinationDatabase) (httpsStartReplicationOp, error) {
 	op := httpsStartReplicationOp{}
 	op.name = "HTTPSStartReplicationOp"
 	op.description = "Start database replication"
 	op.sourceDB = dbName
 	op.hosts = sourceHosts
 	op.useHTTPPassword = sourceUseHTTPPassword
-	op.targetDB = targetDB
-	op.targetHosts = targetHosts
+	op.TargetDB = targetDBOpt.TargetDB
+	op.targetHost = targetHost
 	op.tlsConfig = tlsConfig
 	op.sandbox = sandbox
 	op.vdb = vdb
@@ -62,12 +60,12 @@ func makeHTTPSStartReplicationOp(dbName string, sourceHosts []string,
 		op.httpsPassword = sourceHTTPPassword
 	}
 	if targetUseHTTPPassword {
-		err := util.ValidateUsernameAndPassword(op.name, targetUseHTTPPassword, targetUserName)
+		err := util.ValidateUsernameAndPassword(op.name, targetUseHTTPPassword, targetDBOpt.TargetUserName)
 		if err != nil {
 			return op, err
 		}
-		op.targetUserName = targetUserName
-		op.targetPassword = targetHTTPSPassword
+		op.TargetUserName = targetDBOpt.TargetUserName
+		op.TargetPassword = targetDBOpt.TargetPassword
 	}
 
 	return op, nil
@@ -86,10 +84,10 @@ func (op *httpsStartReplicationOp) setupRequestBody(hosts []string) error {
 
 	for _, host := range hosts {
 		replicateData := replicateRequestData{}
-		replicateData.TargetHost = op.targetHosts
-		replicateData.TargetDB = op.targetDB
-		replicateData.TargetUserName = op.targetUserName
-		replicateData.TargetPassword = op.targetPassword
+		replicateData.TargetHost = op.targetHost
+		replicateData.TargetDB = op.TargetDB
+		replicateData.TargetUserName = op.TargetUserName
+		replicateData.TargetPassword = op.TargetPassword
 		replicateData.TLSConfig = op.tlsConfig
 
 		dataBytes, err := json.Marshal(replicateData)

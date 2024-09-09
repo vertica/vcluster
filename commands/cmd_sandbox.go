@@ -18,6 +18,7 @@ package commands
 import (
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -155,7 +156,7 @@ func (c *CmdSandboxSubcluster) Analyze(logger vlog.Printer) error {
 }
 
 func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
-	vcc.LogInfo("Calling method Run() for command " + sandboxSubCmd)
+	vcc.LogInfo(util.CallCommand + sandboxSubCmd)
 
 	options := c.sbOptions
 
@@ -182,8 +183,17 @@ func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
-		vcc.DisplayWarning("Failed to write the configuration file: " + writeErr.Error())
+		vcc.DisplayWarning(util.FailToWriteToConfig + writeErr.Error())
 		return nil
+	}
+
+	options.DatabaseOptions.Hosts = options.SCHosts
+	pollOpts := vclusterops.VPollSubclusterStateOptions{DatabaseOptions: options.DatabaseOptions,
+		SkipOptionsValidation: true, SCName: options.SCName}
+	err = vcc.VPollSubclusterState(&pollOpts)
+	if err != nil {
+		vcc.LogError(err, "Failed to wait for sandboxed subcluster to come up")
+		return err
 	}
 	return nil
 }

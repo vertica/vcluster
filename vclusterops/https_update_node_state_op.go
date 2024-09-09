@@ -56,7 +56,7 @@ func (op *httpsUpdateNodeStateOp) setupClusterHTTPRequest(hosts []string) error 
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = op.httpRequestTimeout
-		httpRequest.buildHTTPSEndpoint("nodes/" + host)
+		httpRequest.buildHTTPSEndpoint(util.NodesEndpoint + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -86,6 +86,19 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 	// VER-93706 may update the error handling in this function
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
+
+		// A host may have precondition failed, such as
+		// "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster"
+		// In this case, we mark the node status as UNKNOWN
+		if result.hasPreconditionFailed() {
+			vnode, ok := op.vdb.HostNodeMap[host]
+			if !ok {
+				return fmt.Errorf("cannot find host %s in vdb", host)
+			}
+			vnode.State = util.NodeUnknownState
+
+			continue
+		}
 
 		if result.isUnauthorizedRequest() {
 			op.logger.PrintError("[%s] unauthorized request: %s", op.name, result.content)
@@ -124,11 +137,10 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 				return fmt.Errorf("cannot find host %s in vdb", host)
 			}
 			vnode.State = nodeInfo.State
+			vnode.IsPrimary = nodeInfo.IsPrimary
 		} else {
 			// if the result format is wrong on any of the hosts, we should throw an error
-			return fmt.Errorf("[%s] expect one node's information, but got %d nodes' information"+
-				" from HTTPS /v1/nodes/<host> endpoint on host %s",
-				op.name, len(nodesInformation.NodeList), host)
+			return fmt.Errorf(util.NodeInfoCountMismatch, op.name, len(nodesInformation.NodeList), host)
 		}
 	}
 

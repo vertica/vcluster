@@ -125,9 +125,7 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		&c.createDBOptions.DepotSize,
 		"depot-size",
 		"",
-		util.GetEonFlagMsg("Size of depot in one of the following formats:\n"+
-			"integer {K|M|G|T}, where K is kilobytes, M is megabytes, G is gigabytes, and T is terabytes.\n"+
-			"integer%, which expresses the depot size as a percentage of the total disk size."),
+		util.GetEonFlagMsg(util.DepotFmtMsg+util.DepotSizeKMGTMsg+util.DepotSizeHint),
 	)
 	cmd.Flags().BoolVar(
 		&c.createDBOptions.GetAwsCredentialsFromEnv,
@@ -277,7 +275,6 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
-		vcc.LogError(createError, "Failed to create the database.")
 		return createError
 	}
 

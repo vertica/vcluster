@@ -72,7 +72,7 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 
 	// this vdb is used to fetch node version
 	var vdb VCoordinationDatabase
-	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, util.MainClusterSandbox)
+	err = vcc.getVDBFromMainRunningDBContainsSandbox(&vdb, &options.DatabaseOptions)
 	if err != nil {
 		vcc.Log.PrintInfo("Error from vdb build: %s", err.Error())
 
@@ -91,7 +91,13 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 		return vcc.fetchNodeStateFromDownDB(options)
 	}
 
-	// produce list_all_nodes instructions
+	nodeStates := buildNodeStateList(&vdb, false /*forDownDatabase*/)
+	// return the result if no need to get version info
+	if !options.GetVersion {
+		return nodeStates, nil
+	}
+
+	// produce instructions to fill node information
 	instructions, err := vcc.produceListAllNodesInstructions(options, &vdb)
 	if err != nil {
 		return nil, fmt.Errorf("fail to produce instructions, %w", err)
@@ -102,7 +108,6 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 
 	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
-	nodeStates := clusterOpEngine.execContext.nodesInfo
 	if runError == nil {
 		// fill node version
 		for i, nodeInfo := range nodeStates {
@@ -116,34 +121,9 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 					nodeInfo.Address)
 			}
 		}
-
-		return nodeStates, nil
 	}
 
-	// error out in case of wrong certificate or password
-	if len(clusterOpEngine.execContext.hostsWithWrongAuth) > 0 {
-		return nodeStates,
-			fmt.Errorf("wrong certificate or password on hosts %v", clusterOpEngine.execContext.hostsWithWrongAuth)
-	}
-
-	// if failed to get node info from a running database,
-	// we will try to get it by reading catalog editor
-	upNodeCount := 0
-	for _, n := range nodeStates {
-		if n.State == util.NodeUpState {
-			upNodeCount++
-		}
-	}
-
-	if upNodeCount == 0 {
-		if options.SkipDownDatabase {
-			return []NodeInfo{}, rfc7807.New(rfc7807.FetchDownDatabase)
-		}
-
-		return vcc.fetchNodeStateFromDownDB(options)
-	}
-
-	return nodeStates, runError
+	return nodeStates, nil
 }
 
 func (vcc VClusterCommands) fetchNodeStateFromDownDB(options *VFetchNodeStateOptions) ([]NodeInfo, error) {
@@ -163,18 +143,7 @@ func (vcc VClusterCommands) fetchNodeStateFromDownDB(options *VFetchNodeStateOpt
 		return nodeStates, err
 	}
 
-	for _, h := range vdb.HostList {
-		var nodeInfo NodeInfo
-		n := vdb.HostNodeMap[h]
-		nodeInfo.Address = n.Address
-		nodeInfo.Name = n.Name
-		nodeInfo.CatalogPath = n.CatalogPath
-		nodeInfo.Subcluster = n.Subcluster
-		nodeInfo.IsPrimary = n.IsPrimary
-		nodeInfo.Version = n.Version
-		nodeInfo.State = util.NodeDownState
-		nodeStates = append(nodeStates, nodeInfo)
-	}
+	nodeStates = buildNodeStateList(&vdb, true /*forDownDatabase*/)
 
 	return nodeStates, nil
 }
@@ -186,30 +155,8 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	// get hosts
-	hosts := options.Hosts
-
-	// validate user name
-	usePassword := false
-	if options.Password != nil {
-		usePassword = true
-		err := options.validateUserName(vcc.Log)
-		if err != nil {
-			return instructions, err
-		}
-	}
-
 	nmaHealthOp := makeNMAHealthOpSkipUnreachable(options.Hosts)
 	nmaReadVerticaVersionOp := makeNMAReadVerticaVersionOp(vdb)
-
-	// Trim host list
-	hosts = options.updateHostlist(vcc, vdb, hosts)
-
-	httpsCheckNodeStateOp, err := makeHTTPSCheckNodeStateOp(hosts,
-		usePassword, options.UserName, options.Password)
-	if err != nil {
-		return instructions, err
-	}
 
 	if options.GetVersion {
 		instructions = append(instructions,
@@ -217,42 +164,55 @@ func (vcc VClusterCommands) produceListAllNodesInstructions(
 			&nmaReadVerticaVersionOp)
 	}
 
-	instructions = append(instructions,
-		&httpsCheckNodeStateOp,
-	)
-
 	return instructions, nil
 }
 
-// Update and limit the hostlist based on status and sandbox info
-// Note: if we have any UP main cluster host in the input list, the trimmed hostlist would always contain
-//
-//	only main cluster UP hosts.
-func (options *VFetchNodeStateOptions) updateHostlist(vcc VClusterCommands, vdb *VCoordinationDatabase, inputHosts []string) []string {
-	var mainClusterHosts []string
-	var upSandboxHosts []string
+func buildNodeStateList(vdb *VCoordinationDatabase, forDownDatabase bool) []NodeInfo {
+	var nodeStates []NodeInfo
 
-	for _, h := range inputHosts {
-		vnode, ok := vdb.HostNodeMap[h]
-		if !ok {
-			// host address not found in vdb, skip it
-			continue
+	// a map from a subcluster name to whether it is primary
+	// Context: if a node is primary, the subcluster it belongs to is a primary subcluster.
+	// If any of the nodes are down in such a primary subcluster, HTTPSUpdateNodeStateOp cannot correctly
+	//   update its IsPrimary value, because this op sends request to each host.
+	// We use the following scMap to check whether any node is primary in each subcluster,
+	//   then update other nodes' IsPrimary value in this subcluster.
+	scMap := make(map[string]bool)
+
+	for _, h := range vdb.HostList {
+		var nodeInfo NodeInfo
+		n := vdb.HostNodeMap[h]
+		nodeInfo.Address = n.Address
+		nodeInfo.CatalogPath = n.CatalogPath
+		nodeInfo.IsPrimary = n.IsPrimary
+		nodeInfo.Name = n.Name
+		nodeInfo.Sandbox = n.Sandbox
+		if forDownDatabase {
+			nodeInfo.State = util.NodeDownState
+		} else {
+			nodeInfo.State = n.State
 		}
-		if vnode.Sandbox == "" && (vnode.State == util.NodeUpState || vnode.State == util.NodeUnknownState) {
-			mainClusterHosts = append(mainClusterHosts, vnode.Address)
-		} else if vnode.State == util.NodeUpState {
-			upSandboxHosts = append(upSandboxHosts, vnode.Address)
+		nodeInfo.Subcluster = n.Subcluster
+		nodeInfo.Version = n.Version
+
+		nodeStates = append(nodeStates, nodeInfo)
+
+		if !forDownDatabase {
+			if isPrimary, exists := scMap[n.Subcluster]; exists {
+				scMap[n.Subcluster] = isPrimary || n.IsPrimary
+			} else {
+				scMap[n.Subcluster] = n.IsPrimary
+			}
 		}
-	}
-	if len(mainClusterHosts) > 0 {
-		vcc.Log.PrintWarning("Main cluster UP node found in host list. The status would be fetched from a main cluster host!")
-		return mainClusterHosts
-	}
-	if len(upSandboxHosts) > 0 {
-		vcc.Log.PrintWarning("Only sandboxed UP nodes found in host list. The status would be fetched from a sandbox host!")
-		return upSandboxHosts
 	}
 
-	// We do not have an up host, so better try with complete input hostlist
-	return inputHosts
+	// update IsPrimary of the nodes for running database
+	if !forDownDatabase {
+		for i := 0; i < len(nodeStates); i++ {
+			nodeInfo := nodeStates[i]
+			scName := nodeInfo.Subcluster
+			nodeStates[i].IsPrimary = scMap[scName]
+		}
+	}
+
+	return nodeStates
 }

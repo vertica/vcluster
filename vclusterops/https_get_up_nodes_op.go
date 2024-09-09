@@ -209,7 +209,8 @@ func isCompleteScanRequired(cmdType CmdType) bool {
 		cmdType == UnsandboxSCCmd || cmdType == StopSubclusterCmd ||
 		cmdType == ManageConnectionDrainingCmd ||
 		cmdType == SetConfigurationParameterCmd ||
-		cmdType == GetConfigurationParameterCmd
+		cmdType == GetConfigurationParameterCmd ||
+		cmdType == GetDrainingStatusCmd
 }
 
 func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
@@ -393,7 +394,8 @@ func (op *httpsGetUpNodesOp) requiresSandboxInfo() bool {
 	return op.cmdType == ManageConnectionDrainingCmd ||
 		op.cmdType == SetConfigurationParameterCmd ||
 		op.cmdType == GetConfigurationParameterCmd ||
-		op.cmdType == StopDBCmd
+		op.cmdType == StopDBCmd ||
+		op.cmdType == GetDrainingStatusCmd
 }
 
 func (op *httpsGetUpNodesOp) collectUnsandboxingHosts(nodesStates nodesStateInfo, sandboxInfo map[string]string) {

@@ -27,7 +27,6 @@ type VSandboxOptions struct {
 	SandboxName string
 	SCName      string
 	SCHosts     []string
-	SCRawHosts  []string
 	// indicate whether a restore point is created when create the sandbox
 	SaveRp bool
 	// indicate whether the metadata of sandbox should be isolated
@@ -102,14 +101,6 @@ func (options *VSandboxOptions) analyzeOptions() (err error) {
 		}
 	}
 
-	// resolve SCRawHosts to be IP addresses
-	if len(options.SCRawHosts) > 0 {
-		options.SCHosts, err = util.ResolveRawHostsToAddresses(options.SCRawHosts, options.IPv6)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -164,18 +155,8 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 
 	// Run Sandboxing
 	httpsSandboxSubclusterOp, err := makeHTTPSandboxingOp(vcc.Log, options.SCName, options.SandboxName,
-		usePassword, username, options.Password, options.SaveRp, options.Imeta, options.Sls, options.ForUpgrade)
-	if err != nil {
-		return instructions, err
-	}
-
-	// Poll for sandboxed nodes to be up
-	scHosts := []string{}
-	for _, host := range options.NodeNameAddressMap {
-		scHosts = append(scHosts, host)
-	}
-	httpsPollSubclusterNodeOp, err := makeHTTPSPollSubclusterNodeStateUpOp(scHosts, options.SCName,
-		usePassword, username, options.Password)
+		usePassword, username, options.Password, options.SaveRp, options.Imeta, options.Sls, options.ForUpgrade,
+		&options.SCHosts)
 	if err != nil {
 		return instructions, err
 	}
@@ -184,7 +165,6 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 		&httpsGetUpNodesOp,
 		&httpsCheckSubclusterSandboxOp,
 		&httpsSandboxSubclusterOp,
-		&httpsPollSubclusterNodeOp,
 	)
 
 	return instructions, nil
@@ -228,6 +208,15 @@ func (options *VSandboxOptions) runCommand(vcc VClusterCommands) error {
 	if runError != nil {
 		return fmt.Errorf("fail to sandbox subcluster %s, %w", options.SCName, runError)
 	}
+
+	// assume the caller knows the status of the cluster better than us, override whatever the sandbox op set
+	if len(options.NodeNameAddressMap) > 0 {
+		options.SCHosts = []string{}
+		for _, ip := range options.NodeNameAddressMap {
+			options.SCHosts = append(options.SCHosts, ip)
+		}
+	}
+
 	return nil
 }
 

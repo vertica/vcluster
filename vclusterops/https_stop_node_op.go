@@ -72,7 +72,7 @@ func (op *httpsStopNodeOp) setupClusterHTTPRequest(hosts, nodenames []string) er
 	for i, nodename := range nodenames {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("nodes/" + nodename + "/shutdown")
+		httpRequest.buildHTTPSEndpoint(util.NodesEndpoint + nodename + util.ShutDownEndpoint)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName

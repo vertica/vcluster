@@ -55,7 +55,7 @@ func (op *httpsRebalanceSubclusterShardsOp) setupClusterHTTPRequest(hosts []stri
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/rebalance")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + "/rebalance")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName

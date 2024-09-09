@@ -59,13 +59,16 @@ func makeHTTPSPollSubclusterNodeStateOp(scName string,
 	return op, nil
 }
 
-func makeHTTPSPollSubclusterNodeStateUpOp(hosts []string, scName string,
+func makeHTTPSPollSubclusterNodeStateUpOp(hosts []string, scName string, timeout int,
 	useHTTPPassword bool, userName string,
 	httpsPassword *string) (httpsPollSubclusterNodeStateOp, error) {
 	op, err := makeHTTPSPollSubclusterNodeStateOp(scName, useHTTPPassword, userName, httpsPassword)
 	op.checkDown = false
 	op.description += " to come up"
 	op.hosts = hosts
+	if timeout != 0 {
+		op.timeout = timeout
+	}
 	return op, err
 }
 
@@ -89,7 +92,7 @@ func (op *httpsPollSubclusterNodeStateOp) setupClusterHTTPRequest(hosts []string
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = defaultHTTPSRequestTimeoutSeconds
-		httpRequest.buildHTTPSEndpoint("nodes/" + host)
+		httpRequest.buildHTTPSEndpoint(util.NodesEndpoint + host)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName

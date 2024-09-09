@@ -64,7 +64,7 @@ func (op *httpsStopSCOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/shutdown")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + util.ShutDownEndpoint)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -102,6 +102,11 @@ func (op *httpsStopSCOp) processResult(_ *opEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
+		// EOF is expected in node shutdown: we expect the node's HTTPS service to go down quickly
+		// and the Server HTTPS service does not guarantee that the response being sent back to the client before it closes
+		if result.isEOF() {
+			continue
+		}
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 			continue

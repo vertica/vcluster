@@ -26,10 +26,10 @@ func TestVGetConfigurationParameterOptions_validateParseOptions(t *testing.T) {
 	logger := vlog.Printer{}
 
 	opt := VGetConfigurationParameterOptionsFactory()
-	testPassword := "get-config-test-password" //nolint:gosec
+	testPd := "get-config-test-pd"
 	testSandbox := "get-config-test-sandbox"
 	testDBName := "get_config_test_dbname"
-	testUsername := "get-config-test-username" //nolint:gosec
+	testUsername := "get-config-test-un"
 	testConfigParameter := "get-config-test-parameter"
 	testLevel := "get-config-test-level"
 
@@ -37,7 +37,7 @@ func TestVGetConfigurationParameterOptions_validateParseOptions(t *testing.T) {
 	opt.RawHosts = append(opt.RawHosts, "get-config-test-raw-host")
 	opt.DBName = testDBName
 	opt.UserName = testUsername
-	opt.Password = &testPassword
+	opt.Password = &testPd
 	opt.ConfigParameter = testConfigParameter
 	opt.Level = testLevel
 

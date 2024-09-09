@@ -113,6 +113,13 @@ func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
+		// A host may have precondition failed, such as
+		// "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster"
+		// In this case, we skip use the information from that host
+		if result.hasPreconditionFailed() {
+			continue
+		}
+
 		if result.isUnauthorizedRequest() {
 			detail := fmt.Sprintf("[%s] wrong password/certificate for https service on host %s",
 				op.name, host)

@@ -295,6 +295,7 @@ func (vcc VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VC
 	vdb := makeVCoordinationDatabase()
 	err := vdb.setFromCreateDBOptions(options, vcc.Log)
 	if err != nil {
+		vcc.Log.Error(err, "fail to create database")
 		return vdb, err
 	}
 	// produce instructions

@@ -23,17 +23,26 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+type TargetDatabaseOptions struct {
+	TargetHosts    []string
+	TargetDB       string
+	TargetUserName string
+	TargetPassword *string
+}
+
 type VReplicationDatabaseOptions struct {
 	/* part 1: basic db info */
 	DatabaseOptions
 
 	/* part 2: replication info */
-	TargetHosts     []string
-	TargetDB        string
-	TargetUserName  string
-	TargetPassword  *string
+	TargetDatabaseOptions
 	SourceTLSConfig string
 	SandboxName     string
+	Async           bool
+	ObjectName      string
+	IncludePattern  string
+	ExcludePattern  string
+	TargetNamespace string
 }
 
 func VReplicationDatabaseFactory() VReplicationDatabaseOptions {
@@ -80,12 +89,43 @@ func (options *VReplicationDatabaseOptions) validateExtraOptions() error {
 	}
 
 	if options.SandboxName != "" {
-		err = util.ValidateSandboxName(options.SandboxName)
+		err := util.ValidateSandboxName(options.SandboxName)
 		if err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (options *VReplicationDatabaseOptions) validateFineGrainedReplicationOptions() error {
+	if options.ObjectName != "" {
+		err := util.ValidateQualifiedObjectNamePattern(options.ObjectName, false)
+		if err != nil {
+			return err
+		}
+	}
+
+	if options.IncludePattern != "" {
+		err := util.ValidateQualifiedObjectNamePattern(options.IncludePattern, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	if options.ExcludePattern != "" {
+		err := util.ValidateQualifiedObjectNamePattern(options.ExcludePattern, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	if options.TargetNamespace != "" {
+		err := util.ValidateName(options.TargetNamespace, "target-namespace", true)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -110,6 +150,12 @@ func (options *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Pri
 
 	// batch 4: validate all other params
 	err = options.validateExtraOptions()
+	if err != nil {
+		return err
+	}
+
+	// batch 5: validate fine-grained database replication options
+	err = options.validateFineGrainedReplicationOptions()
 	if err != nil {
 		return err
 	}
@@ -230,8 +276,8 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 
 	initiatorTargetHost := getInitiator(options.TargetHosts)
 	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
-		options.UserName, options.Password, targetUsePassword, options.TargetDB, options.TargetUserName, initiatorTargetHost,
-		options.TargetPassword, options.SourceTLSConfig, options.SandboxName, vdb)
+		options.UserName, options.Password, targetUsePassword, &options.TargetDatabaseOptions, initiatorTargetHost,
+		options.SourceTLSConfig, options.SandboxName, vdb)
 	if err != nil {
 		return instructions, err
 	}

@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -50,15 +51,15 @@ func makeCmdUnsandboxSubcluster() *cobra.Command {
 		newCmd,
 		unsandboxSubCmd,
 		"Unsandboxes a subcluster",
-		`Removes a subcluster from the sandbox, unsandboxing it. When you unsandbox a subcluster, 
-its hosts immediately shut down and restart. When the hosts come back up, 
+		`Removes a subcluster from the sandbox, unsandboxing it. When you unsandbox a subcluster,
+its hosts immediately shut down and restart. When the hosts come back up,
 the subcluster is unsandboxed.
 
-When a subcluster is unsandboxed, you should manually delete that subcluster's 
-metadata in communal storage before attempting to add a subcluster to that sandbox 
+When a subcluster is unsandboxed, you should manually delete that subcluster's
+metadata in communal storage before attempting to add a subcluster to that sandbox
 again.
 
-For example, if you unsandbox subcluster sc1, you should delete the 
+For example, if you unsandbox subcluster sc1, you should delete the
 directory path_to_catalog_of_sc1/metadata/sandbox_name.
 
 Examples:
@@ -124,7 +125,7 @@ func (c *CmdUnsandboxSubcluster) Analyze(logger vlog.Printer) error {
 }
 
 func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
-	vcc.LogInfo("Calling method Run() for command " + unsandboxSubCmd)
+	vcc.LogInfo(util.CallCommand + unsandboxSubCmd)
 
 	options := c.usOptions
 
@@ -144,8 +145,17 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
-		vcc.DisplayWarning("Failed to write the configuration file: " + writeErr.Error())
+		vcc.DisplayWarning(util.FailToWriteToConfig + writeErr.Error())
 		return nil
+	}
+
+	options.DatabaseOptions.Hosts = options.SCHosts
+	pollOpts := vclusterops.VPollSubclusterStateOptions{DatabaseOptions: options.DatabaseOptions,
+		SkipOptionsValidation: true, SCName: options.SCName}
+	err = vcc.VPollSubclusterState(&pollOpts)
+	if err != nil {
+		vcc.LogError(err, "Failed to wait for unsandboxed subcluster to come up")
+		return err
 	}
 	return nil
 }

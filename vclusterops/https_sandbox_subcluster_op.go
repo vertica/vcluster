@@ -33,11 +33,12 @@ type httpsSandboxingOp struct {
 	Imeta              bool
 	Sls                bool
 	ForUpgrade         bool
+	sbHosts            *[]string
 }
 
 // This op is used to sandbox the given subcluster `scName` as `sandboxName`
 func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string, useHTTPPassword bool,
-	userName string, httpsPassword *string, saveRp, imeta, sls, forUpgrade bool) (httpsSandboxingOp, error) {
+	userName string, httpsPassword *string, saveRp, imeta, sls, forUpgrade bool, hosts *[]string) (httpsSandboxingOp, error) {
 	op := httpsSandboxingOp{}
 	op.name = "HTTPSSansboxingOp"
 	op.description = "Convert subcluster into sandbox in catalog system"
@@ -49,6 +50,7 @@ func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string, useHT
 	op.Imeta = imeta
 	op.Sls = sls
 	op.ForUpgrade = forUpgrade
+	op.sbHosts = hosts
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -67,7 +69,7 @@ func (op *httpsSandboxingOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/sandbox")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + "/sandbox")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -155,6 +157,9 @@ func (op *httpsSandboxingOp) processResult(_ *opEngineExecContext) error {
 	return allErrs
 }
 
-func (op *httpsSandboxingOp) finalize(_ *opEngineExecContext) error {
+func (op *httpsSandboxingOp) finalize(execContext *opEngineExecContext) error {
+	for _, vnode := range execContext.scNodesInfo {
+		*op.sbHosts = append(*op.sbHosts, vnode.Address)
+	}
 	return nil
 }

@@ -202,6 +202,11 @@ var (
 		"Target path does not exist",
 		http.StatusBadRequest,
 	)
+	InvalidCatalogPathError = newProblemID(
+		path.Join(errorEndpointsPrefix, "invalid-catalog-path"),
+		"Invalid catalog path",
+		http.StatusBadRequest,
+	)
 	CECatalogContentDirEmptyError = newProblemID(
 		path.Join(errorEndpointsPrefix, "catalog-content-dir-empty-error"),
 		"Target directory is empty",
@@ -222,9 +227,19 @@ var (
 		"Failed to open file",
 		http.StatusInternalServerError,
 	)
+	GenericReadFileError = newProblemID(
+		path.Join(errorEndpointsPrefix, "read-file-failure-error"),
+		"Failed to read file",
+		http.StatusInternalServerError,
+	)
 	GenericWriteFileError = newProblemID(
 		path.Join(errorEndpointsPrefix, "write-file-failure-error"),
 		"Failed to write file",
+		http.StatusInternalServerError,
+	)
+	GenericCreateFileError = newProblemID(
+		path.Join(errorEndpointsPrefix, "create-file-failure-error"),
+		"Failed to create file",
 		http.StatusInternalServerError,
 	)
 	MessageQueueFull = newProblemID(

@@ -132,8 +132,7 @@ func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.addSubclusterOptions.DepotSize,
 		"depot-size",
 		"",
-		util.GetEonFlagMsg("Size of depot in one of the following formats:\n"+
-			"integer{K|M|G|T}, where K is kilobytes, M is megabytes, G is gigabytes, and T is terabytes.\n"+
+		util.GetEonFlagMsg(util.DepotFmtMsg+util.DepotSizeKMGTMsg+
 			"integer%, which expresses the depot size as a percentage of the total disk size.\n"),
 	)
 }

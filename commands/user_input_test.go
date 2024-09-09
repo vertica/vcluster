@@ -29,6 +29,8 @@ import (
 
 var tempConfigFilePath = os.TempDir() + "/test_vertica_cluster.yaml"
 
+const configRecover = "vcluster manage_config recover --db-name test_db "
+
 func simulateVClusterCli(vclusterCmd string) error {
 	// if no log file is given, the log will go to stdout
 	dbOptions.LogPath = ""
@@ -54,16 +56,14 @@ func TestConfigRecover(t *testing.T) {
 	err = simulateVClusterCli("vcluster manage_config recover --db-name test_db")
 	assert.ErrorContains(t, err, `required flag(s) "catalog-path", "hosts" not set`)
 
-	err = simulateVClusterCli("vcluster manage_config recover --db-name test_db " +
-		"--hosts 192.168.1.101")
+	err = simulateVClusterCli(configRecover + "--hosts 192.168.1.101")
 	assert.ErrorContains(t, err, `required flag(s) "catalog-path" not set`)
 
 	tempConfig, _ := os.Create(tempConfigFilePath)
 	tempConfig.Close()
 	defer os.Remove(tempConfigFilePath)
 
-	err = simulateVClusterCli("vcluster manage_config recover --db-name test_db " +
-		"--hosts 192.168.1.101 --catalog-path /data " +
+	err = simulateVClusterCli(configRecover + "--hosts 192.168.1.101 --catalog-path /data " +
 		"--config " + tempConfigFilePath)
 	assert.ErrorContains(t, err, "config file exists at "+tempConfigFilePath)
 }

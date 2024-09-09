@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	ActionPause    ConnectionDrainingAction = "pause"
-	ActionRedirect ConnectionDrainingAction = "redirect"
-	ActionResume   ConnectionDrainingAction = "resume"
+	ActionPause     ConnectionDrainingAction = "pause"
+	ActionRedirect  ConnectionDrainingAction = "redirect"
+	ActionResume    ConnectionDrainingAction = "resume"
+	hostRedirectMsg                          = "hostname to redirect to must not be empty when manage connection draining action is %q"
 )
 
 type ConnectionDrainingAction string
@@ -93,10 +94,8 @@ func (opt *VManageConnectionDrainingOptions) validateExtraOptions(logger vlog.Pr
 	}
 	if opt.Action == ActionRedirect {
 		if opt.RedirectHostname == "" {
-			logger.PrintError("hostname to redirect to must not be empty"+
-				" when manage connection draining action is %q", ActionRedirect)
-			return fmt.Errorf("hostname to redirect to must not be empty"+
-				" when manage connection draining action is %q", ActionRedirect)
+			logger.PrintError(hostRedirectMsg, ActionRedirect)
+			return fmt.Errorf(hostRedirectMsg, ActionRedirect)
 		}
 	}
 	return nil

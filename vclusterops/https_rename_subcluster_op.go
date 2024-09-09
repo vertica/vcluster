@@ -61,7 +61,7 @@ func (op *httpsRenameSubclusterOp) setupClusterHTTPRequest(hosts []string) error
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PutMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/rename")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + "/rename")
 		httpRequest.QueryParams = make(map[string]string)
 		httpRequest.QueryParams["name"] = op.newSCName
 

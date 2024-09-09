@@ -72,10 +72,11 @@ const (
 )
 
 const (
-	SuccessCode        = 200
-	MultipleChoiceCode = 300
-	UnauthorizedCode   = 401
-	InternalErrorCode  = 500
+	SuccessCode            = 200
+	MultipleChoiceCode     = 300
+	UnauthorizedCode       = 401
+	PreconditionFailedCode = 412
+	InternalErrorCode      = 500
 )
 
 // hostHTTPResult is used to save result of an Adapter's sendRequest(...) function
@@ -97,11 +98,15 @@ const respSuccStatusCode = 0
 // The HTTP response with a 401 status code can have several scenarios:
 // 1. Wrong password
 // 2. Wrong certificate
-// 3. The local node has not yet joined the cluster; the HTTP server will accept connections once the node joins the cluster.
-// HTTPCheckDBRunningOp in create_db need to check all scenarios to see any HTTP running
-// For HTTPSPollNodeStateOp in start_db, it requires only handling the first and second scenarios
+// HTTPCheckDBRunningOp in create_db and HTTPSPollNodeStateOp in start_db need to handle these scenarios
 func (hostResult *hostHTTPResult) isUnauthorizedRequest() bool {
 	return hostResult.statusCode == UnauthorizedCode
+}
+
+// The HTTP response with a 412 may happen if
+// the local node has not yet joined the cluster; the HTTP server will accept connections once the node joins the cluster.
+func (hostResult *hostHTTPResult) hasPreconditionFailed() bool {
+	return hostResult.statusCode == PreconditionFailedCode
 }
 
 // isSuccess returns true if status code is 200
@@ -129,7 +134,8 @@ func (hostResult *hostHTTPResult) isInternalError() bool {
 }
 
 func (hostResult *hostHTTPResult) isHTTPRunning() bool {
-	if hostResult.isPassing() || hostResult.isUnauthorizedRequest() || hostResult.isInternalError() {
+	if hostResult.isPassing() || hostResult.isUnauthorizedRequest() ||
+		hostResult.isInternalError() || hostResult.hasPreconditionFailed() {
 		return true
 	}
 	return false
@@ -540,33 +546,36 @@ type ClusterCommands interface {
 	DisplayError(msg string, v ...any)
 
 	VAddNode(options *VAddNodeOptions) (VCoordinationDatabase, error)
-	VStopNode(options *VStopNodeOptions) error
 	VAddSubcluster(options *VAddSubclusterOptions) error
+	VAlterSubclusterType(options *VAlterSubclusterTypeOptions) error
+	VCheckVClusterServerPid(options *VCheckVClusterServerPidOptions) ([]string, error)
 	VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error)
+	VCreateArchive(options *VCreateArchiveOptions) error
 	VDropDatabase(options *VDropDatabaseOptions) error
+	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
+	VFetchNodesDetails(options *VFetchNodesDetailsOptions) (NodesDetails, error)
 	VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error)
+	VGetDrainingStatus(options *VGetDrainingStatusOptions) (DrainingStatusList, error)
 	VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error)
+	VPollSubclusterState(options *VPollSubclusterStateOptions) error
+	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
 	VReIP(options *VReIPOptions) error
 	VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error)
 	VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error)
+	VRenameSubcluster(options *VRenameSubclusterOptions) error
+	VReplicateDatabase(options *VReplicationDatabaseOptions) error
 	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
 	VSandbox(options *VSandboxOptions) error
 	VScrutinize(options *VScrutinizeOptions) error
 	VShowRestorePoints(options *VShowRestorePointsOptions) (restorePoints []RestorePoint, err error)
+	VSaveRestorePoint(options *VSaveRestorePointOptions) (err error)
 	VStartDatabase(options *VStartDatabaseOptions) (vdbPtr *VCoordinationDatabase, err error)
 	VStartNodes(options *VStartNodesOptions) error
 	VStartSubcluster(startScOpt *VStartScOptions) error
 	VStopDatabase(options *VStopDatabaseOptions) error
-	VReplicateDatabase(options *VReplicationDatabaseOptions) error
-	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
-	VUnsandbox(options *VUnsandboxOptions) error
+	VStopNode(options *VStopNodeOptions) error
 	VStopSubcluster(options *VStopSubclusterOptions) error
-	VAlterSubclusterType(options *VAlterSubclusterTypeOptions) error
-	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
-	VRenameSubcluster(options *VRenameSubclusterOptions) error
-	VFetchNodesDetails(options *VFetchNodesDetailsOptions) (NodesDetails, error)
-
-	VCheckVClusterServerPid(options *VCheckVClusterServerPidOptions) ([]string, error)
+	VUnsandbox(options *VUnsandboxOptions) error
 }
 
 type VClusterCommandsLogger struct {

@@ -7,6 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const defaultStartTime = " 00:00:00"
+const defaultEndTime = " 23:59:59"
+
 func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *testing.T) {
 	// Test case 1: No validation needed
 	filterOptions := ShowRestorePointFilterOptions{
@@ -40,8 +43,8 @@ func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *
 	const laterDate = "2022-01-02"
 
 	// Test case 4: Valid start and end timestamps
-	startTimestamp = earlierDate + " 00:00:00"
-	endTimestamp = laterDate + " 00:00:00"
+	startTimestamp = earlierDate + defaultStartTime
+	endTimestamp = laterDate + defaultStartTime
 	filterOptions = ShowRestorePointFilterOptions{
 		StartTimestamp: startTimestamp,
 		EndTimestamp:   endTimestamp,
@@ -62,7 +65,7 @@ func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *
 	assert.NoError(t, err)
 
 	filterOptions.StartTimestamp = earlierDate
-	filterOptions.EndTimestamp = laterDate + " 23:59:59"
+	filterOptions.EndTimestamp = laterDate + defaultEndTime
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
 
@@ -71,7 +74,7 @@ func TestShowRestorePointFilterOptions_ValidateAndStandardizeTimestampsIfAny(t *
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)
 
-	filterOptions.StartTimestamp = earlierDate + " 23:59:59"
+	filterOptions.StartTimestamp = earlierDate + defaultEndTime
 	filterOptions.EndTimestamp = earlierDate + " 23:59:59.123456789"
 	err = filterOptions.ValidateAndStandardizeTimestampsIfAny()
 	assert.NoError(t, err)

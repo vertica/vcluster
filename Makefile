@@ -1,5 +1,7 @@
 default: help
 
+# Note: This file and siblings are under github.com/vertica/vcluster/
+
 ##@ General
 
 # The help target prints out all targets with their descriptions organized
@@ -47,14 +49,13 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
-# Make sure that whenever changing this, you also change
-# vertica/make/build-container/*Dockerfile
-GOLANGCI_LINT_VER ?= 1.54.2
+# see [sandbox]/__golint_version__.txt
+GOLANGCI_LINT_VERSION ?= 1.56.0
 
 .PHONY: golangci-lint $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint
 $(GOLANGCI_LINT): $(LOCALBIN)
-ifneq (${GOLANGCI_LINT_VER}, $(shell [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version --format short 2>&1))
-	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
-	curl --retry 10 --retry-max-time 1800 -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
+ifneq (${GOLANGCI_LINT_VERSION}, $(shell [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version --format short 2>&1))
+	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VERSION}', downloading..."
+	curl --retry 10 --retry-max-time 1800 -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VERSION}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VERSION}"
 endif

@@ -188,7 +188,6 @@ func (op *nmaShowRestorePointsOp) processResult(execContext *opEngineExecContext
 				allErrs = errors.Join(allErrs, err)
 				continue
 			}
-
 			op.logger.PrintInfo("[%s] response: %v", op.name, result.content)
 			execContext.restorePoints = responseObj
 			return nil

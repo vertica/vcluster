@@ -87,11 +87,8 @@ func (c *CmdStopSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.stopSCOptions.DrainSeconds,
 		"drain-seconds",
 		util.DefaultDrainSeconds,
-		util.GetEonFlagMsg("The time to wait, in seconds, for user connections to close on their own.\n"+
-			"When the time expires, user connections are automatically closed and the database is hut down.\n"+
-			"If set to 0, VCluster closes all user connections immediately.\n"+
-			"If the value is negative, VCluster waits indefinitely until all user connections close."+
-			"Default: "+strconv.Itoa(util.DefaultDrainSeconds)),
+		util.GetEonFlagMsg(util.TimeToWaitToClose+util.TimeExpire+util.CloseAllConns+util.InfiniteWaitTime+
+			util.Default+strconv.Itoa(util.DefaultDrainSeconds)),
 	)
 	cmd.Flags().StringVar(
 		&c.stopSCOptions.SCName,

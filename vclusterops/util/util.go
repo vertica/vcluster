@@ -46,6 +46,29 @@ type FetchAllEnvVars interface {
 }
 
 const (
+	RootDir               = "/"
+	NodeInfoCountMismatch = "[%s] expect one node's information, but got %d nodes' information from HTTPS /v1/nodes/<host> endpoint on host %s"
+	DepotSizeHint         = "integer%, which expresses the depot size as a percentage of the total disk size."
+	DepotSizeKMGTMsg      = "integer{K|M|G|T}, where K is kilobytes, M is megabytes, G is gigabytes, and T is terabytes.\n"
+	DepotFmtMsg           = "Size of depot in one of the following formats:\n"
+	TimeToWaitToClose     = "The time to wait, in seconds, for user connections to close on their own.\n"
+	TimeExpire            = "When the time expires, user connections are automatically closed and the database is hut down.\n"
+	InfiniteWaitTime      = "If the value is negative, VCluster waits indefinitely until all user connections close."
+	CloseAllConns         = "If set to 0, VCluster closes all user connections immediately.\n"
+	Default               = "Default: "
+	FailToWriteToConfig   = "Failed to write the configuration file: "
+	CallCommand           = "Calling method Run() for command "
+	DBInfo                = "because we cannot retrieve the correct database information"
+	CommStorageLoc        = "communal storage location is not specified"
+	CommStorageFail       = "failed to retrieve the communal storage location"
+	SubclustersEndpoint   = "subclusters/"
+	ShutDownEndpoint      = "/shutdown"
+	NodesEndpoint         = "nodes/"
+	DropEndpoint          = "/drop"
+	ArchiveEndpoint       = "archives"
+)
+
+const (
 	keyValueArrayLen = 2
 	ipv4Str          = "IPv4"
 	ipv6Str          = "IPv6"
@@ -60,6 +83,8 @@ const (
 	nmaRootCAPathEnvVar = "NMA_ROOTCA_PATH"
 	nmaCertPathEnvVar   = "NMA_CERT_PATH"
 	nmaKeyPathEnvVar    = "NMA_KEY_PATH"
+
+	objectNameUnsupportedCharacters = `=<>'^\".@?#&/:;{}()[] \~!%+|,` + "`$"
 )
 
 // NmaSecretLookup retrieves kubernetes secrets.
@@ -223,9 +248,8 @@ func ResolveToAbsPath(path string) (string, error) {
 		return homeDir, nil
 	} else if strings.HasPrefix(path, "~/") {
 		return filepath.Join(homeDir, path[2:]), nil
-	} else {
-		return "", fmt.Errorf("invalid path")
 	}
+	return "", fmt.Errorf("invalid path")
 }
 
 // IP util functions
@@ -478,13 +502,49 @@ func IsOptionSet(f *flag.FlagSet, optionName string) bool {
 // ValidateName will validate the name of an obj, the obj can be database, subcluster, etc.
 // when a name is provided, make sure no special chars are in it
 func ValidateName(name, obj string, allowDash bool) error {
-	escapeChars := `=<>'^\".@*?#&/:;{}()[] \~!%+|,` + "`$"
+	escapeChars := objectNameUnsupportedCharacters + "*"
 	if !allowDash {
 		escapeChars += "-"
 	}
 	for _, c := range name {
 		if strings.Contains(escapeChars, string(c)) {
 			return fmt.Errorf("invalid character in %s name: %c", obj, c)
+		}
+	}
+	return nil
+}
+
+// ValidateQualifiedObjectNamePattern will validate the pattern of [.namespace].schema.table, separated by ","
+// Return nil when its valid, else will panic
+func ValidateQualifiedObjectNamePattern(pattern string, allowAsterisk bool) error {
+	const maxPatternLen = 128
+
+	// Build a regex that matches any unsupported characters
+	disallowedChars := objectNameUnsupportedCharacters
+	if !allowAsterisk {
+		disallowedChars += "*"
+	}
+	disallowedCharsRegex := regexp.QuoteMeta(disallowedChars)
+
+	// Validates [.namespace].schema.table format and disallows any special characters
+	// Ref: https://docs.vertica.com/24.1.x/en/sql-reference/language-elements/identifiers/
+	qualifiedObjectNameRegex := fmt.Sprintf(`^(\.[^%s]+\.)?([^%s]+\.)?[^%s]+$`,
+		disallowedCharsRegex, disallowedCharsRegex, disallowedCharsRegex)
+	r := regexp.MustCompile(qualifiedObjectNameRegex)
+
+	objects := strings.Split(pattern, ",")
+	for _, obj := range objects {
+		// start with v_ is invalid
+		if strings.HasPrefix(obj, "v_") {
+			return fmt.Errorf("invalid character in pattern %s: %s", pattern, obj)
+		}
+		// len > 128 is invalid
+		if len([]rune(obj)) > maxPatternLen {
+			return fmt.Errorf("pattern is too long %s: %s", pattern, obj)
+		}
+		match := r.MatchString(obj)
+		if !match {
+			return fmt.Errorf("invalid pattern %s: %s", pattern, obj)
 		}
 	}
 	return nil
@@ -500,6 +560,10 @@ func ValidateScName(dbName string) error {
 
 func ValidateSandboxName(dbName string) error {
 	return ValidateName(dbName, "sandbox", true)
+}
+
+func ValidateArchiveName(archive string) error {
+	return ValidateName(archive, "archive", true)
 }
 
 // suppress help message for hidden options
@@ -679,4 +743,13 @@ const EmptyConfigParamErrMsg = "configuration parameter must not be empty"
 func IsK8sEnvironment() bool {
 	port, portSet := os.LookupEnv(kubernetesPort)
 	return portSet && port != ""
+}
+
+// GetClusterName can return the correct cluster name based on the sandbox name.
+// It can help people to log the cluster name.
+func GetClusterName(sandbox string) string {
+	if sandbox == "" {
+		return "main cluster"
+	}
+	return "sandbox " + sandbox
 }

@@ -54,7 +54,7 @@ func (op *httpsDropSubclusterOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/drop")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + util.DropEndpoint)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName

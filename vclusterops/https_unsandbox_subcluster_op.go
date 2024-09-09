@@ -27,16 +27,18 @@ type httpsUnsandboxingOp struct {
 	opHTTPSBase
 	hostRequestBodyMap map[string]string
 	scName             string
+	scHosts            *[]string
 }
 
 // This op is used to unsandbox the given subcluster `scName`
 func makeHTTPSUnsandboxingOp(scName string,
-	useHTTPPassword bool, userName string, httpsPassword *string) (httpsUnsandboxingOp, error) {
+	useHTTPPassword bool, userName string, httpsPassword *string, hosts *[]string) (httpsUnsandboxingOp, error) {
 	op := httpsUnsandboxingOp{}
 	op.name = "HTTPSUnsansboxingOp"
 	op.description = "Convert sandboxed subcluster into regular subcluster in catalog"
 	op.useHTTPPassword = useHTTPPassword
 	op.scName = scName
+	op.scHosts = hosts
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -55,7 +57,7 @@ func (op *httpsUnsandboxingOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint("subclusters/" + op.scName + "/unsandbox")
+		httpRequest.buildHTTPSEndpoint(util.SubclustersEndpoint + op.scName + "/unsandbox")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -139,6 +141,10 @@ func (op *httpsUnsandboxingOp) processResult(_ *opEngineExecContext) error {
 	return allErrs
 }
 
-func (op *httpsUnsandboxingOp) finalize(_ *opEngineExecContext) error {
+func (op *httpsUnsandboxingOp) finalize(execContext *opEngineExecContext) error {
+	*op.scHosts = []string{}
+	for _, vnode := range execContext.scNodesInfo {
+		*op.scHosts = append(*op.scHosts, vnode.Address)
+	}
 	return nil
 }

@@ -56,7 +56,7 @@ func (op *httpsCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) error
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		node := op.HostNodeMap[host]
-		httpRequest.buildHTTPSEndpoint("nodes/" + node.Name + "/depot")
+		httpRequest.buildHTTPSEndpoint(util.NodesEndpoint + node.Name + "/depot")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
