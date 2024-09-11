@@ -88,12 +88,12 @@ func (c *CmdCreateArchive) setLocalFlags(cmd *cobra.Command) {
 		"The name of archive to be created.",
 	)
 	cmd.Flags().IntVar(
-		&c.createArchiveOptions.NumOfArchives,
+		&c.createArchiveOptions.NumRestorePoint,
 		"num-restore-points",
 		vclusterops.CreateArchiveDefaultNumRestore,
 		"Maximum number of restore points that archive can contain."+
 			"If you provide 0, the number of restore points will be unlimited. "+
-			"By default, the value is 0.",
+			"By default, the value is 0. Negative number is disallowed.",
 	)
 	cmd.Flags().StringVar(
 		&c.createArchiveOptions.Sandbox,
@@ -122,12 +122,15 @@ func (c *CmdCreateArchive) Parse(inputArgv []string, logger vlog.Printer) error 
 }
 
 // all validations of the arguments should go in here
-//
-//nolint:dupl
 func (c *CmdCreateArchive) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
 	err := c.ValidateParseBaseOptions(&c.createArchiveOptions.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
+	err = c.setConfigParam(&c.createArchiveOptions.DatabaseOptions)
 	if err != nil {
 		return err
 	}
@@ -137,11 +140,6 @@ func (c *CmdCreateArchive) validateParse(logger vlog.Printer) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	err = c.setConfigParam(&c.createArchiveOptions.DatabaseOptions)
-	if err != nil {
-		return err
 	}
 
 	err = c.setDBPassword(&c.createArchiveOptions.DatabaseOptions)

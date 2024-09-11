@@ -30,8 +30,8 @@ type VCreateArchiveOptions struct {
 	// Required arguments
 	ArchiveName string
 	// Optional arguments
-	NumOfArchives int
-	Sandbox       string
+	NumRestorePoint int
+	Sandbox         string
 }
 
 func VCreateArchiveFactory() VCreateArchiveOptions {
@@ -67,7 +67,7 @@ func (options *VCreateArchiveOptions) validateRequiredOptions(logger vlog.Printe
 }
 
 func (options *VCreateArchiveOptions) validateExtraOptions() error {
-	if options.NumOfArchives < 0 {
+	if options.NumRestorePoint < 0 {
 		return fmt.Errorf("number of restore points must greater than 0")
 	}
 	if options.Sandbox != "" {
@@ -184,7 +184,7 @@ func (vcc *VClusterCommands) produceCreateArchiveInstructions(options *VCreateAr
 	bootstrapHost := []string{getInitiator(hosts)}
 
 	httpsCreateArchiveOp, err := makeHTTPSCreateArchiveOp(bootstrapHost, options.usePassword,
-		options.UserName, options.Password, options.ArchiveName, options.NumOfArchives)
+		options.UserName, options.Password, options.ArchiveName, options.NumRestorePoint)
 	if err != nil {
 		return instructions, err
 	}

@@ -107,8 +107,6 @@ func (c *CmdSaveRestorePoint) Parse(inputArgv []string, logger vlog.Printer) err
 }
 
 // all validations of the arguments should go in here
-//
-//nolint:dupl
 func (c *CmdSaveRestorePoint) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
