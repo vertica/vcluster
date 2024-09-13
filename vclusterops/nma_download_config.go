@@ -33,6 +33,7 @@ type nmaDownloadConfigOp struct {
 	endpoint       string
 	fileContent    *string
 	vdb            *VCoordinationDatabase
+	sandbox        *string
 }
 
 func makeNMADownloadConfigOp(
@@ -41,6 +42,7 @@ func makeNMADownloadConfigOp(
 	endpoint string,
 	fileContent *string,
 	vdb *VCoordinationDatabase,
+	sandbox *string,
 ) nmaDownloadConfigOp {
 	op := nmaDownloadConfigOp{}
 	op.name = opName
@@ -53,7 +55,7 @@ func makeNMADownloadConfigOp(
 	}
 	op.fileContent = fileContent
 	op.vdb = vdb
-
+	op.sandbox = sandbox
 	return op
 }
 
@@ -115,17 +117,29 @@ func (op *nmaDownloadConfigOp) prepare(execContext *opEngineExecContext) error {
 		// For startNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
 		// we update the catalogPathMap for next download operation's steps from node information by using HTTPS /v1/nodes
 		var primaryUpHosts []string
+		var upHosts []string
 		for host, vnode := range op.vdb.HostNodeMap {
-			if vnode.IsPrimary && vnode.State == util.NodeUpState {
-				primaryUpHosts = append(primaryUpHosts, host)
-				op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
-				break
+			if vnode.State == util.NodeUpState {
+				// If we do not find a primary up host in the same cluster(or sandbox), try to find a secondary up host
+				if vnode.IsPrimary {
+					primaryUpHosts = append(primaryUpHosts, host)
+					op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
+					break
+				} else if op.sandbox != nil && vnode.Sandbox == *op.sandbox {
+					upHosts = append(upHosts, host)
+					op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
+				}
 			}
 		}
 		if len(primaryUpHosts) == 0 {
-			return fmt.Errorf("could not find any primary up nodes")
+			op.logger.Info("could not find any primary UP nodes, considering secondary UP nodes.")
+			if len(upHosts) == 0 {
+				return fmt.Errorf("could not find any up nodes")
+			}
+			op.hosts = []string{upHosts[0]}
+		} else {
+			op.hosts = primaryUpHosts
 		}
-		op.hosts = primaryUpHosts
 	}
 
 	execContext.dispatcher.setup(op.hosts)

@@ -59,6 +59,8 @@ const (
 	dataPathKey                 = "dataPath"
 	communalStorageLocationFlag = "communal-storage-location"
 	communalStorageLocationKey  = "communalStorageLocation"
+	archiveNameFlag             = "archive-name"
+	archiveNameKey              = "archiveName"
 	ipv6Flag                    = "ipv6"
 	ipv6Key                     = "ipv6"
 	eonModeFlag                 = "eon-mode"
@@ -156,6 +158,7 @@ var flagKeyMap = map[string]string{
 	verboseFlag:                 verboseKey,
 	outputFileFlag:              outputFileKey,
 	sandboxFlag:                 sandboxKey,
+	archiveNameFlag:             archiveNameKey,
 	targetDBNameFlag:            targetDBNameKey,
 	targetHostsFlag:             targetHostsKey,
 	targetUserNameFlag:          targetUserNameKey,
@@ -213,8 +216,10 @@ const (
 	showRestorePointsSubCmd = "show_restore_points"
 	installPkgSubCmd        = "install_packages"
 	// hidden Cmds (for internal testing only)
-	getDrainingStatusSubCmd = "get_draining_status"
 	promoteSandboxSubCmd    = "promote_sandbox"
+	createArchiveCmd        = "create_archive"
+	saveRestorePointsSubCmd = "save_restore_point"
+	getDrainingStatusSubCmd = "get_draining_status"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -580,6 +585,8 @@ func constructCmds() []*cobra.Command {
 		// hidden cmds (for internal testing only)
 		makeCmdGetDrainingStatus(),
 		makeCmdPromoteSandbox(),
+		makeCmdCreateArchive(),
+		makeCmdSaveRestorePoint(),
 	}
 }
 

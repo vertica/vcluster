@@ -317,6 +317,30 @@ func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
 	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 
+// Update and limit the hostlist based on status and sandbox info
+// If sandbox provided, pick up sandbox up hosts and return. Else return up hosts.
+func (vdb *VCoordinationDatabase) filterUpHostlist(inputHosts []string, sandbox string) []string {
+	var clusterHosts []string
+	var upSandboxHosts []string
+
+	for _, h := range inputHosts {
+		vnode, ok := vdb.HostNodeMap[h]
+		if !ok {
+			// host address not found in vdb, skip it
+			continue
+		}
+		if vnode.Sandbox == "" && vnode.State == util.NodeUpState {
+			clusterHosts = append(clusterHosts, vnode.Address)
+		} else if vnode.Sandbox == sandbox && vnode.State == util.NodeUpState {
+			upSandboxHosts = append(upSandboxHosts, vnode.Address)
+		}
+	}
+	if sandbox == "" {
+		return clusterHosts
+	}
+	return upSandboxHosts
+}
+
 // hostIsUp returns true if the host is up
 func (vdb *VCoordinationDatabase) hostIsUp(hostName string) bool {
 	return vdb.HostNodeMap[hostName].State == util.NodeUpState

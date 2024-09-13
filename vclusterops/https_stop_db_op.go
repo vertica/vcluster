@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strconv"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
@@ -87,6 +88,7 @@ func (op *httpsStopDBOp) prepare(execContext *opEngineExecContext) error {
 	sandboxOnly := false
 	var mainHost string
 	var hosts []string
+	sandboxes := mapset.NewSet[string]()
 	for h, sb := range execContext.upHostsToSandboxes {
 		if sb == op.sandbox && sb != "" {
 			// stop db only on sandbox
@@ -96,7 +98,8 @@ func (op *httpsStopDBOp) prepare(execContext *opEngineExecContext) error {
 		}
 		if sb == "" {
 			mainHost = h
-		} else {
+		} else if !sandboxes.Contains(sb) {
+			sandboxes.Add(sb)
 			hosts = append(hosts, h)
 		}
 	}
@@ -124,6 +127,7 @@ func (op *httpsStopDBOp) execute(execContext *opEngineExecContext) error {
 func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	re := regexp.MustCompile(`Set subcluster \(.*\) to draining state.*`)
+	regHang := regexp.MustCompile(`context\s+deadline\s+exceeded\s+\(Client\.Timeout\s+exceeded\s+while\s+awaiting\s+headers\)`)
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -135,6 +139,11 @@ func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 		}
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
+			if regHang.MatchString(result.err.Error()) {
+				err := fmt.Errorf("hint: use NMA endpoint /v1/vertica-process/signal?signal_type=kill to terminate a hanging Vertica " +
+					"process on the failed host")
+				allErrs = errors.Join(allErrs, err)
+			}
 			continue
 		}
 

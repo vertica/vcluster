@@ -87,6 +87,19 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
+		// A host may have precondition failed, such as
+		// "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster"
+		// In this case, we mark the node status as UNKNOWN
+		if result.hasPreconditionFailed() {
+			vnode, ok := op.vdb.HostNodeMap[host]
+			if !ok {
+				return fmt.Errorf("cannot find host %s in vdb", host)
+			}
+			vnode.State = util.NodeUnknownState
+
+			continue
+		}
+
 		if result.isUnauthorizedRequest() {
 			op.logger.PrintError("[%s] unauthorized request: %s", op.name, result.content)
 			execContext.hostsWithWrongAuth = append(execContext.hostsWithWrongAuth, host)
@@ -124,6 +137,7 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 				return fmt.Errorf("cannot find host %s in vdb", host)
 			}
 			vnode.State = nodeInfo.State
+			vnode.IsPrimary = nodeInfo.IsPrimary
 		} else {
 			// if the result format is wrong on any of the hosts, we should throw an error
 			return fmt.Errorf(util.NodeInfoCountMismatch, op.name, len(nodesInformation.NodeList), host)

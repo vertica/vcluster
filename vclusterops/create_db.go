@@ -295,6 +295,7 @@ func (vcc VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VC
 	vdb := makeVCoordinationDatabase()
 	err := vdb.setFromCreateDBOptions(options, vcc.Log)
 	if err != nil {
+		vcc.Log.Error(err, "fail to create database")
 		return vdb, err
 	}
 	// produce instructions
@@ -489,7 +490,8 @@ func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 			&instructions,
 			bootstrapHost,
 			vdb.HostList,
-			vdb /*db configurations retrieved from a running db*/)
+			vdb, /*db configurations retrieved from a running db*/
+			nil /*sandbox name*/)
 		nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newNodeHosts, options.StartUpConf, vdb)
 		instructions = append(instructions, &nmaStartNewNodesOp)
 	}

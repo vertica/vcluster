@@ -129,13 +129,23 @@ func (op *httpsStartUpCommandOp) prepare(execContext *opEngineExecContext) error
 		}
 	} else {
 		var primaryUpHosts []string
+		var upHosts []string
 		for host, vnode := range op.vdb.HostNodeMap {
-			if vnode.IsPrimary && vnode.State == util.NodeUpState && vnode.Sandbox == op.sandbox {
-				primaryUpHosts = append(primaryUpHosts, host)
-				break
+			// If we do not find a primary up host in the same cluster(or sandbox), try to find a secondary up host
+			if vnode.State == util.NodeUpState && vnode.Sandbox == op.sandbox {
+				if vnode.IsPrimary {
+					primaryUpHosts = append(primaryUpHosts, host)
+					break
+				}
+				upHosts = append(upHosts, host)
 			}
 		}
-		op.hosts = primaryUpHosts
+		if len(primaryUpHosts) > 0 {
+			op.hosts = primaryUpHosts
+		} else {
+			op.logger.Info("could not find any primary UP nodes, considering secondary UP nodes.")
+			op.hosts = []string{upHosts[0]}
+		}
 	}
 	execContext.dispatcher.setup(op.hosts)
 

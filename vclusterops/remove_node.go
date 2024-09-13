@@ -298,7 +298,7 @@ func getMainClusterNodes(vdb *VCoordinationDatabase, options *VRemoveNodeOptions
 	hostsAfterRemoval := util.SliceDiff(vdb.HostList, options.HostsToRemove)
 	for _, host := range hostsAfterRemoval {
 		vnode := vdb.HostNodeMap[host]
-		if vnode.Sandbox == "" {
+		if vnode.Sandbox == "" && vnode.State == util.NodeUpState {
 			*mainClusterNodes = append(*mainClusterNodes, vnode.Name)
 		}
 	}

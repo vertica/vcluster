@@ -36,15 +36,15 @@ const (
 // produceTransferConfigOps generates instructions to transfert some config
 // files from a sourceConfig node to target nodes.
 func produceTransferConfigOps(instructions *[]clusterOp, sourceConfigHost,
-	targetHosts []string, vdb *VCoordinationDatabase) {
+	targetHosts []string, vdb *VCoordinationDatabase, sandbox *string) {
 	var verticaConfContent string
 	nmaDownloadVerticaConfigOp := makeNMADownloadConfigOp(
-		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb)
+		"NMADownloadVerticaConfigOp", sourceConfigHost, "config/vertica", &verticaConfContent, vdb, sandbox)
 	nmaUploadVerticaConfigOp := makeNMAUploadConfigOp(
 		"NMAUploadVerticaConfigOp", sourceConfigHost, targetHosts, "config/vertica", &verticaConfContent, vdb)
 	var spreadConfContent string
 	nmaDownloadSpreadConfigOp := makeNMADownloadConfigOp(
-		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb)
+		"NMADownloadSpreadConfigOp", sourceConfigHost, "config/spread", &spreadConfContent, vdb, sandbox)
 	nmaUploadSpreadConfigOp := makeNMAUploadConfigOp(
 		"NMAUploadSpreadConfigOp", sourceConfigHost, targetHosts, "config/spread", &spreadConfContent, vdb)
 	*instructions = append(*instructions,

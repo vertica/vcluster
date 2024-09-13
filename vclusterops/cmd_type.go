@@ -20,6 +20,7 @@ const (
 	SandboxSCCmd
 	UnsandboxSCCmd
 	ShowRestorePointsCmd
+	SaveRestorePointsCmd
 	InstallPackagesCmd
 	ConfigRecoverCmd
 	GetDrainingStatusCmd
@@ -40,6 +41,7 @@ const (
 	AddNodeSyncCat
 	StartNodeSyncCat
 	RemoveNodeSyncCat
+	CreateArchiveCmd
 	PollSubclusterStateCmd
 )
 
@@ -60,6 +62,7 @@ var cmdStringMap = map[CmdType]string{
 	SandboxSCCmd:                 "sandbox_subcluster",
 	UnsandboxSCCmd:               "unsandbox_subcluster",
 	ShowRestorePointsCmd:         "show_restore_points",
+	SaveRestorePointsCmd:         "save_restore_point",
 	InstallPackagesCmd:           "install_packages",
 	ConfigRecoverCmd:             "manage_config_recover",
 	GetDrainingStatusCmd:         "get_draining_status",
@@ -79,6 +82,7 @@ var cmdStringMap = map[CmdType]string{
 	AddNodeSyncCat:               "add_node_sync_cat",
 	StartNodeSyncCat:             "start_node_sync_cat",
 	RemoveNodeSyncCat:            "remove_node_sync_cat",
+	CreateArchiveCmd:             "create_archive",
 	PollSubclusterStateCmd:       "poll_subcluster_state",
 }
 

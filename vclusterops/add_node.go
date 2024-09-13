@@ -409,7 +409,8 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	produceTransferConfigOps(&instructions,
 		nil,
 		vdb.HostList,
-		vdb /*db configurations retrieved from a running db*/)
+		vdb, /*db configurations retrieved from a running db*/
+		nil /*Sandbox name*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, options.StartUpConf, vdb)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
