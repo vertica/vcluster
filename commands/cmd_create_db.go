@@ -275,7 +275,6 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
 	vdb, createError := vcc.VCreateDatabase(c.createDBOptions)
 	if createError != nil {
-		vcc.LogError(createError, "Failed to create the database.")
 		return createError
 	}
 

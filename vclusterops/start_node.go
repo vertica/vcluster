@@ -326,7 +326,8 @@ func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, resta
 	if upHostCount < len(restartNodeInfo.ReIPList) {
 		restartNodeInfo.SerialReIP = true
 	}
-	if len(sandboxPrimaryUpNodes) <= lenOfPrimaryReIPLIst {
+
+	if len(sandboxPrimaryUpNodes) <= lenOfPrimaryReIPLIst && lenOfPrimaryReIPLIst > 0 {
 		return &ReIPNoClusterQuorumError{
 			Detail: fmt.Sprintf("Quorum check failed: %d up node(s) is/are not enough to re-ip %d primary node(s)",
 				len(sandboxPrimaryUpNodes), lenOfPrimaryReIPLIst),
@@ -372,6 +373,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		&nmaHealthOp,
 		&httpsGetUpNodesOp,
 	)
+	var sandboxName *string
 	// If we identify any nodes that need re-IP, HostsToStart will contain the nodes that need re-IP.
 	// Otherwise, HostsToStart will consist of all hosts with IPs recorded in the catalog, which are provided by user input.
 	if len(startNodeInfo.ReIPList) != 0 {
@@ -414,6 +416,8 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 			&httpsReloadSpreadOp,
 			&httpsGetNodesInfoOp,
 		)
+	} else {
+		sandboxName = &startNodeInfo.Sandbox
 	}
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpBeforeStartNode(vdb, startNodeInfo.unreachableHosts,
@@ -423,11 +427,8 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value
 	// after we find any UP primary nodes as source host for syncing spread.conf and vertica.conf
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(
-		&instructions,
-		nil, /*source hosts for transferring configuration files*/
-		startNodeInfo.HostsToStart,
-		vdb)
+	produceTransferConfigOps(&instructions, nil /*source hosts for transferring configuration files*/, startNodeInfo.HostsToStart,
+		vdb, sandboxName)
 	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(options.usePassword, options.UserName, options.Password,
 		vdb, startNodeInfo.Sandbox)
 	if err != nil {
@@ -439,7 +440,6 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	if err != nil {
 		return instructions, err
 	}
-
 	httpsPollNodeStateOp.cmdType = StartNodeCmd
 	instructions = append(instructions,
 		&httpsRestartUpCommandOp,

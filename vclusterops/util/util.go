@@ -65,6 +65,7 @@ const (
 	ShutDownEndpoint      = "/shutdown"
 	NodesEndpoint         = "nodes/"
 	DropEndpoint          = "/drop"
+	ArchiveEndpoint       = "archives"
 )
 
 const (
@@ -559,6 +560,10 @@ func ValidateScName(dbName string) error {
 
 func ValidateSandboxName(dbName string) error {
 	return ValidateName(dbName, "sandbox", true)
+}
+
+func ValidateArchiveName(archive string) error {
+	return ValidateName(archive, "archive", true)
 }
 
 // suppress help message for hidden options

@@ -2,11 +2,14 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/vertica/vcluster.svg)](https://pkg.go.dev/github.com/vertica/vcluster)
 
-This repository contains the vcluster-ops Go library and command-line interface to administer a Vertica cluster with a REST API. The REST API endpoints are exposed by the following services:
+This repository contains the vcluster-ops Go library and command-line 
+interface to administer a Vertica cluster with a REST API. The REST API 
+endpoints are exposed by the following services:
 - Node Management Agent (NMA)
 - Embedded HTTPS service
 
-This CLI tool combines REST calls to provide a coherent Go interface so that you can perform the following administrator operations:
+This CLI tool combines REST calls to provide a coherent Go interface so that 
+you can perform the following administrator operations:
 - Create a database
 - Scale a cluster up and down
 - Restart a cluster
@@ -58,9 +61,14 @@ directories in this project.
 
 
 ## Usage
-Each source file in `vclusterops/` contains a `V<Operation>Options` struct with option fields that you can set for that operation, and a `V<Operation>OptionsFactory` factory function that returns a struct with sensible option defaults. General database and authentication options are available in `DatabaseOptions` in `vclusterops/vcluster_database_options.go`.
+Each source file in `vclusterops/` contains a `V<Operation>Options` struct 
+with option fields that you can set for that operation, and a `V<Operation>OptionsFactory` 
+factory function that returns a struct with sensible option defaults. General
+database and authentication options are available in `DatabaseOptions` in 
+`vclusterops/vcluster_database_options.go`.
 
-The following example imports the `vclusterops` library, and then calls functions from `vclusterops/create_db.go` to create a database:
+The following example imports the `vclusterops` library, and then calls 
+functions from `vclusterops/create_db.go` to create a database:
 
 
 ```
@@ -94,4 +102,5 @@ We can use similar way to set up and call other vcluster-ops commands.
 
 
 ## Licensing
-vcluster is open source code and is under the Apache 2.0 license. Please see `LICENSE` for details.
+vcluster is open source and is under the Apache 2.0 license. Please see 
+`LICENSE` for details.

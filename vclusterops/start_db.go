@@ -339,7 +339,8 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 		&instructions,
 		nil, /*source hosts for transferring configuration files*/
 		options.Hosts,
-		nil /*db configurations retrieved from a running db*/)
+		nil, /*db configurations retrieved from a running db*/
+		nil /*sandbox name*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOp(options.Hosts, options.StartUpConf)
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(options.Hosts,
