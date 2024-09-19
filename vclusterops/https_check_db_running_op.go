@@ -24,6 +24,7 @@ import (
 
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
+	"golang.org/x/exp/slices"
 )
 
 type opType int
@@ -61,6 +62,8 @@ func (op opType) String() string {
 	}
 	return "unknown operation"
 }
+
+var maskEOFOp = []opType{DropDB}
 
 // DBIsRunningError is an error to indicate we found the database still running.
 // This is emitted from this op. Callers can do type checking to perform an
@@ -291,6 +294,11 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
+		// EOF is expected in node shutdown: we expect the node's HTTPS service to go down quickly
+		// and the Server HTTPS service does not guarantee that the response being sent back to the client before it closes
+		if result.isEOF() && slices.Contains(maskEOFOp, op.opType) {
+			continue
+		}
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 		}
