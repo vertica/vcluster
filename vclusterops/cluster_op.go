@@ -563,7 +563,7 @@ type ClusterCommands interface {
 	VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error)
 	VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error)
 	VRenameSubcluster(options *VRenameSubclusterOptions) error
-	VReplicateDatabase(options *VReplicationDatabaseOptions) error
+	VReplicateDatabase(options *VReplicationDatabaseOptions) (int64, error)
 	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
 	VSandbox(options *VSandboxOptions) error
 	VScrutinize(options *VScrutinizeOptions) error

@@ -136,7 +136,8 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 		"[Required] The absolute path to the connection file created with the create_connection command, "+
 			"containing the database name, hosts, and password (if any) for the target database. "+
 			"Alternatively, you can provide this information manually with --target-db-name, "+
-			"--target-hosts, and --target-password-file")
+			"--target-hosts, and --target-password-file",
+	)
 	cmd.Flags().BoolVar(
 		&c.startRepOptions.Async,
 		asyncFlag,
@@ -145,7 +146,7 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 			"Default value is false.",
 	)
 	cmd.Flags().StringVar(
-		&c.startRepOptions.ObjectName,
+		&c.startRepOptions.TableOrSchemaName,
 		tableOrSchemaNameFlag,
 		"",
 		"(only async replication)The object name we want to copy from the source side. The available"+
@@ -274,12 +275,18 @@ func (c *CmdStartReplication) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.startRepOptions
 
-	err := vcc.VReplicateDatabase(options)
+	transactionID, err := vcc.VReplicateDatabase(options)
 	if err != nil {
 		vcc.LogError(err, "failed to replicate to database", "targetDB", options.TargetDB)
 		return err
 	}
-	vcc.DisplayInfo("Successfully replicated to database %s", options.TargetDB)
+
+	if options.Async {
+		vcc.DisplayInfo("Successfully started replication to database %s. Transaction ID: %d", options.TargetDB, transactionID)
+	} else {
+		vcc.DisplayInfo("Successfully replicated to database %s", options.TargetDB)
+	}
+
 	return nil
 }
 
