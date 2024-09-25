@@ -233,30 +233,11 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 		if !ok {
 			return dbConfig, fmt.Errorf("cannot find host %s from HostNodeMap", host)
 		}
-		nodeConfig := NodeConfig{}
-		nodeConfig.Name = vnode.Name
-		nodeConfig.Address = vnode.Address
-		nodeConfig.Subcluster = vnode.Subcluster
-		nodeConfig.Sandbox = vnode.Sandbox
 
-		if vdb.CatalogPrefix == "" {
-			nodeConfig.CatalogPath = vnode.CatalogPath
-		} else {
-			nodeConfig.CatalogPath = vdb.GenCatalogPath(vnode.Name)
-		}
-		if vdb.DataPrefix == "" && len(vnode.StorageLocations) > 0 {
-			nodeConfig.DataPath = vnode.StorageLocations[0]
-		} else {
-			nodeConfig.DataPath = vdb.GenDataPath(vnode.Name)
-		}
-		if vdb.IsEon && vdb.DepotPrefix == "" {
-			nodeConfig.DepotPath = vnode.DepotPath
-		} else if vdb.DepotPrefix != "" {
-			nodeConfig.DepotPath = vdb.GenDepotPath(vnode.Name)
-		}
-
+		nodeConfig := buildNodeConfig(vnode, vdb)
 		dbConfig.Nodes = append(dbConfig.Nodes, &nodeConfig)
 	}
+
 	dbConfig.IsEon = vdb.IsEon
 	dbConfig.CommunalStorageLocation = vdb.CommunalStorageLocation
 	dbConfig.Ipv6 = vdb.Ipv6
@@ -264,6 +245,33 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 	dbConfig.FirstStartAfterRevive = vdb.FirstStartAfterRevive
 
 	return dbConfig, nil
+}
+
+func buildNodeConfig(vnode *vclusterops.VCoordinationNode,
+	vdb *vclusterops.VCoordinationDatabase) NodeConfig {
+	nodeConfig := NodeConfig{}
+	nodeConfig.Name = vnode.Name
+	nodeConfig.Address = vnode.Address
+	nodeConfig.Subcluster = vnode.Subcluster
+	nodeConfig.Sandbox = vnode.Sandbox
+
+	if vdb.CatalogPrefix == "" {
+		nodeConfig.CatalogPath = vnode.CatalogPath
+	} else {
+		nodeConfig.CatalogPath = vdb.GenCatalogPath(vnode.Name)
+	}
+	if vdb.DataPrefix == "" && len(vnode.StorageLocations) > 0 {
+		nodeConfig.DataPath = vnode.StorageLocations[0]
+	} else {
+		nodeConfig.DataPath = vdb.GenDataPath(vnode.Name)
+	}
+	if vdb.IsEon && vdb.DepotPrefix == "" {
+		nodeConfig.DepotPath = vnode.DepotPath
+	} else if vdb.DepotPrefix != "" {
+		nodeConfig.DepotPath = vdb.GenDepotPath(vnode.Name)
+	}
+
+	return nodeConfig
 }
 
 // read reads information from configFilePath to a DatabaseConfig object.

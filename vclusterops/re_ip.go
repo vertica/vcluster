@@ -114,6 +114,12 @@ func (options *VReIPOptions) validateAnalyzeOptions(logger vlog.Printer) error {
 	nodeAddresses := make(map[string]struct{})
 	for _, info := range options.ReIPList {
 		// the addresses must be valid IPs
+		if info.NodeAddress != "" {
+			if info.NodeAddress == util.UnboundedIPv4 || info.NodeAddress == util.UnboundedIPv6 {
+				return errors.New("the re-ip list should not contain unbound addresses")
+			}
+		}
+
 		if err := util.AddressCheck(info.TargetAddress, ipv6); err != nil {
 			return err
 		}
