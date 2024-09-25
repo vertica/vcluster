@@ -484,3 +484,19 @@ func (vcc *VClusterCommands) getUnreachableHosts(options *DatabaseOptions, hosts
 type nmaGenericJSONResponse struct {
 	RespStr string
 }
+
+// extractCatalogPrefix extracts the catalog prefix from a node's catalog path.
+// This function takes the full catalog path, database name, and node name as
+// input parameters, and returns the catalog prefix along with a boolean indicating
+// whether the extraction was successful.
+func extractCatalogPrefix(catalogPath, dbName, nodeName string) (string, bool) {
+	catalogSuffix := "/" + dbName + "/" + nodeName + "_catalog/Catalog"
+	// if catalog suffix matches catalog path, it means we created the catalog in the root path
+	if catalogPath == catalogSuffix {
+		return "/", true
+	}
+	if !strings.HasSuffix(catalogPath, catalogSuffix) {
+		return "", false
+	}
+	return strings.TrimSuffix(catalogPath, catalogSuffix), true
+}

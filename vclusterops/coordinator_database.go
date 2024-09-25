@@ -36,6 +36,7 @@ type VCoordinationDatabase struct {
 	CatalogPrefix string
 	DataPrefix    string
 	HostNodeMap   vHostNodeMap
+	UnboundNodes  []*VCoordinationNode
 	// for convenience
 	HostList []string // expected to be resolved IP addresses
 
@@ -138,6 +139,13 @@ func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabas
 // addNode adds a given host to the VDB's HostList and HostNodeMap.
 // Duplicate host will not be added.
 func (vdb *VCoordinationDatabase) addNode(vnode *VCoordinationNode) error {
+	// unbound nodes have the same 0.0.0.0 address,
+	// so we add them into the UnboundedNodes list
+	if vnode.Address == util.UnboundedIPv4 || vnode.Address == util.UnboundedIPv6 {
+		vdb.UnboundNodes = append(vdb.UnboundNodes, vnode)
+		return nil
+	}
+
 	if _, exist := vdb.HostNodeMap[vnode.Address]; exist {
 		return fmt.Errorf("host %s has already been in the VDB's HostList", vnode.Address)
 	}

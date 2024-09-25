@@ -17,6 +17,7 @@ package util
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -85,6 +86,17 @@ const (
 	nmaKeyPathEnvVar    = "NMA_KEY_PATH"
 
 	objectNameUnsupportedCharacters = `=<>'^\".@?#&/:;{}()[] \~!%+|,` + "`$"
+)
+
+const (
+	// Unbound nodes are the nodes in catalog but without IP assigned.
+	// These nodes can come from the following scenario:
+	// - a database has primary and secondary nodes
+	// - users run revive_db to the primary nodes only
+	// - the secondary nodes become "unbound nodes" after this revive
+	// - users need to run start_node with re-ip to bring the unbound nodes up
+	UnboundedIPv4 = "0.0.0.0"
+	UnboundedIPv6 = "0:0:0:0:0:0:0:0"
 )
 
 // NmaSecretLookup retrieves kubernetes secrets.
@@ -281,6 +293,10 @@ func AddressCheck(address string, ipv6 bool) error {
 		return fmt.Errorf("%s in the re-ip file is not a valid %s address", address, ipVersion)
 	}
 
+	if address == UnboundedIPv4 || address == UnboundedIPv6 {
+		return errors.New("the re-ip list should not contain unbound addresses")
+	}
+
 	return nil
 }
 
@@ -349,6 +365,9 @@ func ResolveRawHostsToAddresses(rawHosts []string, ipv6 bool) ([]string, error) 
 	for _, host := range rawHosts {
 		if host == "" {
 			return hostAddresses, fmt.Errorf("invalid empty host found in the provided host list")
+		}
+		if host == UnboundedIPv4 || host == UnboundedIPv6 {
+			return hostAddresses, fmt.Errorf("ambiguous host address (%s) is used", host)
 		}
 		addr, err := ResolveToOneIP(host, ipv6)
 		if err != nil {

@@ -86,7 +86,7 @@ type ReviveDBNodeCountMismatchError struct {
 
 func (e *ReviveDBNodeCountMismatchError) Error() string {
 	return fmt.Sprintf(`[%s] nodes mismatch found on host %s: the number of the new nodes in --hosts is %d,`+
-		` but the number of the old nodes in description file is %d`,
+		` but the number of primary nodes in the description file is %d`,
 		e.ReviveDBStep, e.FailureHost, e.NumOfNewNodes, e.NumOfOldNodes)
 }
 
@@ -259,6 +259,12 @@ func (op *nmaDownloadFileOp) processResult(execContext *opEngineExecContext) err
 					return nil
 				}
 
+				// if users provide a subset of nodes for reviving,
+				// we assume users intend to revive to primary subclusters
+				if len(descFileContent.NodeList) > len(op.newNodes) {
+					filterPrimaryNodes(&descFileContent)
+				}
+
 				if len(descFileContent.NodeList) != len(op.newNodes) {
 					err := &ReviveDBNodeCountMismatchError{
 						ReviveDBStep:  op.name,
@@ -280,6 +286,16 @@ func (op *nmaDownloadFileOp) processResult(execContext *opEngineExecContext) err
 	}
 
 	return appendHTTPSFailureError(allErrs)
+}
+
+func filterPrimaryNodes(descFileContent *fileContent) {
+	var updatedFileContent fileContent
+	for _, node := range descFileContent.NodeList {
+		if node.IsPrimary {
+			updatedFileContent.NodeList = append(updatedFileContent.NodeList, node)
+		}
+	}
+	descFileContent.NodeList = updatedFileContent.NodeList
 }
 
 // buildVDBFromClusterConfig can build a vdb using cluster_config.json

@@ -188,3 +188,38 @@ func TestValidateHostMap(t *testing.T) {
 	err = validateHostMaps(threeHosts, oneMap, twoMap)
 	assert.Error(t, err)
 }
+
+func TestExtractCatalogPrefix(t *testing.T) {
+	// positive cases
+	catalogPath := "/verticadb/vertica01/vertica/v_vertica_node0001_catalog/Catalog"
+	dbName := "vertica"
+	nodeName := "v_vertica_node0001"
+
+	expected := "/verticadb/vertica01"
+	catalogPrefix, found := extractCatalogPrefix(catalogPath, dbName, nodeName)
+	assert.True(t, found)
+	assert.Equal(t, catalogPrefix, expected)
+
+	catalogPath = "/catalog/test/v_test_node0001_catalog/Catalog"
+	dbName = "test"
+	nodeName = "v_test_node0001"
+
+	expected = "/catalog"
+	catalogPrefix, found = extractCatalogPrefix(catalogPath, dbName, nodeName)
+	assert.True(t, found)
+	assert.Equal(t, catalogPrefix, expected)
+
+	catalogPath = "/test/v_test_node0001_catalog/Catalog"
+	expected = "/"
+	catalogPrefix, found = extractCatalogPrefix(catalogPath, dbName, nodeName)
+	assert.True(t, found)
+	assert.Equal(t, catalogPrefix, expected)
+
+	// negative case
+	catalogPath = "/catalog/test/v_test_node0001_catalog/Catalog/test"
+
+	expected = ""
+	catalogPrefix, found = extractCatalogPrefix(catalogPath, dbName, nodeName)
+	assert.False(t, found)
+	assert.Equal(t, catalogPrefix, expected)
+}

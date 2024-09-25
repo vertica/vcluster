@@ -524,7 +524,6 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 		if oldIP != newIP {
 			startNodeInfo.ReIPList = append(startNodeInfo.ReIPList, newIP)
 			startNodeInfo.NodeNamesToStart = append(startNodeInfo.NodeNamesToStart, nodename)
-			logger.Info("the nodes need to be re-IP", "nodeNames", startNodeInfo.NodeNamesToStart, "IPs", startNodeInfo.ReIPList)
 		} else {
 			vnode, ok := vdb.HostNodeMap[newIP]
 			if ok && vnode.State == util.NodeDownState {
@@ -543,6 +542,23 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 			// add non-control node to the end
 			sortedHosts = append(sortedHosts, newIP)
 		}
+	}
+
+	// handle unbound nodes
+	// some of the unbound nodes may need to re-ip
+	for _, vnode := range vdb.UnboundNodes {
+		if newIP, exists := options.Nodes[vnode.Name]; exists {
+			startNodeInfo.ReIPList = append(startNodeInfo.ReIPList, newIP)
+			startNodeInfo.NodeNamesToStart = append(startNodeInfo.NodeNamesToStart, vnode.Name)
+			logger.DisplayInfo("the unbound node (%s) needs to change its IP to %s", vnode.Name, newIP)
+
+			sortedHosts = append(sortedHosts, newIP)
+		}
+	}
+
+	// log nodes that need to re-ip
+	if len(startNodeInfo.NodeNamesToStart) > 0 {
+		logger.Info("the nodes need to be re-IP", "nodeNames", startNodeInfo.NodeNamesToStart, "IPs", startNodeInfo.ReIPList)
 	}
 
 	return sortedHosts, nil
