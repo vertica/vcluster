@@ -82,6 +82,7 @@ func (vcc VClusterCommands) VPollSubclusterState(options *VPollSubclusterStateOp
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
+	vcc.Log.V(0).Info("VPollSubclusterState method called", "options", options)
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err

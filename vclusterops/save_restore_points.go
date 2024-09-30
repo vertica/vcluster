@@ -107,6 +107,9 @@ func (options *VSaveRestorePointOptions) validateAnalyzeOptions(logger vlog.Prin
 	if err := options.validateUserName(logger); err != nil {
 		return err
 	}
+	if err := options.setUsePassword(logger); err != nil {
+		return err
+	}
 	return options.analyzeOptions()
 }
 
@@ -162,9 +165,17 @@ func (vcc VClusterCommands) produceSaveRestorePointsInstructions(options *VSaveR
 	hosts = vdb.filterUpHostlist(hosts, options.Sandbox)
 	bootstrapHost := []string{getInitiator(hosts)}
 
-	nmaSaveRestorePointOp := makeNMASaveRestorePointsOp(vcc.Log, bootstrapHost,
-		options.DBName, options.UserName, options.ArchiveName, options.Sandbox)
+	requestData := saveRestorePointsRequestData{}
+	requestData.ArchiveName = options.ArchiveName
+	requestData.DBName = options.DBName
+	requestData.UserName = options.UserName
+	requestData.Password = options.Password
 
+	nmaSaveRestorePointOp, err := makeNMASaveRestorePointsOp(vcc.Log, bootstrapHost,
+		&requestData, options.Sandbox, options.usePassword)
+	if err != nil {
+		return instructions, err
+	}
 	instructions = append(instructions,
 		&nmaHealthOp,
 		&nmaSaveRestorePointOp)
