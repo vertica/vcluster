@@ -20,48 +20,49 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaSaveRestorePointsOp struct {
 	opBase
-	dbName      string
-	username    string
-	archiveName string
-	sandbox     string
+	saveRestorePointsRequestData
+	sandbox string
 }
 
 type saveRestorePointsRequestData struct {
-	DBName      string `json:"dbname"`
-	ArchiveName string `json:"archive_name"`
-	UserName    string `json:"username"`
+	DBName      string  `json:"dbname"`
+	ArchiveName string  `json:"archive_name"`
+	UserName    string  `json:"username"`
+	Password    *string `json:"password"`
 }
 
 // This op is used to save restore points in a database
-func makeNMASaveRestorePointsOp(logger vlog.Printer, hosts []string, dbName, username string,
-	archiveName string, sandbox string) nmaSaveRestorePointsOp {
-	return nmaSaveRestorePointsOp{
-		opBase: opBase{
-			name:        "NMASaveRestorePointsOp",
-			description: "Run save restore point query",
-			logger:      logger.WithName("NMASaveRestorePointsOp"),
-			hosts:       hosts,
-		},
-		dbName:      dbName,
-		username:    username,
-		archiveName: archiveName,
-		sandbox:     sandbox,
+func makeNMASaveRestorePointsOp(logger vlog.Printer, hosts []string,
+	saveRestorepointrequestData *saveRestorePointsRequestData, sandbox string,
+	usePassword bool) (nmaSaveRestorePointsOp, error) {
+	op := nmaSaveRestorePointsOp{}
+	op.name = "NMASaveRestorePointsOp"
+	op.description = "Run save restore point query"
+	op.logger = logger.WithName("NMASaveRestorePointsOp")
+	op.hosts = hosts
+	op.saveRestorePointsRequestData = *saveRestorepointrequestData
+	op.sandbox = sandbox
+
+	if usePassword {
+		err := util.ValidateUsernameAndPassword(op.name, usePassword, op.UserName)
+		if err != nil {
+			return op, err
+		}
 	}
+	return op, nil
 }
 
 // make https json data
 func (op *nmaSaveRestorePointsOp) setupRequestBody() (map[string]string, error) {
 	hostRequestBodyMap := make(map[string]string, len(op.hosts))
 	for _, host := range op.hosts {
-		requestData := saveRestorePointsRequestData{}
-		requestData.DBName = op.dbName
-		requestData.ArchiveName = op.archiveName
-		requestData.UserName = op.username
+		requestData := op.saveRestorePointsRequestData
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {

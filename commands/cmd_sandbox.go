@@ -33,7 +33,8 @@ import (
 
 type CmdSandboxSubcluster struct {
 	CmdBase
-	sbOptions vclusterops.VSandboxOptions
+	sbOptions      vclusterops.VSandboxOptions
+	pollingOptions vclusterops.VPollSubclusterStateOptions
 }
 
 func (c *CmdSandboxSubcluster) TypeName() string {
@@ -124,6 +125,12 @@ func (c *CmdSandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"The sandbox is to be used for online upgrade",
 	)
+	cmd.Flags().IntVar(
+		&c.pollingOptions.Timeout,
+		"timeout",
+		util.DefaultTimeoutSeconds,
+		"The timeout (in seconds) to poll for sandbox status.",
+	)
 }
 
 func (c *CmdSandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -188,8 +195,11 @@ func (c *CmdSandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	options.DatabaseOptions.Hosts = options.SCHosts
-	pollOpts := vclusterops.VPollSubclusterStateOptions{DatabaseOptions: options.DatabaseOptions,
-		SkipOptionsValidation: true, SCName: options.SCName}
+	pollOpts := c.pollingOptions
+	pollOpts.DatabaseOptions = options.DatabaseOptions
+	pollOpts.SkipOptionsValidation = true
+	pollOpts.SCName = options.SCName
+
 	err = vcc.VPollSubclusterState(&pollOpts)
 	if err != nil {
 		vcc.LogError(err, "Failed to wait for sandboxed subcluster to come up")

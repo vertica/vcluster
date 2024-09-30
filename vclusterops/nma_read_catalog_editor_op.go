@@ -169,10 +169,11 @@ type nmaVNode struct {
 	StorageLocations     []string    `json:"storage_locations"`
 	Tag                  json.Number `json:"tag"`
 	Subcluster           struct {
-		Name      string `json:"sc_name"`
-		IsPrimary bool   `json:"is_primary_sc"`
-		IsDefault bool   `json:"is_default"`
-		IsSandbox bool   `json:"sandbox"`
+		Name        string `json:"sc_name"`
+		IsPrimary   bool   `json:"is_primary_sc"`
+		IsDefault   bool   `json:"is_default"`
+		IsSandbox   bool   `json:"sandbox"`
+		SandboxName string `json:"sandbox_name"`
 	} `json:"sc_details"`
 }
 

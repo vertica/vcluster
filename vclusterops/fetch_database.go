@@ -129,6 +129,7 @@ func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinati
 		vnode.Subcluster = n.Subcluster.Name
 		vnode.StorageLocations = n.StorageLocations
 		vnode.IsPrimary = n.IsPrimary
+		vnode.Sandbox = n.Subcluster.SandboxName
 	}
 
 	return vdb, runError
