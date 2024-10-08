@@ -104,6 +104,7 @@ const (
 	stopNodeFlag                = "stop-hosts"
 	reIPFileFlag                = "re-ip-file"
 	removeNodeFlag              = "remove"
+	removeUnboundNodesFlag      = "remove-unbound-nodes"
 	startNodeFlag               = "start"
 	startHostFlag               = "start-hosts"
 )

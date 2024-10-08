@@ -174,7 +174,7 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 
 	// pre-check: should not remove the default subcluster
 	vcc.PrintInfo("Performing remove_subcluster pre-checks")
-	hostsToRemove, err := vcc.removeScPreCheck(&vdb, removeScOpt)
+	hostsToRemove, unboundNodesToRemove, err := vcc.removeScPreCheck(&vdb, removeScOpt)
 	if err != nil {
 		return vdb, err
 	}
@@ -183,7 +183,7 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 	// the number of nodes to remove is greater than zero
 	var needRemoveNodes bool
 	vcc.Log.V(1).Info("Nodes to be removed: %+v", hostsToRemove)
-	if len(hostsToRemove) == 0 {
+	if len(hostsToRemove) == 0 && len(unboundNodesToRemove) == 0 {
 		vcc.Log.PrintInfo("no node found in subcluster %s",
 			removeScOpt.SCName)
 		needRemoveNodes = false
@@ -196,12 +196,18 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt := VRemoveNodeOptionsFactory()
 		removeNodeOpt.DatabaseOptions = removeScOpt.DatabaseOptions
 		removeNodeOpt.HostsToRemove = hostsToRemove
+		removeNodeOpt.UnboundNodesToRemove = unboundNodesToRemove
 		removeNodeOpt.ForceDelete = removeScOpt.ForceDelete
 		removeNodeOpt.IsSubcluster = true
 		removeNodeOpt.NodesToPullSubs = removeScOpt.NodesToPullSubs
 
 		vcc.Log.PrintInfo("Removing nodes %q from subcluster %s",
 			hostsToRemove, removeScOpt.SCName)
+		if len(unboundNodesToRemove) > 0 {
+			vcc.Log.PrintInfo("Removing unbound nodes %q from subcluster %s",
+				unboundNodesToRemove, removeScOpt.SCName)
+		}
+
 		vdb, err = vcc.VRemoveNode(&removeNodeOpt)
 		if err != nil {
 			return vdb, err
@@ -233,26 +239,27 @@ func (e *removeDefaultSubclusterError) Error() string {
 // for a successful remove_node:
 //   - Get cluster and nodes info (check if the target DB is Eon and get to-be-removed node list)
 //   - Get the subcluster info (check if the target sc exists and if it is the default sc)
-func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options *VRemoveScOptions) ([]string, error) {
-	var hostsToRemove []string
+func (vcc VClusterCommands) removeScPreCheck(
+	vdb *VCoordinationDatabase,
+	options *VRemoveScOptions) (hostsToRemove, unboundNodesToRemove []string, err error) {
 	const preCheckErrMsg = "while performing remove_subcluster pre-checks"
 
 	// get cluster and nodes info
-	err := vcc.getVDBFromRunningDB(vdb, &options.DatabaseOptions)
+	err = vcc.getVDBFromRunningDB(vdb, &options.DatabaseOptions)
 	if err != nil {
-		return hostsToRemove, err
+		return hostsToRemove, unboundNodesToRemove, err
 	}
 
 	// remove_subcluster only works with Eon database
 	if !vdb.IsEon {
 		// info from running db confirms that the db is not Eon
-		return hostsToRemove, fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
+		return hostsToRemove, unboundNodesToRemove, fmt.Errorf(`cannot remove subcluster from an enterprise database '%s'`,
 			options.DBName)
 	}
 
 	err = options.completeVDBSetting(vdb)
 	if err != nil {
-		return hostsToRemove, err
+		return hostsToRemove, unboundNodesToRemove, err
 	}
 
 	// get default subcluster
@@ -262,7 +269,7 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 		options.SCName,
 		false /*do not ignore not found*/, RemoveSubclusterCmd)
 	if err != nil {
-		return hostsToRemove, fmt.Errorf("fail to get default subcluster %s, details: %w",
+		return hostsToRemove, unboundNodesToRemove, fmt.Errorf("fail to get default subcluster %s, details: %w",
 			preCheckErrMsg, err)
 	}
 
@@ -278,14 +285,14 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 		if strings.Contains(err.Error(), "does not exist in the database") {
 			vcc.Log.PrintError("fail to get subclusters' information %s, %v", preCheckErrMsg, err)
 			rfcErr := rfc7807.New(rfc7807.SubclusterNotFound).WithHost(options.Hosts[0])
-			return hostsToRemove, rfcErr
+			return hostsToRemove, unboundNodesToRemove, rfcErr
 		}
-		return hostsToRemove, err
+		return hostsToRemove, unboundNodesToRemove, err
 	}
 
 	// the default subcluster should not be removed
 	if options.SCName == clusterOpEngine.execContext.defaultSCName {
-		return hostsToRemove, &removeDefaultSubclusterError{Name: options.SCName}
+		return hostsToRemove, unboundNodesToRemove, &removeDefaultSubclusterError{Name: options.SCName}
 	}
 
 	// get nodes of the to-be-removed subcluster
@@ -295,7 +302,11 @@ func (vcc VClusterCommands) removeScPreCheck(vdb *VCoordinationDatabase, options
 		}
 	}
 
-	return hostsToRemove, nil
+	for _, vnode := range vdb.UnboundNodes {
+		unboundNodesToRemove = append(unboundNodesToRemove, vnode.Name)
+	}
+
+	return hostsToRemove, unboundNodesToRemove, nil
 }
 
 // completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -27,10 +28,11 @@ import (
 // the database.
 type VRemoveNodeOptions struct {
 	DatabaseOptions
-	HostsToRemove []string // Hosts to remove from database
-	Initiator     string   // A primary up host that will be used to execute remove_node operations.
-	ForceDelete   bool     // whether force delete directories
-	IsSubcluster  bool     // is removing all nodes for a subcluster
+	HostsToRemove        []string // Hosts to remove from database
+	UnboundNodesToRemove []string // Unbound nodes to remove from database
+	Initiator            string   // A primary up host that will be used to execute remove_node operations.
+	ForceDelete          bool     // whether force delete directories
+	IsSubcluster         bool     // is removing all nodes for a subcluster
 	// Names of the nodes that need to have active subscription. The user of vclusterOps needs
 	// to make sure the provided values are correct. This option will be used when some nodes
 	// cannot join the main cluster so we will only check the node subscription state for the nodes
@@ -88,7 +90,7 @@ func (options *VRemoveNodeOptions) validateParseOptions(logger vlog.Printer) err
 func (options *VRemoveNodeOptions) analyzeOptions() (err error) {
 	options.HostsToRemove, err = util.ResolveRawHostsToAddresses(options.HostsToRemove, options.IPv6)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot resolve the provided host addresses, detail: %w", err)
 	}
 
 	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
@@ -147,12 +149,56 @@ func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinat
 	var hostsNotInCatalog []string
 	options.HostsToRemove, hostsNotInCatalog = vdb.containNodes(options.HostsToRemove)
 
+	// remove unbound nodes from catalog
+	if len(options.UnboundNodesToRemove) > 0 {
+		err = vcc.removeUnboundNodesInCatalog(options, &vdb)
+		if err != nil {
+			return vdb, fmt.Errorf("failed to remove unbound nodes from catalog, details: %w", err)
+		}
+	}
+
 	vdb, err = vcc.removeNodesInCatalog(options, &vdb)
 	if err != nil || len(hostsNotInCatalog) == 0 {
 		return vdb, err
 	}
 
 	return vcc.handleRemoveNodeForHostsNotInCatalog(&vdb, options, hostsNotInCatalog)
+}
+
+// removeUnboundNodesInCatalog removes unbound nodes from the catalog
+func (vcc VClusterCommands) removeUnboundNodesInCatalog(options *VRemoveNodeOptions,
+	vdb *VCoordinationDatabase) error {
+	vlog.DisplayColorInfo("Removing unbound nodes from catalog")
+
+	var instructions []clusterOp
+	var initiatorHost []string
+
+	usePassword := options.usePassword
+	userName := options.UserName
+	password := options.Password
+	initiatorHost = append(initiatorHost, options.Initiator)
+
+	unboundNodesInCatalog := mapset.NewSet[string]()
+	for _, vnode := range vdb.UnboundNodes {
+		unboundNodesInCatalog.Add(vnode.Name)
+	}
+
+	for _, unboundNode := range options.UnboundNodesToRemove {
+		if !unboundNodesInCatalog.Contains(unboundNode) {
+			return fmt.Errorf("%q is not an unbound node or does not exist in catalog", unboundNode)
+		}
+
+		httpsDropNodeOp, err := makeHTTPSDropNodeOp(unboundNode, initiatorHost,
+			usePassword, userName, password,
+			true /*cascade*/)
+		if err != nil {
+			return err
+		}
+		instructions = append(instructions, &httpsDropNodeOp)
+	}
+
+	clusterOpEngine := makeClusterOpEngine(instructions, options)
+	return clusterOpEngine.run(vcc.Log)
 }
 
 // removeNodesInCatalog will perform the steps to remove nodes. The node list in
@@ -164,6 +210,8 @@ func (vcc VClusterCommands) removeNodesInCatalog(options *VRemoveNodeOptions, vd
 		return *vdb, nil
 	}
 	vcc.Log.V(1).Info("validated input hosts", "HostsToRemove", options.HostsToRemove)
+
+	vlog.DisplayColorInfo("Removing bound nodes from catalog")
 
 	err := options.setInitiator(vdb.PrimaryUpNodes)
 	if err != nil {

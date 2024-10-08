@@ -65,7 +65,7 @@ Examples:
 	newCmd.setLocalFlags(cmd)
 
 	// require hosts to remove
-	markFlagsRequired(cmd, removeNodeFlag)
+	markFlagsOneRequired(cmd, []string{removeNodeFlag, removeUnboundNodesFlag})
 
 	return cmd
 }
@@ -77,6 +77,15 @@ func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
 		removeNodeFlag,
 		[]string{},
 		"A comma-separated list of hosts to remove from the database",
+	)
+	cmd.Flags().StringSliceVar(
+		&c.removeNodeOptions.UnboundNodesToRemove,
+		removeUnboundNodesFlag,
+		[]string{},
+		"A comma-separated list of unbound secondary node names to remove from the database. "+
+			"If users revived their database to primary nodes only, the not revived secondary nodes become unbound. "+
+			"Unbound nodes do not have associated IPs in the catalog. "+
+			"Use this option only if there are unbound nodes to remove.",
 	)
 }
 
