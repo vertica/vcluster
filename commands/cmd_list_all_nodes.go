@@ -59,8 +59,8 @@ Nodes separated by a sandbox have the state "UNKNOWN."
 Examples:
   # List the status of nodes with config file where password authentication is
   # used to access the database
-  vcluster list_all_nodes --password testpassword \
-    --config /opt/vertica/config/vertica_cluster.yaml
+  vcluster list_all_nodes --password "PASSWORD" \
+    --config /opt/vertica/config/vertica_cluster.yaml 
 `,
 		[]string{dbNameFlag, hostsFlag, passwordFlag, ipv6Flag, catalogPathFlag, configFlag, outputFileFlag},
 	)

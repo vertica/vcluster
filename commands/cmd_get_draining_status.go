@@ -54,15 +54,18 @@ func makeCmdGetDrainingStatus() *cobra.Command {
 Examples:
   # Show draining status of all subclusters in main cluster with user input
   vcluster get_draining_status --db-name test_db \
-    --hosts 10.20.30.40,10.20.30.41,10.20.30.42
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --password "PASSWORD"
 
   # Show draining status of all subclusters in main cluster with config file
   vcluster get_draining_status \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
 
   # Show draining status of all subclusters in a sandbox with config file
   vcluster get_draining_status --sandbox sand1 \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, configFlag, passwordFlag, hostsFlag, ipv6Flag, sandboxFlag,
 			eonModeFlag, outputFileFlag},

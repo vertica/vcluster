@@ -49,11 +49,13 @@ func makeCmdSaveRestorePoint() *cobra.Command {
 Examples:
   # Save restore point in a given archive with user input
   vcluster save_restore_point --db-name test_db \
-	--archive-name ARCHIVE_ONE
+	--archive-name ARCHIVE_ONE \
+	--password "PASSWORD"
 
   # Save restore point for a sandbox
   vcluster save_restore_point --db-name test_db \
-	--archive-name ARCHIVE_ONE --sandbox SANDBOX_ONE
+	--archive-name ARCHIVE_ONE --sandbox SANDBOX_ONE \
+	--password "PASSWORD"
 
 `,
 		[]string{dbNameFlag, hostsFlag, passwordFlag,

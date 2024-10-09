@@ -56,20 +56,20 @@ One of --restart and --start-hosts is required.
 Examples:
   # Start a single node in the database with config file
   vcluster start_node --db-name test_db \
-    --start v_test_db_node0004=10.20.30.43 --password testpassword \
+    --start v_test_db_node0004=10.20.30.43 --password "PASSWORD" \
     --config /opt/vertica/config/vertica_cluster.yaml
 
   # Start a single node and change its IP address in the database
   # with config file (assuming the node IP address previously stored
   # catalog was not 10.20.30.44)
   vcluster start_node --db-name test_db \
-    --start v_test_db_node0004=10.20.30.44 --password testpassword \
+    --start v_test_db_node0004=10.20.30.44 --password "PASSWORD" \
     --config /opt/vertica/config/vertica_cluster.yaml
 
   # Start multiple nodes in the database with config file
   vcluster start_node --db-name test_db \
     --start v_test_db_node0003=10.20.30.42,v_test_db_node0004=10.20.30.43 \
-    --password testpassword --config /opt/vertica/config/vertica_cluster.yaml	
+    --password "PASSWORD" --config /opt/vertica/config/vertica_cluster.yaml	
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag},
 	)

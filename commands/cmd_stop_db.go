@@ -52,7 +52,7 @@ func makeCmdStopDB() *cobra.Command {
 
 Examples:
   # Stop a database with config file using password authentication
-  vcluster stop_db --password testpassword \
+  vcluster stop_db --password "PASSWORD" \
     --config /opt/vertica/config/vertica_cluster.yaml
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, eonModeFlag, configFlag, passwordFlag},

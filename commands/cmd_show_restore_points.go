@@ -56,7 +56,7 @@ Examples:
   # List restore points without filters with user input
   vcluster show_restore_points --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
-	--communal-storage-location /communal
+	--communal-storage-location /communal 
 
   # List restore points without filters with config file
   vcluster show_restore_points --db-name test_db \
