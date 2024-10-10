@@ -53,18 +53,21 @@ Examples:
   vcluster revive_db --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --communal-storage-location /communal \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
 
   # Describe the database only when reviving the database
   vcluster revive_db --db-name test_db --communal-storage-location /communal \
-    --display-only
+    --display-only \
+    --password "PASSWORD"
 
   # Revive a database with user input by restoring to a given restore point
   vcluster revive_db --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --communal-storage-location /communal \
     --config /opt/vertica/config/vertica_cluster.yaml --force-removal \
-    --ignore-cluster-lease --restore-point-archive db --restore-point-index 1
+    --ignore-cluster-lease --restore-point-archive db --restore-point-index 1 \
+    --password "PASSWORD"
 
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, communalStorageLocationFlag, configFlag, outputFileFlag, configParamFlag},

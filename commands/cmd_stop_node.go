@@ -51,11 +51,13 @@ nodes will be set to read-only mode to prevent data loss.
 Examples:
   # Gracefully stop a node with config file
   vcluster stop_node --stop-hosts 10.20.30.43 \
-	--config /home/dbadmin/vertica_cluster.yaml
+    --config /home/dbadmin/vertica_cluster.yaml \
+    --password "PASSWORD"
 
   # Gracefully stop nodes with user input
   vcluster stop_node --db-name test_db --stop-hosts 10.20.30.40,10.20.30.41 \
-    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag},
 	)

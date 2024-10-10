@@ -52,11 +52,13 @@ Examples:
   # Remove multiple nodes from the existing database with config file
   vcluster remove_node --db-name test_db \
     --remove 10.20.30.40,10.20.30.42 \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
 
   # Remove a single node from the existing database with user input
   vcluster remove_node --db-name test_db --remove 10.20.30.42 \
-    --hosts 10.20.30.40 --data-path /data
+    --hosts 10.20.30.40 --data-path /data \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, catalogPathFlag, dataPathFlag, depotPathFlag, passwordFlag},
 	)

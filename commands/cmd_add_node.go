@@ -53,12 +53,14 @@ func makeCmdAddNode() *cobra.Command {
 Examples:
   # Add a single host to the existing database with config file
   vcluster add_node --db-name test_db --new-hosts 10.20.30.43 \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
 
   # Add multiple hosts to the existing database with user input
   vcluster add_node --db-name test_db --new-hosts 10.20.30.43,10.20.30.44 \
     --data-path /data --hosts 10.20.30.40 \
-    --node-names v_test_db_node0001,v_test_db_node0002
+    --node-names v_test_db_node0001,v_test_db_node0002 \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, dataPathFlag, depotPathFlag,
 			passwordFlag},

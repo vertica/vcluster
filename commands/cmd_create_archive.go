@@ -48,11 +48,11 @@ func makeCmdCreateArchive() *cobra.Command {
 
 Examples:
   # Create an archive in a given archive name
-  vcluster create_archive --db-name DBNAME --archive-name ARCHIVE_ONE 
+  vcluster create_archive --db-name DBNAME --archive-name ARCHIVE_ONE --password "PASSWORD"
 
   # Create an archive in a given archive name and number of restore point(default 3)
   vcluster create_archive --db-name DBNAME --archive-name ARCHIVE_ONE \
-    --num-restore-points 6
+    --num-restore-points 6 --password "PASSWORD"
 
   # Create an archive in main cluster with user input password
   vcluster create_archive --db-name DBNAME --archive-name ARCHIVE_ONE \

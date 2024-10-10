@@ -51,11 +51,13 @@ func makeCmdInstallPackages() *cobra.Command {
 Examples:
   # Install default packages with user input
   vcluster install_packages --db-name test_db \
-    --hosts 10.20.30.40,10.20.30.41,10.20.30.42
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --password "PASSWORD"
 
   # Force (re)install default packages with config file
   vcluster install_packages --db-name test_db --force-reinstall \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, passwordFlag, outputFileFlag},
 	)

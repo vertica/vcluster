@@ -70,10 +70,12 @@ Examples:
   # Sandbox a subcluster with config file
   vcluster sandbox_subcluster --subcluster sc1 --sandbox sand \
     --config /opt/vertica/config/vertica_cluster.yaml
+    --password "PASSWORD"
 
   # Sandbox a subcluster with user input
   vcluster sandbox_subcluster --subcluster sc1 --sandbox sand \
-    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, passwordFlag},
 	)

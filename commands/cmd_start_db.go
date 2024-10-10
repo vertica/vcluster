@@ -61,13 +61,18 @@ specified nodes are started, and the specified subset must be a quorum of nodes.
 Examples:
   # Start a database with config file using password authentication
   vcluster start_db --password testpassword \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
+
   # Start a database partially with config file on a sandbox
   vcluster start_db --password testpassword \
-    --config /home/dbadmin/vertica_cluster.yaml --sandbox "sand"
+    --config /home/dbadmin/vertica_cluster.yaml --sandbox "sand" \
+    --password "PASSWORD"
+
   # Start a database partially with config file on a sandbox
   vcluster start_db --password testpassword \
-    --config /home/dbadmin/vertica_cluster.yaml --main-cluster-only
+    --config /home/dbadmin/vertica_cluster.yaml --main-cluster-only \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag, ipv6Flag,
 			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag},
