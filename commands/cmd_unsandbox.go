@@ -65,11 +65,13 @@ directory path_to_catalog_of_sc1/metadata/sandbox_name.
 Examples:
   # Unsandbox a subcluster with config file
   vcluster unsandbox_subcluster --subcluster sc1 \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+	--password "PASSWORD"
 
   # Unsandbox a subcluster with user input
   vcluster unsandbox_subcluster --subcluster sc1 \
-    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --db-name test_db \
+	--password "PASSWORD"
 `,
 		[]string{dbNameFlag, configFlag, ipv6Flag, passwordFlag, hostsFlag},
 	)

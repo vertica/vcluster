@@ -52,7 +52,8 @@ Examples:
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --catalog-path /data --data-path /data \
     --config-param HttpServerConf=/opt/vertica/config/https_certs/httpstls.json \
-    --config $HOME/custom/directory/vertica_cluster.yaml
+    --config $HOME/custom/directory/vertica_cluster.yaml \
+    --password "PASSWORD"
 
   # Read the password from file
   vcluster create_db --db-name test_db \
@@ -76,7 +77,7 @@ Examples:
   vcluster create_db --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --catalog-path /data --data-path /data \
-    --password 12345678
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag,
 			communalStorageLocationFlag, passwordFlag, configFlag, ipv6Flag, configParamFlag},

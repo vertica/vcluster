@@ -52,13 +52,13 @@ Examples:
   # Recover the config file to the default location
   vcluster manage_config recover --db-name test_db \
 	--hosts 10.20.30.41,10.20.30.42,10.20.30.43 \
-	--catalog-path /data --depot-path /data --password ""
+	--catalog-path /data --depot-path /data --password "PASSWORD"
 
   # Recover the config file to /tmp/vertica_cluster.yaml
   vcluster manage_config recover --db-name test_db \
 	--hosts 10.20.30.41,10.20.30.42,10.20.30.43 \
 	--catalog-path /data --depot-path /data \
-	--config /tmp/vertica_cluster.yaml --password ""
+	--config /tmp/vertica_cluster.yaml --password "PASSWORD"
 `,
 		[]string{dbNameFlag, hostsFlag, catalogPathFlag, depotPathFlag, ipv6Flag, configFlag, passwordFlag},
 	)

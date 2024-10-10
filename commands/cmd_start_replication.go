@@ -54,22 +54,25 @@ if any one of the following conditions are met:
 Examples:
   # Start database replication with config and connection file
   vcluster replication start --config /opt/vertica/config/vertica_cluster.yaml \
-    --target-conn /opt/vertica/config/target_connection.yaml 
+    --target-conn /opt/vertica/config/target_connection.yaml \
+    --password "PASSWORD"
 
   # Replicate data from a sandbox in the source database to a target database
   # specified in the connection file.
   vcluster replication start --config /opt/vertica/config/vertica_cluster.yaml \
-    --target-conn /opt/vertica/config/target_connection.yaml --sandbox sand
+    --target-conn /opt/vertica/config/target_connection.yaml --sandbox sand \
+    --password "PASSWORD"
 
   # Start database replication with user input and connection file
   vcluster replication start --db-name test_db --hosts 10.20.30.40 \
-    --target-conn /opt/vertica/config/target_connection.yaml 
+    --target-conn /opt/vertica/config/target_connection.yaml \
+    --password "PASSWORD"
 
   # Start database replication with config and connection file
   # tls option and tls-based authentication
   vcluster replication start --config /opt/vertica/config/vertica_cluster.yaml \ 
     --key-file /path/to/key-file --cert-file /path/to/cert-file \
-    --target-conn /opt/vertica/config/target_connection.yaml --source-tlsconfig test_tlsconfig
+    --target-conn /opt/vertica/config/target_connection.yaml --source-tlsconfig test_tlsconfig 
   
   # Start database replication with user input
   # option and password-based authentication 

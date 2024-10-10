@@ -48,11 +48,13 @@ func makeCmdStartSubcluster() *cobra.Command {
 Examples:
   # Start a subcluster with config file
   vcluster start_subcluster --subcluster sc1 \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml \
+    --password "PASSWORD"
 
   # Start a subcluster with user input
   vcluster start_subcluster --db-name test_db \
-    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --subcluster sc1 \
+    --password "PASSWORD"
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, eonModeFlag, passwordFlag},
 	)
