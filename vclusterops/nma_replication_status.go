@@ -29,22 +29,20 @@ type nmaReplicationStatusOp struct {
 	nmaReplicationStatusRequestData
 	TargetHosts        []string
 	hostRequestBodyMap map[string]string
-	sandbox            string
-	vdb                *VCoordinationDatabase
 	transactionIDs     *[]int64
+	replicationStatus  *[]ReplicationStatusResponse
 }
 
 func makeNMAReplicationStatusOp(targetHosts []string, targetUsePassword bool,
-	replicationStatusData *nmaReplicationStatusRequestData, sandbox string, vdb *VCoordinationDatabase,
-	transactionIDs *[]int64) (nmaReplicationStatusOp, error) {
+	replicationStatusData *nmaReplicationStatusRequestData,
+	transactionIDs *[]int64, replicationStatus *[]ReplicationStatusResponse) (nmaReplicationStatusOp, error) {
 	op := nmaReplicationStatusOp{}
 	op.name = "NMAReplicationStatusOp"
 	op.description = "Get asynchronous replication status"
 	op.TargetHosts = targetHosts
 	op.nmaReplicationStatusRequestData = *replicationStatusData
-	op.sandbox = sandbox
-	op.vdb = vdb
 	op.transactionIDs = transactionIDs
+	op.replicationStatus = replicationStatus
 
 	if targetUsePassword {
 		err := util.ValidateUsernameAndPassword(op.name, targetUsePassword, replicationStatusData.UserName)
@@ -117,17 +115,6 @@ func (op *nmaReplicationStatusOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type replicationStatusResponse struct {
-	EndTime       string `json:"end_time"`
-	NodeName      string `json:"node_name"`
-	OpName        string `json:"op_name"`
-	SentBytes     int64  `json:"sent_bytes"`
-	StartTime     string `json:"start_time"`
-	Status        string `json:"status"`
-	TotalBytes    int64  `json:"total_bytes"`
-	TransactionID int64  `json:"txn_id"`
-}
-
 func (op *nmaReplicationStatusOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
@@ -145,7 +132,7 @@ func (op *nmaReplicationStatusOp) processResult(_ *opEngineExecContext) error {
 			continue
 		}
 
-		responseObj := []replicationStatusResponse{}
+		responseObj := []ReplicationStatusResponse{}
 		err := op.parseAndCheckResponse(host, result.content, &responseObj)
 		if err != nil {
 			allErrs = errors.Join(allErrs, err)
@@ -159,7 +146,13 @@ func (op *nmaReplicationStatusOp) processResult(_ *opEngineExecContext) error {
 
 		// If we're here, we've successfully received a status from one of the target hosts.
 		// We don't need to check responses from other hosts as they should be the same
-		*op.transactionIDs = transactionIDs.ToSlice()
+		if op.transactionIDs != nil {
+			*op.transactionIDs = transactionIDs.ToSlice()
+		}
+		if op.replicationStatus != nil {
+			*op.replicationStatus = responseObj
+		}
+
 		return nil
 	}
 

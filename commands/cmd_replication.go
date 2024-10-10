@@ -27,5 +27,6 @@ func makeCmdReplication() *cobra.Command {
 on-going replication operation.`)
 
 	cmd.AddCommand(makeCmdStartReplication())
+	cmd.AddCommand(makeCmdGetReplicationStatus())
 	return cmd
 }

@@ -103,7 +103,7 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		&c.startRepOptions.TargetDB,
+		&c.startRepOptions.TargetDB.DBName,
 		targetDBNameFlag,
 		"",
 		"The target database to replicate to.",
@@ -114,32 +114,12 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The source sandbox to replicate from.",
 	)
-	cmd.Flags().StringSliceVar(
-		&c.startRepOptions.TargetHosts,
-		targetHostsFlag,
-		[]string{},
-		"A comma-separated list of hosts in target database.")
-	cmd.Flags().StringVar(
-		&c.startRepOptions.TargetUserName,
-		targetUserNameFlag,
-		"",
-		"The name of a user in the target database.",
-	)
 	cmd.Flags().StringVar(
 		&c.startRepOptions.SourceTLSConfig,
 		sourceTLSConfigFlag,
 		"",
 		"The TLS configuration to use when connecting to the target database.\n "+
 			"This TLS configuration must also exist in the source database.",
-	)
-	cmd.Flags().StringVar(
-		&globals.connFile,
-		targetConnFlag,
-		"",
-		"[Required] The absolute path to the connection file created with the create_connection command, "+
-			"containing the database name, hosts, and password (if any) for the target database. "+
-			"Alternatively, you can provide this information manually with --target-db-name, "+
-			"--target-hosts, and --target-password-file",
 	)
 	cmd.Flags().BoolVar(
 		&c.startRepOptions.Async,
@@ -185,14 +165,6 @@ func (c *CmdStartReplication) setLocalFlags(cmd *cobra.Command) {
 			" name and shard count as the source namespace. You can only replicate"+
 			" tables in the public schema to the default_namespace in the target"+
 			" cluster.",
-	)
-	markFlagsFileName(cmd, map[string][]string{targetConnFlag: {"yaml"}})
-	//  password flags
-	cmd.Flags().StringVar(
-		&c.targetPasswordFile,
-		targetPasswordFileFlag,
-		"",
-		"The absolute path to a file containing the password for the target database. ",
 	)
 }
 
@@ -242,8 +214,8 @@ func (c *CmdStartReplication) validateParse(logger vlog.Printer) error {
 }
 
 func (c *CmdStartReplication) parseTargetHostList() error {
-	if len(c.startRepOptions.TargetHosts) > 0 {
-		err := util.ParseHostList(&c.startRepOptions.TargetHosts)
+	if len(c.startRepOptions.TargetDB.Hosts) > 0 {
+		err := util.ParseHostList(&c.startRepOptions.TargetDB.Hosts)
 		if err != nil {
 			return fmt.Errorf("you must specify at least one target host to replicate to")
 		}
@@ -255,11 +227,11 @@ func (c *CmdStartReplication) parseTargetPassword() error {
 	options := c.startRepOptions
 	if !viper.IsSet(targetPasswordFileKey) {
 		// reset password option to nil if password is not provided in cli
-		options.TargetPassword = nil
+		options.TargetDB.Password = nil
 		return nil
 	}
-	if c.startRepOptions.TargetPassword == nil {
-		options.TargetPassword = new(string)
+	if c.startRepOptions.TargetDB.Password == nil {
+		options.TargetDB.Password = new(string)
 	}
 
 	if c.targetPasswordFile == "" {
@@ -269,7 +241,7 @@ func (c *CmdStartReplication) parseTargetPassword() error {
 	if err != nil {
 		return err
 	}
-	*options.TargetPassword = password
+	*options.TargetDB.Password = password
 	return nil
 }
 
@@ -280,14 +252,14 @@ func (c *CmdStartReplication) Run(vcc vclusterops.ClusterCommands) error {
 
 	transactionID, err := vcc.VReplicateDatabase(options)
 	if err != nil {
-		vcc.LogError(err, "failed to replicate to database", "targetDB", options.TargetDB)
+		vcc.LogError(err, "failed to replicate to database", "targetDB", options.TargetDB.DBName)
 		return err
 	}
 
 	if options.Async {
-		vcc.DisplayInfo("Successfully started replication to database %s. Transaction ID: %d", options.TargetDB, transactionID)
+		vcc.DisplayInfo("Successfully started replication to database %s. Transaction ID: %d", options.TargetDB.DBName, transactionID)
 	} else {
-		vcc.DisplayInfo("Successfully replicated to database %s", options.TargetDB)
+		vcc.DisplayInfo("Successfully replicated to database %s", options.TargetDB.DBName)
 	}
 
 	return nil
@@ -296,8 +268,9 @@ func (c *CmdStartReplication) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance
 func (c *CmdStartReplication) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.startRepOptions.DatabaseOptions = *opt
-	c.startRepOptions.TargetUserName = globals.targetUserName
-	c.startRepOptions.TargetDB = globals.targetDB
-	c.startRepOptions.TargetHosts = globals.targetHosts
+	c.startRepOptions.TargetDB.UserName = globals.targetUserName
+	c.startRepOptions.TargetDB.DBName = globals.targetDB
+	c.startRepOptions.TargetDB.Hosts = globals.targetHosts
+	c.startRepOptions.TargetDB.IPv6 = globals.targetIPv6
 	c.targetPasswordFile = globals.targetPasswordFile
 }

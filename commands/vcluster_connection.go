@@ -52,10 +52,10 @@ func writeConn(targetdb *vclusterops.VReplicationDatabaseOptions) error {
 // readTargetDBToDBConn converts target database to DatabaseConnection
 func readTargetDBToDBConn(cnn *vclusterops.VReplicationDatabaseOptions) DatabaseConnection {
 	targetDBconn := MakeTargetDatabaseConn()
-	targetDBconn.TargetDBName = cnn.TargetDB
-	targetDBconn.TargetHosts = cnn.TargetHosts
-	targetDBconn.TargetPasswordFile = *cnn.TargetPassword
-	targetDBconn.TargetDBUser = cnn.TargetUserName
+	targetDBconn.TargetDBName = cnn.TargetDB.DBName
+	targetDBconn.TargetHosts = cnn.TargetDB.Hosts
+	targetDBconn.TargetPasswordFile = *cnn.TargetDB.Password
+	targetDBconn.TargetDBUser = cnn.TargetDB.UserName
 	return targetDBconn
 }
 

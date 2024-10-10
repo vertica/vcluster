@@ -36,7 +36,7 @@ func makeCmdCreateConnection() *cobra.Command {
 	newCmd := &CmdCreateConnection{}
 	opt := vclusterops.VReplicationDatabaseFactory()
 	newCmd.connectionOptions = &opt
-	opt.TargetPassword = new(string)
+	opt.TargetDB.Password = new(string)
 
 	cmd := makeBasicCobraCmd(
 		newCmd,
@@ -63,25 +63,25 @@ Examples:
 // setLocalFlags will set the local flags the command has
 func (c *CmdCreateConnection) setLocalFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		&c.connectionOptions.TargetDB,
+		&c.connectionOptions.TargetDB.DBName,
 		dbNameFlag,
 		"",
 		"The name of the database. You should only use this option if you want to override the database name in your configuration file.",
 	)
 	cmd.Flags().StringSliceVar(
-		&c.connectionOptions.TargetHosts,
+		&c.connectionOptions.TargetDB.Hosts,
 		hostsFlag,
 		[]string{},
 		"A comma-separated list of hosts in database.")
 	cmd.Flags().StringVar(
-		&c.connectionOptions.TargetUserName,
+		&c.connectionOptions.TargetDB.UserName,
 		dbUserFlag,
 		"",
 		"The name of the user in the target database.",
 	)
 	//  password flags
 	cmd.Flags().StringVar(
-		c.connectionOptions.TargetPassword,
+		c.connectionOptions.TargetDB.Password,
 		passwordFileFlag,
 		"",
 		"The absolute path to a file containing the password to the target database.",
