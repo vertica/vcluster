@@ -26,7 +26,7 @@ import (
 type httpsStartReplicationOp struct {
 	opBase
 	opHTTPSBase
-	TargetDatabaseOptions
+	TargetDB           DatabaseOptions
 	hostRequestBodyMap map[string]string
 	sourceDB           string
 	targetHost         string
@@ -37,7 +37,7 @@ type httpsStartReplicationOp struct {
 
 func makeHTTPSStartReplicationOp(dbName string, sourceHosts []string,
 	sourceUseHTTPPassword bool, sourceUserName string,
-	sourceHTTPPassword *string, targetUseHTTPPassword bool, targetDBOpt *TargetDatabaseOptions,
+	sourceHTTPPassword *string, targetUseHTTPPassword bool, targetDBOpt *DatabaseOptions,
 	targetHost string, tlsConfig, sandbox string, vdb *VCoordinationDatabase) (httpsStartReplicationOp, error) {
 	op := httpsStartReplicationOp{}
 	op.name = "HTTPSStartReplicationOp"
@@ -45,7 +45,7 @@ func makeHTTPSStartReplicationOp(dbName string, sourceHosts []string,
 	op.sourceDB = dbName
 	op.hosts = sourceHosts
 	op.useHTTPPassword = sourceUseHTTPPassword
-	op.TargetDB = targetDBOpt.TargetDB
+	op.TargetDB.DBName = targetDBOpt.DBName
 	op.targetHost = targetHost
 	op.tlsConfig = tlsConfig
 	op.sandbox = sandbox
@@ -60,12 +60,12 @@ func makeHTTPSStartReplicationOp(dbName string, sourceHosts []string,
 		op.httpsPassword = sourceHTTPPassword
 	}
 	if targetUseHTTPPassword {
-		err := util.ValidateUsernameAndPassword(op.name, targetUseHTTPPassword, targetDBOpt.TargetUserName)
+		err := util.ValidateUsernameAndPassword(op.name, targetUseHTTPPassword, targetDBOpt.UserName)
 		if err != nil {
 			return op, err
 		}
-		op.TargetUserName = targetDBOpt.TargetUserName
-		op.TargetPassword = targetDBOpt.TargetPassword
+		op.TargetDB.UserName = targetDBOpt.UserName
+		op.TargetDB.Password = targetDBOpt.Password
 	}
 
 	return op, nil
@@ -85,9 +85,9 @@ func (op *httpsStartReplicationOp) setupRequestBody(hosts []string) error {
 	for _, host := range hosts {
 		replicateData := replicateRequestData{}
 		replicateData.TargetHost = op.targetHost
-		replicateData.TargetDB = op.TargetDB
-		replicateData.TargetUserName = op.TargetUserName
-		replicateData.TargetPassword = op.TargetPassword
+		replicateData.TargetDB = op.TargetDB.DBName
+		replicateData.TargetUserName = op.TargetDB.UserName
+		replicateData.TargetPassword = op.TargetDB.Password
 		replicateData.TLSConfig = op.tlsConfig
 
 		dataBytes, err := json.Marshal(replicateData)

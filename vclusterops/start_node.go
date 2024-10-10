@@ -377,52 +377,20 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	// If we identify any nodes that need re-IP, HostsToStart will contain the nodes that need re-IP.
 	// Otherwise, HostsToStart will consist of all hosts with IPs recorded in the catalog, which are provided by user input.
 	if len(startNodeInfo.ReIPList) != 0 {
-		nmaNetworkProfileOp := makeNMANetworkProfileOp(startNodeInfo.ReIPList)
-		instructions = append(instructions, &nmaNetworkProfileOp)
-		if startNodeInfo.SerialReIP {
-			// when we have lesser up(initiator) hosts than nodes to reip, we send reip requests in chunks of upHostCount size
-			var reipOps []clusterOp
-			chunkedNodeNamesTostart, chunkedReipList := getChunkedNodeLists(startNodeInfo)
-			for i, hostChunk := range chunkedReipList {
-				ReIPOp, e := makeHTTPSReIPOp(chunkedNodeNamesTostart[i], hostChunk,
-					options.usePassword, options.UserName, options.Password)
-				if e != nil {
-					return instructions, e
-				}
-				reipOps = append(reipOps, &ReIPOp)
-			}
-			instructions = append(instructions, reipOps...)
-		} else {
-			httpsReIPOp, e := makeHTTPSReIPOp(startNodeInfo.NodeNamesToStart, startNodeInfo.ReIPList,
-				options.usePassword, options.UserName, options.Password)
-			if e != nil {
-				return instructions, e
-			}
-			instructions = append(instructions, &httpsReIPOp)
+		err = produceStartNodeReIPInstructions(&instructions, startNodeInfo, options, vdb)
+		if err != nil {
+			return instructions, err
 		}
-		// host is set to nil value in the reload spread step
-		// we use information from node information to find the up host later
-		httpsReloadSpreadOp, e := makeHTTPSReloadSpreadOp(true, options.UserName, options.Password)
-		if e != nil {
-			return instructions, e
-		}
-		// update new vdb information after re-ip
-		httpsGetNodesInfoOp, e := makeHTTPSGetNodesInfoOp(options.DBName, options.Hosts,
-			options.usePassword, options.UserName, options.Password, vdb, true, startNodeInfo.Sandbox)
-		if e != nil {
-			return instructions, e
-		}
-		instructions = append(instructions,
-			&httpsReloadSpreadOp,
-			&httpsGetNodesInfoOp,
-		)
 	} else {
 		sandboxName = &startNodeInfo.Sandbox
 	}
+
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpBeforeStartNode(vdb, startNodeInfo.unreachableHosts,
 		startNodeInfo.HostsToStart, startNodeInfo.isStartSc)
-	instructions = append(instructions, &nmaVerticaVersionOp)
+	nmaCheckClusterVersionOp := makeNMACheckClusterVersionOp(options.Hosts, vdb, startNodeInfo.Sandbox)
+	instructions = append(instructions, &nmaVerticaVersionOp, &nmaCheckClusterVersionOp)
+
 	// The second parameter (sourceConfHost) in produceTransferConfigOps is set to a nil value in the upload and download step
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value
 	// after we find any UP primary nodes as source host for syncing spread.conf and vertica.conf
@@ -455,6 +423,56 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
 	return instructions, nil
+}
+
+// If start_node needs to re-ip, we should:
+// 1. call network profile
+// 2. call https re-ip endpoint
+// 3. reload spread
+// 4. call https /v1/nodes to update nodes' info
+func produceStartNodeReIPInstructions(instructions *[]clusterOp,
+	startNodeInfo *VStartNodesInfo, options *VStartNodesOptions, vdb *VCoordinationDatabase) error {
+	nmaNetworkProfileOp := makeNMANetworkProfileOp(startNodeInfo.ReIPList)
+	*instructions = append(*instructions, &nmaNetworkProfileOp)
+	if startNodeInfo.SerialReIP {
+		// when we have lesser up(initiator) hosts than nodes to reip, we send reip requests in chunks of upHostCount size
+		var reipOps []clusterOp
+		chunkedNodeNamesTostart, chunkedReipList := getChunkedNodeLists(startNodeInfo)
+		for i, hostChunk := range chunkedReipList {
+			ReIPOp, err := makeHTTPSReIPOp(chunkedNodeNamesTostart[i], hostChunk,
+				options.usePassword, options.UserName, options.Password)
+			if err != nil {
+				return err
+			}
+			reipOps = append(reipOps, &ReIPOp)
+		}
+		*instructions = append(*instructions, reipOps...)
+	} else {
+		httpsReIPOp, err := makeHTTPSReIPOp(startNodeInfo.NodeNamesToStart, startNodeInfo.ReIPList,
+			options.usePassword, options.UserName, options.Password)
+		if err != nil {
+			return err
+		}
+		*instructions = append(*instructions, &httpsReIPOp)
+	}
+	// host is set to nil value in the reload spread step
+	// we use information from node information to find the up host later
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(true, options.UserName, options.Password)
+	if err != nil {
+		return err
+	}
+	// update new vdb information after re-ip
+	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.DBName, options.Hosts,
+		options.usePassword, options.UserName, options.Password, vdb, true, startNodeInfo.Sandbox)
+	if err != nil {
+		return err
+	}
+	*instructions = append(*instructions,
+		&httpsReloadSpreadOp,
+		&httpsGetNodesInfoOp,
+	)
+
+	return nil
 }
 
 func getChunkedNodeLists(startNodeInfo *VStartNodesInfo) (nodeNameChunks, reIPHostChunks [][]string) {
