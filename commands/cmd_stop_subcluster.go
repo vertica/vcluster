@@ -52,11 +52,11 @@ func makeCmdStopSubcluster() *cobra.Command {
 Examples:
   # Gracefully stop a subcluster with config file
   vcluster stop_subcluster --subcluster sc1 --drain-seconds 10 \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml --password "PASSWORD"
 
   # Forcibly stop a subcluster with config file
   vcluster stop_subcluster --subcluster sc1 --force \
-    --config /opt/vertica/config/vertica_cluster.yaml
+    --config /opt/vertica/config/vertica_cluster.yaml --password "PASSWORD"
 
   # Gracefully stop a subcluster with user input
   vcluster stop_subcluster --db-name test_db --subcluster sc1 \
@@ -64,7 +64,7 @@ Examples:
   
   # Forcibly stop a subcluster with user input
   vcluster stop_subcluster --db-name test_db --subcluster sc1 \
-    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --force
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 --force --password "PASSWORD"
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, eonModeFlag, configFlag, passwordFlag},
 	)

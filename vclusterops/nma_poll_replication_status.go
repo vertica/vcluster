@@ -26,7 +26,7 @@ import (
 
 type nmaPollReplicationStatusOp struct {
 	opBase
-	TargetDatabaseOptions
+	TargetDB               DatabaseOptions
 	hostRequestBodyMap     map[string]string
 	sandbox                string
 	vdb                    *VCoordinationDatabase
@@ -34,25 +34,25 @@ type nmaPollReplicationStatusOp struct {
 	newTransactionID       *int64
 }
 
-func makeNMAPollReplicationStatusOp(targetDBOpt *TargetDatabaseOptions, targetUsePassword bool,
+func makeNMAPollReplicationStatusOp(targetDBOpt *DatabaseOptions, targetUsePassword bool,
 	sandbox string, vdb *VCoordinationDatabase, existingTransactionIDs *[]int64, newTransactionID *int64) (nmaPollReplicationStatusOp, error) {
 	op := nmaPollReplicationStatusOp{}
 	op.name = "NMAPollReplicationStatusOp"
 	op.description = "Retrieve asynchronous replication transaction ID"
-	op.TargetDB = targetDBOpt.TargetDB
-	op.TargetHosts = targetDBOpt.TargetHosts
+	op.TargetDB.DBName = targetDBOpt.DBName
+	op.TargetDB.Hosts = targetDBOpt.Hosts
 	op.sandbox = sandbox
 	op.vdb = vdb
 	op.existingTransactionIDs = existingTransactionIDs
 	op.newTransactionID = newTransactionID
 
 	if targetUsePassword {
-		err := util.ValidateUsernameAndPassword(op.name, targetUsePassword, targetDBOpt.TargetUserName)
+		err := util.ValidateUsernameAndPassword(op.name, targetUsePassword, targetDBOpt.UserName)
 		if err != nil {
 			return op, err
 		}
-		op.TargetUserName = targetDBOpt.TargetUserName
-		op.TargetPassword = targetDBOpt.TargetPassword
+		op.TargetDB.UserName = targetDBOpt.UserName
+		op.TargetDB.Password = targetDBOpt.Password
 	}
 
 	return op, nil
@@ -63,12 +63,12 @@ func (op *nmaPollReplicationStatusOp) updateRequestBody(hosts []string) error {
 
 	for _, host := range hosts {
 		requestData := nmaReplicationStatusRequestData{}
-		requestData.DBName = op.TargetDB
+		requestData.DBName = op.TargetDB.DBName
 		requestData.ExcludedTransactionIDs = *op.existingTransactionIDs
 		requestData.GetTransactionIDsOnly = true
 		requestData.TransactionID = 0
-		requestData.UserName = op.TargetUserName
-		requestData.Password = op.TargetPassword
+		requestData.UserName = op.TargetDB.UserName
+		requestData.Password = op.TargetDB.Password
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {
@@ -94,14 +94,14 @@ func (op *nmaPollReplicationStatusOp) setupClusterHTTPRequest(hosts []string) er
 }
 
 func (op *nmaPollReplicationStatusOp) prepare(execContext *opEngineExecContext) error {
-	err := op.updateRequestBody(op.TargetHosts)
+	err := op.updateRequestBody(op.TargetDB.Hosts)
 	if err != nil {
 		return err
 	}
 
-	execContext.dispatcher.setup(op.TargetHosts)
+	execContext.dispatcher.setup(op.TargetDB.Hosts)
 
-	return op.setupClusterHTTPRequest(op.TargetHosts)
+	return op.setupClusterHTTPRequest(op.TargetDB.Hosts)
 }
 
 func (op *nmaPollReplicationStatusOp) execute(execContext *opEngineExecContext) error {
@@ -145,7 +145,7 @@ func (op *nmaPollReplicationStatusOp) shouldStopPolling() (bool, error) {
 			continue
 		}
 
-		responseObj := []replicationStatusResponse{}
+		responseObj := []ReplicationStatusResponse{}
 		err := op.parseAndCheckResponse(host, result.content, &responseObj)
 		if err != nil {
 			return true, errors.Join(allErrs, err)
