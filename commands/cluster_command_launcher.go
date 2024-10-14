@@ -121,6 +121,16 @@ const (
 	targetPasswordFileKey  = "targetPasswordFile"
 	targetConnFlag         = "target-conn"
 	targetConnKey          = "targetConn"
+	targetKeyFileFlag      = "target-key-file"
+	targetKeyFileKey       = "targetKeyFile"
+	targetCertFileFlag     = "target-cert-file"
+	targetCertFileKey      = "targetCertFile"
+	targetCaCertFileFlag   = "target-ca-cert-file"
+	targetCaCertFileKey    = "targetCaCertFile"
+	targetTLSModeFlag      = "target-tls-mode"
+	targetTLSModeKey       = "targetTLSMode"
+	targetIPv6Flag         = "target-ipv6"
+	targetIPv6Key          = "targetIPv6"
 	asyncFlag              = "async"
 	asyncKey               = "async"
 	sourceTLSConfigFlag    = "source-tlsconfig"
@@ -133,6 +143,8 @@ const (
 	excludePatternKey      = "excludePattern"
 	targetNamespaceFlag    = "target-namespace"
 	targetNamespaceKey     = "targetNamespace"
+	transactionIDFlag      = "transaction-id"
+	transactionIDKey       = "transactionID"
 )
 
 // flags to viper key map
@@ -164,12 +176,18 @@ var flagKeyMap = map[string]string{
 	targetHostsFlag:             targetHostsKey,
 	targetUserNameFlag:          targetUserNameKey,
 	targetPasswordFileFlag:      targetPasswordFileKey,
+	targetKeyFileFlag:           targetKeyFileKey,
+	targetCertFileFlag:          targetCertFileKey,
+	targetCaCertFileFlag:        targetCaCertFileKey,
+	targetTLSModeFlag:           targetTLSModeKey,
+	targetIPv6Flag:              targetIPv6Key,
 	asyncFlag:                   asyncKey,
 	sourceTLSConfigFlag:         sourceTLSConfigKey,
 	tableOrSchemaNameFlag:       tableOrSchemaNameKey,
 	includePatternFlag:          includePatternKey,
 	excludePatternFlag:          excludePatternKey,
 	targetNamespaceFlag:         targetNamespaceKey,
+	transactionIDFlag:           transactionIDKey,
 }
 
 // target database flags to viper key map
@@ -178,6 +196,11 @@ var targetFlagKeyMap = map[string]string{
 	targetHostsFlag:        targetHostsKey,
 	targetUserNameFlag:     targetUserNameKey,
 	targetPasswordFileFlag: targetPasswordFileKey,
+	targetKeyFileFlag:      targetKeyFileKey,
+	targetCertFileFlag:     targetCertFileKey,
+	targetCaCertFileFlag:   targetCaCertFileKey,
+	targetTLSModeFlag:      targetTLSModeKey,
+	targetIPv6Flag:         targetIPv6Key,
 }
 
 // map of viper keys to environment variables
@@ -199,6 +222,7 @@ const (
 	configShowSubCmd        = "show"
 	replicationSubCmd       = "replication"
 	startReplicationSubCmd  = "start"
+	replicationStatusSubCmd = "status"
 	listAllNodesSubCmd      = "list_all_nodes"
 	startDBSubCmd           = "start_db"
 	dropDBSubCmd            = "drop_db"
@@ -239,6 +263,11 @@ type cmdGlobals struct {
 	targetDB           string
 	targetUserName     string
 	connFile           string
+	targetKeyFile      string
+	targetCertFile     string
+	targetCaCertFile   string
+	targetTLSMode      string
+	targetIPv6         bool
 }
 
 var (
@@ -360,6 +389,18 @@ func setTargetDBOptionsUsingViper(flag string) error {
 		globals.targetUserName = viper.GetString(targetUserNameKey)
 	case targetPasswordFileFlag:
 		globals.targetPasswordFile = viper.GetString(targetPasswordFileKey)
+	case targetKeyFileFlag:
+		globals.targetKeyFile = viper.GetString(targetKeyFileKey)
+	case targetCertFileFlag:
+		globals.targetCertFile = viper.GetString(targetCertFileKey)
+	case targetCaCertFileFlag:
+		globals.targetCaCertFile = viper.GetString(targetCaCertFileKey)
+	case targetTLSModeFlag:
+		globals.targetTLSMode = viper.GetString(targetTLSModeKey)
+	case targetIPv6Flag:
+		globals.targetIPv6 = viper.GetBool(targetIPv6Key)
+	case verboseFlag:
+		globals.verbose = viper.GetBool(verboseKey)
 	default:
 		return fmt.Errorf("cannot find the relevant target database option for flag %q", flag)
 	}
@@ -373,7 +414,7 @@ func configViper(cmd *cobra.Command, flagsInConfig []string) error {
 	initConfig()
 
 	// target-flags are only available for replication start command
-	if cmd.CalledAs() == startReplicationSubCmd {
+	if cmd.CalledAs() == startReplicationSubCmd || cmd.CalledAs() == replicationStatusSubCmd {
 		for targetFlag := range targetFlagKeyMap {
 			flagsInConfig = append(flagsInConfig, targetFlag)
 		}
@@ -441,7 +482,7 @@ func loadConfig(cmd *cobra.Command) (err error) {
 
 	// load target db options from connection file to viper
 	// conn file is only available for replication subcommand
-	if cmd.CalledAs() == startReplicationSubCmd {
+	if cmd.CalledAs() == startReplicationSubCmd || cmd.CalledAs() == replicationStatusSubCmd {
 		err := loadConnToViper()
 		if err != nil {
 			return err
@@ -582,6 +623,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdScrutinize(),
 		makeCmdManageConfig(),
 		makeCmdReplication(),
+		makeCmdGetReplicationStatus(),
 		makeCmdCreateConnection(),
 		// hidden cmds (for internal testing only)
 		makeCmdGetDrainingStatus(),

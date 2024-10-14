@@ -564,6 +564,7 @@ type ClusterCommands interface {
 	VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error)
 	VRenameSubcluster(options *VRenameSubclusterOptions) error
 	VReplicateDatabase(options *VReplicationDatabaseOptions) (int64, error)
+	VReplicationStatus(options *VReplicationStatusDatabaseOptions) (*ReplicationStatusResponse, error)
 	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
 	VSandbox(options *VSandboxOptions) error
 	VScrutinize(options *VScrutinizeOptions) error
@@ -571,7 +572,7 @@ type ClusterCommands interface {
 	VSaveRestorePoint(options *VSaveRestorePointOptions) (err error)
 	VStartDatabase(options *VStartDatabaseOptions) (vdbPtr *VCoordinationDatabase, err error)
 	VStartNodes(options *VStartNodesOptions) error
-	VStartSubcluster(startScOpt *VStartScOptions) error
+	VStartSubcluster(startScOpt *VStartScOptions) (VCoordinationDatabase, error)
 	VStopDatabase(options *VStopDatabaseOptions) error
 	VStopNode(options *VStopNodeOptions) error
 	VStopSubcluster(options *VStopSubclusterOptions) error

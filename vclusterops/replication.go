@@ -23,13 +23,6 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-type TargetDatabaseOptions struct {
-	TargetHosts    []string
-	TargetDB       string
-	TargetUserName string
-	TargetPassword *string
-}
-
 type ReplicationOptions struct {
 	TableOrSchemaName string
 	IncludePattern    string
@@ -42,7 +35,7 @@ type VReplicationDatabaseOptions struct {
 	DatabaseOptions
 
 	/* part 2: replication info */
-	TargetDatabaseOptions
+	TargetDB        DatabaseOptions
 	SourceTLSConfig string
 	SandboxName     string
 	Async           bool
@@ -72,22 +65,22 @@ func (options *VReplicationDatabaseOptions) validateEonOptions() error {
 }
 
 func (options *VReplicationDatabaseOptions) validateExtraOptions() error {
-	if len(options.TargetHosts) == 0 {
+	if len(options.TargetDB.Hosts) == 0 {
 		return fmt.Errorf("must specify a target host or target host list")
 	}
 
 	// valiadate target database
-	if options.TargetDB == "" {
+	if options.TargetDB.DBName == "" {
 		return fmt.Errorf("must specify a target database name")
 	}
-	err := util.ValidateDBName(options.TargetDB)
+	err := util.ValidateDBName(options.TargetDB.DBName)
 	if err != nil {
 		return err
 	}
 
 	// need to provide a password or TLSconfig if source and target username are different
-	if options.TargetUserName != options.UserName {
-		if options.TargetPassword == nil && options.SourceTLSConfig == "" {
+	if options.TargetDB.UserName != options.UserName {
+		if options.TargetDB.Password == nil && options.SourceTLSConfig == "" {
 			return fmt.Errorf("only trust authentication can support username without password or TLSConfig")
 		}
 	}
@@ -168,9 +161,9 @@ func (options *VReplicationDatabaseOptions) validateParseOptions(logger vlog.Pri
 
 // analyzeOptions will modify some options based on what is chosen
 func (options *VReplicationDatabaseOptions) analyzeOptions() (err error) {
-	if len(options.TargetHosts) > 0 {
+	if len(options.TargetDB.Hosts) > 0 {
 		// resolve RawHosts to be IP addresses
-		options.TargetHosts, err = util.ResolveRawHostsToAddresses(options.TargetHosts, options.IPv6)
+		options.TargetDB.Hosts, err = util.ResolveRawHostsToAddresses(options.TargetDB.Hosts, options.TargetDB.IPv6)
 		if err != nil {
 			return err
 		}
@@ -224,7 +217,7 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
-	clusterOpEngine := makeClusterOpEngine(instructions, options)
+	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
 
 	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
@@ -257,34 +250,35 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 
 	// verify the username for connecting to the target database
 	targetUsePassword := false
-	if options.TargetPassword != nil {
+	if options.TargetDB.Password != nil {
 		targetUsePassword = true
-		if options.TargetUserName == "" {
+		if options.TargetDB.UserName == "" {
 			username, e := util.GetCurrentUsername()
 			if e != nil {
 				return instructions, e
 			}
-			options.TargetUserName = username
+			options.TargetDB.UserName = username
 		}
-		vcc.Log.Info("Current target username", "username", options.TargetUserName)
+		vcc.Log.Info("Current target username", "username", options.TargetDB.UserName)
 	}
 
-	initiatorTargetHost := getInitiator(options.TargetHosts)
+	initiatorTargetHost := getInitiator(options.TargetDB.Hosts)
 	if options.Async {
-		nmaHealthOp := makeNMAHealthOp(append(options.Hosts, options.TargetHosts...))
+		nmaHealthOp := makeNMAHealthOp(append(options.Hosts, options.TargetDB.Hosts...))
 
 		transactionIDs := &[]int64{}
 
+		// Retrieve a list of transaction IDs before async replication starts
 		nmaReplicationStatusData := nmaReplicationStatusRequestData{}
-		nmaReplicationStatusData.DBName = options.TargetDB
-		nmaReplicationStatusData.ExcludedTransactionIDs = []int64{}
-		nmaReplicationStatusData.GetTransactionIDsOnly = true
-		nmaReplicationStatusData.TransactionID = 0
-		nmaReplicationStatusData.UserName = options.TargetUserName
-		nmaReplicationStatusData.Password = options.TargetPassword
+		nmaReplicationStatusData.DBName = options.TargetDB.DBName
+		nmaReplicationStatusData.ExcludedTransactionIDs = []int64{} // Get all transaction IDs
+		nmaReplicationStatusData.GetTransactionIDsOnly = true       // We only care about transaction IDs here
+		nmaReplicationStatusData.TransactionID = 0                  // Set this to 0 so NMA returns all IDs
+		nmaReplicationStatusData.UserName = options.TargetDB.UserName
+		nmaReplicationStatusData.Password = options.TargetDB.Password
 
-		nmaReplicationStatusOp, err := makeNMAReplicationStatusOp(options.TargetHosts, targetUsePassword,
-			&nmaReplicationStatusData, options.SandboxName, vdb, transactionIDs)
+		nmaReplicationStatusOp, err := makeNMAReplicationStatusOp(options.TargetDB.Hosts, targetUsePassword,
+			&nmaReplicationStatusData, transactionIDs, nil)
 		if err != nil {
 			return instructions, err
 		}
@@ -296,11 +290,11 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 		nmaReplicationData.TableOrSchemaName = options.TableOrSchemaName
 		nmaReplicationData.Username = options.UserName
 		nmaReplicationData.Password = options.Password
-		nmaReplicationData.TargetDBName = options.TargetDB
+		nmaReplicationData.TargetDBName = options.TargetDB.DBName
 		nmaReplicationData.TargetHost = initiatorTargetHost
 		nmaReplicationData.TargetNamespace = options.TargetNamespace
-		nmaReplicationData.TargetUserName = options.TargetUserName
-		nmaReplicationData.TargetPassword = options.TargetPassword
+		nmaReplicationData.TargetUserName = options.TargetDB.UserName
+		nmaReplicationData.TargetPassword = options.TargetDB.Password
 		nmaReplicationData.TLSConfig = options.SourceTLSConfig
 
 		nmaStartReplicationOp, err := makeNMAReplicationStartOp(options.Hosts, options.usePassword, targetUsePassword,
@@ -309,7 +303,7 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 			return instructions, err
 		}
 
-		nmaPollReplicationStatusOp, err := makeNMAPollReplicationStatusOp(&options.TargetDatabaseOptions, targetUsePassword,
+		nmaPollReplicationStatusOp, err := makeNMAPollReplicationStatusOp(&options.TargetDB, targetUsePassword,
 			options.SandboxName, vdb, transactionIDs, asyncReplicationTransactionID)
 		if err != nil {
 			return instructions, err
@@ -329,7 +323,7 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 		}
 
 		httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
-			options.UserName, options.Password, targetUsePassword, &options.TargetDatabaseOptions, initiatorTargetHost,
+			options.UserName, options.Password, targetUsePassword, &options.TargetDB, initiatorTargetHost,
 			options.SourceTLSConfig, options.SandboxName, vdb)
 		if err != nil {
 			return instructions, err

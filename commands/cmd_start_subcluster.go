@@ -29,7 +29,8 @@ import (
  */
 type CmdStartSubcluster struct {
 	startScOptions *vclusterops.VStartScOptions
-
+	// comma-separated list of hosts
+	rawNewHostList []string
 	CmdBase
 }
 
@@ -85,6 +86,12 @@ func (c *CmdStartSubcluster) setLocalFlags(cmd *cobra.Command) {
 		util.DefaultTimeoutSeconds,
 		"The time (in seconds) to wait for nodes to start up (default: 300).",
 	)
+	cmd.Flags().StringSliceVar(
+		&c.rawNewHostList,
+		addNodeFlag,
+		[]string{},
+		"A comma-separated list of new IP addresses to rebind to the nodes in the subcluster.",
+	)
 }
 
 func (c *CmdStartSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -110,6 +117,13 @@ func (c *CmdStartSubcluster) validateParse(logger vlog.Printer) error {
 			return err
 		}
 	}
+	// the node-host map can be loaded from the value of --start-hosts
+	if len(c.rawNewHostList) > 0 {
+		err := c.processStartScHosts()
+		if err != nil {
+			return err
+		}
+	}
 
 	err := c.ValidateParseBaseOptions(&c.startScOptions.DatabaseOptions)
 	if err != nil {
@@ -127,7 +141,7 @@ func (c *CmdStartSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.startScOptions
 
-	err := vcc.VStartSubcluster(options)
+	vdb, err := vcc.VStartSubcluster(options)
 	if err != nil {
 		vcc.LogError(err, "failed to start subcluster.")
 		return err
@@ -139,6 +153,11 @@ func (c *CmdStartSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		return nil
 	}
 
+	err = writeConfig(&vdb, true /*forceOverwrite*/)
+	if err != nil {
+		vcc.DisplayWarning("fail to update config file, details: %s", err)
+	}
+
 	vcc.DisplayInfo("Successfully started subcluster %s for database %s",
 		options.SCName, options.DBName)
 
@@ -148,4 +167,16 @@ func (c *CmdStartSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStartSubcluster
 func (c *CmdStartSubcluster) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.startScOptions.DatabaseOptions = *opt
+}
+
+func (c *CmdStartSubcluster) processStartScHosts() error {
+	for _, rawHost := range c.rawNewHostList {
+		ip, err := util.ResolveToOneIP(rawHost, c.startScOptions.VStartNodesOptions.IPv6)
+		if err != nil {
+			return err
+		}
+		c.startScOptions.NewHostList = append(c.startScOptions.NewHostList, ip)
+	}
+
+	return nil
 }
