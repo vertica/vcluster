@@ -342,13 +342,20 @@ func (options *VRemoveNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase
 	return nil
 }
 
-func getMainClusterNodes(vdb *VCoordinationDatabase, options *VRemoveNodeOptions, mainClusterNodes *[]string) {
+// this finds all main cluster UP nodes, regardless if they will be removed or not
+func getMainClusterNodes(vdb *VCoordinationDatabase, options *VRemoveNodeOptions, mainClusterNodes, nodesToRemove *[]string) {
+	// get nodes that will survive after removal, need to poll for ACTIVE subscriptions for those nodes
 	hostsAfterRemoval := util.SliceDiff(vdb.HostList, options.HostsToRemove)
 	for _, host := range hostsAfterRemoval {
 		vnode := vdb.HostNodeMap[host]
-		if vnode.Sandbox == "" && vnode.State == util.NodeUpState {
+		if vnode.Sandbox == util.MainClusterSandbox && vnode.State == util.NodeUpState {
 			*mainClusterNodes = append(*mainClusterNodes, vnode.Name)
 		}
+	}
+	// get nodes that will be removed to poll for REMOVING subscriptions
+	for _, host := range options.HostsToRemove {
+		vnode := vdb.HostNodeMap[host]
+		*nodesToRemove = append(*nodesToRemove, vnode.Name)
 	}
 }
 
@@ -414,18 +421,19 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 			return instructions, err
 		}
 
-		// for Eon DB, we check whether all subscriptions are ACTIVE after rebalance shards
+		// for Eon DB, we check whether all UP nodes (nodesToPollSubs) have subscriptions being ACTIVE after rebalance shards
+		// also wait for all REMOVING subscriptions are gone for the nodes to remove (nodesToRemove)
 		// Sandboxed nodes cannot be removed, so even if the database has sandboxes,
 		// polling subscriptions for the main cluster is enough
-		var nodesToPollSubs []string
+		var nodesToPollSubs, nodesToRemove []string
 		if len(options.NodesToPullSubs) > 0 {
 			nodesToPollSubs = options.NodesToPullSubs
 		} else {
-			getMainClusterNodes(vdb, options, &nodesToPollSubs)
+			getMainClusterNodes(vdb, options, &nodesToPollSubs, &nodesToRemove)
 		}
 
 		httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(initiatorHost,
-			usePassword, username, password, &nodesToPollSubs)
+			usePassword, username, password, &nodesToPollSubs, &nodesToRemove)
 		if e != nil {
 			return instructions, e
 		}
@@ -439,7 +447,6 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 		}
 		instructions = append(instructions, &httpsRBCOp)
 	}
-
 	// only remove secondary nodes from spread
 	err = vcc.produceSpreadRemoveNodeOp(&instructions, options.HostsToRemove,
 		usePassword, username, password,

@@ -767,7 +767,7 @@ func IsK8sEnvironment() bool {
 // GetClusterName can return the correct cluster name based on the sandbox name.
 // It can help people to log the cluster name.
 func GetClusterName(sandbox string) string {
-	if sandbox == "" {
+	if sandbox == MainClusterSandbox {
 		return "main cluster"
 	}
 	return "sandbox " + sandbox
