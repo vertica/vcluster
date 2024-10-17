@@ -170,6 +170,12 @@ func (vcc *VClusterCommands) produceStopSCInstructions(options *VStopSubclusterO
 		}
 	}
 
+	httpsGetSubclusterInfoOp, err := makeHTTPSGetSubclusterInfoOp(usePassword, options.UserName, options.Password,
+		options.SCName, StopSubclusterCmd)
+	if err != nil {
+		return instructions, err
+	}
+
 	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(options.DBName, options.Hosts,
 		usePassword, options.UserName, options.Password, StopSubclusterCmd, options.SCName)
 	if err != nil {
@@ -194,6 +200,7 @@ func (vcc *VClusterCommands) produceStopSCInstructions(options *VStopSubclusterO
 
 	instructions = append(instructions,
 		&httpsGetUpNodesOp,
+		&httpsGetSubclusterInfoOp,
 		&httpsSyncCatalogOp,
 		&httpsStopSCOp,
 		&httpsCheckDBRunningOp,
