@@ -21,15 +21,21 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
+const (
+	ACTIVE   = "ACTIVE"
+	REMOVING = "REMOVING"
+)
+
 type httpsPollSubscriptionStateOp struct {
 	opBase
 	opHTTPSBase
-	timeout     int
-	nodesToPoll *[]string
+	timeout               int
+	nodesToPoll           *[]string
+	nodesToPollForRemoval *[]string
 }
 
-func makeHTTPSPollSubscriptionStateOp(hosts []string,
-	useHTTPPassword bool, userName string, httpsPassword *string, nodesToPoll *[]string) (httpsPollSubscriptionStateOp, error) {
+func makeHTTPSPollSubscriptionStateOp(hosts []string, useHTTPPassword bool, userName string,
+	httpsPassword *string, nodesToPoll *[]string, nodesToPollForRemoval *[]string) (httpsPollSubscriptionStateOp, error) {
 	op := httpsPollSubscriptionStateOp{}
 	op.name = "HTTPSPollSubscriptionStateOp"
 	op.description = "Wait for subcluster shard rebalance"
@@ -41,6 +47,7 @@ func makeHTTPSPollSubscriptionStateOp(hosts []string,
 	}
 
 	op.nodesToPoll = nodesToPoll
+	op.nodesToPollForRemoval = nodesToPollForRemoval
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -151,8 +158,11 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 			if containsInactiveSub(&subscriptList, op.nodesToPoll) {
 				return false, nil
 			}
-
 			op.logger.PrintInfo("All subscriptions are ACTIVE")
+			if containsRemovingSub(&subscriptList, op.nodesToPollForRemoval) {
+				return false, nil
+			}
+			op.logger.Info("All subscriptions dropped on the removing nodes")
 			return true, nil
 		}
 	}
@@ -165,11 +175,26 @@ func (op *httpsPollSubscriptionStateOp) shouldStopPolling() (bool, error) {
 func containsInactiveSub(subscriptList *subscriptionList, nodesToPoll *[]string) bool {
 	var allNodesWithInactiveSubs []string
 	for _, s := range subscriptList.SubscriptionList {
-		if s.SubscriptionState != "ACTIVE" {
+		if s.SubscriptionState != ACTIVE {
 			allNodesWithInactiveSubs = append(allNodesWithInactiveSubs, s.Nodename)
 		}
 	}
 	nodesToPollWithActiveSubs := util.SliceDiff(*nodesToPoll, allNodesWithInactiveSubs)
 	// all subs of all nodes in nodesToPoll are active
 	return len(*nodesToPoll) != len(nodesToPollWithActiveSubs)
+}
+
+// immediately after calling rebalance_shards() before actually drop a node from catalog
+// the subscriptions of the node will become REMOVING status
+// we need to wait until shard remove actually remove those REMOVING subscriptions in order to drop a node
+func containsRemovingSub(subscriptList *subscriptionList, nodesToPollForRemoval *[]string) bool {
+	var allNodesWithRemovingSubs []string
+	for _, s := range subscriptList.SubscriptionList {
+		if s.SubscriptionState == REMOVING {
+			allNodesWithRemovingSubs = append(allNodesWithRemovingSubs, s.Nodename)
+		}
+	}
+
+	nodesToPollWithRemovingSubs := util.SliceCommon(*nodesToPollForRemoval, allNodesWithRemovingSubs)
+	return len(nodesToPollWithRemovingSubs) != 0
 }

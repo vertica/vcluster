@@ -298,25 +298,6 @@ func (op *httpsGetUpNodesOp) validateHosts(nodesStates nodesStateInfo) error {
 	return nil
 }
 
-// Confirm shutting down the subcluster doesn't crash the database
-func (op *httpsGetUpNodesOp) isSubclusterCritical(nodesStates nodesStateInfo, upScNodes mapset.Set[NodeInfo]) error {
-	allUpPrimaries := mapset.NewSet[string]()
-	upScHosts := mapset.NewSet[string]()
-	for _, n := range upScNodes.ToSlice() {
-		upScHosts.Add(n.Address)
-	}
-	for _, node := range nodesStates.NodeList {
-		if node.Sandbox == op.sandbox && node.State == util.NodeUpState && node.IsPrimary {
-			allUpPrimaries.Add(node.Address)
-		}
-	}
-	remainingPrimaries := allUpPrimaries.Difference(upScHosts)
-	if remainingPrimaries.Cardinality() == 0 {
-		return fmt.Errorf("subcluster %s is critical, shutting the subcluster down will cause the whole database shutdown", op.scName)
-	}
-	return nil
-}
-
 // Check if host is eligible to add to the UP hostlist
 func (op *httpsGetUpNodesOp) checkUpHostEligible(node *nodeStateInfo) bool {
 	// Add subcluster needs to get an UP node from main cluster as initiator
@@ -361,10 +342,6 @@ func (op *httpsGetUpNodesOp) collectUpHosts(nodesStates nodesStateInfo, host str
 	if op.cmdType == StopSubclusterCmd {
 		if !foundSC {
 			return fmt.Errorf(`[%s] cannot find subcluster %s in database %s`, op.name, op.scName, op.DBName)
-		}
-		if op.isScPrimary {
-			err = op.isSubclusterCritical(nodesStates, upScNodes)
-			return err
 		}
 	}
 	return nil
