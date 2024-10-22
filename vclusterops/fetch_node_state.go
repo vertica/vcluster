@@ -213,6 +213,19 @@ func buildNodeStateList(vdb *VCoordinationDatabase, forDownDatabase bool) []Node
 		}
 	}
 
+	for _, vnode := range vdb.UnboundNodes {
+		var nodeInfo NodeInfo
+		nodeInfo.Address = vnode.Address
+		nodeInfo.CatalogPath = vnode.CatalogPath
+		nodeInfo.IsPrimary = false
+		nodeInfo.Name = vnode.Name
+		nodeInfo.Sandbox = vnode.Sandbox
+		nodeInfo.State = util.NodeDownState
+		nodeInfo.Subcluster = vnode.Subcluster
+		nodeStates = append(nodeStates, nodeInfo)
+		scMap[vnode.Subcluster] = false
+	}
+
 	// update IsPrimary of the nodes for running database
 	if !forDownDatabase {
 		for i := 0; i < len(nodeStates); i++ {
