@@ -288,7 +288,7 @@ func (vcc VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOption
 
 	// find latest catalog to use for removal of nodes not in the catalog
 	if trimHostList {
-		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOpForStartDB(vdb, options.FirstStartAfterRevive)
+		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOpForStartDB(vdb, options.FirstStartAfterRevive, options.Sandbox)
 		if err != nil {
 			return instructions, err
 		}
@@ -314,7 +314,7 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 	var instructions []clusterOp
 
 	// vdb here should contain only primary nodes
-	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOpForStartDB(vdb, options.FirstStartAfterRevive)
+	nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOpForStartDB(vdb, options.FirstStartAfterRevive, options.Sandbox)
 	if err != nil {
 		return instructions, err
 	}

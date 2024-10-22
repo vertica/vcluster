@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/rfc7807"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"golang.org/x/exp/maps"
 )
 
@@ -38,6 +39,7 @@ type nmaReadCatalogEditorOp struct {
 	hostsWithLatestCatalog []string
 	latestNmaVDB           nmaVDatabase
 	bestHost               string
+	sandbox                string
 }
 
 // makeNMAReadCatalogEditorOpWithInitiator creates an op to read catalog editor info.
@@ -61,12 +63,13 @@ func makeNMAReadCatalogEditorOp(vdb *VCoordinationDatabase) (nmaReadCatalogEdito
 
 func makeNMAReadCatalogEditorOpForStartDB(
 	vdb *VCoordinationDatabase,
-	firstStartAfterRevive bool) (nmaReadCatalogEditorOp, error) {
+	firstStartAfterRevive bool,
+	sandbox string) (nmaReadCatalogEditorOp, error) {
 	op, err := makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
 	if err != nil {
 		return op, err
 	}
-
+	op.sandbox = sandbox
 	op.firstStartAfterRevive = firstStartAfterRevive
 	return op, err
 }
@@ -273,5 +276,10 @@ func (op *nmaReadCatalogEditorOp) finalize(execContext *opEngineExecContext) err
 	// save the latest nmaVDB to execContext
 	execContext.nmaVDatabase = op.latestNmaVDB
 	op.logger.PrintInfo("reporting results as obtained from the host [%s] ", op.bestHost)
+	// when starting sandboxes, we just need one passing result from a primary node
+	// and we return successfully once we have it.
+	if op.sandbox != util.MainClusterSandbox {
+		return nil
+	}
 	return op.allErrs
 }

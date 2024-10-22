@@ -39,6 +39,10 @@ type VReviveDatabaseOptions struct {
 	IgnoreClusterLease bool
 	// the restore policy
 	RestorePoint RestorePointPolicy
+	// Name of sandbox to revive
+	Sandbox string
+	// Revive db on main cluster only
+	MainCluster bool
 }
 
 type RestorePointPolicy struct {
@@ -260,7 +264,15 @@ func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (db
 	if err != nil {
 		return dbInfo, &vdb, fmt.Errorf("fail to revive database %w", err)
 	}
-
+	nmaVDB := clusterOpEngine.execContext.nmaVDatabase
+	for h, vnode := range nmaVDB.HostNodeMap {
+		_, ok := vdb.HostNodeMap[h]
+		if !ok {
+			continue
+		}
+		vdb.HostNodeMap[h].Subcluster = vnode.Subcluster.Name
+		vdb.HostNodeMap[h].Sandbox = vnode.Subcluster.SandboxName
+	}
 	// fill vdb with VReviveDatabaseOptions information
 	vdb.Name = options.DBName
 	vdb.IsEon = true
@@ -299,7 +311,8 @@ func (vcc VClusterCommands) producePreReviveDBInstructions(options *VReviveDatab
 	)
 
 	// use current description file path as source file path
-	currConfigFileSrcPath := options.getCurrConfigFilePath()
+	currConfigFileSrcPath := ""
+	currConfigFileSrcPath = options.getCurrConfigFilePath(options.Sandbox)
 
 	if !options.isRestoreEnabled() {
 		// perform revive, either display-only or not
@@ -384,7 +397,7 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 	if err != nil {
 		return instructions, err
 	}
-
+	initiator := []string{}
 	// create a new HostNodeMap to prepare directories
 	hostNodeMap := makeVHostNodeMap()
 	// remove user storage locations from storage locations in every node
@@ -392,6 +405,10 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 	// and fail to create user storage location will not cause a failure of NMA /directories/prepare call.
 	// as a result, we separate user storage locations with other storage locations
 	for host, vnode := range newVDB.HostNodeMap {
+		if vnode.IsPrimary {
+			// whether reviving to main cluster or sandbox, the host node map would always have relevant cluster nodes
+			initiator = append(initiator, host)
+		}
 		userLocationSet := make(map[string]struct{})
 		for _, userLocation := range vnode.UserStorageLocations {
 			userLocationSet[userLocation] = struct{}{}
@@ -405,6 +422,7 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 		vnode.StorageLocations = newLocations
 		hostNodeMap[host] = vnode
 	}
+
 	// prepare all directories
 	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(hostNodeMap, options.ForceRemoval, true /*for db revive*/)
 	if err != nil {
@@ -412,14 +430,18 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 	}
 
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(options.Hosts)
-
-	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogOp(oldHosts, options.ConfigurationParameters,
-		&newVDB, options.LoadCatalogTimeout, &options.RestorePoint)
+	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogWithSandboxOp(oldHosts, options.ConfigurationParameters,
+		&newVDB, options.LoadCatalogTimeout, &options.RestorePoint, options.Sandbox)
+	nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpWithInitiator(initiator, &newVDB)
+	if err != nil {
+		return instructions, err
+	}
 
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,
 		&nmaNetworkProfileOp,
 		&nmaLoadRemoteCatalogOp,
+		&nmaReadCatEdOp,
 	)
 
 	return instructions, nil

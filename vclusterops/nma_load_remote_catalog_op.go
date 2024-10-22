@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaLoadRemoteCatalogOp struct {
@@ -30,6 +32,7 @@ type nmaLoadRemoteCatalogOp struct {
 	timeout                 uint
 	primaryNodeCount        uint
 	restorePoint            *RestorePointPolicy
+	Sandbox                 string
 }
 
 type loadRemoteCatalogRequestData struct {
@@ -46,6 +49,7 @@ type loadRemoteCatalogRequestData struct {
 	RestorePointArchive string              `json:"restore_point_archive,omitempty"`
 	RestorePointIndex   int                 `json:"restore_point_index,omitempty"`
 	RestorePointID      string              `json:"restore_point_id,omitempty"`
+	Sandbox             string              `json:"sandbox,omitempty"`
 }
 
 func makeNMALoadRemoteCatalogOp(oldHosts []string, configurationParameters map[string]string,
@@ -57,7 +61,7 @@ func makeNMALoadRemoteCatalogOp(oldHosts []string, configurationParameters map[s
 	op.oldHosts = oldHosts
 	op.configurationParameters = configurationParameters
 	op.vdb = vdb
-	op.timeout = timeout
+	op.timeout = timeout // timeout 0 indicates wait forever
 	op.restorePoint = restorePoint
 
 	op.primaryNodeCount = 0
@@ -67,6 +71,13 @@ func makeNMALoadRemoteCatalogOp(oldHosts []string, configurationParameters map[s
 		}
 	}
 
+	return op
+}
+
+func makeNMALoadRemoteCatalogWithSandboxOp(oldHosts []string, configurationParameters map[string]string,
+	vdb *VCoordinationDatabase, timeout uint, restorePoint *RestorePointPolicy, sandbox string) nmaLoadRemoteCatalogOp {
+	op := makeNMALoadRemoteCatalogOp(oldHosts, configurationParameters, vdb, timeout, restorePoint)
+	op.Sandbox = sandbox
 	return op
 }
 
@@ -105,6 +116,9 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 			requestData.RestorePointArchive = op.restorePoint.Archive
 			requestData.RestorePointIndex = op.restorePoint.Index
 			requestData.RestorePointID = op.restorePoint.ID
+		}
+		if op.Sandbox != util.MainClusterSandbox {
+			requestData.Sandbox = op.Sandbox
 		}
 
 		dataBytes, err := json.Marshal(requestData)
