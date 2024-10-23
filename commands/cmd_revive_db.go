@@ -16,6 +16,7 @@
 package commands
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -42,8 +43,10 @@ func makeCmdReviveDB() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		reviveDBSubCmd,
-		"Revive or restores an Eon Mod database.",
-		`Revives or restores an Eon Mode database. You cannot revive sandboxes with this command.
+		"Revive or restores an Eon Mode database.",
+		`Revives or restores an Eon Mode database. In a cluster with sandboxes, the database can be revived 
+		 to main cluster by default or by using the arg --main-cluster-only. arg --sandbox <sandboxname> can 
+		 be used to revive database to given sandbox.
 
 If access to communal storage requires access keys, you must provide the keys with the --config-param option.
 
@@ -128,6 +131,18 @@ func (c *CmdReviveDB) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The identifier of the restore point in the restore archive.",
 	)
+	cmd.Flags().StringVar(
+		&c.reviveDBOptions.Sandbox,
+		sandboxFlag,
+		"",
+		"Name of the sandbox to revive",
+	)
+	cmd.Flags().BoolVar(
+		&c.reviveDBOptions.MainCluster,
+		"main-cluster-only",
+		false,
+		"Revive the database on main cluster, but do not touch any of the sandboxes",
+	)
 	// only one of restore-point-index or restore-point-id" will be required
 	cmd.MarkFlagsMutuallyExclusive("restore-point-index", "restore-point-id")
 }
@@ -184,15 +199,45 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	// write db info to vcluster config file
 	vdb.FirstStartAfterRevive = true
-	err = writeConfig(vdb, true /*forceOverwrite*/)
-	if err != nil {
-		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
-	}
 
+	// Read the config file
+	dbConfig := MakeDatabaseConfig()
+	dbConfigPtr, configErr := readConfig()
+	if configErr != nil {
+		// config file does not exist, neither main cluster nor sandbox has been revived yet.
+		// overwrite the config file.
+		err = c.overwriteConfig(vdb)
+		if err != nil {
+			vcc.DisplayWarning(err.Error())
+			return nil
+		}
+	} else {
+		// config file already exists. This could happen if we have partially revived the db(sandbox or main cluster) already
+		// In this case, we update the existing config file instead of overwriting it.
+		dbConfig = *dbConfigPtr
+		updateConfig(vdb, &dbConfig)
+		writeErr := dbConfig.write(c.reviveDBOptions.ConfigPath, true /*forceOverwrite*/)
+		if writeErr != nil {
+			vcc.DisplayWarning("Fail to update config file: %s", writeErr)
+			return nil
+		}
+		err = c.writeConfigParam(c.reviveDBOptions.ConfigurationParameters, true /*forceOverwrite*/)
+		if err != nil {
+			vcc.DisplayWarning("Failed to write the configuration parameter file: %s", err)
+		}
+	}
+	return nil
+}
+
+func (c *CmdReviveDB) overwriteConfig(vdb *vclusterops.VCoordinationDatabase) error {
+	err := writeConfig(vdb, true /*forceOverwrite*/)
+	if err != nil {
+		return fmt.Errorf("failed to write the configuration file: %s", err)
+	}
 	// write config parameters to vcluster config param file
 	err = c.writeConfigParam(c.reviveDBOptions.ConfigurationParameters, true /*forceOverwrite*/)
 	if err != nil {
-		vcc.DisplayWarning("Failed to write the configuration parameter file: %s", err)
+		return fmt.Errorf("failed to write the configuration parameter file: %s", err)
 	}
 	return nil
 }

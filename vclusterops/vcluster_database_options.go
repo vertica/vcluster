@@ -324,7 +324,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 	// step 2: get node details from cluster_config.json
 	vdb2 := VCoordinationDatabase{}
 	var instructions2 []clusterOp
-	currConfigFileSrcPath := opt.getCurrConfigFilePath()
+	currConfigFileSrcPath := opt.getCurrConfigFilePath(util.MainClusterSandbox)
 	nmaDownLoadFileOp, err := makeNMADownloadFileOp(opt.Hosts, currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
 		opt.ConfigurationParameters, &vdb2)
 	if err != nil {
@@ -365,11 +365,20 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 	return vdb, nil
 }
 
-// getCurrConfigFilePath can make the current description file path using db name and communal storage location in the options
-func (opt *DatabaseOptions) getCurrConfigFilePath() string {
-	// description file will be in the location: {communal_storage_location}/metadata/{db_name}/cluster_config.json
+// getCurrConfigFilePath can make the current description file path using the database (or sandbox) name and
+// communal storage location in the options
+func (opt *DatabaseOptions) getCurrConfigFilePath(sandbox string) string {
+	descriptor := opt.DBName
+	if sandbox != util.MainClusterSandbox {
+		descriptor = sandbox
+	}
+	// For main cluster or a cluster without sandboxes, description file will be in the location:
+	// {communal_storage_location}/metadata/{db_name}/cluster_config.json
 	// an example: s3://tfminio/test_loc/metadata/test_db/cluster_config.json
-	descriptionFilePath := filepath.Join(opt.CommunalStorageLocation, descriptionFileMetadataFolder, opt.DBName, descriptionFileName)
+	// For sandboxes, description file will be in the location:
+	// {communal_storage_location}/metadata/{sandbox_name}/cluster_config.json
+	// an example: s3://tfminio/test_loc/metadata/sand/cluster_config.json
+	descriptionFilePath := filepath.Join(opt.CommunalStorageLocation, descriptionFileMetadataFolder, descriptor, descriptionFileName)
 	// filepath.Join() will change "://" of the remote communal storage path to ":/"
 	// as a result, we need to change the separator back to url format
 	descriptionFilePath = strings.Replace(descriptionFilePath, ":/", "://", 1)

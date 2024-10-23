@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -272,6 +273,43 @@ func buildNodeConfig(vnode *vclusterops.VCoordinationNode,
 	}
 
 	return nodeConfig
+}
+
+// Update give node info based on give vnode info
+func updateNodeConfig(vnode *vclusterops.VCoordinationNode,
+	vdb *vclusterops.VCoordinationDatabase, n *NodeConfig) {
+	n.Address = vnode.Address
+	n.Subcluster = vnode.Subcluster
+	n.Sandbox = vnode.Sandbox
+	n.CatalogPath = vnode.CatalogPath
+	if vdb.DataPrefix == "" && len(vnode.StorageLocations) > 0 && n.DataPath == "" {
+		n.DataPath = vnode.StorageLocations[0]
+	}
+	n.DepotPath = vnode.DepotPath
+}
+
+// update the input dbConfig
+func updateConfig(vdb *vclusterops.VCoordinationDatabase, dbConfig *DatabaseConfig) {
+	var newNodes []*NodeConfig
+	nodeConfigMap := make(map[string]*NodeConfig)
+	for _, n := range dbConfig.Nodes {
+		nodeConfigMap[n.Name] = n
+	}
+
+	for _, vnode := range vdb.HostNodeMap {
+		if n, exists := nodeConfigMap[vnode.Name]; exists {
+			// If found, update the existing node configuration
+			updateNodeConfig(vnode, vdb, n)
+		} else {
+			// If not found, build and append a new node configuration
+			n := buildNodeConfig(vnode, vdb)
+			newNodes = append(newNodes, &n)
+		}
+	}
+	dbConfig.Nodes = append(dbConfig.Nodes, newNodes...)
+	sort.Slice(dbConfig.Nodes, func(i, j int) bool {
+		return dbConfig.Nodes[i].Name < dbConfig.Nodes[j].Name
+	})
 }
 
 // read reads information from configFilePath to a DatabaseConfig object.
