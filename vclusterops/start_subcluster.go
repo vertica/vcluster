@@ -80,7 +80,7 @@ func (options *VStartScOptions) validateParseOptions(logger vlog.Printer) error 
 		return err
 	}
 
-	// batch 2: validate eon params
+	// batch 2: validate eon parameters
 	err = options.validateEonOptions()
 	if err != nil {
 		return err

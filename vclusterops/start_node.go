@@ -457,13 +457,13 @@ func produceStartNodeReIPInstructions(instructions *[]clusterOp,
 	}
 	// host is set to nil value in the reload spread step
 	// we use information from node information to find the up host later
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(true, options.UserName, options.Password)
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return err
 	}
 	// update new vdb information after re-ip
 	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.DBName, options.Hosts,
-		options.usePassword, options.UserName, options.Password, vdb, true, startNodeInfo.Sandbox)
+		options.usePassword, options.UserName, options.Password, vdb, options.usePassword, startNodeInfo.Sandbox)
 	if err != nil {
 		return err
 	}
