@@ -28,9 +28,15 @@ type httpsCreateNodeOp struct {
 	RequestParams map[string]string
 }
 
+// some reused parameters
+const (
+	createNodeSCNameParam = "subcluster"
+	createNodeCGNameParam = "compute-group"
+)
+
 func makeHTTPSCreateNodeOp(newNodeHosts []string, bootstrapHost []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-	vdb *VCoordinationDatabase, scName string) (httpsCreateNodeOp, error) {
+	vdb *VCoordinationDatabase, scName, computeGroupName string) (httpsCreateNodeOp, error) {
 	op := httpsCreateNodeOp{}
 	op.name = "HTTPSCreateNodeOp"
 	op.description = "Create node in catalog"
@@ -41,7 +47,10 @@ func makeHTTPSCreateNodeOp(newNodeHosts []string, bootstrapHost []string,
 	op.RequestParams["data-prefix"] = vdb.DataPrefix + "/" + vdb.Name
 	op.RequestParams["hosts"] = util.ArrayToString(newNodeHosts, ",")
 	if scName != "" {
-		op.RequestParams["subcluster"] = scName
+		op.RequestParams[createNodeSCNameParam] = scName
+	}
+	if computeGroupName != "" {
+		op.RequestParams[createNodeCGNameParam] = computeGroupName
 	}
 	err := op.validateAndSetUsernameAndPassword(op.name,
 		useHTTPPassword, userName, httpsPassword)
@@ -74,6 +83,16 @@ func (op *httpsCreateNodeOp) updateQueryParams(execContext *opEngineExecContext)
 			return fmt.Errorf("[%s] unable to find network profile for host %s", op.name, host)
 		}
 		op.RequestParams["broadcast"] = profile.Broadcast
+	}
+
+	// if the compute group doesn't exist yet, and the compute node is in a compute group
+	// of the default subcluster, the sc name is explicitly needed for the create CG DDL
+	cgName, ok := op.RequestParams[createNodeCGNameParam]
+	if ok && cgName != "" {
+		scName, ok := op.RequestParams[createNodeSCNameParam]
+		if !ok || scName == "" {
+			op.RequestParams[createNodeSCNameParam] = execContext.defaultSCName
+		}
 	}
 	return nil
 }

@@ -395,7 +395,12 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	usePassword := options.usePassword
 	password := options.Password
 
-	if (len(vdb.HostList) - len(options.HostsToRemove)) < ksafetyThreshold {
+	// compute nodes don't count towards shard coverage
+	permanentHostsToRemove := util.SliceDiff(options.HostsToRemove, vdb.ComputeNodes)
+
+	// adjust k-safety if this remove node operation drops too many full nodes
+	permanentHostCount := len(vdb.HostList) - len(vdb.ComputeNodes)
+	if (permanentHostCount - len(permanentHostsToRemove)) < ksafetyThreshold {
 		httpsMarkDesignKSafeOp, e := makeHTTPSMarkDesignKSafeOp(initiatorHost, usePassword, username,
 			password, ksafeValueZero)
 		if e != nil {
@@ -404,49 +409,22 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 		instructions = append(instructions, &httpsMarkDesignKSafeOp)
 	}
 
-	err := vcc.produceMarkEphemeralNodeOps(&instructions, options.HostsToRemove, initiatorHost,
-		usePassword, username, password, vdb.HostNodeMap)
+	// compute nodes cannot be marked as ephemeral
+	if len(permanentHostsToRemove) > 0 {
+		err := vcc.produceMarkEphemeralNodeOps(&instructions, permanentHostsToRemove, initiatorHost,
+			usePassword, username, password, vdb.HostNodeMap)
+		if err != nil {
+			return instructions, err
+		}
+	}
+
+	// perform any rebalancing operations needed
+	err := vcc.produceRebalanceClusterOps(&instructions, permanentHostsToRemove, initiatorHost, usePassword, username, password,
+		vdb, options)
 	if err != nil {
 		return instructions, err
 	}
 
-	// this is a copy of the original that only
-	// contains the hosts to remove.
-	v := vdb.copy(options.HostsToRemove)
-	if vdb.IsEon {
-		// we pass the set of subclusters of the nodes to remove.
-		err = vcc.produceRebalanceSubclusterShardsOps(&instructions, initiatorHost, v.getSCNames(),
-			usePassword, username, password)
-		if err != nil {
-			return instructions, err
-		}
-
-		// for Eon DB, we check whether all UP nodes (nodesToPollSubs) have subscriptions being ACTIVE after rebalance shards
-		// also wait for all REMOVING subscriptions are gone for the nodes to remove (nodesToRemove)
-		// Sandboxed nodes cannot be removed, so even if the database has sandboxes,
-		// polling subscriptions for the main cluster is enough
-		var nodesToPollSubs, nodesToRemove []string
-		if len(options.NodesToPullSubs) > 0 {
-			nodesToPollSubs = options.NodesToPullSubs
-		} else {
-			getMainClusterNodes(vdb, options, &nodesToPollSubs, &nodesToRemove)
-		}
-
-		httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(initiatorHost,
-			usePassword, username, password, &nodesToPollSubs, &nodesToRemove)
-		if e != nil {
-			return instructions, e
-		}
-		instructions = append(instructions, &httpsPollSubscriptionStateOp)
-	} else {
-		var httpsRBCOp httpsRebalanceClusterOp
-		httpsRBCOp, err = makeHTTPSRebalanceClusterOp(initiatorHost, usePassword, username,
-			password)
-		if err != nil {
-			return instructions, err
-		}
-		instructions = append(instructions, &httpsRBCOp)
-	}
 	// only remove secondary nodes from spread
 	err = vcc.produceSpreadRemoveNodeOp(&instructions, options.HostsToRemove,
 		usePassword, username, password,
@@ -469,6 +447,9 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	}
 	instructions = append(instructions, &httpsReloadSpreadOp)
 
+	// this is a copy of the original that only
+	// contains the hosts to remove, including any compute nodes
+	v := vdb.copy(options.HostsToRemove)
 	nmaHealthOp := makeNMAHealthOpSkipUnreachable(v.HostList)
 	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, options.ForceDelete)
 	if err != nil {
@@ -499,6 +480,52 @@ func (vcc VClusterCommands) produceMarkEphemeralNodeOps(instructions *[]clusterO
 			return err
 		}
 		*instructions = append(*instructions, &httpsMarkEphemeralNodeOp)
+	}
+	return nil
+}
+
+func (vcc VClusterCommands) produceRebalanceClusterOps(instructions *[]clusterOp,
+	permanentHostsToRemove, initiatorHost []string,
+	usePassword bool, username string, password *string,
+	vdb *VCoordinationDatabase, options *VRemoveNodeOptions) error {
+	if vdb.IsEon {
+		// if all nodes being removed are compute nodes, we can skip rebalancing.
+		if len(permanentHostsToRemove) > 0 {
+			// we pass the set of subclusters of the permanent nodes to remove.
+			v := vdb.copy(permanentHostsToRemove)
+			err := vcc.produceRebalanceSubclusterShardsOps(instructions, initiatorHost, v.getSCNames(),
+				usePassword, username, password)
+			if err != nil {
+				return err
+			}
+		}
+
+		// For Eon DB, we check whether all UP nodes (nodesToPollSubs) have ACTIVE subscriptions after rebalancing shards.
+		// Also wait til all REMOVING subscriptions are gone for the nodes to remove (nodesToRemove).
+		// Sandboxed nodes cannot be removed, so even if the database has sandboxes,
+		// polling subscriptions for the main cluster is enough.
+		// This excludes compute nodes.
+		var nodesToPollSubs, nodesToRemove []string
+		if len(options.NodesToPullSubs) > 0 {
+			nodesToPollSubs = options.NodesToPullSubs
+		} else {
+			getMainClusterNodes(vdb, options, &nodesToPollSubs, &nodesToRemove)
+		}
+
+		httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(initiatorHost,
+			usePassword, username, password, &nodesToPollSubs, &nodesToRemove)
+		if e != nil {
+			return e
+		}
+		*instructions = append(*instructions, &httpsPollSubscriptionStateOp)
+	} else {
+		var httpsRBCOp httpsRebalanceClusterOp
+		httpsRBCOp, err := makeHTTPSRebalanceClusterOp(initiatorHost, usePassword, username,
+			password)
+		if err != nil {
+			return err
+		}
+		*instructions = append(*instructions, &httpsRBCOp)
 	}
 	return nil
 }

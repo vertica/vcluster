@@ -140,6 +140,7 @@ func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 			op.vdb.HostNodeMap = makeVHostNodeMap()
 			op.vdb.HostList = []string{}
 			op.vdb.PrimaryUpNodes = []string{}
+			op.vdb.ComputeNodes = []string{}
 			op.vdb.UnboundNodes = []*VCoordinationNode{}
 			for _, node := range nodesStates.NodeList {
 				if node.Database != op.dbName {
@@ -150,6 +151,8 @@ func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 				vnode := buildVnodeFromNodeStateInfo(node)
 				if node.IsPrimary && node.State == util.NodeUpState {
 					op.vdb.PrimaryUpNodes = append(op.vdb.PrimaryUpNodes, node.Address)
+				} else if node.State == util.NodeComputeState {
+					op.vdb.ComputeNodes = append(op.vdb.ComputeNodes, node.Address)
 				}
 				err := op.vdb.addNode(&vnode)
 				if err != nil {

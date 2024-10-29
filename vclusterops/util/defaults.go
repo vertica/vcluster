@@ -41,6 +41,7 @@ const (
 	DefaultControlSetSize            = -1
 	NodeUpState                      = "UP"
 	NodeDownState                    = "DOWN"
+	NodeComputeState                 = "COMPUTE"
 	NodeUnknownState                 = "UNKNOWN" // this is for sandbox only
 	SuppressHelp                     = "SUPPRESS_HELP"
 	MainClusterSandbox               = ""
