@@ -163,8 +163,7 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 			if op.cmdType == StartDBCmd || op.cmdType == StartNodeCmd {
 				op.logger.PrintError("[%s] The credentials are incorrect. 'Catalog Sync' will not be executed.",
 					op.name)
-				return false, fmt.Errorf("[%s] wrong password/certificate for https service on host %s, but the nodes' startup have been in progress."+
-					"Please use vsql to check the nodes' status and manually run sync_catalog vsql command 'select sync_catalog()'", op.name, host)
+				return false, makePollNodeStateAuthenticationError(op.name, host)
 			} else if op.cmdType == CreateDBCmd {
 				return true, fmt.Errorf("[%s] wrong password/certificate for https service on host %s",
 					op.name, host)
@@ -252,4 +251,9 @@ func (op *httpsPollNodeStateOp) shouldStopPollingForDown() (bool, error) {
 	op.updateSpinnerStopMessage("all nodes are down")
 
 	return true, nil
+}
+
+func makePollNodeStateAuthenticationError(opName, hostName string) error {
+	return fmt.Errorf("[%s] wrong password/certificate for https service on host %s, but the nodes' startup have been in progress. "+
+		"Please use vsql to check the nodes' status and manually run sync_catalog vsql command 'select sync_catalog()'", opName, hostName)
 }

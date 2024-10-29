@@ -57,6 +57,7 @@ type VCoordinationDatabase struct {
 	Ipv6 bool
 
 	PrimaryUpNodes        []string
+	ComputeNodes          []string
 	FirstStartAfterRevive bool
 }
 
@@ -199,6 +200,7 @@ func (vdb *VCoordinationDatabase) copy(targetHosts []string) VCoordinationDataba
 		LicensePathOnNode:       vdb.LicensePathOnNode,
 		Ipv6:                    vdb.Ipv6,
 		PrimaryUpNodes:          util.CopySlice(vdb.PrimaryUpNodes),
+		ComputeNodes:            util.CopySlice(vdb.ComputeNodes),
 	}
 
 	if len(targetHosts) == 0 {

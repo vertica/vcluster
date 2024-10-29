@@ -16,6 +16,7 @@
 package vclusterops
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -46,6 +47,9 @@ type VAddNodeOptions struct {
 	// Names of the existing nodes in the cluster. This option can be
 	// used to remove partially added nodes from catalog.
 	ExpectedNodeNames []string
+	// Name of the compute group for the new node(s). If provided, this indicates the new nodes
+	// will be compute nodes.
+	ComputeGroup string
 
 	// timeout for polling nodes in seconds when we add Nodes
 	TimeOut int
@@ -185,7 +189,7 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 
 	// add_node is aborted if requirements are not met.
 	// Here we check whether the nodes being added already exist
-	err = checkAddNodeRequirements(&vdb, options.NewHosts)
+	err = options.checkAddNodeRequirements(&vdb, options.NewHosts)
 	if err != nil {
 		return vdb, err
 	}
@@ -208,11 +212,16 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 }
 
 // checkAddNodeRequirements returns an error if at least one of the nodes
-// to add already exists in db.
-func checkAddNodeRequirements(vdb *VCoordinationDatabase, hostsToAdd []string) error {
+// to add already exists in db, or if attempting to add compute nodes to
+// an enterprise db.
+func (options *VAddNodeOptions) checkAddNodeRequirements(vdb *VCoordinationDatabase, hostsToAdd []string) error {
 	// we don't want any of the new host to be part of the db.
 	if nodes, _ := vdb.containNodes(hostsToAdd); len(nodes) != 0 {
 		return fmt.Errorf("%s already exist in the database", strings.Join(nodes, ","))
+	}
+
+	if !vdb.IsEon && options.ComputeGroup != "" {
+		return errors.New("cannot add compute nodes to an Enterprise mode database")
 	}
 
 	return nil
@@ -225,8 +234,8 @@ func (options *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) e
 	vdb.DepotPrefix = options.DepotPrefix
 
 	hostNodeMap := makeVHostNodeMap()
-	// TODO: we set the depot and data path from /nodes rather than manually
-	// (VER-92725). This is useful for nmaDeleteDirectoriesOp.
+	// We could set the depot and data path from /nodes rather than manually.
+	// This would be useful for nmaDeleteDirectoriesOp.
 	for h, vnode := range vdb.HostNodeMap {
 		dataPath := vdb.GenDataPath(vnode.Name)
 		vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
@@ -236,6 +245,12 @@ func (options *VAddNodeOptions) completeVDBSetting(vdb *VCoordinationDatabase) e
 		hostNodeMap[h] = vnode
 	}
 	vdb.HostNodeMap = hostNodeMap
+
+	// Compute nodes currently do not have depot support, so skip setting up
+	// the depot for now. This doesn't affect directory preparation.
+	if options.ComputeGroup != "" {
+		vdb.UseDepot = false
+	}
 
 	return nil
 }
@@ -260,6 +275,7 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 		expectedNodeNames[nodeName] = struct{}{}
 	}
 
+	subscribingHostsCount := 0
 	var aliveHosts []string
 	var nodesToTrim []string
 	nodeNamesInCatalog := make(map[string]any)
@@ -268,13 +284,19 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 		if _, ok := expectedNodeNames[vnode.Name]; ok { // catalog node is expected
 			aliveHosts = append(aliveHosts, h)
 			existingHostNodeMap[h] = vnode
+			// This could be counting a DOWN compute node as counting towards
+			// k-safety. When compute nodes can be identified when down or offline,
+			// this should do so instead of checking state.
+			if vnode.State != util.NodeComputeState {
+				subscribingHostsCount++
+			}
 		} else if vnode.Sandbox != "" { // add sandbox node to allExistingHostNodeMap as well
 			existingHostNodeMap[h] = vnode
 		} else { // main cluster catalog node is not expected, trim it
 			// cannot trim UP nodes
-			if vnode.State == util.NodeUpState {
-				return existingHostNodeMap, fmt.Errorf("cannot trim the UP node %s (address %s)",
-					vnode.Name, h)
+			if vnode.State == util.NodeUpState || vnode.State == util.NodeComputeState {
+				return existingHostNodeMap, fmt.Errorf("cannot trim the %s node %s (address %s)",
+					vnode.State, vnode.Name, h)
 			}
 			nodesToTrim = append(nodesToTrim, vnode.Name)
 		}
@@ -295,7 +317,7 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 	var instructions []clusterOp
 
 	// mark k-safety
-	if len(aliveHosts) < ksafetyThreshold {
+	if subscribingHostsCount < ksafetyThreshold {
 		httpsMarkDesignKSafeOp, err := makeHTTPSMarkDesignKSafeOp(initiator,
 			options.usePassword, options.UserName, options.Password,
 			ksafeValueZero)
@@ -385,7 +407,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	}
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(vdb.HostList)
 	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newHosts, initiatorHost,
-		usePassword, username, password, vdb, options.SCName)
+		usePassword, username, password, vdb, options.SCName, options.ComputeGroup)
 	if err != nil {
 		return instructions, err
 	}
@@ -413,14 +435,27 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		nil /*Sandbox name*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, options.StartUpConf, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
-	if err != nil {
-		return instructions, err
+	var pollNodeStateOp clusterOp
+	if options.ComputeGroup == "" {
+		// poll normally
+		httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
+		if err != nil {
+			return instructions, err
+		}
+		httpsPollNodeStateOp.cmdType = AddNodeCmd
+		pollNodeStateOp = &httpsPollNodeStateOp
+	} else {
+		// poll indirectly via nodes with catalog access
+		httpsPollComputeNodeStateOp, err := makeHTTPSPollComputeNodeStateOp(vdb.PrimaryUpNodes, newHosts, usePassword,
+			username, password, options.TimeOut)
+		if err != nil {
+			return instructions, err
+		}
+		pollNodeStateOp = &httpsPollComputeNodeStateOp
 	}
-	httpsPollNodeStateOp.cmdType = AddNodeCmd
 	instructions = append(instructions,
 		&nmaStartNewNodesOp,
-		&httpsPollNodeStateOp,
+		pollNodeStateOp,
 	)
 
 	return vcc.prepareAdditionalEonInstructions(vdb, options, instructions,
@@ -447,7 +482,10 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 			return instructions, err
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
-		if !*options.SkipRebalanceShards {
+		// Rebalancing shards after only adding compute nodes is pointless as compute nodes only
+		// have ephemeral subscriptions. However, it may be needed if real nodes were just trimmed.
+		// Only ignore the specified option if compute nodes were added with no trimming.
+		if !*options.SkipRebalanceShards && (options.ComputeGroup == "" || len(options.ExpectedNodeNames) != 0) {
 			httpsRBSCShardsOp, err := makeHTTPSRebalanceSubclusterShardsOp(
 				initiatorHost, usePassword, username, options.Password, options.SCName)
 			if err != nil {

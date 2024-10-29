@@ -265,13 +265,18 @@ func (vcc VClusterCommands) VReviveDatabase(options *VReviveDatabaseOptions) (db
 		return dbInfo, &vdb, fmt.Errorf("fail to revive database %w", err)
 	}
 	nmaVDB := clusterOpEngine.execContext.nmaVDatabase
-	for h, vnode := range nmaVDB.HostNodeMap {
-		_, ok := vdb.HostNodeMap[h]
-		if !ok {
-			continue
+	// collect nodes indexed by node name, in case node address has changed.
+	nodeMap := make(map[string]*VCoordinationNode)
+	for _, node := range vdb.HostNodeMap {
+		nodeMap[node.Name] = node
+	}
+	// update vdb info
+	for _, vnode := range nmaVDB.HostNodeMap {
+		if node, exists := nodeMap[vnode.Name]; exists {
+			node.Address = vnode.Address
+			node.Subcluster = vnode.Subcluster.Name
+			node.Sandbox = vnode.Subcluster.SandboxName
 		}
-		vdb.HostNodeMap[h].Subcluster = vnode.Subcluster.Name
-		vdb.HostNodeMap[h].Sandbox = vnode.Subcluster.SandboxName
 	}
 	// fill vdb with VReviveDatabaseOptions information
 	vdb.Name = options.DBName

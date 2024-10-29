@@ -114,6 +114,13 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"[Use only with support guidance] A comma-separated list of node names that exist in the cluster.",
 	)
+	cmd.Flags().StringVar(
+		&c.addNodeOptions.ComputeGroup,
+		"compute-group",
+		"",
+		util.GetEonFlagMsg("The new or existing compute group for the new nodes. "+
+			"If specified, the new nodes will be compute-only nodes."),
+	)
 	cmd.Flags().IntVar(
 		&c.addNodeOptions.TimeOut,
 		"add-node-timeout",

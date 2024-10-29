@@ -457,7 +457,7 @@ func (vcc VClusterCommands) produceCreateDBWorkerNodesInstructions(
 	newNodeHosts := util.SliceDiff(hosts, bootstrapHost)
 	if len(hosts) > 1 {
 		httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newNodeHosts, bootstrapHost,
-			true /* use password auth */, options.UserName, options.Password, vdb, "")
+			true /* use password auth */, options.UserName, options.Password, vdb, "" /* subcluster */, "" /* compute group */)
 		if err != nil {
 			return instructions, err
 		}
