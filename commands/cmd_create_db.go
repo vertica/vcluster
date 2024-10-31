@@ -253,11 +253,11 @@ func (c *CmdCreateDB) validateParse(logger vlog.Printer) error {
 		return err
 	}
 
-	if !c.usePassword() {
-		err = c.getCertFilesFromCertPaths(&c.createDBOptions.DatabaseOptions)
-		if err != nil {
-			return err
-		}
+	// for creating a database, db password is mandatory input
+	// we need to read certs for connecting to node management agent
+	err = c.getCertFilesFromCertPaths(&c.createDBOptions.DatabaseOptions)
+	if err != nil {
+		return err
 	}
 
 	err = c.setDBPassword(&c.createDBOptions.DatabaseOptions)

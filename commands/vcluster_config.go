@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -235,7 +236,7 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 			return dbConfig, fmt.Errorf("cannot find host %s from HostNodeMap", host)
 		}
 
-		nodeConfig := buildNodeConfig(vnode, vdb)
+		nodeConfig := BuildNodeConfig(vnode, vdb)
 		dbConfig.Nodes = append(dbConfig.Nodes, &nodeConfig)
 	}
 
@@ -248,7 +249,7 @@ func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, 
 	return dbConfig, nil
 }
 
-func buildNodeConfig(vnode *vclusterops.VCoordinationNode,
+func BuildNodeConfig(vnode *vclusterops.VCoordinationNode,
 	vdb *vclusterops.VCoordinationDatabase) NodeConfig {
 	nodeConfig := NodeConfig{}
 	nodeConfig.Name = vnode.Name
@@ -281,7 +282,14 @@ func updateNodeConfig(vnode *vclusterops.VCoordinationNode,
 	n.Address = vnode.Address
 	n.Subcluster = vnode.Subcluster
 	n.Sandbox = vnode.Sandbox
-	n.CatalogPath = vnode.CatalogPath
+	if n.CatalogPath == "" {
+		if strings.HasSuffix(vnode.CatalogPath, "/Catalog") {
+			// Remove the "/Catalog" suffix and assign the remaining path to catalogPath
+			n.CatalogPath = strings.TrimSuffix(vnode.CatalogPath, "/Catalog")
+		} else {
+			n.CatalogPath = vnode.CatalogPath
+		}
+	}
 	if vdb.DataPrefix == "" && len(vnode.StorageLocations) > 0 && n.DataPath == "" {
 		n.DataPath = vnode.StorageLocations[0]
 	}
@@ -289,7 +297,7 @@ func updateNodeConfig(vnode *vclusterops.VCoordinationNode,
 }
 
 // update the input dbConfig
-func updateConfig(vdb *vclusterops.VCoordinationDatabase, dbConfig *DatabaseConfig) {
+func UpdateDBConfig(vdb *vclusterops.VCoordinationDatabase, dbConfig *DatabaseConfig, sandbox string, mainClusterOnly bool) {
 	var newNodes []*NodeConfig
 	nodeConfigMap := make(map[string]*NodeConfig)
 	for _, n := range dbConfig.Nodes {
@@ -297,13 +305,15 @@ func updateConfig(vdb *vclusterops.VCoordinationDatabase, dbConfig *DatabaseConf
 	}
 
 	for _, vnode := range vdb.HostNodeMap {
-		if n, exists := nodeConfigMap[vnode.Name]; exists {
-			// If found, update the existing node configuration
-			updateNodeConfig(vnode, vdb, n)
-		} else {
-			// If not found, build and append a new node configuration
-			n := buildNodeConfig(vnode, vdb)
-			newNodes = append(newNodes, &n)
+		if sandbox == vnode.Sandbox || (mainClusterOnly && vnode.Sandbox == util.MainClusterSandbox) {
+			if n, exists := nodeConfigMap[vnode.Name]; exists {
+				// If found, update the existing node configuration
+				updateNodeConfig(vnode, vdb, n)
+			} else {
+				// If not found, build and append a new node configuration
+				n := BuildNodeConfig(vnode, vdb)
+				newNodes = append(newNodes, &n)
+			}
 		}
 	}
 	dbConfig.Nodes = append(dbConfig.Nodes, newNodes...)

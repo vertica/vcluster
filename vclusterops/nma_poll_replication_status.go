@@ -45,13 +45,13 @@ func makeNMAPollReplicationStatusOp(targetDBOpt *DatabaseOptions, targetUsePassw
 	op.vdb = vdb
 	op.existingTransactionIDs = existingTransactionIDs
 	op.newTransactionID = newTransactionID
+	op.TargetDB.UserName = targetDBOpt.UserName
 
 	if targetUsePassword {
 		err := util.ValidateUsernameAndPassword(op.name, targetUsePassword, targetDBOpt.UserName)
 		if err != nil {
 			return op, err
 		}
-		op.TargetDB.UserName = targetDBOpt.UserName
 		op.TargetDB.Password = targetDBOpt.Password
 	}
 
