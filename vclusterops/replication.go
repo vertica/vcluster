@@ -189,12 +189,6 @@ func (options *VReplicationDatabaseOptions) validateAnalyzeOptions(logger vlog.P
 
 // VReplicateDatabase can copy all table data and metadata from this cluster to another
 func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOptions) (int64, error) {
-	/*
-	 *   - Produce Instructions
-	 *   - Create a VClusterOpEngine
-	 *   - Give the instructions to the VClusterOpEngine to run
-	 */
-
 	// validate and analyze options
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
@@ -209,11 +203,202 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 	}
 
 	asyncReplicationTransactionID := new(int64)
+	if options.Async {
+		err := vcc.replicateDatabaseAsync(options, &vdb, asyncReplicationTransactionID)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		err := vcc.replicateDatabaseSync(options, &vdb)
+		if err != nil {
+			return 0, err
+		}
+	}
+	return *asyncReplicationTransactionID, nil
+}
+
+// Perform asynchronous database replication
+func (vcc VClusterCommands) replicateDatabaseAsync(options *VReplicationDatabaseOptions,
+	vdb *VCoordinationDatabase, asyncReplicationTransactionID *int64) error {
+	/*
+	 * Async replication steps:
+	 * - (on target) Run NMA health check, get a list of existing transaction IDs
+	 * - (on source) Run NMA health check, start asynchronous replication
+	 * - (on target) Poll NMA for a new transaction ID - this is the ID for the new asynchronous replication operation
+	 *
+	 * Since source and target NMA certs can be different (VER-96992), we have to create multiple VClusterOpEngines to
+	 * perform these steps. For each step:
+	 * - Produce Instructions
+	 * - Create a VClusterOpEngine with the correct certs (source or target)
+	 * - Give the instructions to the VClusterOpEngine to run
+	 */
+
+	// need username for https operations in source database
+	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
+	if err != nil {
+		return err
+	}
+
+	// verify the username for connecting to the target database
+	targetUsePassword := false
+	if options.TargetDB.Password != nil {
+		targetUsePassword = true
+		if options.TargetDB.UserName == "" {
+			username, e := util.GetCurrentUsername()
+			if e != nil {
+				return e
+			}
+			options.TargetDB.UserName = username
+		}
+		vcc.Log.Info("Current target username", "username", options.TargetDB.UserName)
+	}
+
+	// Produce instructions for target NMA health check and getting a list of existing transaction IDs
+	transactionIDs := &[]int64{}
+	instructions, err := vcc.produceGetTransactionIDsInstructions(options, targetUsePassword, transactionIDs)
+	if err != nil {
+		return fmt.Errorf("fail to produce instructions for getting existing transaction IDs, %w", err)
+	}
+
+	// Create a VClusterOpEngine, and add target certs to the engine
+	clusterOpEngine := makeClusterOpEngine(instructions, &options.TargetDB)
+
+	// Give the instructions to the VClusterOpEngine to run
+	runError := clusterOpEngine.run(vcc.Log)
+	if runError != nil {
+		return fmt.Errorf("fail to get existing transaction IDs: %w", runError)
+	}
+
+	// Produce instructions for starting async replication
+	instructions, err = vcc.produceStartAsyncReplicationInstructions(options, vdb, targetUsePassword)
+	if err != nil {
+		return fmt.Errorf("fail to produce instructions for starting replication, %w", err)
+	}
+
+	// create a VClusterOpEngine, and add source certs to the engine
+	clusterOpEngine = makeClusterOpEngine(instructions, &options.DatabaseOptions)
+
+	// give the instructions to the VClusterOpEngine to run
+	runError = clusterOpEngine.run(vcc.Log)
+	if runError != nil {
+		return fmt.Errorf("fail to start replication: %w", runError)
+	}
+
+	// Produce instructions for getting a new transaction ID to identify the async replication operation
+	instructions, err = vcc.produceGetNewTransactionIDInstructions(options, vdb, targetUsePassword,
+		transactionIDs, asyncReplicationTransactionID)
+	if err != nil {
+		return fmt.Errorf("fail to produce instructions for getting transaction ID, %w", err)
+	}
+
+	// Create a VClusterOpEngine, and add target certs to the engine
+	clusterOpEngine = makeClusterOpEngine(instructions, &options.TargetDB)
+
+	// Give the instructions to the VClusterOpEngine to run
+	runError = clusterOpEngine.run(vcc.Log)
+	if runError != nil {
+		return fmt.Errorf("fail to get transaction ID: %w", runError)
+	}
+
+	return nil
+}
+
+func (vcc VClusterCommands) produceGetTransactionIDsInstructions(options *VReplicationDatabaseOptions,
+	targetUsePassword bool, transactionIDs *[]int64) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	nmaHealthOp := makeNMAHealthOp(options.TargetDB.Hosts)
+
+	// Retrieve a list of transaction IDs before async replication starts
+	nmaReplicationStatusData := nmaReplicationStatusRequestData{}
+	nmaReplicationStatusData.DBName = options.TargetDB.DBName
+	nmaReplicationStatusData.ExcludedTransactionIDs = []int64{} // Get all transaction IDs
+	nmaReplicationStatusData.GetTransactionIDsOnly = true       // We only care about transaction IDs here
+	nmaReplicationStatusData.TransactionID = 0                  // Set this to 0 so NMA returns all IDs
+	nmaReplicationStatusData.UserName = options.TargetDB.UserName
+	nmaReplicationStatusData.Password = options.TargetDB.Password
+
+	nmaReplicationStatusOp, err := makeNMAReplicationStatusOp(options.TargetDB.Hosts, targetUsePassword,
+		&nmaReplicationStatusData, transactionIDs, nil)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions,
+		&nmaHealthOp,
+		&nmaReplicationStatusOp,
+	)
+
+	return instructions, nil
+}
+
+func (vcc VClusterCommands) produceStartAsyncReplicationInstructions(options *VReplicationDatabaseOptions,
+	vdb *VCoordinationDatabase, targetUsePassword bool) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	initiatorTargetHost := getInitiator(options.TargetDB.Hosts)
+
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+
+	nmaReplicationData := nmaStartReplicationRequestData{}
+	nmaReplicationData.DBName = options.DBName
+	nmaReplicationData.ExcludePattern = options.ExcludePattern
+	nmaReplicationData.IncludePattern = options.IncludePattern
+	nmaReplicationData.TableOrSchemaName = options.TableOrSchemaName
+	nmaReplicationData.Username = options.UserName
+	nmaReplicationData.Password = options.Password
+	nmaReplicationData.TargetDBName = options.TargetDB.DBName
+	nmaReplicationData.TargetHost = initiatorTargetHost
+	nmaReplicationData.TargetNamespace = options.TargetNamespace
+	nmaReplicationData.TargetUserName = options.TargetDB.UserName
+	nmaReplicationData.TargetPassword = options.TargetDB.Password
+	nmaReplicationData.TLSConfig = options.SourceTLSConfig
+
+	nmaStartReplicationOp, err := makeNMAReplicationStartOp(options.Hosts, options.usePassword, targetUsePassword,
+		&nmaReplicationData, vdb)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions,
+		&nmaHealthOp,
+		&nmaStartReplicationOp,
+	)
+
+	return instructions, nil
+}
+
+func (vcc VClusterCommands) produceGetNewTransactionIDInstructions(options *VReplicationDatabaseOptions,
+	vdb *VCoordinationDatabase, targetUsePassword bool, transactionIDs *[]int64,
+	asyncReplicationTransactionID *int64) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	nmaPollReplicationStatusOp, err := makeNMAPollReplicationStatusOp(&options.TargetDB, targetUsePassword,
+		options.SandboxName, vdb, transactionIDs, asyncReplicationTransactionID)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions,
+		&nmaPollReplicationStatusOp,
+	)
+
+	return instructions, nil
+}
+
+// Perform synchronous database replication
+func (vcc VClusterCommands) replicateDatabaseSync(options *VReplicationDatabaseOptions,
+	vdb *VCoordinationDatabase) error {
+	/*
+	 *   - Produce Instructions
+	 *   - Create a VClusterOpEngine
+	 *   - Give the instructions to the VClusterOpEngine to run
+	 */
 
 	// produce database replication instructions
-	instructions, err := vcc.produceDBReplicationInstructions(options, &vdb, asyncReplicationTransactionID)
+	instructions, err := vcc.produceSyncDBReplicationInstructions(options, vdb)
 	if err != nil {
-		return 0, fmt.Errorf("fail to produce instructions, %w", err)
+		return fmt.Errorf("fail to produce instructions, %w", err)
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
@@ -228,18 +413,17 @@ func (vcc VClusterCommands) VReplicateDatabase(options *VReplicationDatabaseOpti
 				"2. set EnableConnectCredentialForwarding to True in source database using vsql " +
 				"3. configure a Trust Authentication in target database using vsql")
 		}
-		return 0, fmt.Errorf("fail to replicate database: %w", runError)
+		return fmt.Errorf("fail to replicate database: %w", runError)
 	}
-	return *asyncReplicationTransactionID, nil
+
+	return nil
 }
 
-// The generated instructions will later perform the following operations necessary
-// for a successful replication.
-//   - Check NMA connectivity
-//   - Check Vertica versions
-//   - Replicate database
-func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicationDatabaseOptions,
-	vdb *VCoordinationDatabase, asyncReplicationTransactionID *int64) ([]clusterOp, error) {
+// The generated instructions will later perform the following operations necessary for synchronous replication:
+//   - Disallow multiple namespaces
+//   - Replicate database (synchronous)
+func (vcc VClusterCommands) produceSyncDBReplicationInstructions(options *VReplicationDatabaseOptions,
+	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// need username for https operations in source database
@@ -263,77 +447,24 @@ func (vcc VClusterCommands) produceDBReplicationInstructions(options *VReplicati
 	}
 
 	initiatorTargetHost := getInitiator(options.TargetDB.Hosts)
-	if options.Async {
-		nmaHealthOp := makeNMAHealthOp(append(options.Hosts, options.TargetDB.Hosts...))
 
-		transactionIDs := &[]int64{}
-
-		// Retrieve a list of transaction IDs before async replication starts
-		nmaReplicationStatusData := nmaReplicationStatusRequestData{}
-		nmaReplicationStatusData.DBName = options.TargetDB.DBName
-		nmaReplicationStatusData.ExcludedTransactionIDs = []int64{} // Get all transaction IDs
-		nmaReplicationStatusData.GetTransactionIDsOnly = true       // We only care about transaction IDs here
-		nmaReplicationStatusData.TransactionID = 0                  // Set this to 0 so NMA returns all IDs
-		nmaReplicationStatusData.UserName = options.TargetDB.UserName
-		nmaReplicationStatusData.Password = options.TargetDB.Password
-
-		nmaReplicationStatusOp, err := makeNMAReplicationStatusOp(options.TargetDB.Hosts, targetUsePassword,
-			&nmaReplicationStatusData, transactionIDs, nil)
-		if err != nil {
-			return instructions, err
-		}
-
-		nmaReplicationData := nmaStartReplicationRequestData{}
-		nmaReplicationData.DBName = options.DBName
-		nmaReplicationData.ExcludePattern = options.ExcludePattern
-		nmaReplicationData.IncludePattern = options.IncludePattern
-		nmaReplicationData.TableOrSchemaName = options.TableOrSchemaName
-		nmaReplicationData.Username = options.UserName
-		nmaReplicationData.Password = options.Password
-		nmaReplicationData.TargetDBName = options.TargetDB.DBName
-		nmaReplicationData.TargetHost = initiatorTargetHost
-		nmaReplicationData.TargetNamespace = options.TargetNamespace
-		nmaReplicationData.TargetUserName = options.TargetDB.UserName
-		nmaReplicationData.TargetPassword = options.TargetDB.Password
-		nmaReplicationData.TLSConfig = options.SourceTLSConfig
-
-		nmaStartReplicationOp, err := makeNMAReplicationStartOp(options.Hosts, options.usePassword, targetUsePassword,
-			&nmaReplicationData, vdb)
-		if err != nil {
-			return instructions, err
-		}
-
-		nmaPollReplicationStatusOp, err := makeNMAPollReplicationStatusOp(&options.TargetDB, targetUsePassword,
-			options.SandboxName, vdb, transactionIDs, asyncReplicationTransactionID)
-		if err != nil {
-			return instructions, err
-		}
-
-		instructions = append(instructions,
-			&nmaHealthOp,
-			&nmaReplicationStatusOp,
-			&nmaStartReplicationOp,
-			&nmaPollReplicationStatusOp,
-		)
-	} else {
-		httpsDisallowMultipleNamespacesOp, err := makeHTTPSDisallowMultipleNamespacesOp(options.Hosts,
-			options.usePassword, options.UserName, options.Password, options.SandboxName, vdb)
-		if err != nil {
-			return instructions, err
-		}
-
-		httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
-			options.UserName, options.Password, targetUsePassword, &options.TargetDB, initiatorTargetHost,
-			options.SourceTLSConfig, options.SandboxName, vdb)
-		if err != nil {
-			return instructions, err
-		}
-
-		instructions = append(instructions,
-			&httpsDisallowMultipleNamespacesOp,
-			&httpsStartReplicationOp,
-		)
+	httpsDisallowMultipleNamespacesOp, err := makeHTTPSDisallowMultipleNamespacesOp(options.Hosts,
+		options.usePassword, options.UserName, options.Password, options.SandboxName, vdb)
+	if err != nil {
+		return instructions, err
 	}
+
+	httpsStartReplicationOp, err := makeHTTPSStartReplicationOp(options.DBName, options.Hosts, options.usePassword,
+		options.UserName, options.Password, targetUsePassword, &options.TargetDB, initiatorTargetHost,
+		options.SourceTLSConfig, options.SandboxName, vdb)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions,
+		&httpsDisallowMultipleNamespacesOp,
+		&httpsStartReplicationOp,
+	)
 
 	return instructions, nil
 }

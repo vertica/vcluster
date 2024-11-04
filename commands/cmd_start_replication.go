@@ -195,12 +195,22 @@ func (c *CmdStartReplication) validateParse(logger vlog.Printer) error {
 			return err
 		}
 	}
-	err := c.parseTargetHostList()
+	err := c.getTargetCertFilesFromCertPaths(&c.startRepOptions.TargetDB)
+	if err != nil {
+		return err
+	}
+
+	err = c.parseTargetHostList()
 	if err != nil {
 		return err
 	}
 
 	err = c.parseTargetPassword()
+	if err != nil {
+		return err
+	}
+
+	err = c.ValidateParseBaseTargetOptions(&c.startRepOptions.TargetDB)
 	if err != nil {
 		return err
 	}

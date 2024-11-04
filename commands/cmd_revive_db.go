@@ -215,7 +215,7 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 		// config file already exists. This could happen if we have partially revived the db(sandbox or main cluster) already
 		// In this case, we update the existing config file instead of overwriting it.
 		dbConfig = *dbConfigPtr
-		updateConfig(vdb, &dbConfig)
+		UpdateDBConfig(vdb, &dbConfig, c.reviveDBOptions.Sandbox, c.reviveDBOptions.MainCluster)
 		writeErr := dbConfig.write(c.reviveDBOptions.ConfigPath, true /*forceOverwrite*/)
 		if writeErr != nil {
 			vcc.DisplayWarning("Fail to update config file: %s", writeErr)
