@@ -305,7 +305,7 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 		if result.isFailing() && !result.isHTTPRunning() {
 			downHosts[host] = true
 			continue
-		} else if result.isException() {
+		} else if result.isException() || result.isEOF() {
 			exceptionHosts[host] = true
 			continue
 		}
