@@ -292,7 +292,7 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// Give the instructions to the VClusterOpEngine to run
-	err = clusterOpEngine.run(vcc.Log)
+	err = clusterOpEngine.runInSandbox(vcc.Log, &vdb, startNodeInfo.Sandbox)
 	if err != nil {
 		return fmt.Errorf("fail to start node, %w", err)
 	}
