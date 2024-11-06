@@ -25,7 +25,7 @@ type opEngineExecContext struct {
 	nodesInfo       []NodeInfo
 	scNodesInfo     []NodeInfo // a node list contains all nodes in a subcluster
 
-	// This field is specifically used for sandboxing
+	// this field is specifically used for sandboxing
 	// as sandboxing requires all nodes in the subcluster to be sandboxed to be UP.
 	upScInfo                      map[string]string // map with UP hosts as keys and their subcluster names as values.
 	upHostsToSandboxes            map[string]string // map with UP hosts as keys and their corresponding sandbox names as values.
@@ -44,6 +44,11 @@ type opEngineExecContext struct {
 
 	// hosts that have the VCluster server PID file
 	HostsWithVclusterServerPid []string
+
+	// sandbox on which the op engine will run instruction
+	sandbox string
+	// this vdb will only be used to get sandbox info of the nodes
+	vdbForSandboxInfo *VCoordinationDatabase
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {

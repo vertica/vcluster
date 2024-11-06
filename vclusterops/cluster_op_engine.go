@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"fmt"
 
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -35,7 +36,16 @@ func makeClusterOpEngine(instructions []clusterOp, tlsOptions opTLSOptions) VClu
 }
 
 func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
+	// when vdb is nil or sandbox is not specified,
+	// the op engine will not filter any hosts to send requests
+	return opEngine.runInSandbox(logger, nil /*vdb*/, util.MainClusterSandbox)
+}
+
+func (opEngine *VClusterOpEngine) runInSandbox(logger vlog.Printer,
+	vdb *VCoordinationDatabase, sandbox string) error {
 	execContext := makeOpEngineExecContext(logger)
+	execContext.vdbForSandboxInfo = vdb
+	execContext.sandbox = sandbox
 	opEngine.execContext = &execContext
 
 	return opEngine.runWithExecContext(logger, &execContext)
@@ -67,6 +77,7 @@ func (opEngine *VClusterOpEngine) runInstruction(
 	defer op.cleanupSpinner()
 
 	op.filterUnreachableHosts(execContext)
+	op.filterHostsBySandbox(execContext)
 
 	op.logPrepare()
 	err := op.prepare(execContext)

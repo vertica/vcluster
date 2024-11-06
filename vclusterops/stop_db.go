@@ -160,7 +160,7 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.run(vcc.Log)
+	runError := clusterOpEngine.runInSandbox(vcc.GetLog(), &vdb, options.SandboxName)
 	if runError != nil {
 		return fmt.Errorf("fail to stop database: %w", runError)
 	}
