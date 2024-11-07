@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -101,6 +102,18 @@ func (c *CmdListAllNodes) validateParse(logger vlog.Printer) error {
 
 func (c *CmdListAllNodes) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
+	c.fetchNodeStateOptions.SandboxedNodesOnly = true
+	dbConfig, configErr := readConfig()
+	if configErr != nil {
+		c.fetchNodeStateOptions.SandboxedNodesOnly = false
+		vcc.DisplayWarning("Failed to read the configuration file", "error", configErr)
+	} else {
+		for _, n := range dbConfig.Nodes {
+			if n.Sandbox == util.MainClusterSandbox {
+				c.fetchNodeStateOptions.SandboxedNodesOnly = false
+			}
+		}
+	}
 
 	nodeStates, err := vcc.VFetchNodeState(c.fetchNodeStateOptions)
 	if err != nil {

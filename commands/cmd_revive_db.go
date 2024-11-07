@@ -164,6 +164,14 @@ func (c *CmdReviveDB) validateParse(logger vlog.Printer) error {
 		}
 	}
 
+	if c.reviveDBOptions.Sandbox != "" && c.reviveDBOptions.MainCluster {
+		return fmt.Errorf("sandbox and main_cluster_only are mutually exclusive")
+	}
+
+	if c.reviveDBOptions.Sandbox == "" && !c.reviveDBOptions.MainCluster {
+		logger.DisplayWarning("neither --sandbox nor --main_cluster_only option is specified, proceeding to revive to main cluster")
+	}
+
 	// when --display-only is provided, we do not need to parse some base options like hostListStr
 	if c.reviveDBOptions.DisplayOnly {
 		return nil
