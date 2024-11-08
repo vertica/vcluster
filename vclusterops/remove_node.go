@@ -382,6 +382,8 @@ func getSortedHosts(hostsToRemove []string, hostNodeMap vHostNodeMap) []string {
 //   - Poll subscription state, wait for all subscrptions ACTIVE for Eon mode
 //   - Remove secondary nodes from spread
 //   - Drop Nodes
+//   - Kill live compute nodes
+//   - Poll compute node status
 //   - Reload spread
 //   - Delete catalog and data directories
 //   - Sync catalog (eon only)
@@ -434,11 +436,18 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	}
 
 	sortedHosts := getSortedHosts(options.HostsToRemove, vdb.HostNodeMap)
-
 	err = vcc.produceDropNodeOps(&instructions, sortedHosts, initiatorHost,
 		usePassword, username, password, vdb.HostNodeMap, vdb.IsEon, options.IsSubcluster)
 	if err != nil {
 		return instructions, err
+	}
+
+	// compute nodes don't get the distcall to stop upon drop, so terminate them directly
+	computeHostsToRemove := util.SliceCommon(options.HostsToRemove, vdb.ComputeNodes)
+	err = vcc.produceStopAndPollComputeNodeOps(&instructions, computeHostsToRemove, vdb.HostNodeMap,
+		usePassword, username, password)
+	if err != nil {
+		return instructions, nil
 	}
 
 	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, usePassword, username, password)
@@ -535,12 +544,14 @@ func (vcc VClusterCommands) produceRebalanceClusterOps(instructions *[]clusterOp
 func (vcc VClusterCommands) produceRebalanceSubclusterShardsOps(instructions *[]clusterOp, initiatorHost, scNames []string,
 	useHTTPPassword bool, userName string, httpsPassword *string) error {
 	for _, scName := range scNames {
-		op, err := makeHTTPSRebalanceSubclusterShardsOp(
-			initiatorHost, useHTTPPassword, userName, httpsPassword, scName)
-		if err != nil {
-			return err
+		if scName != "" {
+			op, err := makeHTTPSRebalanceSubclusterShardsOp(
+				initiatorHost, useHTTPPassword, userName, httpsPassword, scName)
+			if err != nil {
+				return err
+			}
+			*instructions = append(*instructions, &op)
 		}
-		*instructions = append(*instructions, &op)
 	}
 
 	return nil
@@ -561,6 +572,29 @@ func (vcc VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, target
 		*instructions = append(*instructions, &httpsDropNodeOp)
 	}
 
+	return nil
+}
+
+// produceStopAndPollComputeNodeOps produces the instructions to stop compute nodes
+// and poll only the compute nodes for DOWN state.
+func (vcc VClusterCommands) produceStopAndPollComputeNodeOps(instructions *[]clusterOp,
+	computeHostsToStop []string,
+	hostNodeMap vHostNodeMap,
+	usePassword bool, username string, password *string) error {
+	if len(computeHostsToStop) > 0 {
+		err := vcc.produceStopComputeNodeOps(instructions, computeHostsToStop, hostNodeMap)
+		if err != nil {
+			return err
+		}
+
+		// Poll for compute nodes down
+		httpsPollNodesDownOp, err := makeHTTPSPollNodeStateDownOp(computeHostsToStop,
+			usePassword, username, password)
+		if err != nil {
+			return err
+		}
+		*instructions = append(*instructions, &httpsPollNodesDownOp)
+	}
 	return nil
 }
 

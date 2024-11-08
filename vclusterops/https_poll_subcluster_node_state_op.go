@@ -84,7 +84,7 @@ func makeHTTPSPollSubclusterNodeStateDownOp(hosts []string, scName string,
 
 func (op *httpsPollSubclusterNodeStateOp) getPollingTimeout() int {
 	// a negative value indicates no timeout and should never be used for this op
-	return util.Max(op.timeout, 0)
+	return max(op.timeout, 0)
 }
 
 func (op *httpsPollSubclusterNodeStateOp) setupClusterHTTPRequest(hosts []string) error {

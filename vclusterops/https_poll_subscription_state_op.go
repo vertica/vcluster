@@ -61,7 +61,7 @@ func makeHTTPSPollSubscriptionStateOp(hosts []string, useHTTPPassword bool, user
 
 func (op *httpsPollSubscriptionStateOp) getPollingTimeout() int {
 	// a negative value indicates no timeout and should never be used for this op
-	return util.Max(op.timeout, 0)
+	return max(op.timeout, 0)
 }
 
 func (op *httpsPollSubscriptionStateOp) setupClusterHTTPRequest(hosts []string) error {

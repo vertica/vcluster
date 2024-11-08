@@ -682,15 +682,6 @@ func ValidateCommunalStorageLocation(location string) error {
 	return nil
 }
 
-// Max works on all sane types, not just float64 like the math package funcs.
-// Can be removed after upgrade to go 1.21 (VER-90410) as min/max become builtins.
-func Max[T constraints.Ordered](a, b T) T {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // GetPathPrefix returns a path prefix for a (catalog/data/depot) path of a node
 func GetPathPrefix(path string) string {
 	if path == "" {

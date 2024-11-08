@@ -284,8 +284,17 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	// write db info to vcluster config file
 	err := writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile)
 	if err != nil {
-		vcc.DisplayWarning("Failed to write the configuration file: %s\n", err)
+		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
+		if dbOptions.ConfigPath != defaultConfigFilePath {
+			vcc.DisplayWarning("Attempting writing to default config file path: %s", defaultConfigFilePath)
+			dbOptions.ConfigPath = defaultConfigFilePath
+			err = writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile)
+			if err != nil {
+				vcc.DisplayWarning("Failed to write the configuration file to default path: %s", err)
+			}
+		}
 	}
+
 	// write config parameters to vcluster config param file
 	err = c.writeConfigParam(c.createDBOptions.ConfigurationParameters, c.createDBOptions.ForceOverwriteFile)
 	if err != nil {

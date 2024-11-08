@@ -163,15 +163,30 @@ func (vcc VClusterCommands) produceStopNodeInstructions(vdb *VCoordinationDataba
 	username := options.UserName
 	usePassword := options.usePassword
 	password := options.Password
-	stopHostNodeNameMap := make(map[string]string)
-	stopHostNodeMap := vdb.copyHostNodeMap(options.StopHosts)
-	for h, vnode := range stopHostNodeMap {
-		stopHostNodeNameMap[vnode.Name] = h
+
+	// most node types can be stopped via HTTPS service
+	regularHostsToStop := util.SliceDiff(options.StopHosts, vdb.ComputeNodes)
+	if len(regularHostsToStop) > 0 {
+		regularStopHostNodeNameMap := make(map[string]string)
+		regularStopHostNodeMap := vdb.copyHostNodeMap(regularHostsToStop)
+		for h, vnode := range regularStopHostNodeMap {
+			regularStopHostNodeNameMap[vnode.Name] = h
+		}
+
+		httpsStopNodeOp, err := makeHTTPSStopInputNodesOp(regularStopHostNodeNameMap, usePassword, username, password, nil)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsStopNodeOp)
 	}
 
-	httpsStopNodeOp, err := makeHTTPSStopInputNodesOp(stopHostNodeNameMap, usePassword, username, password, nil)
-	if err != nil {
-		return instructions, err
+	// compute nodes currently don't support distcalls, so need to kill by signal via NMA
+	computeHostsToStop := util.SliceCommon(options.StopHosts, vdb.ComputeNodes)
+	if len(computeHostsToStop) > 0 {
+		err := vcc.produceStopComputeNodeOps(&instructions, computeHostsToStop, vdb.HostNodeMap)
+		if err != nil {
+			return instructions, err
+		}
 	}
 
 	// Poll for nodes down
@@ -181,9 +196,28 @@ func (vcc VClusterCommands) produceStopNodeInstructions(vdb *VCoordinationDataba
 		return instructions, err
 	}
 
-	instructions = append(instructions,
-		&httpsStopNodeOp,
-		&httpsPollNodesDown,
-	)
+	instructions = append(instructions, &httpsPollNodesDown)
 	return instructions, nil
+}
+
+// produceStopComputeNodeOps creates the instructions required to terminate compute nodes.
+// Since compute nodes lack distcall support, they must be stopped via signal, including when
+// dropped.
+func (vcc VClusterCommands) produceStopComputeNodeOps(instructions *[]clusterOp,
+	computeHostsToStop []string,
+	hostNodeMap vHostNodeMap) error {
+	nmaHealthOp := makeNMAHealthOp(computeHostsToStop)
+	computeHostCatPathMap := make(map[string]string, len(computeHostsToStop))
+	for _, host := range computeHostsToStop {
+		computeHostCatPathMap[host] = hostNodeMap[host].CatalogPath
+	}
+	nmaSigTermNodeOp, err := makeNMASigTermVerticaOp(computeHostsToStop, computeHostCatPathMap)
+	if err != nil {
+		return err
+	}
+	*instructions = append(*instructions,
+		&nmaHealthOp,
+		&nmaSigTermNodeOp,
+	)
+	return nil
 }

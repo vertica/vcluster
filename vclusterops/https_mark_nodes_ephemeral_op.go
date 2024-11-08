@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
@@ -76,11 +77,19 @@ func (op *httpsMarkEphemeralNodeOp) execute(execContext *opEngineExecContext) er
 
 func (op *httpsMarkEphemeralNodeOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
+	const errComputeNodeMsg = "cannot change node type from compute to ephemeral"
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if !result.isSuccess() {
+			if result.isInternalError() {
+				errLower := strings.ToLower(result.err.Error())
+				if strings.Contains(errLower, errComputeNodeMsg) {
+					// down compute nodes can be skipped
+					continue
+				}
+			}
 			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}
