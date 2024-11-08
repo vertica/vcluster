@@ -353,7 +353,8 @@ func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, resta
 //   - Sync the confs to the nodes to be started
 //   - Call https /v1/startup/command to get start command of the nodes to be started
 //   - start nodes
-//   - Poll node start up
+//   - Poll all node start up indirectly
+//   - Poll permanent node start up directly
 //   - sync catalog
 func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartNodesInfo, options *VStartNodesOptions,
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
@@ -403,8 +404,16 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		return instructions, err
 	}
 	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(startNodeInfo.HostsToStart, options.StartUpConf, vdb)
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(startNodeInfo.HostsToStart,
-		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout)
+	permanentNodes := make([]string, 0, len(startNodeInfo.HostsToStart))
+	httpsPollNodeStateIndirectOp, err := makeHTTPSPollUnknownNodeStateOp(startNodeInfo.HostsToStart,
+		&permanentNodes, options.usePassword, options.UserName, options.Password,
+		options.StatePollingTimeout)
+	if err != nil {
+		return instructions, err
+	}
+	httpsPollNodeStateOp, err := makeHTTPSPollPermanentNodeStateOp(startNodeInfo.HostsToStart,
+		&permanentNodes, options.usePassword, options.UserName, options.Password,
+		options.StatePollingTimeout)
 	if err != nil {
 		return instructions, err
 	}
@@ -412,6 +421,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	instructions = append(instructions,
 		&httpsRestartUpCommandOp,
 		&nmaStartNewNodesOp,
+		&httpsPollNodeStateIndirectOp,
 		&httpsPollNodeStateOp,
 	)
 	if vdb.IsEon {
@@ -546,6 +556,9 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 			vnode, ok := vdb.HostNodeMap[newIP]
 			if ok && vnode.State == util.NodeDownState {
 				startNodeInfo.hasDownNodeNoNeedToReIP = true
+			} else if ok && (vnode.State == util.NodeUpState || vnode.State == util.NodeComputeState) {
+				// skip UP or COMPUTE nodes with no re-ip need
+				continue
 			}
 		}
 

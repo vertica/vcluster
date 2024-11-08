@@ -37,6 +37,7 @@ const (
 	currentConfigFileVersion = "1.0"
 	configFilePerm           = 0644
 	rpmConfDir               = "/opt/vertica/config"
+	defaultConfigFilePath    = rpmConfDir + "/" + defConfigFileName
 )
 
 // Config is the struct of vertica_cluster.yaml
@@ -124,7 +125,7 @@ func initConfigImpl(vclusterExePath string, ensureOptVerticaConfigExists, ensure
 			}
 			cobra.CheckErr(err)
 		} else {
-			dbOptions.ConfigPath = fmt.Sprintf("%s/%s", rpmConfDir, defConfigFileName)
+			dbOptions.ConfigPath = defaultConfigFilePath
 			return
 		}
 	}
@@ -360,6 +361,7 @@ func (c *DatabaseConfig) write(configFilePath string, forceOverwrite bool) error
 	if err != nil {
 		return fmt.Errorf("fail to marshal configuration data, details: %w", err)
 	}
+
 	err = os.WriteFile(configFilePath, configBytes, configFilePerm)
 	if err != nil {
 		return fmt.Errorf("fail to write configuration file, details: %w", err)

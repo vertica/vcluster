@@ -38,6 +38,8 @@ type httpsPollNodeStateOp struct {
 	cmdType            CmdType
 	// poll for nodes down: Set to true if nodes need to be polled to be down
 	checkDown bool
+	// Pointer to list of permanent hosts, as identified by a preceding op
+	permanentHosts *[]string
 }
 
 func makeHTTPSPollNodeStateOpHelper(hosts []string,
@@ -88,8 +90,21 @@ func makeHTTPSPollNodeStateOp(hosts []string,
 	return op, err
 }
 
+// makeHTTPSPollPermanentNodeStateOp will filter out non-permanent hosts from
+// polling, as identified dynamically by a previous op
+func makeHTTPSPollPermanentNodeStateOp(hosts []string,
+	permanentHosts *[]string, useHTTPPassword bool, userName string,
+	httpsPassword *string, timeout int) (httpsPollNodeStateOp, error) {
+	op, err := makeHTTPSPollNodeStateOp(hosts, useHTTPPassword, userName, httpsPassword, timeout)
+	if err != nil {
+		return op, err
+	}
+	op.permanentHosts = permanentHosts
+	return op, nil
+}
+
 func (op *httpsPollNodeStateOp) getPollingTimeout() int {
-	return util.Max(op.timeout, 0)
+	return max(op.timeout, 0)
 }
 
 func (op *httpsPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
@@ -110,6 +125,16 @@ func (op *httpsPollNodeStateOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *httpsPollNodeStateOp) prepare(execContext *opEngineExecContext) error {
+	// if needed, filter out hosts that can't be polled
+	if op.permanentHosts != nil {
+		op.hosts = util.SliceCommon(op.hosts, *op.permanentHosts)
+		// if all hosts started were compute nodes, nothing to do here
+		if len(op.hosts) == 0 {
+			op.skipExecute = true
+			return nil
+		}
+	}
+
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)

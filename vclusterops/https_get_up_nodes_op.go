@@ -210,7 +210,10 @@ func isCompleteScanRequired(cmdType CmdType) bool {
 		cmdType == ManageConnectionDrainingCmd ||
 		cmdType == SetConfigurationParameterCmd ||
 		cmdType == GetConfigurationParameterCmd ||
-		cmdType == GetDrainingStatusCmd
+		cmdType == GetDrainingStatusCmd ||
+		// need to find an up node from the sandbox if we're starting sandbox
+		// nodes, to handle identifying compute nodes in the sandbox
+		cmdType == StartNodeCmd
 }
 
 func (op *httpsGetUpNodesOp) finalize(_ *opEngineExecContext) error {
