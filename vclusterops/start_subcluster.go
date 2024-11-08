@@ -130,6 +130,10 @@ func (vcc VClusterCommands) VStartSubcluster(options *VStartScOptions) (VCoordin
 	if err != nil {
 		return vdb, err
 	}
+	err = options.validateNewHosts(&vdb, options.NewHostList)
+	if err != nil {
+		return vdb, err
+	}
 
 	nodesToStart := options.collectDownHosts(&vdb)
 	if len(nodesToStart) == 0 {
@@ -201,6 +205,15 @@ func (options *VStartScOptions) collectDownHosts(vdb *VCoordinationDatabase) (no
 		}
 	}
 	return nodesToStart
+}
+
+func (options *VStartScOptions) validateNewHosts(vdb *VCoordinationDatabase, newHosts []string) error {
+	for _, h := range newHosts {
+		if _, exists := vdb.HostNodeMap[h]; exists {
+			return fmt.Errorf("host %s is already a part of the database, please provide a new host ip to start the subcluster", h)
+		}
+	}
+	return nil
 }
 
 // Unbound nodes that need to be started need to be re-ip'd and require node directories to be set up
