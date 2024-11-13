@@ -107,6 +107,12 @@ func (vcc VClusterCommands) VStopNode(options *VStopNodeOptions) error {
 		return err
 	}
 
+	// stop_node should fail if the nodes to stop belong to different sandboxes
+	targetSandbox, err := checkTargetNodesSandboxes(&vdb, options)
+	if err != nil {
+		return err
+	}
+
 	options.completeVDBSetting(&vdb)
 
 	// stop_node is aborted if requirements are not met.
@@ -122,10 +128,42 @@ func (vcc VClusterCommands) VStopNode(options *VStopNodeOptions) error {
 	}
 
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
-	if runError := clusterOpEngine.run(vcc.Log); runError != nil {
+	if runError := clusterOpEngine.runInSandbox(vcc.Log, &vdb, targetSandbox); runError != nil {
 		return fmt.Errorf("fail to complete stop node operation, %w", runError)
 	}
 	return nil
+}
+
+// checkStopNodeRequirements checks whether the nodes to stop belong to the same sandbox (or main cluster)
+func checkTargetNodesSandboxes(vdb *VCoordinationDatabase,
+	options *VStopNodeOptions) (targetSandbox string, err error) {
+	sandboxHostMap := make(map[string][]string)
+	for _, host := range options.StopHosts {
+		vnode, exists := vdb.HostNodeMap[host]
+		if !exists {
+			return "", fmt.Errorf("cannot find host %s in vdb", host)
+		}
+
+		var sandboxDisplayName string
+		if vnode.Sandbox == util.MainClusterSandbox {
+			sandboxDisplayName = "main-cluster"
+		} else {
+			sandboxDisplayName = vnode.Sandbox
+		}
+
+		if _, exists := sandboxHostMap[sandboxDisplayName]; !exists {
+			sandboxHostMap[sandboxDisplayName] = []string{host}
+		} else {
+			sandboxHostMap[sandboxDisplayName] = append(sandboxHostMap[sandboxDisplayName], host)
+		}
+
+		targetSandbox = vnode.Sandbox
+	}
+	if len(sandboxHostMap) > 1 {
+		return "", fmt.Errorf("the hosts to stop cannot belong to different sandboxes %+v", sandboxHostMap)
+	}
+
+	return targetSandbox, nil
 }
 
 // checkStopNodeRequirements returns an error if at least one of the nodes
