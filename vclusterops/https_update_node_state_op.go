@@ -95,7 +95,12 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 			if !ok {
 				return fmt.Errorf("cannot find host %s in vdb", host)
 			}
-			vnode.State = util.NodeUnknownState
+			// Compute nodes will persistently fail the precondition, and shouldn't have status overwritten.
+			// Note that if the vdb was constructed by querying node(s) from a different sandbox than the
+			// compute node, it will already have UNKNOWN state in the vdb and that will not change here.
+			if vnode.State != util.NodeComputeState {
+				vnode.State = util.NodeUnknownState
+			}
 
 			continue
 		}
