@@ -444,11 +444,11 @@ func (op *opBase) isSkipExecute() bool {
 // hasQuorum checks if we have enough working primary nodes to maintain data integrity
 // quorumCount = (1/2 * number of primary nodes) + 1
 func (op *opBase) hasQuorum(hostCount, primaryNodeCount uint) bool {
-	quorumCount := (primaryNodeCount + 1) / 2
+	quorumCount := primaryNodeCount/2 + 1
 	if hostCount < quorumCount {
 		op.logger.PrintError("[%s] Quorum check failed: "+
 			"number of hosts with latest catalog (%d) is not "+
-			"greater than or equal to 1/2 of number of the primary nodes (%d)\n",
+			"greater than 1/2 of number of the primary nodes (%d)\n",
 			op.name, hostCount, primaryNodeCount)
 		return false
 	}

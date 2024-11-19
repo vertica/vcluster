@@ -26,7 +26,7 @@ func TestHasQuorum(t *testing.T) {
 
 	// positive case 1:
 	hostCount := uint(2)
-	primaryNodeCount := uint(4)
+	primaryNodeCount := uint(3)
 	succeed := op.hasQuorum(hostCount, primaryNodeCount)
 	assert.Equal(t, succeed, true)
 
@@ -51,6 +51,12 @@ func TestHasQuorum(t *testing.T) {
 	// negative case 2:
 	hostCount = 2
 	primaryNodeCount = 5
+	succeed = op.hasQuorum(hostCount, primaryNodeCount)
+	assert.Equal(t, succeed, false)
+
+	// negative case 3:
+	hostCount = 2
+	primaryNodeCount = 4
 	succeed = op.hasQuorum(hostCount, primaryNodeCount)
 	assert.Equal(t, succeed, false)
 }
