@@ -382,12 +382,15 @@ func (op *httpsGetUpNodesOp) collectUnsandboxingHosts(nodesStates nodesStateInfo
 	mainNodeFound := false
 	sandboxNodeFound := false
 	for _, node := range nodesStates.NodeList {
-		if node.State == util.NodeUpState {
+		// We can only send unsandbox commands from nodes that are in the UP or UNKNOWN state (in a sandbox)
+		// If the node is in any other states, it cannot unsandbox or cannot receive https requests
+		if node.State == util.NodeUpState || node.State == util.NodeUnknownState {
 			// A sandbox could consist of multiple subclusters.
 			// We need to run unsandbox command on the other subcluster node in the same sandbox
 			// Find a node from same sandbox but different subcluster, if exists
 			if node.Sandbox == op.sandbox && node.Subcluster != op.scName {
 				sandboxInfo[node.Address] = node.Sandbox
+				sandboxNodeFound = true
 			}
 			// Get one main cluster host
 			if node.Sandbox == "" && !mainNodeFound {
