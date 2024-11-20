@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
@@ -75,21 +76,24 @@ func (op *httpsUnsandboxingOp) setupRequestBody() error {
 }
 
 func (op *httpsUnsandboxingOp) prepare(execContext *opEngineExecContext) error {
+	sandboxes := mapset.NewSet[string]()
 	var mainHost string
 	if len(execContext.upHostsToSandboxes) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
-	// use an UP host in main cluster to execute the https post request
+	// use an UP host in main cluster and UP host in separate sc in same sandbox to execute the https post request
 	for h, sb := range execContext.upHostsToSandboxes {
+		if !sandboxes.Contains(sb) {
+			op.hosts = append(op.hosts, h)
+			sandboxes.Add(sb)
+		}
 		if sb == "" {
 			mainHost = h
-			break
 		}
 	}
 	if mainHost == "" {
 		return fmt.Errorf(`[%s] Cannot find any up hosts of main cluster in OpEngineExecContext`, op.name)
 	}
-	op.hosts = []string{mainHost}
 	err := op.setupRequestBody()
 	if err != nil {
 		return err
