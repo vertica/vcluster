@@ -24,6 +24,11 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
+// httpsPollNodeStateIndirectOp allows polling for the state of nodes when those nodes certainly
+// or possibly cannot be polled directly for their state.  For example, compute nodes, or nodes of
+// unknown type.  Instead of calling the nodes endpoint directly on each host for info about only
+// that node, it calls the nodes endpoint for all nodes on a separate slice of hosts (e.g. primary
+// UP nodes in the same sandbox) which should know the states of all the nodes being checked.
 type httpsPollNodeStateIndirectOp struct {
 	opBase
 	opHTTPSBase
@@ -224,7 +229,7 @@ func (op *httpsPollNodeStateIndirectOp) shouldStopPolling() (bool, error) {
 				return true, err
 			}
 
-			// check which nodes have COMPUTE status
+			// check which nodes have desired state, e.g. COMPUTE, UP, etc.
 			upNodeCount := 0
 			for _, nodeInfo := range nodesInformation.NodeList {
 				_, ok := op.checkedHostsToState[nodeInfo.Address]

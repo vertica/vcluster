@@ -16,10 +16,8 @@
 package commands
 
 import (
-	"crypto/rand"
 	"fmt"
 	"log"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,11 +27,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var tempConfigFilePath = os.TempDir() + "/test_vertica_cluster.yaml"
+var tempConfigFilePath = filepath.Join(os.TempDir(), "test_vertica_cluster.yaml")
 
 const configRecover = "vcluster manage_config recover --db-name test_db "
 
 const ymlExt, yamlExt = ".yml", ".yaml"
+
+const tmpFilePrefixPattern = "test-*"
 
 func simulateVClusterCli(vclusterCmd string) error {
 	// if no log file is given, the log will go to stdout
@@ -51,25 +51,6 @@ func simulateVClusterCli(vclusterCmd string) error {
 	// reset os.Args
 	os.Args = nil
 	return err
-}
-
-func generateRandomString(n int) (string, error) {
-	const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
-	ret := make([]byte, n)
-	for i := 0; i < n; i++ {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
-		if err != nil {
-			return "", err
-		}
-		ret[i] = letters[num.Int64()]
-	}
-	return string(ret), nil
-}
-
-func getRandomFileNameFromTmp(ext string, fileNameLen int) string {
-	var randomStr, _ = generateRandomString(fileNameLen)
-	var fileName = randomStr + ext
-	return filepath.Join(os.TempDir(), fileName)
 }
 
 func TestConfigRecover(t *testing.T) {
@@ -110,7 +91,8 @@ func TestManageReplication(t *testing.T) {
 }
 
 func TestCreateConnectionFileWrongFileType(t *testing.T) {
-	var tempConnFilePath = getRandomFileNameFromTmp(".txt", 8)
+	// vertica_connection.txt will not be created and a unique name is not required
+	var tempConnFilePath = filepath.Join(os.TempDir(), "vertica_connection.txt")
 	err := simulateVClusterCli("vcluster create_connection --db-name test_db1 --conn " + tempConnFilePath + " --hosts 192.168.1.101")
 	assert.ErrorContains(t, err, `Invalid file type`)
 }
@@ -122,32 +104,40 @@ func TestCreateConnectionFileAbsolutePathChecking(t *testing.T) {
 }
 
 func TestCreateConnectionFileRightFileTypes(t *testing.T) {
-	var tempConnFilePath = getRandomFileNameFromTmp(yamlExt, 9)
-	err := simulateVClusterCli("vcluster create_connection --db-name test_db3 --conn " + tempConnFilePath + " --hosts vnode3")
-	defer os.Remove(tempConnFilePath)
+	tempFile, err := os.CreateTemp("", tmpFilePrefixPattern+yamlExt)
+	if tempFile != nil {
+		defer os.Remove(tempFile.Name())
+	}
 	assert.NoError(t, err)
 
-	tempConnFilePath = getRandomFileNameFromTmp(ymlExt, 10)
-	err = simulateVClusterCli("vcluster create_connection --db-name test_db4 --conn " + tempConnFilePath + " --hosts vnode4")
-	defer os.Remove(tempConnFilePath)
+	err = simulateVClusterCli("vcluster create_connection --db-name test_db3 --conn " + tempFile.Name() + " --hosts vnode3")
+	assert.NoError(t, err)
+
+	tempFile, err = os.CreateTemp("", tmpFilePrefixPattern+ymlExt)
+	if tempFile != nil {
+		defer os.Remove(tempFile.Name())
+	}
+	assert.NoError(t, err)
+	err = simulateVClusterCli("vcluster create_connection --db-name test_db4 --conn " + tempFile.Name() + " --hosts vnode4")
 	assert.NoError(t, err)
 }
 
 func TestCreateConnection(t *testing.T) {
-	var tempConnFilePath = getRandomFileNameFromTmp(yamlExt, 11)
+	tempFile, err := os.CreateTemp("", tmpFilePrefixPattern+yamlExt)
+	assert.NoError(t, err)
+	os.Remove(tempFile.Name()) // clean up before test starts
 	dbName := "platform_test_db"
 	hosts := "192.168.1.101"
-	os.Remove(tempConnFilePath) // clean up before test starts
 
 	// vcluster create_connection should succeed
-	err := simulateVClusterCli("vcluster create_connection --db-name " + dbName + " --hosts " + hosts +
-		" --conn " + tempConnFilePath)
+	err = simulateVClusterCli("vcluster create_connection --db-name " + dbName + " --hosts " + hosts +
+		" --conn " + tempFile.Name())
+	defer os.Remove(tempFile.Name()) // It may be possible for the simulate to create the file and return an error
 	assert.NoError(t, err)
 
 	// verify the file content
-	file, err := os.Open(tempConnFilePath)
+	file, err := os.Open(tempFile.Name())
 	assert.NoError(t, err)
-	defer os.Remove(tempConnFilePath)
 	defer file.Close()
 
 	buf := make([]byte, 1024)
