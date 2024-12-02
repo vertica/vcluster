@@ -288,8 +288,15 @@ func (opt *DatabaseOptions) normalizePaths() {
 	opt.DepotPrefix = util.GetCleanPath(opt.DepotPrefix)
 }
 
-// getVDBWhenDBIsDown can retrieve db configurations from NMA /nodes endpoint and cluster_config.json when db is down
+// getVDBWhenDBIsDown can retrieve db configurations from the NMA /nodes endpoint and cluster_config.json when db is down
 func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoordinationDatabase, err error) {
+	return opt.getVDBFromSandboxWhenDBIsDown(vcc, util.MainClusterSandbox)
+}
+
+// getVDBFromSandboxWhenDBIsDown can retrieve db configurations about a given sandbox
+// from the NMA /nodes endpoint and cluster_config.json when db is down
+func (opt *DatabaseOptions) getVDBFromSandboxWhenDBIsDown(vcc VClusterCommands,
+	sandbox string) (vdb VCoordinationDatabase, err error) {
 	/*
 	 *   1. Get node names for input hosts from NMA /nodes.
 	 *   2. Get other node information for input hosts from cluster_config.json.
@@ -324,7 +331,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 	// step 2: get node details from cluster_config.json
 	vdb2 := VCoordinationDatabase{}
 	var instructions2 []clusterOp
-	currConfigFileSrcPath := opt.getCurrConfigFilePath(util.MainClusterSandbox)
+	currConfigFileSrcPath := opt.getCurrConfigFilePath(sandbox)
 	nmaDownLoadFileOp, err := makeNMADownloadFileOp(opt.Hosts, currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
 		opt.ConfigurationParameters, &vdb2)
 	if err != nil {

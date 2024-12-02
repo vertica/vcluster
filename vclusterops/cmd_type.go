@@ -43,6 +43,7 @@ const (
 	RemoveNodeSyncCat
 	CreateArchiveCmd
 	PollSubclusterStateCmd
+	UpgradeLicenseCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -84,6 +85,7 @@ var cmdStringMap = map[CmdType]string{
 	RemoveNodeSyncCat:            "remove_node_sync_cat",
 	CreateArchiveCmd:             "create_archive",
 	PollSubclusterStateCmd:       "poll_subcluster_state",
+	UpgradeLicenseCmd:            "upgrade_license",
 }
 
 func (cmd CmdType) CmdString() string {

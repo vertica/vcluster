@@ -601,6 +601,7 @@ type ClusterCommands interface {
 	VStopNode(options *VStopNodeOptions) error
 	VStopSubcluster(options *VStopSubclusterOptions) error
 	VUnsandbox(options *VUnsandboxOptions) error
+	VUpgradeLicense(options *VUpgradeLicenseOptions) error
 }
 
 type VClusterCommandsLogger struct {

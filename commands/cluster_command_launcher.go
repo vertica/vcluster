@@ -69,6 +69,8 @@ const (
 	configParamKey              = "configParam"
 	configParamFileFlag         = "config-param-file"
 	configParamFileKey          = "configParamFile"
+	licenseFileFlag             = "license-file"
+	licenseHostFlag             = "license-host"
 	logPathFlag                 = "log-path"
 	logPathKey                  = "logPath"
 	keyFileFlag                 = "key-file"
@@ -245,6 +247,7 @@ const (
 	createArchiveCmd        = "create_archive"
 	saveRestorePointsSubCmd = "save_restore_point"
 	getDrainingStatusSubCmd = "get_draining_status"
+	upgradeLicenseCmd       = "upgrade_license"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -630,6 +633,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdPromoteSandbox(),
 		makeCmdCreateArchive(),
 		makeCmdSaveRestorePoint(),
+		makeCmdUpgradeLicense(),
 	}
 }
 

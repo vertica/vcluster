@@ -67,6 +67,7 @@ const (
 	NodesEndpoint         = "nodes/"
 	DropEndpoint          = "/drop"
 	ArchiveEndpoint       = "archives"
+	LicenseEndpoint       = "license"
 )
 
 const (
@@ -157,6 +158,23 @@ func CheckAllEmptyOrNonEmpty(vars ...string) bool {
 
 	// Return true if either all are empty or all are non-empty
 	return allEmpty || allNonEmpty
+}
+
+// delete keys in the given iterable from the given map
+func DeleteKeysFromMap[K comparable, V any](m map[K]V, keys []K) map[K]V {
+	for _, key := range keys {
+		delete(m, key)
+	}
+	return m
+}
+
+// Creates and returns a deep copy of the given map
+func CloneMap[K comparable, V any](original map[K]V, cloneValue func(V) V) map[K]V {
+	clone := make(map[K]V, len(original))
+	for key, value := range original {
+		clone[key] = cloneValue(value)
+	}
+	return clone
 }
 
 // calculate array diff: m-n
