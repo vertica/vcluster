@@ -22,6 +22,7 @@ type opEngineExecContext struct {
 	networkProfiles map[string]networkProfile
 	nmaVDatabase    nmaVDatabase
 	upHosts         []string // a sorted host list that contains all up nodes
+	computeHosts    []string // a sorted host list that contains all up (COMPUTE) compute nodes
 	nodesInfo       []NodeInfo
 	scNodesInfo     []NodeInfo // a node list contains all nodes in a subcluster
 

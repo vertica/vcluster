@@ -122,6 +122,9 @@ func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinati
 	}
 
 	for h, n := range nmaVDB.HostNodeMap {
+		if h == util.UnboundedIPv4 || h == util.UnboundedIPv6 {
+			continue
+		}
 		vnode, ok := vdb.HostNodeMap[h]
 		if !ok {
 			return vdb, fmt.Errorf("host %s is not found in the vdb object", h)

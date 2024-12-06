@@ -208,6 +208,7 @@ type fileContent struct {
 		Path  string `json:"path"`
 		Usage int    `json:"usage"`
 	} `json:"StorageLocation"`
+	Sandbox string
 }
 
 func (op *nmaDownloadFileOp) processResult(execContext *opEngineExecContext) error {
@@ -278,7 +279,7 @@ func (op *nmaDownloadFileOp) processResult(execContext *opEngineExecContext) err
 			}
 
 			// save descFileContent in vdb
-			return op.buildVDBFromClusterConfig(descFileContent)
+			return op.buildVDBFromClusterConfig(&descFileContent)
 		}
 
 		httpsErr := errors.Join(fmt.Errorf("[%s] HTTPS call failed on host %s", op.name, host), result.err)
@@ -299,13 +300,14 @@ func filterPrimaryNodes(descFileContent *fileContent) {
 }
 
 // buildVDBFromClusterConfig can build a vdb using cluster_config.json
-func (op *nmaDownloadFileOp) buildVDBFromClusterConfig(descFileContent fileContent) error {
+func (op *nmaDownloadFileOp) buildVDBFromClusterConfig(descFileContent *fileContent) error {
 	op.vdb.HostNodeMap = makeVHostNodeMap()
 	for _, node := range descFileContent.NodeList {
 		vNode := makeVCoordinationNode()
 		vNode.Name = node.Name
 		vNode.Address = node.Address
 		vNode.IsPrimary = node.IsPrimary
+		vNode.Sandbox = descFileContent.Sandbox
 
 		// remove suffix "/Catalog" from node catalog path
 		// e.g. /data/test_db/v_test_db_node0002_catalog/Catalog -> /data/test_db/v_test_db_node0002_catalog
