@@ -28,7 +28,7 @@ import (
 type VStartNodesOptions struct {
 	// basic db info
 	DatabaseOptions
-	// A set of nodes(nodename - host) that we want to start in the database
+	// A set of nodes (nodename - host) that we want to start in the database
 	Nodes map[string]string
 	// timeout for polling nodes that we want to start in httpsPollNodeStateOp
 	StatePollingTimeout int
@@ -178,7 +178,7 @@ func (vcc VClusterCommands) preStartNodeCheck(options *VStartNodesOptions, vdb *
 	// retrieve database information to execute the command so we do not always rely on some user input
 	// if VStartNodes is called from VStartSubcluster, we can reuse the vdb from VStartSubcluster
 	if options.vdb == nil {
-		err := vcc.getVDBFromRunningDBIncludeSandbox(vdb, &options.DatabaseOptions, AnySandbox)
+		err := vcc.getDeepVDBFromRunningDB(vdb, &options.DatabaseOptions)
 		if err != nil {
 			return err
 		}
@@ -206,6 +206,26 @@ func (vcc VClusterCommands) preStartNodeCheck(options *VStartNodesOptions, vdb *
 		}
 		return errors.Join(err, fmt.Errorf("hint: make sure there is at least one UP node in the database"))
 	}
+
+	// for Eon database, to avoid problems in the catalog, we only allow starting unbound nodes using start_subcluster
+	if !vdb.IsEon {
+		return nil
+	}
+
+	var hasNodesInUnboundSc bool
+	for _, vnode := range vdb.UnboundNodes {
+		_, toStart := options.Nodes[vnode.Name]
+		if !vnode.IsPrimary && toStart {
+			hasNodesInUnboundSc = true
+			break
+		}
+	}
+
+	if hasNodesInUnboundSc && !startNodeInfo.isStartSc {
+		return errors.New("cannot directly start unbound nodes. " +
+			"Please use start_subclusters to start unbound subclusters with new IP addresses")
+	}
+
 	return nil
 }
 
@@ -237,8 +257,8 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 		vdb = *options.vdb
 		startNodeInfo.isStartSc = true
 	}
-	hostNodeNameMap := make(map[string]string)
 
+	hostNodeNameMap := make(map[string]string)
 	err = vcc.preStartNodeCheck(options, &vdb, hostNodeNameMap, startNodeInfo)
 	if err != nil {
 		return err

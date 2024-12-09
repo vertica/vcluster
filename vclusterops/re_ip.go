@@ -29,8 +29,8 @@ type VReIPOptions struct {
 	DatabaseOptions
 
 	// re-ip list
-	ReIPList []ReIPInfo
-
+	ReIPList    []ReIPInfo
+	SandboxName string // sandbox name or empty string for main cluster, all nodes must in same sandbox for one re_ip action
 	/* hidden option */
 
 	// whether trim re-ip list based on the catalog info
@@ -45,7 +45,7 @@ func VReIPFactory() VReIPOptions {
 	// set default values to the params
 	options.setDefaultValues()
 	options.TrimReIPList = false
-
+	options.SandboxName = util.MainClusterSandbox
 	return options
 }
 
@@ -169,7 +169,7 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 		const warningMsg = " for an Eon database, re_ip after revive_db could fail " +
 			util.DBInfo
 		if options.CommunalStorageLocation != "" {
-			vdb, e := options.getVDBWhenDBIsDown(vcc)
+			vdb, e := options.getVDBFromSandboxWhenDBIsDown(vcc, options.SandboxName)
 			if e != nil {
 				// show a warning message if we cannot get VDB from a down database
 				vcc.Log.PrintWarning(util.CommStorageFail + warningMsg)
@@ -193,9 +193,18 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.run(vcc.Log)
-	if runError != nil {
-		return fmt.Errorf("fail to re-ip: %w", runError)
+	if options.SandboxName == util.MainClusterSandbox {
+		vcc.LogInfo("Re-IP the main cluster")
+		runError := clusterOpEngine.run(vcc.Log)
+		if runError != nil {
+			return fmt.Errorf("fail to re-ip: %w", runError)
+		}
+	} else {
+		vcc.LogInfo("Re-IP the sandbox %s", options.SandboxName)
+		runError := clusterOpEngine.runInSandbox(vcc.Log, pVDB, options.SandboxName)
+		if runError != nil {
+			return fmt.Errorf("fail to re-ip: %w", runError)
+		}
 	}
 
 	return nil
@@ -226,8 +235,13 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	instructions = append(instructions, &nmaHealthOp)
 
 	if options.CheckDBRunning {
-		checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts,
-			options.usePassword, options.UserName, options.Password, ReIP)
+		sandbox := options.SandboxName
+		mainCluster := false
+		if sandbox == util.MainClusterSandbox {
+			mainCluster = true
+		}
+		checkDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(hosts,
+			options.usePassword, options.UserName, sandbox, mainCluster, options.Password, ReIP)
 		if err != nil {
 			return instructions, err
 		}
@@ -250,7 +264,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
 			false /* report all errors */, vdb)
 		// read catalog editor to get hosts with latest catalog
-		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(vdb)
+		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpWithSandbox(vdb, options.SandboxName)
 		if err != nil {
 			return instructions, err
 		}
@@ -263,7 +277,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 		*vdbWithPrimaryNodes = *vdb
 		vdbWithPrimaryNodes.filterPrimaryNodes()
 		// read catalog editor to get hosts with latest catalog
-		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOp(vdbWithPrimaryNodes)
+		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpWithSandbox(vdbWithPrimaryNodes, options.SandboxName)
 		if err != nil {
 			return instructions, err
 		}

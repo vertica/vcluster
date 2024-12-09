@@ -59,7 +59,7 @@ This file should only include the IP addresses of nodes that you want to update.
 Examples:
   # Alter the IP address of database nodes with user input
   vcluster re_ip --db-name test_db --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
-  	--catalog-path /data --re-ip-file /data/re_ip_map.json \
+  	--catalog-path /data --re-ip-file /data/re_ip_map.json --sandbox sand \
     --password "PASSWORD"
   
   # Alter the IP address of database nodes with config file
@@ -67,7 +67,7 @@ Examples:
     --config /opt/vertica/config/vertica_cluster.yaml \
     --password "PASSWORD"
 `,
-		[]string{dbNameFlag, hostsFlag, ipv6Flag, catalogPathFlag, configParamFlag, configFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, catalogPathFlag, configParamFlag, configFlag, sandboxFlag},
 	)
 
 	// local flags
@@ -87,6 +87,12 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 		reIPFileFlag,
 		"",
 		"Path of the re-ip file",
+	)
+	cmd.Flags().StringVar(
+		&c.reIPOptions.SandboxName,
+		sandboxFlag,
+		"",
+		"The name of the sandbox. Required if the re-ip hosts are in a sandbox.",
 	)
 }
 

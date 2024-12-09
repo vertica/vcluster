@@ -133,14 +133,12 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	// VER-93369 may improve this if the CLI knows which nodes are primary
 	// from the config file
 	var vdb VCoordinationDatabase
-	// retrieve database information from cluster_config.json for Eon databases,
-	// skip this step for starting a sandbox because cluster_config.json does not
-	// contain accurate info of nodes in a sandbox
-	if !options.HostsInSandbox && options.IsEon {
+	// retrieve database information from cluster_config.json for Eon databases
+	if options.IsEon {
 		const warningMsg = " for an Eon database, start_db after revive_db could fail " +
 			util.DBInfo
 		if options.CommunalStorageLocation != "" {
-			vdbNew, e := options.getVDBWhenDBIsDown(vcc)
+			vdbNew, e := options.getVDBFromSandboxWhenDBIsDown(vcc, options.Sandbox)
 			if e != nil {
 				// show a warning message if we cannot get VDB from a down database
 				vcc.Log.PrintWarning(util.CommStorageFail + warningMsg)
@@ -173,7 +171,7 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 	// Give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.run(vcc.Log)
+	runError := clusterOpEngine.runInSandbox(vcc.Log, &vdb, options.Sandbox)
 	if runError != nil {
 		return nil, fmt.Errorf("fail to start database: %w", runError)
 	}

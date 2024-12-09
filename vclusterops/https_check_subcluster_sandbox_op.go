@@ -18,6 +18,8 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type httpsCheckSubclusterSandboxOp struct {
@@ -60,6 +62,10 @@ func (op *httpsCheckSubclusterSandboxOp) setupClusterHTTPRequest(hosts []string)
 }
 
 func (op *httpsCheckSubclusterSandboxOp) prepare(execContext *opEngineExecContext) error {
+	if execContext.computeHosts != nil {
+		op.hosts = util.SliceDiff(op.hosts, execContext.computeHosts)
+	}
+
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
