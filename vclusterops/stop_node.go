@@ -102,7 +102,7 @@ func (vcc VClusterCommands) VStopNode(options *VStopNodeOptions) error {
 		return err
 	}
 
-	err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	err = vcc.getDeepVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {
 		return err
 	}

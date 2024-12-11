@@ -56,6 +56,14 @@ func makeNMAReadCatalogEditorOpWithInitiator(
 	return op, nil
 }
 
+// under sandbox mode, each sandbox are using different files for vcluster catalog,
+// when accessing catalog editor for a sandbox, we need to feed sandbox as the op's parameter
+func makeNMAReadCatalogEditorOpWithSandbox(vdb *VCoordinationDatabase, sandbox string) (nmaReadCatalogEditorOp, error) {
+	op, err := makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
+	op.sandbox = sandbox
+	return op, err
+}
+
 // makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
 func makeNMAReadCatalogEditorOp(vdb *VCoordinationDatabase) (nmaReadCatalogEditorOp, error) {
 	return makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
