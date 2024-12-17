@@ -34,6 +34,7 @@ type VCreateDatabaseOptions struct {
 	Policy            string // database restart policy
 	SQLFile           string // SQL file to run (as dbadmin) immediately on database creation
 	LicensePathOnNode string // required to be a fully qualified path
+	EnableTLSAuth     bool   // enable TLS authentication immediately on database creation
 
 	/* part 2: eon db info */
 
@@ -94,6 +95,8 @@ func (options *VCreateDatabaseOptions) setDefaultValues() {
 	options.LargeCluster = util.DefaultLargeCluster
 	options.ClientPort = util.DefaultClientPort
 	options.SpreadLoggingLevel = util.DefaultSpreadLoggingLevel
+	// specify whether to enable TLS authentication method upon database creation
+	options.EnableTLSAuth = false
 }
 
 func (options *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -339,6 +342,7 @@ func (vcc VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VC
 //   - Create depot (Eon mode only)
 //   - Mark design ksafe
 //   - Install packages
+//   - Enable TLS authentication if needed
 //   - Sync catalog
 func (vcc VClusterCommands) produceCreateDBInstructions(
 	vdb *VCoordinationDatabase,
@@ -543,7 +547,27 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 		}
 		instructions = append(instructions, &httpsInstallPackagesOp)
 	}
+	if options.EnableTLSAuth {
+		authName := util.DefaultIPv4AuthName
+		authHosts := util.DefaultIPv4AuthHosts
+		if options.IPv6 {
+			authName = util.DefaultIPv6AuthName
+			authHosts = util.DefaultIPv6AuthHosts
+		}
+		httpsCreateTLSAuthOp, err := makeHTTPSCreateTLSAuthOp(bootstrapHost, true /* use password */, username, options.Password,
+			authName, authHosts)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsCreateTLSAuthOp)
 
+		httpsGrantTLSAuthOp, err := makeHTTPSGrantTLSAuthOp(bootstrapHost, true /* use password */, username, options.Password,
+			authName, username /*grantee of tls auth*/)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsGrantTLSAuthOp)
+	}
 	if vdb.IsEon {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(bootstrapHost, true, username, options.Password, CreateDBSyncCat)
 		if err != nil {

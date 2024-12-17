@@ -98,8 +98,8 @@ func (options *VReplicationDatabaseOptions) validateExtraOptions() error {
 func (options *VReplicationDatabaseOptions) validateFineGrainedReplicationOptions() error {
 	if options.TableOrSchemaName != "" {
 		err := util.ValidateQualifiedObjectNamePattern(options.TableOrSchemaName, false)
-		if err != nil {
-			return err
+		if err != nil && strings.HasPrefix(err.Error(), "invalid pattern") {
+			return fmt.Errorf("pattern %s not allowed in --table-or-schema-name. HINT: use --include-pattern", options.TableOrSchemaName)
 		}
 	}
 

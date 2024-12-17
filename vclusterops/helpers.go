@@ -227,6 +227,36 @@ func (vcc VClusterCommands) getVDBFromMainRunningDBContainsSandbox(vdb *VCoordin
 		true /*update node state by sending http request to each node*/)
 }
 
+// getDeepVDBFromRunningDB will retrieve db config for main cluster nodes and all sandbox names from the main cluster,
+// then fetch sandbox from each sandbox one by one separately and update the vdb object. This will return accurate cluster
+// status if the main cluster is UP.
+func (vcc VClusterCommands) getDeepVDBFromRunningDB(vdb *VCoordinationDatabase, options *DatabaseOptions) error {
+	// Fetch vdb from main cluster
+	mainVdb := makeVCoordinationDatabase()
+	mainErr := vcc.getVDBFromRunningDBImpl(&mainVdb, options, false /*allow use http result from sandbox nodes*/, util.MainClusterSandbox,
+		false /*update node state by sending http request to each node*/)
+	if mainErr != nil {
+		vcc.Log.Info("failed to get vdb info from main cluster, database could be down. Attempting to connect to sandboxes")
+		return vcc.getVDBFromRunningDBImpl(vdb, options, true /*allow use http result from sandbox nodes*/, AnySandbox,
+			false /*update node state by sending http request to each node*/)
+	}
+	// update vdb with main cluster info and retrieve all sandbox names
+	vdb.setMainCluster(&mainVdb)
+	// If we reach here, the main cluster is UP and we can fetch accurate vdb info from each sandbox separately
+	for _, sandbox := range vdb.AllSandboxes {
+		sandVdb := makeVCoordinationDatabase()
+		sandErr := vcc.getVDBFromRunningDBImpl(&sandVdb, options, true /*allow use http result from sandbox nodes*/, sandbox,
+			false /*update node state by sending http request to each node*/)
+		if sandErr != nil {
+			vcc.Log.Info("failed to get vdb info from sandbox %s", sandbox)
+		} else {
+			// update vdb with sandbox info
+			vdb.updateSandboxNodeInfo(&sandVdb, sandbox)
+		}
+	}
+	return nil
+}
+
 // getVDBFromRunningDBIncludeSandbox will retrieve db configurations from a sandboxed host by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDBIncludeSandbox(vdb *VCoordinationDatabase, options *DatabaseOptions, sandbox string) error {
 	return vcc.getVDBFromRunningDBImpl(vdb, options, true /*allow use http result from sandbox nodes*/, sandbox,

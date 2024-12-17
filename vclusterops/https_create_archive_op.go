@@ -114,7 +114,7 @@ func (op *httpsCreateArchiveOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	// every host needs to have a successful result, otherwise we fail this op
-	// because we want depot created successfully on all hosts
+	// because we want archives to be created
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 

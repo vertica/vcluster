@@ -168,6 +168,17 @@ func (hostResult *hostHTTPResult) isEOF() bool {
 	return hostResult.status == EOFEXCEPTION
 }
 
+// process a single result, return the error in the result
+func (hostResult *hostHTTPResult) getError(host, opName string) error {
+	if hostResult.isUnauthorizedRequest() {
+		return fmt.Errorf("[%s] wrong password/certificates for https service on host %s", opName, host)
+	}
+	if !hostResult.isPassing() {
+		return hostResult.err
+	}
+	return nil
+}
+
 // getStatusString converts ResultStatus to string
 func (status resultStatus) getStatusString() string {
 	if status == FAILURE {
@@ -601,6 +612,7 @@ type ClusterCommands interface {
 	VStopNode(options *VStopNodeOptions) error
 	VStopSubcluster(options *VStopSubclusterOptions) error
 	VUnsandbox(options *VUnsandboxOptions) error
+	VUpgradeLicense(options *VUpgradeLicenseOptions) error
 }
 
 type VClusterCommandsLogger struct {

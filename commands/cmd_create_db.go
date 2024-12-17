@@ -171,6 +171,12 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
 		"The time, in seconds, to wait for the nodes to start after database creation (default: 300).",
 	)
+	cmd.Flags().BoolVar(
+		&c.createDBOptions.EnableTLSAuth,
+		enableTLSAuthFlag,
+		false,
+		"Enable TLS authentication for all users after database creation",
+	)
 	c.setSpreadlFlags(cmd)
 }
 

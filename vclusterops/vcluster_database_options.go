@@ -288,8 +288,10 @@ func (opt *DatabaseOptions) normalizePaths() {
 	opt.DepotPrefix = util.GetCleanPath(opt.DepotPrefix)
 }
 
-// getVDBWhenDBIsDown can retrieve db configurations from NMA /nodes endpoint and cluster_config.json when db is down
-func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoordinationDatabase, err error) {
+// getVDBFromSandboxWhenDBIsDown can retrieve db configurations about a given sandbox
+// from the NMA /nodes endpoint and cluster_config.json when db is down
+func (opt *DatabaseOptions) getVDBFromSandboxWhenDBIsDown(vcc VClusterCommands,
+	sandbox string) (vdb VCoordinationDatabase, err error) {
 	/*
 	 *   1. Get node names for input hosts from NMA /nodes.
 	 *   2. Get other node information for input hosts from cluster_config.json.
@@ -308,7 +310,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 	var instructions1 []clusterOp
 	nmaHealthOp := makeNMAHealthOp(opt.Hosts)
 	nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(opt.Hosts, opt.DBName, opt.CatalogPrefix,
-		false /* report all errors */, &vdb1)
+		true /* ignore internal error */, &vdb1)
 	instructions1 = append(instructions1,
 		&nmaHealthOp,
 		&nmaGetNodesInfoOp,
@@ -324,7 +326,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 	// step 2: get node details from cluster_config.json
 	vdb2 := VCoordinationDatabase{}
 	var instructions2 []clusterOp
-	currConfigFileSrcPath := opt.getCurrConfigFilePath(util.MainClusterSandbox)
+	currConfigFileSrcPath := opt.getCurrConfigFilePath(sandbox)
 	nmaDownLoadFileOp, err := makeNMADownloadFileOp(opt.Hosts, currConfigFileSrcPath, currConfigFileDestPath, catalogPath,
 		opt.ConfigurationParameters, &vdb2)
 	if err != nil {
@@ -341,7 +343,7 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 
 	// step 3: build vdb for input hosts using node names from step 1 and node details from step 2
 	// this step can map input hosts with node details
-	vdb.HostList = vdb1.HostList
+	vdb.HostList = vdb2.HostList
 	vdb.HostNodeMap = makeVHostNodeMap()
 	nodeNameVNodeMap := make(map[string]*VCoordinationNode)
 	for _, vnode2 := range vdb2.HostNodeMap {
@@ -358,8 +360,6 @@ func (opt *DatabaseOptions) getVDBWhenDBIsDown(vcc VClusterCommands) (vdb VCoord
 			// the nodes' addresses without syncing the change to cluster_config.json.
 			vnode.Address = h1
 			vdb.HostNodeMap[h1] = vnode
-		} else {
-			return vdb, fmt.Errorf("node name %s is not found in %s", nodeName, descriptionFileName)
 		}
 	}
 	return vdb, nil

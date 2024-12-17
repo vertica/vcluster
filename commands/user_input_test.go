@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vertica/vcluster/vclusterops"
 	"gopkg.in/yaml.v3"
 )
 
@@ -88,6 +89,21 @@ func TestManageReplication(t *testing.T) {
 
 	err = simulateVClusterCli("vcluster replication start test")
 	assert.ErrorContains(t, err, `unknown command "test" for "vcluster replication start"`)
+}
+
+func TestAsyncReplicationErrorMessage(t *testing.T) {
+	vcommand := vclusterops.VClusterCommands{}
+	replicationDatabaseOptions := vclusterops.VReplicationDatabaseFactory()
+	replicationDatabaseOptions.DBName = "db"
+	replicationDatabaseOptions.Hosts = []string{"12.34.56.78"}
+	replicationDatabaseOptions.IsEon = true
+	password := "password"
+	replicationDatabaseOptions.Password = &password
+	replicationDatabaseOptions.TargetDB.Hosts = []string{"23.45.67.89"}
+	replicationDatabaseOptions.TargetDB.DBName = "targetDb"
+	replicationDatabaseOptions.TableOrSchemaName = ".ns1.s1.*"
+	_, err := vcommand.VReplicateDatabase(&replicationDatabaseOptions)
+	assert.ErrorContains(t, err, "not allowed in --table-or-schema-name. HINT:")
 }
 
 func TestCreateConnectionFileWrongFileType(t *testing.T) {

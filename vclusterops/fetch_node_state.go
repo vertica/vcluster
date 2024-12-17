@@ -194,7 +194,7 @@ func buildNodeStateList(vdb *VCoordinationDatabase, forDownDatabase bool) []Node
 		nodeInfo.IsPrimary = n.IsPrimary
 		nodeInfo.Name = n.Name
 		nodeInfo.Sandbox = n.Sandbox
-		if forDownDatabase {
+		if forDownDatabase && n.State == "" {
 			nodeInfo.State = util.NodeDownState
 		} else {
 			nodeInfo.State = n.State
