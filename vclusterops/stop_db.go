@@ -140,7 +140,13 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 
 	// get vdb and check requirements
 	vdb := makeVCoordinationDatabase()
-	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, AnySandbox)
+	if options.MainCluster {
+		vcc.Log.Info("getting vdb info from main cluster")
+		err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	} else {
+		vcc.Log.Info("getting vdb info for sandbox")
+		err = vcc.getDeepVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	}
 	if err != nil {
 		vcc.LogError(err, "failed to get vdb from running db")
 	} else {
@@ -150,12 +156,23 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 			return err
 		}
 	}
+	filteredHosts := []string{}
+	for _, h := range options.Hosts {
+		if vnode, exists := vdb.HostNodeMap[h]; exists {
+			if (options.MainCluster && vnode.Sandbox == util.MainClusterSandbox) ||
+				(options.SandboxName == vnode.Sandbox && options.SandboxName != util.MainClusterSandbox) {
+				filteredHosts = append(filteredHosts, h)
+			}
+		}
+	}
+	if len(filteredHosts) > 0 {
+		options.Hosts = filteredHosts
+	}
 
 	instructions, err := vcc.produceStopDBInstructions(options)
 	if err != nil {
 		return fmt.Errorf("fail to production instructions: %w", err)
 	}
-
 	// Create a VClusterOpEngine, and add certs to the engine
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
 
@@ -196,7 +213,6 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 		return instructions, err
 	}
 	instructions = append(instructions, &httpsGetUpNodesOp)
-
 	if options.IsEon {
 		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, options.UserName, options.Password, StopDBSyncCat)
 		if e != nil {

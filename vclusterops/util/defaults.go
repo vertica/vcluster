@@ -47,4 +47,14 @@ const (
 	MainClusterSandbox               = ""
 )
 
+// TLS authentication related consts
+const (
+	// IPv4 defaults
+	DefaultIPv4AuthName  = "vcluster_mtls_v4"
+	DefaultIPv4AuthHosts = "0.0.0.0/0"
+	// IPv6 defaults
+	DefaultIPv6AuthName  = "vcluster_mtls_v6"
+	DefaultIPv6AuthHosts = "::/0"
+)
+
 var RestartPolicyList = []string{"never", DefaultRestartPolicy, "always"}

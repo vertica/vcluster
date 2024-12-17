@@ -59,6 +59,8 @@ type VCoordinationDatabase struct {
 	PrimaryUpNodes        []string
 	ComputeNodes          []string
 	FirstStartAfterRevive bool
+
+	AllSandboxes []string // slice of all sandboxes in the cluster
 }
 
 type vHostNodeMap map[string]*VCoordinationNode
@@ -106,6 +108,39 @@ func (vdb *VCoordinationDatabase) setFromBasicDBOptions(options *VCreateDatabase
 	}
 
 	return nil
+}
+
+// update vdb object with sandbox info of given sandbox name
+func (vdb *VCoordinationDatabase) updateSandboxNodeInfo(sandVdb *VCoordinationDatabase, sandboxName string) {
+	for _, vnode := range sandVdb.HostNodeMap {
+		if vnode.Sandbox == sandboxName {
+			vdb.HostNodeMap[vnode.Address] = vnode
+			vdb.HostList = append(vdb.HostList, vnode.Address)
+		}
+	}
+}
+
+// populate vdb with main cluster info
+func (vdb *VCoordinationDatabase) setMainCluster(mainVdb *VCoordinationDatabase) {
+	allSandboxes := mapset.NewSet[string]()
+	vdb.IsEon = mainVdb.IsEon
+	vdb.UseDepot = mainVdb.UseDepot
+	vdb.Name = mainVdb.Name
+	vdb.CommunalStorageLocation = mainVdb.CommunalStorageLocation
+	vdb.UnboundNodes = mainVdb.UnboundNodes
+	vdb.PrimaryUpNodes = mainVdb.PrimaryUpNodes
+	vdb.ComputeNodes = mainVdb.ComputeNodes
+	vdb.CatalogPrefix = mainVdb.CatalogPrefix
+	vdb.HostNodeMap = makeVHostNodeMap()
+	for _, vnode := range mainVdb.HostNodeMap {
+		if vnode.Sandbox == util.MainClusterSandbox {
+			vdb.HostNodeMap[vnode.Address] = vnode
+			vdb.HostList = append(vdb.HostList, vnode.Address)
+		} else if !allSandboxes.Contains(vnode.Sandbox) {
+			allSandboxes.Add(vnode.Sandbox)
+		}
+	}
+	vdb.AllSandboxes = allSandboxes.ToSlice()
 }
 
 func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabaseOptions, logger vlog.Printer) error {
@@ -162,8 +197,16 @@ func (vdb *VCoordinationDatabase) addNode(vnode *VCoordinationNode) error {
 // in all clusters (main and sandboxes)
 func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string,
 	existingHostNodeMap vHostNodeMap) error {
-	totalHostCount := len(hosts) + len(existingHostNodeMap)
+	totalHostCount := len(hosts) + len(existingHostNodeMap) + len(vdb.UnboundNodes)
 	nodeNameToHost := genNodeNameToHostMap(existingHostNodeMap)
+	// The GenVNodeName(...) function below will generate node names based on nodeNameToHost and totalHostCount.
+	// If a name already exists, it won't be re-generated.
+	// In this case, we need to add unbound node names into this map too.
+	// Otherwise, the new nodes will reuse the existing unbound node names, then make a clash later on.
+	for _, vnode := range vdb.UnboundNodes {
+		nodeNameToHost[vnode.Name] = vnode.Address
+	}
+
 	for _, host := range hosts {
 		vNode := makeVCoordinationNode()
 		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount)
@@ -201,6 +244,7 @@ func (vdb *VCoordinationDatabase) copy(targetHosts []string) VCoordinationDataba
 		Ipv6:                    vdb.Ipv6,
 		PrimaryUpNodes:          util.CopySlice(vdb.PrimaryUpNodes),
 		ComputeNodes:            util.CopySlice(vdb.ComputeNodes),
+		AllSandboxes:            util.CopySlice(vdb.AllSandboxes),
 	}
 
 	if len(targetHosts) == 0 {
@@ -339,13 +383,13 @@ func (vdb *VCoordinationDatabase) filterUpHostlist(inputHosts []string, sandbox 
 			// host address not found in vdb, skip it
 			continue
 		}
-		if vnode.Sandbox == "" && vnode.State == util.NodeUpState {
+		if vnode.Sandbox == util.MainClusterSandbox && vnode.State == util.NodeUpState {
 			clusterHosts = append(clusterHosts, vnode.Address)
 		} else if vnode.Sandbox == sandbox && vnode.State == util.NodeUpState {
 			upSandboxHosts = append(upSandboxHosts, vnode.Address)
 		}
 	}
-	if sandbox == "" {
+	if sandbox == util.MainClusterSandbox {
 		return clusterHosts
 	}
 	return upSandboxHosts
@@ -378,6 +422,29 @@ type VCoordinationNode struct {
 	Version       string
 	IsControlNode bool
 	ControlNode   string
+}
+
+func CloneVCoordinationNode(node *VCoordinationNode) *VCoordinationNode {
+	if node == nil {
+		return nil
+	}
+	return &VCoordinationNode{
+		Name:                 node.Name,
+		Address:              node.Address,
+		CatalogPath:          node.CatalogPath,
+		StorageLocations:     append([]string{}, node.StorageLocations...),     // Create a new slice
+		UserStorageLocations: append([]string{}, node.UserStorageLocations...), // Create a new slice
+		DepotPath:            node.DepotPath,
+		Port:                 node.Port,
+		ControlAddressFamily: node.ControlAddressFamily,
+		IsPrimary:            node.IsPrimary,
+		State:                node.State,
+		Subcluster:           node.Subcluster,
+		Sandbox:              node.Sandbox,
+		Version:              node.Version,
+		IsControlNode:        node.IsControlNode,
+		ControlNode:          node.ControlNode,
+	}
 }
 
 func makeVCoordinationNode() VCoordinationNode {
