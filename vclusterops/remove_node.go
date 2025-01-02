@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -147,7 +148,25 @@ func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinat
 	// We have a simplified remove process for those requests to remove state
 	// that the caller may be checking.
 	var hostsNotInCatalog []string
+	var reachableHostsNotInCatalog []string
 	options.HostsToRemove, hostsNotInCatalog = vdb.containNodes(options.HostsToRemove)
+
+	// Error out if there is unreachable nodes in input but not in catalog
+	if len(hostsNotInCatalog) > 0 {
+		var unreachableHosts []string
+		unreachableHosts, err = vcc.getUnreachableHosts(&options.DatabaseOptions, hostsNotInCatalog)
+		if err != nil {
+			return vdb, fmt.Errorf("failed to get unreachable hosts, details: %w", err)
+		}
+		if len(unreachableHosts) > 0 {
+			vcc.DisplayWarning("input hosts includes unreachable hosts not in the catalog: %v", unreachableHosts)
+		}
+		for _, host := range hostsNotInCatalog {
+			if !slices.Contains(unreachableHosts, host) {
+				reachableHostsNotInCatalog = append(reachableHostsNotInCatalog, host)
+			}
+		}
+	}
 
 	// remove unbound nodes from catalog
 	if len(options.UnboundNodesToRemove) > 0 {
@@ -158,11 +177,11 @@ func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinat
 	}
 
 	vdb, err = vcc.removeNodesInCatalog(options, &vdb)
-	if err != nil || len(hostsNotInCatalog) == 0 {
+	if err != nil || len(reachableHostsNotInCatalog) == 0 {
 		return vdb, err
 	}
 
-	return vcc.handleRemoveNodeForHostsNotInCatalog(&vdb, options, hostsNotInCatalog)
+	return vcc.handleRemoveNodeForHostsNotInCatalog(&vdb, options, reachableHostsNotInCatalog)
 }
 
 // removeUnboundNodesInCatalog removes unbound nodes from the catalog
