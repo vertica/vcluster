@@ -61,7 +61,6 @@ Examples:
 
 	// require license file path
 	markFlagsRequired(cmd, licenseFileFlag)
-	markFlagsRequired(cmd, licenseHostFlag)
 
 	return cmd
 }

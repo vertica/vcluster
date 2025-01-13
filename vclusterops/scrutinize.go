@@ -27,7 +27,7 @@ import (
 )
 
 // files and folders used by scrutinize
-const ScrutinizeOutputBasePath = "/tmp/scrutinize"
+const ScrutinizeOutputBasePath = util.TmpDir + "/scrutinize"
 const scrutinizeRemoteOutputPath = ScrutinizeOutputBasePath + "/remote"
 const scrutinizeLogFileName = "vcluster.log"
 

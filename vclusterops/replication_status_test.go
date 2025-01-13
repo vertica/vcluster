@@ -67,7 +67,7 @@ var (
 	}
 	node1LoadSnapshotFailed = ReplicationStatusResponse{
 		OpName:        loadSnapshotOp,
-		Status:        failedStatus,
+		Status:        "failed: Restore: Can replicate/restore public schema only to the default namespace",
 		NodeName:      node1,
 		StartTime:     "Mon Sep 23 16:08:11 EDT 2024",
 		EndTime:       "Mon Sep 23 16:08:13 EDT 2024",
@@ -158,6 +158,7 @@ func TestGetFinalReplicationStatus(t *testing.T) {
 	expectedStatus = ReplicationStatusResponse{
 		OpName:        loadSnapshotOp,
 		Status:        failedStatus,
+		ErrMsg:        "Restore: Can replicate/restore public schema only to the default namespace",
 		NodeName:      node1,
 		StartTime:     "Mon Sep 23 16:08:11 EDT 2024",
 		EndTime:       "Mon Sep 23 16:08:13 EDT 2024",
@@ -214,6 +215,7 @@ func TestGetFinalReplicationStatus(t *testing.T) {
 	expectedStatus = ReplicationStatusResponse{
 		OpName:        loadSnapshotOp,
 		Status:        completedStatus,
+		ErrMsg:        "",
 		NodeName:      node2,
 		StartTime:     "Mon Sep 23 16:08:11 EDT 2024",
 		EndTime:       "Mon Sep 23 16:08:14 EDT 2024",
