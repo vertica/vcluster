@@ -48,6 +48,7 @@ type FetchAllEnvVars interface {
 
 const (
 	RootDir               = "/"
+	TmpDir                = "/tmp"
 	NodeInfoCountMismatch = "[%s] expect one node's information, but got %d nodes' information from HTTPS /v1/nodes/<host> endpoint on host %s"
 	DepotSizeHint         = "integer%, which expresses the depot size as a percentage of the total disk size."
 	DepotSizeKMGTMsg      = "integer{K|M|G|T}, where K is kilobytes, M is megabytes, G is gigabytes, and T is terabytes.\n"
@@ -75,6 +76,7 @@ const (
 	keyValueArrayLen = 2
 	ipv4Str          = "IPv4"
 	ipv6Str          = "IPv6"
+	LocalHost        = "localhost"
 	AWSAuthKey       = "awsauth"
 	kubernetesPort   = "KUBERNETES_PORT"
 

@@ -242,6 +242,11 @@ var (
 		"Failed to create file",
 		http.StatusInternalServerError,
 	)
+	GenericDeleteFileError = newProblemID(
+		path.Join(errorEndpointsPrefix, "delete-file-failure-error"),
+		"Failed to delete file",
+		http.StatusInternalServerError,
+	)
 	MessageQueueFull = newProblemID(
 		path.Join(errorEndpointsPrefix, "message-queue-full"),
 		"Message queue is full",
