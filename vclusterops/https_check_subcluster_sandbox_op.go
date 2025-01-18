@@ -157,6 +157,11 @@ func (op *httpsCheckSubclusterSandboxOp) processResult(execContext *opEngineExec
 
 	// Use updated scInfo
 	for host, sb := range existingSandboxedHosts {
+		// Check if existing sandbox is aware of the new subcluster or not
+		if !op.checkScAwareness(host) {
+			return fmt.Errorf("target sandbox %s is unaware of the subcluster to be sandboxed - %s\n"+
+				"Hint: try recreating the sandbox after unsandboxing the existing sandboxed subclusters", op.Sandbox, op.ScToSandbox)
+		}
 		// Just need one up host from the existing sandbox
 		// This will be used to add new subcluster to an existing sandbox
 		execContext.upHostsToSandboxes[host] = sb
@@ -170,8 +175,30 @@ func (op *httpsCheckSubclusterSandboxOp) processResult(execContext *opEngineExec
 			break
 		}
 	}
+
 	return allErrs
 }
+
+// Check whether the input host(sandboxed UP host) is aware of the sc to be sandboxed
+func (op *httpsCheckSubclusterSandboxOp) checkScAwareness(host string) bool {
+	for reqHost, result := range op.clusterHTTPRequest.ResultCollection {
+		if host == reqHost {
+			subclusterResp := scResps{}
+			err := op.parseAndCheckResponse(host, result.content, &subclusterResp)
+			if err != nil {
+				return false
+			}
+			// Check results to see if the sandbox is aware of the target sc to be sandboxed
+			for _, scInfo := range subclusterResp.SCInfoList {
+				if scInfo.SCName == op.ScToSandbox {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (op *httpsCheckSubclusterSandboxOp) processScInfo(scInfo subclusterSandboxInfo,
 	execContext *opEngineExecContext) (mainClusterHosts, existingSandboxedHosts map[string]string, keysToRemove map[string]struct{}) {
 	keysToRemove = make(map[string]struct{})
