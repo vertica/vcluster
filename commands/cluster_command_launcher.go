@@ -113,8 +113,6 @@ const (
 )
 
 // Flag and key for database replication
-//
-//nolint:dupl
 const (
 	targetDBNameFlag       = "target-db-name"
 	targetDBNameKey        = "targetDBName"
@@ -217,7 +215,6 @@ var keyEnvVarMap = map[string]string{
 	tlsModeKey:    vclusterTLSModeEnv,
 }
 
-//nolint:dupl
 const (
 	createDBSubCmd          = "create_db"
 	stopDBSubCmd            = "stop_db"
@@ -254,6 +251,7 @@ const (
 	getDrainingStatusSubCmd = "get_draining_status"
 	upgradeLicenseCmd       = "upgrade_license"
 	checkConnectionSubCmd   = "check"
+	clusterHealth           = "cluster_health"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -640,6 +638,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdCreateArchive(),
 		makeCmdSaveRestorePoint(),
 		makeCmdUpgradeLicense(),
+		makeCmdClusterHealth(),
 	}
 }
 

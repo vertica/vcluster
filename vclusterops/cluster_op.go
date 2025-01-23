@@ -613,6 +613,7 @@ type ClusterCommands interface {
 	VStopSubcluster(options *VStopSubclusterOptions) error
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
+	VClusterHealth(options *VClusterHealthOptions) error
 }
 
 type VClusterCommandsLogger struct {

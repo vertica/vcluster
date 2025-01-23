@@ -50,6 +50,15 @@ type opEngineExecContext struct {
 	sandbox string
 	// this vdb will only be used to get sandbox info of the nodes
 	vdbForSandboxInfo *VCoordinationDatabase
+
+	// slow events
+	slowEvents *dcSlowEvents
+
+	// transaction starts
+	dcTransactionStarts dcTransactionStarts
+
+	// session starts
+	dcSessionStarts dcSessionStarts
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {
