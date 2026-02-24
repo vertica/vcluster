@@ -680,3 +680,7 @@ func IsK8sEnvironment() bool {
 	port, portSet := os.LookupEnv(kubernetesPort)
 	return portSet && port != ""
 }
+
+func IsRemoteLocation(dirPath string) bool {
+	return strings.Contains(dirPath, "://")
+}

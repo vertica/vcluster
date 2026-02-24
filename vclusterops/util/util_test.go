@@ -403,3 +403,18 @@ func TestGetEnvInt(t *testing.T) {
 	actual = GetEnvInt(key, fallback)
 	assert.Equal(t, fallback, actual)
 }
+
+func TestIsRemoteLocation(t *testing.T) {
+	localTestLocation := "/local/path/for/test"
+	res := IsRemoteLocation(localTestLocation)
+	assert.Equal(t, res, false)
+
+	// test a remote location
+	remoteTestLocation := "https://s3.region-code.amazonaws.com/bucket-name/key-name"
+	res = IsRemoteLocation(remoteTestLocation)
+	assert.Equal(t, res, true)
+
+	customRemoteLoc := "s3://custom-remote-location/"
+	res = IsRemoteLocation(customRemoteLoc)
+	assert.Equal(t, res, true)
+}
